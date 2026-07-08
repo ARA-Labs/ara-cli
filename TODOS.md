@@ -31,5 +31,31 @@ cold. Remove an item when it lands.
   migrate to `docs/`, but no `docs/` exists yet — the lifecycle has nowhere to
   land.
 - **Context:** Stage 0's own plan is the first migration candidate; do this when
-  Stage 0 merges.
+  Stage 0 merges. (`docs/` now exists — `docs/ara-format-feedback.md` was added
+  in the Stage 1 review — so the directory part is done; the plan→docs migration
+  step still stands.)
 - **Depends on:** none.
+
+## Deferred from Stage 1 eng review (2026-07-08)
+
+### T-EVIDENCE — resolve `E##` evidence proof references
+- **What:** Add a resolution pass that validates claim `Proof: [E##]` refs
+  against an evidence registry and stores evidence content on the `Manifest`.
+- **Why:** Stage 1 stores `E##` refs raw and never validates them (no registry
+  defines `E01`..`E06`), so a typo in a `Proof:` list is silently accepted.
+- **Context:** Blocked on the ARA maintainer defining an evidence registry
+  (e.g. `evidence/index.yaml` keyed by `E##`) — see `docs/ara-format-feedback.md`
+  item 8. The official corpus has no `E##` definitions today.
+- **Depends on:** upstream ARA schema (evidence registry).
+
+### T-ARA-SCHEMA — adopt the upstream ARA schema once published
+- **What:** When the ARA format ships a versioned schema, replace Stage 1's
+  tolerant workarounds (canonical-only scope, opaque `extra` capture, lenient
+  Markdown claim parsing, guessed id grammar) with strict validation against the
+  schema, and honor a `schema_version` field for pinning/migration.
+- **Why:** The Stage 1 parser guesses field sets, id grammar, and root form
+  because no schema exists; a published schema lets it be strict and safely
+  broadens dialect support.
+- **Context:** Requests logged in `docs/ara-format-feedback.md` (items 1, 4, 7,
+  9). Revisit when the maintainer responds.
+- **Depends on:** upstream ARA maintainer publishing a schema.
