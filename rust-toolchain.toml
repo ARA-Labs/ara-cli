@@ -1,0 +1,7 @@
+[toolchain]
+# Exact patch pin: a floating minor (e.g. "1.94") would let a rustc patch bump
+# silently change codegen/clippy output and break the byte-determinism invariant.
+channel = "1.94.1"
+components = ["rustfmt", "clippy"]
+# rustup auto-installs this target on `cargo build --target wasm32-unknown-unknown`.
+targets = ["wasm32-unknown-unknown"]

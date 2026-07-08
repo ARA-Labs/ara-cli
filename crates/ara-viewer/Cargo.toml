@@ -3,7 +3,6 @@ name = "ara-viewer"
 description = "Front-door installer for the ARA viewer runtime (a.k.a. bara, the blazing-fast ARA viewer). Provides the `ara` toolchain."
 version.workspace = true
 edition.workspace = true
-rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 homepage.workspace = true

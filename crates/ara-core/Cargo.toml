@@ -3,7 +3,6 @@ name = "ara-core"
 description = "Shared parsing, normalization, and DAG layout for the ARA viewer runtime."
 version.workspace = true
 edition.workspace = true
-rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 homepage.workspace = true

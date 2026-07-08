@@ -3,9 +3,8 @@ resolver = "3"
 members = ["crates/*"]
 
 [workspace.package]
-version = "0.0.0"
+version = "0.0.1"
 edition = "2024"
-rust-version = "1.85"
 license = "MPL-2.0"
 repository = "https://github.com/EYH0602/bara"
 authors = ["Yifeng He <yfhe.prsn@gmail.com>"]

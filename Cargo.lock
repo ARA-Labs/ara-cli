@@ -4,16 +4,16 @@ version = 4
 
 [[package]]
 name = "ara-cli"
-version = "0.0.0"
+version = "0.0.1"
 
 [[package]]
 name = "ara-core"
-version = "0.0.0"
+version = "0.0.1"
 
 [[package]]
 name = "ara-viewer"
-version = "0.0.0"
+version = "0.0.1"
 
 [[package]]
 name = "ara-wasm"
-version = "0.0.0"
+version = "0.0.1"
