@@ -9,6 +9,7 @@
 //! See <https://github.com/EYH0602/bara>.
 
 pub mod manifest;
+mod schema;
 
 pub use manifest::{
     Binding, BindingRole, Claim, ClaimId, Link, LinkKind, Manifest, Node, NodeFields, NodeId,
