@@ -24,6 +24,26 @@ Notes:
 - **wasm:** `ara-core` and `ara-wasm` must build for `wasm32-unknown-unknown`
   (the browser path). Keep them free of OS-only APIs.
 
+## Running the full corpus sweep
+
+The always-on tests parse a small vendored subset of real ARA artifacts under
+`crates/ara-core/tests/fixtures/corpus/` and assert the parser never panics. A
+maintainer-run **opt-in sweep** exercises the *full* corpora (all 34 artifacts,
+including the unlicensed `ARA-Demo` set that is never vendored) via git
+submodules under `corpus-external/`.
+
+The sweep is doubly gated — `#[ignore]` **and** `RUN_CORPUS_SWEEP=1` — so
+`cargo test` never runs it and a fresh clone without submodules still passes.
+
+```bash
+git submodule update --init                       # fetch corpus-external/*
+RUN_CORPUS_SWEEP=1 cargo test -p ara-core -- --ignored
+```
+
+Without `--ignored` the sweep test is skipped; with `--ignored` but no env var
+(or no submodules) it skips cleanly, logging why. Required CI does **not** init
+submodules and does not run the sweep.
+
 ## Versioning
 
 Every PR bumps the workspace patch version in `Cargo.toml` and adds an entry to

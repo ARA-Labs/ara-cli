@@ -1,0 +1,95 @@
+# Exploration Tree — sample-specific-masks
+# Research DAG: nested tree with cross-edges (also_depends_on) forming a DAG.
+# Node types: question | experiment | dead_end | decision | pivot
+
+tree:
+  - id: N01
+    type: question
+    title: "Can Visual Reprogramming be improved by moving beyond shared masks?"
+    description: "All prior VR methods use a single shared binary mask M for all samples. Does sample-level mask variation improve VR performance and generalization?"
+    children:
+
+      - id: N02
+        type: experiment
+        title: "Empirical demonstration: do different images prefer different masks?"
+        result: "Yes — Sphynx image peaks at medium watermarking (67.3%), Abyssinian at full (77.1%), Bengal at narrow (70.4%) on OxfordPets/ResNet"
+        evidence: ["C01", "Figure 1", "§1"]
+        children:
+
+          - id: N03
+            type: experiment
+            title: "Does a shared mask cause some samples' loss to increase during training?"
+            result: "Yes — distribution of [final loss - initial loss] under full watermarking contains substantial positive tail; finetuning shows only negative changes"
+            evidence: ["C01", "Figure 2", "§1"]
+            children:
+
+              - id: N04
+                type: decision
+                title: "How to introduce sample-level mask variation?"
+                choice: "Use a lightweight CNN fmask to generate per-sample continuous 3-channel masks, combined with a shared learnable pattern delta"
+                alternatives:
+                  - "Learn a separate pattern delta_i for each training sample (no shared structure)"
+                  - "Use handcrafted sample-specific binary masks (e.g., based on image segmentation)"
+                  - "Use attention maps from the pre-trained model to guide masking"
+                evidence: "Theoretical: sample-specific delta alone (Fsp) is a subset of SMM (Fsmm) by the J_dP argument — SMM dominates both shared-mask and sample-specific-pattern approaches"
+                children:
+
+                  - id: N05
+                    type: dead_end
+                    title: "Sample-specific pattern without shared delta (only fmask)"
+                    hypothesis: "Generating a fully sample-specific pattern fmask(r(xi)) without a shared delta would capture all sample diversity"
+                    failure_mode: "Suboptimal on large-data datasets (CIFAR10, SVHN, GTSRB, SUN397) where a shared pattern captures dataset-level structure better. Average accuracy 42.59% vs SMM 52.53% (Table 3)"
+                    lesson: "A shared delta provides necessary dataset-level statistical structure; per-sample variation alone is insufficient. Fsp ⊆ Fsmm confirms SMM strictly dominates"
+
+                  - id: N06
+                    type: question
+                    title: "Should masks be single-channel or multi-channel?"
+                    description: "Can a single scalar mask per pixel suffice, or do different color channels need different mask values?"
+                    children:
+
+                      - id: N07
+                        type: dead_end
+                        title: "Single-channel mask (f^s_mask averaging penultimate layer)"
+                        hypothesis: "Averaging the 3-channel penultimate output to 1 channel reduces parameters while maintaining performance"
+                        failure_mode: "Significantly worse on datasets with channel-specific structure: GTSRB 70.7% vs 80.4%, Flowers102 30.2% vs 38.7% (Table 3). Average 49.70% vs 52.53%"
+                        lesson: "Different color channels require independent mask values; three-channel masks allow R/G/B-specific noise placement emphasis"
+
+                      - id: N08
+                        type: decision
+                        title: "Use three-channel continuous masks"
+                        choice: "fmask outputs 3-channel masks matching the 3 color channels of the image; the last CNN layer has 3 output channels"
+                        alternatives:
+                          - "Single-channel scalar mask broadcast across all channels"
+                          - "Binary {0,1} masks (restricts hypothesis space)"
+                        evidence: "Three-channel ablation shows consistent improvement especially on color-heterogeneous datasets (Table 3)"
+                        children:
+
+                          - id: N09
+                            type: question
+                            title: "How many pooling layers (what patch size) is optimal for the CNN?"
+                            description: "More pooling layers = coarser spatial resolution; fewer = risk overfitting to fine-grained spatial patterns"
+                            children:
+
+                              - id: N10
+                                type: experiment
+                                title: "Patch size ablation: test l in {0,1,2,3,4} on 4 datasets"
+                                result: "Accuracy increases from l=0 to l=3 (patch=8), then plateaus or declines at l=4 (patch=16). Optimal: l=3 across all tested datasets"
+                                evidence: ["C05", "Figure 4", "§5 Impact of Patch Size"]
+                                children:
+
+                                  - id: N11
+                                    type: decision
+                                    title: "Set default patch size to 8 (l=3 MaxPool layers)"
+                                    choice: "Use l=3 MaxPool layers in the CNN mask generator for both ResNet and ViT configurations"
+                                    alternatives:
+                                      - "l=0: no pooling, full resolution mask (overfits)"
+                                      - "l=4: coarsest resolution (loses spatial detail)"
+                                    evidence: "Figure 4 shows consistent optimality of l=3 across EuroSAT, Flowers102, CIFAR100, SVHN"
+                                    children:
+
+                                      - id: N12
+                                        type: experiment
+                                        title: "Full validation: SMM vs all baselines on ResNet-18/50 and ViT-B32 across 11 datasets"
+                                        result: "SMM achieves highest average accuracy for all three backbones; largest gains on domain-gap datasets (Flowers102 +15-22%, Food101 +15%, SVHN +3-6%). DTD/ResNet-18 and EuroSAT/ViT are exceptions"
+                                        evidence: ["C03", "C04", "Table 1", "Table 2", "§5"]
+                                        also_depends_on: [N04, N08]

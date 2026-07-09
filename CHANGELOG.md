@@ -7,6 +7,10 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Real-ARA no-panic regression coverage: vendored `ara-paperbench` subset under
+  `crates/ara-core/tests/fixtures/corpus/` with an always-on test asserting the
+  parser never panics and always produces a `ParseReport`; opt-in submodule
+  full-sweep test (`RUN_CORPUS_SWEEP=1`) over all 34 real artifacts (#3).
 - `ara-core` YAML parser (`serde-saphyr`) with dual-dialect (`tree:`/`root:`)
   normalization to a `Manifest { nodes, links, bindings, claims }`, source-order
   preservation, cycle detection, Markdown claim parsing + binding resolution, and

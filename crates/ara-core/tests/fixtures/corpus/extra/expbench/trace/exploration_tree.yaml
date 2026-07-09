@@ -1,0 +1,144 @@
+# Exploration Tree — 2505.24785
+# Research DAG: nested tree with cross-edges (also_depends_on) forming a DAG.
+# Node types: question | experiment | dead_end | decision | pivot
+
+tree:
+  - id: N01
+    type: question
+    title: "Can AI agents autonomously conduct end-to-end AI research experiments?"
+    description: >
+      The central question driving EXP-Bench: given a research question, method description,
+      and starter code from a real peer-reviewed paper, can current AI agents design,
+      implement, execute, and interpret results from that experiment without human assistance?
+    children:
+
+      - id: N02
+        type: question
+        title: "What benchmark infrastructure is needed to evaluate this capability?"
+        description: >
+          Sub-question: what task format, evaluation metrics, and dataset scale are required
+          to rigorously and systematically assess agent performance on AI research experimentation?
+        children:
+
+          - id: N03
+            type: experiment
+            title: "Attempt: manually curate research tasks from papers"
+            result: >
+              Manual curation required ~2 hours per paper for full read-through, task extraction,
+              verification, and pipeline correction. Cannot scale to hundreds of tasks.
+            evidence: ["App. F", "Table 7"]
+            children:
+
+              - id: N04
+                type: dead_end
+                title: "Full manual curation is not scalable"
+                hypothesis: "Human experts can efficiently extract verified research tasks from papers"
+                failure_mode: >
+                  Key experimental details are scattered across paper body, appendix, supplementary,
+                  and codebase; interpreting them requires deep domain expertise; 2 hrs/paper ×
+                  51 papers = unsustainable for large-scale benchmark creation
+                lesson: >
+                  Motivated development of semi-automated pipeline with LLM extraction +
+                  lightweight human verification; human burden reduced to ~20 min/paper after
+                  pipeline finalization
+
+              - id: N05
+                type: pivot
+                from: "Full manual curation"
+                to: "Semi-automated pipeline with multi-pass LLM extraction + execution validation"
+                trigger: >
+                  Manual curation infeasible at scale; LLMs (o3-mini, Claude-3.7 Sonnet)
+                  capable of multi-modal PDF extraction and code understanding; open-source
+                  codebases provide ground truth to validate extractions
+                children:
+
+                  - id: N06
+                    type: decision
+                    title: "Design multi-pass vs. single-pass extraction strategy"
+                    choice: "Three-pass RAG extraction (high-level → subsection → full-paper re-query)"
+                    alternatives:
+                      - "Single-pass extraction over full paper text"
+                      - "Manual section identification followed by LLM extraction"
+                    evidence: >
+                      Single-pass extraction missed details scattered across sections and appendices
+                      (observed in early pipeline prototypes; documented failure types in Table 7);
+                      multi-pass with accumulated context substantially improved completeness
+                    children:
+
+                      - id: N07
+                        type: experiment
+                        title: "Validate extraction pipeline produces executable tasks"
+                        result: >
+                          Pipeline produced 461 tasks from 51 papers; extraction issues identified
+                          and patched iteratively (Table 7); pipeline cost ~$60 USD/paper average
+                        evidence: ["§3.1", "§3.2", "App. F", "Table 7"]
+                        children:
+
+                          - id: N08
+                            type: decision
+                            title: "Choose evaluation metric structure: individual vs. conjunctive"
+                            choice: >
+                              Conjunctive multi-phase evaluation (D, I, C, E individually + I·E,
+                              C·D, All✓, All·E✓ conjunctions) as primary evaluation framework
+                            alternatives:
+                              - "Single overall score (e.g., pass/fail per task)"
+                              - "Individual phase scores only (D, I, C, E separately)"
+                              - "Human expert score comparison only (as in RE-Bench)"
+                            evidence: >
+                              Individual metrics (especially C and E) exhibit high variance and
+                              can be gamed by agents producing plausible-but-unfounded outputs;
+                              single scores mask partial capability; conjunctions reduce variance
+                              and reveal brittleness (Fig. 5, Fig. 6b)
+                            children:
+
+                              - id: N09
+                                type: experiment
+                                title: "Evaluate 7 agent configurations on all 461 EXP-Bench tasks"
+                                result: >
+                                  Best agent (OH+o3-mini) achieves All·E✓=0.5%; individual phase
+                                  scores reach 20-35%; conjunctive score collapses from 20.6% (M) to
+                                  0.2% (M·C·D·I·E); 3,238 raw failure insights across 361 unique types
+                                evidence: ["C01", "C02", "C03", "Table 1", "Figure 6b", "§4.1"]
+                                children:
+
+                                  - id: N10
+                                    type: experiment
+                                    title: "Failure pattern analysis via two-pass open-ended categorization"
+                                    also_depends_on: [N09]
+                                    result: >
+                                      Dominant failure: missing essential implementation components (39.71%);
+                                      execution failures driven by env/dependency errors (29.38%) and
+                                      script errors (23.84%); conclusion failures dominated by missing
+                                      content (26.18%) and incorrect interpretation (19.66%)
+                                    evidence: ["C04", "C05", "Table 2", "Table 8", "§4.3"]
+                                    children:
+
+                                      - id: N11
+                                        type: decision
+                                        title: "Identify top bottleneck for future improvement"
+                                        choice: >
+                                          Implementation completeness is the most impactful target:
+                                          39.71% missing components vs. 29.38% env errors. Future
+                                          work: RL with verifiable rewards to train agents on
+                                          EXP-Bench dataset
+                                        alternatives:
+                                          - "Focus on execution environment reproducibility"
+                                          - "Focus on experimental design variable classification"
+                                          - "Focus on conclusion derivation and interpretation"
+                                        evidence: "Table 2, §4.3, §5 Future Directions"
+
+      - id: N12
+        type: dead_end
+        title: "Existing benchmarks insufficient for end-to-end AI experimentation evaluation"
+        hypothesis: >
+          Existing benchmarks (MLE-Bench, RE-Bench, PaperBench, ScienceAgentBench) can serve
+          as evaluation infrastructure for end-to-end AI research experimentation
+        failure_mode: >
+          MLE-Bench: constrained Kaggle environment, simplified metrics; RE-Bench: 7 tasks,
+          insufficient scale; PaperBench: focuses on script execution not implementation;
+          ScienceAgentBench: isolates analysis, no actual execution; none capture full
+          design→implementation→execution→conclusion pipeline
+        lesson: >
+          Dedicated benchmark needed that sources tasks from real peer-reviewed papers,
+          requires agents to generate (not just run) implementations, and uses conjunctive
+          multi-phase evaluation; motivated EXP-Bench design

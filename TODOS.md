@@ -70,8 +70,36 @@ cold. Remove an item when it lands.
   artifact (`rebench-restricted_mlm`) is `ara-2.0` and does not use `tree:` at
   all. See `docs/ara-format-feedback.md` §13. Decision (2026-07-08): ship Stage 1
   canonical-only, defer this widening.
+- **Status (2026-07-09, issue #3):** still open — widening is deferred. Issue #3
+  added a separate **no-panic regression net** (vendored `ara-paperbench` subset
+  + opt-in submodule sweep in `crates/ara-core/tests/corpus_no_panic.rs`) that
+  proves the parser never unwind-panics on real data and always produces a
+  `ParseReport`. That is *not* this task: it does not parse real artifacts
+  cleanly, it only guards robustness. Keep the two distinct.
 - **Depends on:** none (can start any time); overlaps with T-ARA-SCHEMA if the
   maintainer publishes a schema first.
+
+## Deferred from Issue #3 eng review (2026-07-09)
+
+### T-PARSE-DEPTH — guard parser recursion against stack-overflow abort
+- **What:** Add a recursion depth limit to `Normalizer::dfs`
+  (`crates/ara-core/src/parse.rs:233`, self-call in the `for child in &raw.children`
+  loop) and `visit` (`parse.rs:386`, the cycle-detection DFS). Past a bound (e.g.
+  512 levels), emit a clean `report.error(..., "nesting too deep")` and stop
+  recursing instead of continuing to descend.
+- **Why:** Both functions recurse per-child / per-edge with no depth guard. A
+  pathologically deep artifact overflows the stack → `SIGABRT`, which
+  `std::panic::catch_unwind` does **not** intercept. Issue #3's no-panic
+  regression net therefore has a blind spot exactly on the pathological input a
+  robustness net is meant to catch. The net's contract was narrowed to "no
+  *unwinding* panic" to be honest about this; T-PARSE-DEPTH is the real fix.
+- **Context:** Discovered in the Issue #3 eng review (outside-voice finding,
+  confirmed against source). The real ARA corpus (34 artifacts) is not deep
+  enough to trip this, so it does not block #3. When fixed, add a synthetic
+  deep-nesting fixture (~10k levels) asserting a clean `Err` (not an abort). At
+  that point the always-on `corpus_no_panic` test's "no-panic" claim becomes
+  literally true end to end.
+- **Depends on:** none (independent parser hardening).
 
 ### T-ARA-SCHEMA — adopt the upstream ARA schema once published
 - **What:** When the ARA format ships a versioned schema, replace Stage 1's

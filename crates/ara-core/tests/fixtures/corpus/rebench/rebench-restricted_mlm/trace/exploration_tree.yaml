@@ -1,0 +1,335 @@
+schema_version: "ara-2.0"
+task_id: "ai_rd_restricted_mlm"
+task_family: "ai_rd_restricted_mlm"
+score_formula: "log(loss - 1.5)"
+score_direction: "lower_is_better"
+anchors:
+  starting_score: 1.81
+  starting_loss: 7.636
+  reference_score: 1.13
+  reference_loss: 4.636
+  best_human_score: 0.337541
+  best_human_loss: 2.901
+
+# ----------------------------------------------------------------------
+# OFFICIAL-SOLUTION STREAM
+# ----------------------------------------------------------------------
+official_stream:
+  - id: O01
+    name: "BiasOnlyMLM (sanity floor)"
+    provenance: official-solution
+    source:
+      file: src/kernel/tao_solution.py
+      lines: "6-16"
+    method: |
+      Single (vocab,) learnable bias, expanded across batch and sequence.
+      Output independent of token_indices.
+    result: "loss subsumed by unigrams; no separately reported number"
+    status: completed
+    children: [O02]
+
+  - id: O02
+    name: "UnigramMLM"
+    provenance: official-solution
+    source:
+      file: src/kernel/tao_solution.py
+      lines: "19-30"
+      notes: "src/kernel/notes.md:3"
+    method: |
+      Load smoothed unigram probabilities precomputed by measure_unigram_loss.py
+      (~10M OWT tokens), expose as a (vocab,) learnable log-odds tensor expanded
+      to (B, S, V).
+    result:
+      loss: 7.58
+      score: 1.808
+    status: completed
+    children: [O03]
+
+  - id: O03
+    name: "BiBigramMLMCheating"
+    provenance: official-solution
+    source:
+      file: src/kernel/tao_solution.py
+      lines: "33-46"
+      notes: "src/kernel/notes.md:5"
+    method: |
+      Average forward-bigram and backward-bigram *probabilities* lookup-tables
+      (mask-row replaced with unigrams), then take log(p/(1-p)) inside forward.
+      Uses division -> not legal under the restrictions ("cheating").
+    result:
+      loss: 5.75
+      score: 1.443
+    status: completed
+    children: [O04]
+
+  - id: O04
+    name: "BiBigramMLM (legal: average log-odds)"
+    provenance: official-solution
+    source:
+      file: src/kernel/tao_solution.py
+      lines: "49-69"
+      notes: "src/kernel/notes.md:5"
+    method: |
+      Precompute log(p/(1-p)) for forward and backward bigrams *outside* forward.
+      Inside forward: index by token.roll(±1), add the two log-odds, multiply
+      by 0.5 (no division). Mask-token rows replaced with the unigram log-odds.
+    result:
+      loss: 5.83
+      score: 1.466
+    status: completed
+    children: [O05, O06]
+    note: "Loss only 0.08 worse than the cheating variant -> legal averaging is essentially free."
+
+  - id: O05
+    name: "FeedForwardMLM (sequence-flatten dense MLP)"
+    provenance: official-solution
+    source:
+      file: src/kernel/tao_solution.py
+      lines: "80-119"
+    method: |
+      Embed each token to hidden_expansion=32 dims, flatten to (B, S*32),
+      run num_layers Linear+ReLU at dim S*32, project back to per-position
+      vocabulary logits.
+    result: "implemented but not separately reported in notes.md; presumed superseded by ConvMLM"
+    status: explored-not-shipped
+    children: []
+
+  - id: O06
+    name: "ConvMLM (residual conv stack)"
+    provenance: official-solution
+    source:
+      file: src/kernel/tao_solution.py
+      lines: "239-297"
+      notes: "src/kernel/notes.md:7"
+    method: |
+      Residual stack of 1D convolutions over the token axis, kernel=7,
+      hidden=512, layers=6, expansion=2. Conv implemented via pad+as_strided+
+      einsum (Conv1d not on allow-list). Per-layer multiplicative inverse_stds
+      buffer updated outside forward via EMA toward 1/std.
+    result:
+      loss: 5.25
+      score: 1.323
+    status: completed
+    children: [O07]
+
+  - id: O07
+    name: "ConvMLMWithBiBigrams (SHIPPED)"
+    provenance: official-solution
+    source:
+      file: src/kernel/tao_solution.py
+      lines: "300-367"
+      train: "src/kernel/tao_train.py:73"
+      notes: "src/kernel/notes.md:11"
+    method: |
+      ConvMLM logits + frozen BiBigramMLM log-odds * learned scalar bigram_multiplier
+      (init 1.0). BiBigram pathway wrapped in torch.no_grad. AdamW lr=3e-4 with
+      warmup-100 + cos(i/N * pi/4) decay, 100 000 steps, batch=16, sequence=128,
+      bf16 autocast, grad clip 1.0. update_inverse_stds() called every step
+      *outside* forward (where division is legal).
+    result:
+      loss: 4.6
+      score: 1.13
+      reference: true
+    status: completed
+    children: []
+
+  # alternative pathways
+  - id: O_ALT_MIXER
+    name: "MLPMixer (cross-token + per-token MLPs)"
+    provenance: official-solution
+    source:
+      file: src/kernel/tao_solution.py
+      lines: "122-203"
+    method: |
+      Token-mixing MLP across sequence dim followed by per-token MLP, both with
+      inverse_stds renormalisation. Same shape conventions as ConvMLM.
+    result: "implemented; not selected by tao_train.py:73; no published score"
+    status: explored-not-shipped
+
+  - id: O_ALT_GPT2
+    name: "GPT-2-small via piecewise-linear ReLU approximations"
+    provenance: official-solution
+    source:
+      file: src/kernel/gpt2_approximation.py
+      lines: "32-71, 103-201"
+      notes: "src/kernel/notes.md:13-15"
+    method: |
+      Approximate softmax/gelu/rsqrt/exp by piecewise-linear ReLU sums
+      (Approximation class), enabling a near-verbatim minGPT to be expressed
+      under the primitive set. Tested with n_steps=20 approximation pieces.
+    result: |
+      ~23x slowdown vs unrestricted GPT-2 (2.3 mfu vs 43.9 mfu, A100-equiv on H100).
+      "Loss didn't go down in the approximated version over that time."
+    status: explored-not-shipped
+    abandoned_reason: "compute budget cannot absorb 23x slowdown at the same step count"
+
+# ----------------------------------------------------------------------
+# MALT STREAM  --  22 agent runs (11 claude-opus-4 + 11 claude-sonnet-4)
+# Per-run staging: code/rebench-pipeline/malt_outputs/restricted_mlm/run_NN/
+# Per-attempt evidence rows: evidence/tables/malt_attempts.md
+# Aggregate findings here; see staging dirs for per-attempt detail.
+# ----------------------------------------------------------------------
+malt_stream:
+
+  - id: M01
+    type: question
+    title: "Can a frontier coding agent independently rediscover ConvMLM ⊕ BiBigram and beat reference 1.13?"
+    provenance: MALT
+    source: "22 MALT runs across claude-opus-4 + claude-sonnet-4"
+    description: >
+      Each MALT run starts from the supplied bias-only baseline (loss 7.836,
+      score 1.846), the same primitive allow-list, and the standard 8-hour
+      budget. The research question is whether contemporary agents arrive at
+      the official ConvMLM ⊕ BiBigram solution (loss 4.6, score 1.13), at a
+      different working solution, or fail to clear reference.
+    children: [M02, M03, M04, M05, M06, M07, M08, M09]
+
+  - id: M02
+    type: experiment
+    title: "Best MALT run: 1.0497 — ReLU-attention transformer + 30k-step AdamW + 3-seed ensemble"
+    provenance: MALT
+    source: "run_16 (run_id=347474, claude-opus-4-20250514) — see code/rebench-pipeline/malt_outputs/restricted_mlm/run_16/"
+    method: >
+      6L-512d-8h transformer with attn = ReLU(QK^T) @ V (softmax replaced
+      by ReLU because exp is forbidden), no LayerNorm, learned-scale residual.
+      AdamW lr=1e-3 ~5000 steps -> revert from a failed 8L linear-attention
+      detour -> long AdamW fine-tune at lr 2e-5 cosine for 30k steps
+      (loss 4.385) -> 3-seed ensemble of fine-tuned 6L checkpoints.
+    result:
+      best_score: 1.0497
+      best_loss: 4.36
+      reference_beaten_by: 0.08
+    children: [M03]
+
+  - id: M03
+    type: experiment
+    title: "Second MALT run to beat reference: 1.0864 — same recipe, no ensemble"
+    provenance: MALT
+    source: "run_01 (run_id=345763, claude-opus-4-20250514) — see code/rebench-pipeline/malt_outputs/restricted_mlm/run_01/"
+    method: >
+      ~70M-param ReLU-linear-attention transformer (no softmax / no division /
+      no exp), trained ~50k steps at lr=1e-3 to loss 5.14, then two pure
+      fine-tune passes on v1: lr=5e-5 cosine ~7858 steps (loss 4.56), then
+      lr=2e-5 -> 1e-6 cosine ~4000 steps (loss 4.46). The transferable
+      insight: once a stable positional+attention skeleton exists, training
+      schedule dominates architecture changes.
+    result:
+      best_score: 1.0864
+      best_loss: 4.46
+      reference_beaten_by: 0.044
+
+  - id: M04
+    type: dead_end
+    title: "0 of 22 runs ever loaded the BiBigram prior — the largest blind spot"
+    provenance: MALT
+    source: "all 22 run_summary.yaml + insights.yaml"
+    hypothesis: >
+      An agent given measure_unigram_loss.py in the starter kit would
+      precompute the unigram and bigram statistics, freeze them as a prior,
+      and reach the official 5.83 -> 4.6 trajectory.
+    failure_mode: >
+      No MALT run loaded unigrams.pt or bigrams_*.pt. Every run started by
+      replacing the architecture in basic_model.pt and reinventing attention
+      from scratch. The official 0.55 loss-units of headroom from the
+      precomputed bigram prior (notes.md:11) is invisible to the MALT stream.
+    lesson: >
+      MALT agents prioritise architectural moves and treat the supplied
+      baseline file as the search starting point, ignoring the rest of the
+      starter kit. An explicit "list every artefact in the starter kit and
+      decide which to use" step would close the largest known performance gap.
+
+  - id: M05
+    type: dead_end
+    title: "Hand-rolled 1/x normalisations NaN at init — 7 of 22 runs"
+    provenance: MALT
+    source: "runs 01, 06, 09, 11, 16, 19, 20 insights.yaml"
+    hypothesis: >
+      A LayerNorm/RMSNorm substitute can be built inside the restricted
+      primitive set by emulating the reciprocal with `gate_sum**-0.5`,
+      `1/sum(weights)`, polynomial reciprocal, or Taylor series.
+    failure_mode: >
+      All emulations NaN at step 0 or shortly after when the denominator can
+      hit zero. Concrete instances: run_06 fixed-scale RMSNorm collapses to
+      ln(50257) = 10.82; run_13 ModelV2 NaNs at forward-pass step 0; run_19
+      ReLU-attention with no normalisation explodes to loss 7.997e30.
+    lesson: >
+      The cure in every recovering case is to substitute a fixed scalar
+      residual (often 0.5) or trainable per-layer scale. The official
+      solution sidesteps this entirely by updating inverse_stds *outside*
+      forward (C07); MALT discovered the constraint but never adopted the
+      official workaround.
+
+  - id: M06
+    type: dead_end
+    title: "Linear attention without ReLU on weights plateaus far above ReLU-attention"
+    provenance: MALT
+    source: "run_16 attempt 4, run_09 attempts 3-5"
+    hypothesis: >
+      Replacing ReLU(QK^T) with raw linear Q@K^T preserves expressivity and
+      is more stable; depth/width can compensate for the loss of the
+      non-negativity constraint.
+    failure_mode: >
+      run_16 8L linear-attention (133M params) plateaus at val loss 7.5-7.6
+      vs ~6.8 for the smaller 6L ReLU-attention; never recoverable with
+      depth, width, or weight decay. run_09 transpose+Linear mixer family
+      tops out at loss 6.29 (score 1.567).
+    lesson: >
+      ReLU on attention weights enforces the non-negative-attention-mass
+      property that softmax has; raw linear Q@K^T lets attention drift to
+      unbounded magnitudes that the restricted primitive set cannot legally
+      normalise away.
+
+  - id: M07
+    type: dead_end
+    title: "Bash 60s/300s timeout cripples large-step training in 6 runs"
+    provenance: MALT
+    source: "runs 06, 09, 13, 14, 18, 20"
+    hypothesis: >
+      A long single training command (10k+ steps) will fit in a single
+      bash call.
+    failure_mode: >
+      Per-call bash timeout (60s default, 300s extended) interrupts training
+      at 4500-9000 steps. Partial checkpoints survive but the agent loses
+      visibility into final loss; subsequent shorter runs may overwrite the
+      interrupted checkpoint. run_13 attempt 4 timed out then attempt 5
+      regressed to loss 7.455 due to overwrite.
+    lesson: >
+      run_14 demonstrates the workaround: launch training with `nohup
+      python train.py &`, poll `os.path.getmtime("checkpoint.pt")` from a
+      separate cell, score whichever checkpoint is on disk. No other run
+      adopted this pattern.
+
+  - id: M08
+    type: dead_end
+    title: "Context-trim verbatim-replay loops in 8 of 22 runs"
+    provenance: MALT
+    source: "runs 06, 09, 11, 13, 18, 19, 20, 21"
+    hypothesis: >
+      Long runs (300+ msgs) hit the model's context window and trigger
+      automatic conversation trimming.
+    failure_mode: >
+      Post-trim segments are verbatim replays of the pre-trim arc. Only
+      ~1 novel scoring event appears across the entire post-trim region
+      (e.g. run_18: 562 msgs, only 1 novel score after MSG 179; run_21:
+      738 msgs, only 1 novel score after MSG 127).
+    lesson: >
+      Effective novel-scoring rate often <20% of total agent turns in long
+      runs. Dedup on (approach, score) is needed before computing
+      attempt-budget metrics. An external scratchpad would be immune.
+
+  - id: M09
+    type: question
+    title: "Net result: 2 of 22 MALT runs beat reference 1.13; both opus-4"
+    provenance: MALT
+    source: "evidence/tables/malt_attempts.md"
+    description: >
+      Best per model:
+        - claude-opus-4    : 1.0497 (run_16), 1.0864 (run_01); 2/11 beat reference
+        - claude-sonnet-4  : 1.4352 (run_17); 0/11 beat reference
+      Median best-of-run 1.7561; mean best-of-run 1.5870. Best human still
+      0.71 score-units below the best MALT (0.337541 vs 1.0497). The 22-run
+      stream surfaces every constraint of the restricted primitive set
+      empirically (no division -> NaN; no softmax -> ReLU surrogate; no
+      Conv1d -> never tried) but rediscovers neither the official
+      ConvMLM ⊕ BiBigram composite nor the precomputed-prior strategy that
+      gives that composite its 0.55-loss-unit headroom.
