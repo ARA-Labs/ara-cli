@@ -48,6 +48,31 @@ cold. Remove an item when it lands.
   item 8. The official corpus has no `E##` definitions today.
 - **Depends on:** upstream ARA schema (evidence registry).
 
+### T-REAL-CORPUS — widen the model to the real ARA corpus (Stage 1.5)
+- **What:** Extend `ara-core` beyond the two minimal official examples to cover
+  the schema the real corpus actually uses. Concretely: model the recurring node
+  fields `failure_mode` / `hypothesis` / `lesson` (dead-ends), the metadata
+  fields `provenance` / `source` / `status` / `timestamp` / `thinking` /
+  `method` / `justification`, the transition fields `from` / `to` / `trigger`,
+  and add a `pivot` node kind. Optionally support the `ara-2.0` streams document
+  format (`schema_version: "ara-2.0"` with `anchors` / `official_stream` /
+  `malt_stream`, no `tree:`).
+- **Why:** Stage 1 was scoped (and eng-reviewed) as canonical-only against
+  `minimal-artifact` + `resnet-ara-example`. Running `ara validate` over the real
+  corpora — `AmberLJC/ara-paperbench` (32 artifacts) and `ARA-Labs/ARA-Demo`
+  (2 artifacts) — shows **every** real artifact emits warnings (300 unknown-node-
+  field warnings total) and ~half emit errors (real cycles + broken `evidence:`
+  claim refs). The parser is robust (0 panics across all 34), but the canonical
+  model is too narrow to parse real artifacts cleanly.
+- **Context:** Frequencies observed (paperbench + demo): `failure_mode`/
+  `hypothesis`/`lesson` ×67 each, `provenance`/`source` ×35, `method` ×13,
+  `trigger`/`from`/`to` ×4–6, plus `status`/`timestamp`/`thinking`. One rebench
+  artifact (`rebench-restricted_mlm`) is `ara-2.0` and does not use `tree:` at
+  all. See `docs/ara-format-feedback.md` §13. Decision (2026-07-08): ship Stage 1
+  canonical-only, defer this widening.
+- **Depends on:** none (can start any time); overlaps with T-ARA-SCHEMA if the
+  maintainer publishes a schema first.
+
 ### T-ARA-SCHEMA — adopt the upstream ARA schema once published
 - **What:** When the ARA format ships a versioned schema, replace Stage 1's
   tolerant workarounds (canonical-only scope, opaque `extra` capture, lenient

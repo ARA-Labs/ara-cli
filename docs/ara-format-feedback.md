@@ -188,6 +188,45 @@ directions and which file owns each namespace are never documented.
 **Requested:** document the reference graph — which namespace each field points
 into, and which file is the authority for each id space.
 
+## 13. The real corpus is a large superset of the published examples
+
+Running `bara`'s Stage-1 parser over two real ARA collections —
+`AmberLJC/ara-paperbench` (32 artifacts) and `ARA-Labs/ARA-Demo` (2 artifacts) —
+shows the format used in practice is much wider than the two `examples/`
+artifacts the parser was built against. All 34 real artifacts parse **without a
+panic**, but none parse cleanly: every one emits unknown-field warnings, and
+about half emit errors (real `children`+`also_depends_on` cycles, and `evidence:`
+references to claim ids absent from `claims.md`).
+
+Node keys observed in the wild but **not** in the published examples (count
+across the 34 artifacts):
+
+| key | seen | apparent role |
+|-----|------|---------------|
+| `failure_mode`, `hypothesis`, `lesson` | 67 each | dead_end / experiment post-mortem |
+| `provenance`, `source` | 35 each | node provenance |
+| `status`, `timestamp` | many | node lifecycle metadata |
+| `thinking` | several | agent reasoning trace |
+| `method` | 13 | experiment method |
+| `justification` | 2 | decision rationale (alias of `rationale`?) |
+| `from`, `to`, `trigger` | 4–6 | transition / `pivot` node edges |
+
+Plus a node **type not in the documented five**: `pivot`
+(`ARA-Demo/nanogpt_ara` declares `question | experiment | dead_end | decision |
+pivot`).
+
+Document-level keys seen: `schema_version`, and — for one artifact — an entirely
+different **`ara-2.0`** shape with no `tree:`/`root:` at all
+(`rebench-restricted_mlm`: `task_id`, `task_family`, `score_formula`,
+`score_direction`, `anchors`, `official_stream`, `malt_stream`).
+
+**Requested:** confirm the full, current node/document field set and the closed
+node-type list (including `pivot`), and clarify the relationship between the
+`tree:`-based format and `ara-2.0`. This directly reinforces asks 1 and 4 (a
+versioned schema + `schema_version`) — the published examples under-specify what
+real artifacts contain, so a canonical-only consumer cannot parse the real
+corpus cleanly. `bara` tracks the widening as follow-up `T-REAL-CORPUS`.
+
 ---
 
 ## Summary of asks (priority order)

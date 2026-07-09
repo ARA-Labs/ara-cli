@@ -7,6 +7,15 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- `ara-core` YAML parser (`serde-saphyr`) with dual-dialect (`tree:`/`root:`)
+  normalization to a `Manifest { nodes, links, bindings, claims }`, source-order
+  preservation, cycle detection, Markdown claim parsing + binding resolution, and
+  tolerant unknown-field capture. Pure `parse_sources` (wasm-safe) plus a native
+  `parse_dir`.
+- `ara validate <dir>` CLI with `--json` and `--strict`.
+- Pinned fixtures copied from the two official ARA examples, plus synthetic and
+  broken error-path fixtures and `insta` JSON snapshots of both manifests.
+
 - Cargo workspace scaffold with crates `ara-core`, `ara-cli` (binary `ara`),
   `ara-wasm`, and `ara-viewer`.
 - Reserved crate names on crates.io at `0.0.0`: the working `ara-*` crates and
@@ -23,4 +32,4 @@ All notable changes to this project are documented here. The format follows
 ### Changed
 - Dropped the unverified `rust-version = "1.85"` MSRV declaration until it is
   tested at the `0.1.0` publish.
-- Bumped workspace version `0.0.0 → 0.0.1`.
+- Bumped workspace version `0.0.0 → 0.0.1`, then `0.0.1 → 0.0.2` (Stage 1).
