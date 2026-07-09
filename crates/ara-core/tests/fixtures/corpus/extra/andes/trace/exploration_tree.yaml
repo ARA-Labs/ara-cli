@@ -1,0 +1,189 @@
+# Exploration Tree — Andes
+# Research DAG capturing the branching trajectory of decisions,
+# experiments, and dead ends. Structure is a nested tree with
+# cross-edges (also_depends_on) forming a DAG where nodes converge.
+#
+# Node types: question | experiment | dead_end | decision | pivot
+# Leaf nodes have no children key.
+
+tree:
+  - id: N01
+    type: question
+    title: "What metric should optimize LLM serving for conversational AI?"
+    description: >
+      Existing LLM serving metrics (throughput, TTFT, TPOT) are widely used,
+      but do they align with actual user experience in text streaming?
+      If not, what is the right metric?
+    children:
+
+      - id: N02
+        type: experiment
+        title: "Observe mismatch between TDS and user consumption speed in vLLM"
+        result: >
+          vLLM's average TDS (11.2 tokens/s) far exceeds human reading speed
+          (4.8 tokens/s) and listening speed (3.3 tokens/s) even under severe
+          load surges. TTFT inflates to 10.4s average under BurstGPT — beyond
+          user patience limits.
+        evidence: [C04, "Figure 3", "Figure 4", "§2.2"]
+        children:
+
+          - id: N04
+            type: decision
+            title: "Define QoE formally as deviation from Ideal Consumption Timeline"
+            choice: >
+              QoE = 1 - S_delay/S_whole, where S_delay measures cumulative delay
+              relative to the ideal timeline and S_whole normalizes to dilute
+              early delays as more tokens are generated.
+            alternatives:
+              - "Simple startup delay metric (TTFT only)"
+              - "Average delay across all tokens (ignores cascading)"
+              - "Percentile TPOT"
+            evidence: >
+              N02's observation that every token's timing matters; four
+              foundational cases (Figure 5) drove the design of the
+              normalization term S_whole.
+            children:
+
+              - id: N05
+                type: decision
+                title: "Design preemptive token-level scheduler to maximize QoE"
+                choice: >
+                  Token-level preemptive scheduling where requests are preempted
+                  mid-generation based on QoE gain vs resource usage ratio.
+                alternatives:
+                  - "Request-level preemption (too coarse for QoE control)"
+                  - "FCFS (no preemption — confirmed bad)"
+                  - "Fairness-based scheduling (VTC — doesn't account for consumption speed)"
+                evidence: >
+                  N02 showed TDS >> consumption speed creates slack; preempting
+                  requests with surplus tokens allows serving new arrivals
+                  without degrading any user's consumption.
+                children:
+
+                  - id: N07
+                    type: experiment
+                    title: "Attempt exact 3D Dynamic Programming solution"
+                    result: >
+                      3D DP is O(MN²) pseudo-polynomial time. With M in thousands
+                      and N in hundreds, per-decision runtime is prohibitively
+                      slow for real-time scheduling. The greedy solver is ~20×
+                      faster and achieves slightly better QoE due to lower
+                      per-quantum latency.
+                    evidence: [C06, "Figure 18", "Appendix C (Algorithm 2)"]
+
+                  - id: N08
+                    type: experiment
+                    title: "Implement LQSF (Least QoE Slack First) as intermediate baseline"
+                    result: >
+                      LQSF (prioritize requests most at risk of QoE degradation,
+                      without resource weighting) shows slight improvement over
+                      FCFS but is insufficient. It ignores context length
+                      (resource usage), causing high-resource requests to starve
+                      others.
+                    evidence: [C02, "Figure 15", "Figure 16", "§6.3"]
+
+              - id: N06
+                type: decision
+                title: "Formulate scheduling as knapsack problem"
+                choice: >
+                  Cast request selection as a 0/1 knapsack where items are
+                  requests, weights are context lengths (l_i), and values are
+                  QoE gains (dependent on batch size B). Solve for all B in
+                  [B_min, B_max].
+                alternatives:
+                  - "Simple priority queue without memory constraint"
+                  - "RL-based scheduler"
+                  - "LP relaxation"
+                evidence: >
+                  Memory constraint (KV cache) and compute constraint (batch
+                  size → token latency) naturally fit the knapsack structure;
+                  the B-dependent value function is the novel variant.
+                children:
+
+                  - id: N09
+                    type: decision
+                    title: "Approximate with greedy packing; add batch size search space pruning"
+                    choice: >
+                      Use O(N log N) greedy packing with priority = QoE gain / l_i.
+                      Prune batch size search space to [B_min, B_max]. Trigger
+                      scheduler only when KV watermark > 90% or latency exceeds
+                      most stringent r_user.
+                    alternatives:
+                      - "Explore all B in [1, N] (too slow)"
+                      - "Use fixed batch size (loses QoE-B tradeoff insight)"
+                    evidence: >
+                      N07 showed exact DP too slow; priority = gain/l_i naturally
+                      preempts memory-heavy requests first and prevents starvation
+                      through auto-deprioritization.
+                    children:
+
+                      - id: N10
+                        type: experiment
+                        title: "Discover excessive preemptions degrade QoE — need overhead awareness"
+                        also_depends_on: [N07, N08]
+                        result: >
+                          Without overhead awareness, as burst duration increases,
+                          the greedy scheduler makes many preemptions. Cumulative
+                          overhead (hundreds of ms to seconds per preemption)
+                          delays token generation for all ongoing requests,
+                          significantly degrading aggregate QoE.
+                        evidence: [C05, "Figure 17"]
+                        children:
+
+                          - id: N11
+                            type: decision
+                            title: "Add Overhead-Aware Refiner to greedy scheduler"
+                            choice: >
+                              Post-process greedy decision with the overhead-aware
+                              refiner: for each (admit, preempt) pair, estimate
+                              net QoE change = QoE_gain(admit) −
+                              Σ QoE_loss(all_ongoing, overhead_latency). Stop at
+                              first non-positive net change.
+                            alternatives:
+                              - "Fixed preemption rate limit"
+                              - "Preemption cooldown timer"
+                              - "No overhead correction"
+                            evidence: >
+                              N10 demonstrated necessity. Offline preemption
+                              profiling provides accurate overhead estimates
+                              (Gujarati et al., 2020 showed DNN serving overhead
+                              is predictable).
+                            children:
+
+                              - id: N12
+                                type: experiment
+                                title: "Validate Andes end-to-end on BurstGPT + synthetic traces"
+                                result: >
+                                  Andes achieves up to 4.7× QoE improvement, 61%
+                                  GPU savings, 97% of requests at QoE ≥ 0.95
+                                  (vs 75% vLLM), TTFT reduced from 10.5s to 1.8s,
+                                  peak queue reduced 85%. Results are robust across
+                                  4 models, 3 datasets, varying burst
+                                  intensity/duration, and Poisson arrivals.
+                                evidence:
+                                  - C02
+                                  - C03
+                                  - C04
+                                  - C07
+                                  - C08
+                                  - "Figure 11"
+                                  - "Figure 13"
+                                  - "Figure 15"
+                                  - "Figure 16"
+                                  - "Figure 19"
+                                  - "Figure 20"
+
+      - id: N03
+        type: dead_end
+        title: "Can existing metrics (TTFT, P90/P99 TPOT) fully characterize user experience?"
+        hypothesis: >
+          TTFT and average/P90/P99 TPOT together are sufficient to capture
+          user experience.
+        failure_mode: >
+          TPOT misses mid-stream pauses (Figure 5d) where both TTFT and
+          last-token latency are normal but the user experiences a long pause
+          in the middle. Cascading delays from early tokens are also invisible
+          to average TPOT.
+        lesson: >
+          A metric spanning the full token consumption timeline is necessary;
+          this motivated the QoE definition.

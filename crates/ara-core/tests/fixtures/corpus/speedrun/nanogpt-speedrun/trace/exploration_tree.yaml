@@ -1,0 +1,343 @@
+# type: exploration_tree
+# paper: nanogpt-speedrun
+# description: Full optimization trajectory of NanoGPT Speedrun: 21 records taking
+#   GPT-2 124M training from 49.5 min to 3.1 min on 8×H100. Each node represents
+#   a research decision, experiment, dead end, or pivot in the optimization journey.
+
+tree:
+  - id: N01
+    type: question
+    title: "How fast can GPT-2 124M be trained to val_loss ≤ 3.28 on 8×H100?"
+    description: >
+      The NanoGPT speedrun challenge: optimize training wall-clock time
+      while maintaining quality (val_loss ≤ 3.28 on FineWeb-Edu 10B).
+      Baseline (Record 1) takes 49.5 min with standard PyTorch setup.
+    children:
+
+      # === PHASE 1: OPTIMIZER REVOLUTION (Records 2-4) ===
+      - id: N02
+        type: decision
+        title: "Replace learned positional embeddings with RoPE"
+        description: >
+          Record 2: Switch to rotary position embeddings, adopt trapezoidal
+          LR schedule with gradient norm scaling, increase batch size 32→64.
+        result: "49.5 min → 36.8 min (25.6% speedup)"
+        evidence: [C01, "Record 2: 2,209,926 ms, val_loss 3.2603"]
+        alternatives:
+          - "ALiBi position encoding — simpler but weaker on long context"
+          - "Learned PE with larger batch — limited by memory"
+        children:
+
+          - id: N03
+            type: experiment
+            title: "Muon optimizer: orthogonal Nesterov for weight matrices"
+            description: >
+              Record 3: Replace AdamW with Muon — OrthogonalNesterov momentum
+              for 2D+ parameters using Newton-Schulz orthogonalization, AdamW
+              for 1D parameters. Largest single-record speedup.
+            result: "36.8 min → 23.1 min (37.2% speedup) — LARGEST SINGLE GAIN"
+            evidence: [C01, C03, "Record 3: 1,386,147 ms, val_loss 3.2813"]
+            children:
+
+              - id: N04
+                type: experiment
+                title: "Muon refinements: QKV split, unit variance, warmup removal"
+                description: >
+                  Record 4: Split QKV projections for per-component Muon treatment,
+                  apply unit variance scaling, remove LR warmup.
+                result: "23.1 min → 21.7 min (6.1% speedup)"
+                evidence: [C01, "Record 4: 1,301,740 ms, val_loss 3.2772"]
+
+      # === PHASE 2: ARCHITECTURAL INNOVATIONS (Records 5-8) ===
+      - id: N05
+        type: decision
+        title: "Architectural overhaul: ReLU², padded vocab, zero-init, QK norm"
+        description: >
+          Record 5: Multiple architectural changes applied together. Pad
+          vocabulary to 50304 (GPU-aligned), switch GELU→ReLU², zero-init
+          output projections, add QK normalization, change to 6 heads with
+          128-dim each.
+        result: "21.7 min → 15.8 min (27.0% speedup)"
+        evidence: [C01, C05, "Record 5: 949,528 ms, val_loss 3.2751"]
+        alternatives:
+          - "SwiGLU activation — more parameters, slower at this scale"
+          - "Keep GELU — simpler but slower to compute"
+        children:
+
+          - id: N06
+            type: experiment
+            title: "Distributed Muon with CUDA 12.5 upgrade"
+            description: >
+              Record 6: Distribute Newton-Schulz orthogonalization across GPUs.
+              Upgrade to CUDA 12.5 for FlexAttention compatibility.
+            result: "15.8 min → 12.8 min (19.2% speedup)"
+            evidence: [C01, "Record 6: 766,259 ms, val_loss 3.2750"]
+
+          - id: N07
+            type: experiment
+            title: "Untied embeddings, RMSNorm, 3 optimizer groups"
+            description: >
+              Record 7: Untie embedding and LM head weights. Add RMSNorm
+              after embeddings. Partition parameters into 3 optimizer groups
+              (Muon 2D, AdamW head, AdamW 1D). Switch to cuDNN attention.
+            result: "12.8 min → 12.9 min (slight regression, but enables future gains)"
+            evidence: [C01, "Record 7: 773,072 ms, val_loss 3.2760"]
+            children:
+
+              - id: N07a
+                type: dead_end
+                title: "cuDNN attention slower than expected on short sequences"
+                hypothesis: "cuDNN attention would be faster than manual SDPA"
+                failure_mode: >
+                  At current sequence lengths (~4K tokens), cuDNN attention
+                  overhead exceeds the kernel speedup. Net effect is slight
+                  regression in wall-clock time.
+                lesson: >
+                  cuDNN attention becomes beneficial only at longer sequences
+                  (Record 11+ at 64K context). Premature optimization.
+
+          - id: N08
+            type: experiment
+            title: "U-Net skip connections + momentum warmup + logit softcap"
+            description: >
+              Record 8: Add encoder-decoder residual connections between
+              transformer layers with learnable blending. Warm up momentum
+              0.85→0.95 for stability. Add tanh logit softcapping.
+            result: "12.9 min → 11.0 min (14.5% speedup)"
+            evidence: [C01, C05, "Record 8: 662,205 ms, val_loss 3.2789"]
+
+      # === PHASE 3: PRECISION & EFFICIENCY (Records 9-10) ===
+      - id: N09
+        type: pivot
+        title: "Shift focus from architecture to precision engineering"
+        description: >
+          After exhausting major architectural changes, pivot to precision
+          and systems-level optimizations. bfloat16 throughout with custom
+          CastedLinear layer eliminates dtype casting overhead.
+        trigger: "Diminishing returns from architecture changes alone"
+        justification: >
+          Records 5-8 achieved 21.7→11.0 min through architecture. Next
+          frontier requires eliminating framework overhead (autocast, dtype
+          conversions, memory copies).
+        children:
+
+          - id: N10
+            type: experiment
+            title: "bfloat16 activations via CastedLinear, remove autocast"
+            description: >
+              Record 9: Custom CastedLinear layer handles precision at
+              layer boundaries. Remove torch.autocast entirely. Simplify
+              forward pass for better torch.compile optimization.
+            result: "11.0 min → 8.4 min (23.5% speedup)"
+            evidence: [C01, "Record 9: 505,531 ms, val_loss 3.2785"]
+            children:
+
+              - id: N11
+                type: experiment
+                title: "Refined U-Net skip connections + doubled LRs + optimized Newton-Schulz"
+                description: >
+                  Record 10: Proper encoder-decoder U-Net with refined mixing.
+                  Double all learning rates (0.6, 0.008, 0.04). Optimize
+                  Newton-Schulz iteration for better GPU utilization.
+                result: "8.4 min → 8.0 min (5.7% speedup)"
+                evidence: [C01, "Record 10: 477,150 ms, val_loss 3.2782"]
+
+      # === PHASE 4: ATTENTION REVOLUTION (Records 11-12) ===
+      - id: N12
+        type: decision
+        title: "FlexAttention with document-aware 64K context"
+        description: >
+          Record 11: Major transition to FlexAttention API. Enable 64K
+          token sequences with document-aware causal masking and sliding
+          window (1024 tokens). This is the second architectural revolution
+          after Muon.
+        result: "8.0 min → 7.4 min (7.2% speedup)"
+        evidence: [C01, C04, "Record 11: 442,985 ms, val_loss 3.2742"]
+        alternatives:
+          - "Flash Attention 2 — faster kernel but no custom masking"
+          - "Standard SDPA — no block mask support"
+          - "Ring Attention — for cross-node, overkill for single-node"
+        children:
+
+          - id: N13
+            type: experiment
+            title: "Block mask optimization + async DataLoader + pinned memory"
+            description: >
+              Record 12: Optimize FlexAttention block mask compilation.
+              Add async all_gather overlapping with compute. Pinned memory
+              DataLoader for faster host→device transfer. Refine U-Net decoder.
+            result: "7.4 min → 5.3 min (28.2% speedup)"
+            evidence: [C01, "Record 12: 317,839 ms, val_loss 3.2739"]
+
+      # === PHASE 5: ADVANCED TECHNIQUES (Records 13-17) ===
+      - id: N14
+        type: experiment
+        title: "Value token embeddings + sequence parallelism"
+        description: >
+          Record 13: Introduce layerwise value token embeddings (VTE) —
+          per-layer learned embeddings that modulate value projections.
+          Add sequence parallelism for distributed attention.
+        result: "5.3 min → 4.8 min (8.8% speedup)"
+        evidence: [C01, "Record 13: 289,805 ms, val_loss 3.2739"]
+        also_depends_on: [N12]
+        children:
+
+          - id: N15
+            type: experiment
+            title: "Muon restructuring + size-based parameter grouping"
+            description: >
+              Record 14: Restructure Muon optimizer for size-based parameter
+              groups. Optimize async all_gather scheduling. Further block
+              mask optimization.
+            result: "4.8 min → 4.6 min (4.7% speedup)"
+            evidence: [C01, "Record 14: 273,107 ms, val_loss 3.2739"]
+
+          - id: N16
+            type: decision
+            title: "GQA + block-level sliding window (128 tokens)"
+            description: >
+              Record 15: Switch to Grouped Query Attention. Tighten sliding
+              window from 1024→128 tokens at block level. Add reversible
+              value embeddings. Enable gradient_as_bucket_view.
+            result: "4.6 min → 4.0 min (11.7% speedup)"
+            evidence: [C01, C05, "Record 15: 241,463 ms, val_loss 3.2771"]
+            alternatives:
+              - "Multi-Query Attention — too aggressive quality loss"
+              - "Keep full attention — too slow at 64K context"
+
+          - id: N17
+            type: experiment
+            title: "Sparse value embeddings + RoPE truncation"
+            description: >
+              Record 16: Sparsify value embeddings (3 of 6 active). Remove
+              8th attention layer. Truncate RoPE to half dimensions.
+            result: "4.0 min → 3.9 min (3.5% speedup)"
+            evidence: [C01, "Record 16: 232,971 ms, val_loss 3.2773"]
+            children:
+
+              - id: N17a
+                type: dead_end
+                title: "Removing more attention layers causes val_loss regression"
+                hypothesis: "Can remove 2+ layers given skip connections compensate"
+                failure_mode: >
+                  Removing the 8th layer works but removing additional layers
+                  causes val_loss to exceed 3.28 threshold. Skip connections
+                  cannot compensate for losing too much depth.
+                lesson: >
+                  There is a minimum depth below which skip connections
+                  cannot maintain representation quality. One layer removal
+                  is the practical limit at this scale.
+
+          - id: N18
+            type: experiment
+            title: "Logit softcap reduction + microbatching + dynamic sliding window"
+            description: >
+              Record 17: Reduce logit softcap 30→15. Enable microbatching
+              for memory efficiency. Half-truncated RoPE. Dynamic sliding
+              window that varies by layer position.
+            result: "3.9 min → 3.7 min (5.2% speedup)"
+            evidence: [C01, "Record 17: 220,374 ms, val_loss 3.2739"]
+
+      # === PHASE 6: HARDWARE-LEVEL OPTIMIZATION (Records 18-20) ===
+      - id: N19
+        type: pivot
+        title: "Shift to hardware-specific optimizations (FP8, custom CUDA)"
+        description: >
+          After exhausting algorithmic and architectural optimizations,
+          the final frontier is hardware-specific precision engineering:
+          FP8 tensor cores, custom CUDA kernels, precision-aware scaling.
+        trigger: "Software-level optimizations approaching diminishing returns"
+        justification: >
+          Records 13-17 yielded 4.8→3.7 min (23% total). Further gains
+          require exploiting H100-specific hardware features that standard
+          PyTorch does not expose.
+        children:
+
+          - id: N20
+            type: experiment
+            title: "FP8 linear head + sigmoid logit offset"
+            description: >
+              Record 18: Implement FP8 (E4M3) precision for LM head via
+              custom CUDA ops. Add sigmoid logit offset to compensate for
+              FP8 quantization bias. Set LR floor at 0.1× peak.
+            result: "3.7 min → 3.5 min (3.8% speedup)"
+            evidence: [C01, C10, "Record 18: 211,840 ms, val_loss 3.2770"]
+
+          - id: N21
+            type: experiment
+            title: "Merged QKV + long-short sliding window + batched Muon"
+            description: >
+              Record 19: Merge Q/K/V weight matrices for single GEMM.
+              Implement long-short sliding window attention (different
+              windows per head). Batch Muon updates for better GPU util.
+            result: "3.5 min → 3.3 min (6.0% speedup)"
+            evidence: [C01, "Record 19: 199,442 ms, val_loss 3.2770"]
+
+          - id: N22
+            type: experiment
+            title: "Training 64K→48K seq len + validation 64K→256K"
+            description: >
+              Record 20: Reduce training sequence length from 64K to 48K
+              (fewer tokens per step but faster steps). Increase validation
+              to 256K for more stable loss estimation. Tune FP8 scales.
+            result: "3.3 min → 3.1 min (5.7% speedup)"
+            evidence: [C01, "Record 20: 188,680 ms, val_loss 3.2739"]
+
+      # === AGENT EVALUATION BRANCH ===
+      - id: N23
+        type: question
+        title: "Can LLM agents reproduce any of these optimizations?"
+        description: >
+          Given the 21-record trajectory, test whether frontier LLMs can
+          implement any single record-to-record optimization with hints.
+        children:
+
+          - id: N24
+            type: experiment
+            title: "Agent benchmark: 4 models × 20 records × 4 hint levels"
+            description: >
+              Deploy BoN framework with DeepSeek R1, o3-mini, Gemini 2.5,
+              Claude 3.7 Sonnet. Each agent starts from record N and attempts
+              to produce record N+1 with hints at levels 1 (pseudo), 2
+              (description), 3 (paper), z (zero-knowledge).
+            result: "No model succeeds on any record, even with pseudocode hints"
+            evidence: [C02, C06, C09]
+            children:
+
+              - id: N25
+                type: dead_end
+                title: "All frontier models fail — implementation gap confirmed"
+                hypothesis: "Pseudocode hints should enable reproduction"
+                failure_mode: >
+                  Agents understand the optimization direction correctly
+                  but produce buggy distributed training code. Common
+                  failures: NCCL errors, torch.compile incompatibilities,
+                  numerical precision issues, CUDA kernel errors.
+                lesson: >
+                  The gap between knowing what to do and implementing it
+                  in production distributed training code is currently
+                  insurmountable for LLMs. This is a systems engineering
+                  capability gap, not a knowledge gap.
+
+              - id: N26
+                type: decision
+                title: "Tree search (BoN) > linear search for agents"
+                description: >
+                  Compare 5 search strategies. BoN with tree/forest
+                  branching consistently outperforms linear AIDE-style
+                  search in gap_recovered metric.
+                result: "Forest and Tree strategies achieve highest IQM gap_recovered"
+                evidence: [C07]
+                alternatives:
+                  - "AIDE (linear, debug-focused) — lower IQM"
+                  - "Flat (one-shot N=20) — high variance"
+                  - "Multi-AIDE (linear + branching) — middle ground"
+
+# Summary Statistics
+# Phase 1 (Optimizer):     49.5 → 21.7 min  = 56.2% reduction
+# Phase 2 (Architecture):  21.7 → 11.0 min  = 49.3% reduction
+# Phase 3 (Precision):     11.0 →  8.0 min  = 27.7% reduction
+# Phase 4 (Attention):      8.0 →  5.3 min  = 33.8% reduction
+# Phase 5 (Advanced):       5.3 →  3.7 min  = 30.8% reduction
+# Phase 6 (Hardware):       3.7 →  3.1 min  = 16.2% reduction
+# Total:                   49.5 →  3.1 min  = 93.7% reduction (16.1× speedup)
