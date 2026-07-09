@@ -1,0 +1,20 @@
+# Corpus submodules for the opt-in full sweep (RUN_CORPUS_SWEEP=1).
+#
+# These are NOT checked out by default: required CI does not init submodules,
+# and a fresh clone without them still passes (the sweep test skips cleanly).
+# Each is pinned to a specific commit; see crates/ara-core/tests/corpus_no_panic.rs
+# and CONTRIBUTING.md "Running the full corpus sweep".
+#
+# `shallow = true` keeps init cheap — only the pinned commit is fetched.
+
+[submodule "corpus-external/ara-paperbench"]
+	path = corpus-external/ara-paperbench
+	url = https://github.com/AmberLJC/ara-paperbench.git
+	# CC-BY-4.0. Pinned: 3fe7ab4d08f68555d8c4661fa2b4fbfd4d597fd8
+	shallow = true
+[submodule "corpus-external/ara-demo"]
+	path = corpus-external/ara-demo
+	url = https://github.com/ARA-Labs/ARA-Demo.git
+	# No upstream LICENSE (all rights reserved) — reachable only via this
+	# submodule, never vendored. Pinned: 8f184717bb7827fe59d47a1ac44a00f66c6375ee
+	shallow = true
