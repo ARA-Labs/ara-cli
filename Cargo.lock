@@ -87,7 +87,7 @@ dependencies = [
 
 [[package]]
 name = "ara-cli"
-version = "0.0.3"
+version = "0.0.4"
 dependencies = [
  "ara-core",
  "assert_cmd",
@@ -99,7 +99,7 @@ dependencies = [
 
 [[package]]
 name = "ara-core"
-version = "0.0.3"
+version = "0.0.4"
 dependencies = [
  "dagre-dgl-rs",
  "insta",
@@ -110,11 +110,11 @@ dependencies = [
 
 [[package]]
 name = "ara-viewer"
-version = "0.0.3"
+version = "0.0.4"
 
 [[package]]
 name = "ara-wasm"
-version = "0.0.3"
+version = "0.0.4"
 
 [[package]]
 name = "arraydeque"

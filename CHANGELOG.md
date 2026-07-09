@@ -7,6 +7,10 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Deterministic layered DAG **node** layout in `ara-core` via `dagre-dgl-rs`;
+  positions + bounds added to `Manifest`; `ara layout <dir> --json` and
+  `ara validate --layout`. Edge routing deferred to the client; geometry wire
+  shape frozen, logical model kept additive.
 - Real-ARA no-panic regression coverage: vendored `ara-paperbench` subset under
   `crates/ara-core/tests/fixtures/corpus/` with an always-on test asserting the
   parser never panics and always produces a `ParseReport`; opt-in submodule
@@ -36,4 +40,5 @@ All notable changes to this project are documented here. The format follows
 ### Changed
 - Dropped the unverified `rust-version = "1.85"` MSRV declaration until it is
   tested at the `0.1.0` publish.
-- Bumped workspace version `0.0.0 → 0.0.1`, then `0.0.1 → 0.0.2` (Stage 1).
+- Bumped workspace version `0.0.0 → 0.0.1`, then `0.0.1 → 0.0.2` (Stage 1),
+  then `0.0.2 → 0.0.3` (issue #3), then `0.0.3 → 0.0.4` (Stage 2).
