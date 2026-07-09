@@ -10,6 +10,11 @@ authors.workspace = true
 keywords.workspace = true
 categories.workspace = true
 readme = "README.md"
+# `cargo publish` bundles `tests/` by default. Excluding all fixtures keeps
+# third-party corpus data out of the MPL-2.0 crate tarball — the CC-BY-4.0
+# `corpus/` subset (attribution-required) and the MIT `official/` set. Tests
+# still run from a git checkout / workspace, just not from the published crate.
+exclude = ["tests/fixtures/**"]
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }

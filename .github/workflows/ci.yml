@@ -37,6 +37,10 @@ jobs:
     name: test
     runs-on: ubuntu-24.04
     steps:
+      # Intentionally does NOT set `submodules:` — the `corpus-external/` corpora
+      # back only the opt-in `RUN_CORPUS_SWEEP=1` sweep, which is `#[ignore]`d.
+      # The default test suite (incl. the always-on vendored no-panic net) runs
+      # without them; a fresh checkout must stay green. Do not add `submodules:`.
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
       - run: cargo test --workspace --locked
