@@ -112,3 +112,35 @@ cold. Remove an item when it lands.
 - **Context:** Requests logged in `docs/ara-format-feedback.md` (items 1, 4, 7,
   9). Revisit when the maintainer responds.
 - **Depends on:** upstream ARA maintainer publishing a schema.
+
+## Deferred from Stage 2 eng review (2026-07-09)
+
+### T-EDGE-ROUTING — compute proper edge routes (bend points / orthogonal)
+- **What:** Route DAG edges as polylines/splines that avoid overlapping nodes,
+  instead of straight lines from endpoint to endpoint.
+- **Why:** Stage 2 ships node positions + bounds only; the Stage 3 client draws
+  edges straight from endpoints. On dense/wide DAGs straight edges cross through
+  intervening node boxes and read poorly.
+- **Context:** Deferred from the Stage 2 eng review. Edge routing is the most
+  float-sensitive, most crate-specific part of a dagre port, so it was kept out
+  of the byte-deterministic core for now and pushed to the client. When picking
+  this up, first decide **where** routing lives: client-side (from endpoint
+  positions, no cross-target determinism concern) or back in `ara-core` (then it
+  must join the step-1 native≡wasm golden test, and `Link.route: Option<Vec<Point>>`
+  re-enters the wire type as an additive geometry field).
+- **Depends on:** Stage 3 renderer.
+
+### T-LAYOUT-SPIKE-FALLBACK — client-side dagre.js fallback if the crate spike fails
+- **What:** If the Stage 2 step-1 spike finds no pure-Rust Sugiyama crate that is
+  simultaneously wasm-safe **and** byte-deterministic native≡wasm, pivot layout
+  to client-side dagre.js/elkjs and keep `ara-core` logical-graph-only (no
+  geometry in the `Manifest`, no `ara layout` command).
+- **Why:** The Rust layered-layout ecosystem is thin and largely low-adoption
+  (`rust-sugiyama` ~5.8k dl, `dagre` ~1.9k, others far less). Forcing an
+  unsuitable crate would either break the wasm client or fail cross-target
+  determinism — the whole reason layout is in core.
+- **Context:** This is the documented go/no-go branch for Stage 2 step 1, so the
+  pivot is a planned path rather than a mid-stage scramble. Trigger: step-1
+  cross-target golden test cannot be made to pass. Mature JS layout is the
+  fallback because it is proven and runs client-side for free.
+- **Depends on:** outcome of the Stage 2 step-1 spike.
