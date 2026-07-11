@@ -10,7 +10,7 @@ use leptos::prelude::*;
 
 use crate::filter::FilterState;
 use crate::kind::kind_meta;
-use crate::state::LayoutMode;
+use crate::state::{DisplayMode, LayoutMode};
 
 // ── Kind option ───────────────────────────────────────────────────────────────
 
@@ -62,33 +62,59 @@ fn kind_options(manifest: &Manifest) -> Vec<KindOption> {
         .collect()
 }
 
-// ── Layout toggle component ─────────────────────────────────────────────────
+// ── Generic segmented toggle ─────────────────────────────────────────────────
 
-/// Segmented two-button control for choosing the `.app-main` [`LayoutMode`].
+/// A mode usable as a segment in [`seg_toggle`]. Implemented by the small
+/// `Copy` view-state enums (`LayoutMode`, `DisplayMode`). Provides the segment
+/// list (token + visible label) and the wire token for the active segment.
+pub trait SegMode: Copy + PartialEq + Send + Sync + 'static {
+    /// Segments in display order: `(mode, visible label)`.
+    fn segments() -> &'static [(Self, &'static str)];
+    /// Stable wire token for `data-mode` (used by tests + round-tripping).
+    fn token(self) -> &'static str;
+}
+
+impl SegMode for LayoutMode {
+    fn segments() -> &'static [(Self, &'static str)] {
+        &[(LayoutMode::Stack, "stack"), (LayoutMode::Split, "split")]
+    }
+    fn token(self) -> &'static str {
+        self.as_token()
+    }
+}
+
+impl SegMode for DisplayMode {
+    fn segments() -> &'static [(Self, &'static str)] {
+        &[(DisplayMode::Graph, "graph"), (DisplayMode::Tree, "tree")]
+    }
+    fn token(self) -> &'static str {
+        self.as_token()
+    }
+}
+
+/// The single segmented two-button control shared by [`LayoutToggle`] and
+/// [`DisplayToggle`].
 ///
-/// `layout` is owned by [`crate::App`]; clicking a segment sets it, which flips
-/// the reactive modifier class on `.app-main`. The active segment carries
-/// `is-active` + `aria-pressed="true"`. `Stack` is the default.
-#[component]
-pub fn LayoutToggle(layout: RwSignal<LayoutMode>) -> impl IntoView {
-    // One <button> per mode, in display order. `label` is the visible text;
-    // `mode` is the value it selects.
-    let segments = [(LayoutMode::Stack, "stack"), (LayoutMode::Split, "split")];
-
+/// One `<button>` per `M::segments()`, in display order. The active segment
+/// carries `is-active` + `aria-pressed="true"`; `data-mode` carries the wire
+/// token for tests. Clicking a segment sets the backing `signal`. Reuses the
+/// generic `.layout-toggle*` skin (the class names already read generically), so
+/// no per-toggle CSS is needed. `group_label` names the control for AT users.
+pub fn seg_toggle<M: SegMode>(signal: RwSignal<M>, group_label: &'static str) -> impl IntoView {
     view! {
-        // role="group" + aria-label names the segmented control for AT users.
-        <div class="layout-toggle" role="group" aria-label="Layout">
-            {segments
-                .into_iter()
+        <div class="layout-toggle" role="group" aria-label=group_label>
+            {M::segments()
+                .iter()
+                .copied()
                 .map(|(mode, label)| {
                     view! {
                         <button
                             type="button"
                             class="layout-toggle-btn"
-                            class:is-active=move || layout.get() == mode
-                            aria-pressed=move || (layout.get() == mode).to_string()
-                            data-mode=mode.as_token()
-                            on:click=move |_| layout.set(mode)
+                            class:is-active=move || signal.get() == mode
+                            aria-pressed=move || (signal.get() == mode).to_string()
+                            data-mode=mode.token()
+                            on:click=move |_| signal.set(mode)
                         >
                             {label}
                         </button>
@@ -97,6 +123,31 @@ pub fn LayoutToggle(layout: RwSignal<LayoutMode>) -> impl IntoView {
                 .collect_view()}
         </div>
     }
+}
+
+// ── Layout toggle component ─────────────────────────────────────────────────
+
+/// Segmented two-button control for choosing the `.app-main` [`LayoutMode`].
+///
+/// A thin caller of [`seg_toggle`]. `layout` is owned by [`crate::App`]; clicking
+/// a segment sets it, which flips the reactive modifier class on `.app-main`.
+/// The active segment carries `is-active` + `aria-pressed="true"`. `Stack` is
+/// the default.
+#[component]
+pub fn LayoutToggle(layout: RwSignal<LayoutMode>) -> impl IntoView {
+    seg_toggle(layout, "Layout")
+}
+
+// ── Display toggle component ─────────────────────────────────────────────────
+
+/// Segmented two-button control for choosing the `#map` [`DisplayMode`].
+///
+/// A thin caller of [`seg_toggle`]. `display` is owned by [`crate::App`];
+/// clicking a segment swaps the rendered map surface (SVG graph ⇄ DOM tree).
+/// `Graph` is the default.
+#[component]
+pub fn DisplayToggle(display: RwSignal<DisplayMode>) -> impl IntoView {
+    seg_toggle(display, "Display")
 }
 
 // ── Toolbar component ─────────────────────────────────────────────────────────
