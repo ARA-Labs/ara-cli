@@ -130,6 +130,55 @@ pub fn advance(order: &[NodeId], selected: RwSignal<Option<NodeId>>, dir: Step) 
     }
 }
 
+// ── Arrow-key listener (wasm-only) ────────────────────────────────────────────
+
+/// Install a document-level `keydown` listener that steps the replay with the
+/// `←` / `→` keys, mirroring the reference guard **exactly**: it ignores the
+/// event when focus is in an `INPUT` or `SELECT` (so arrows don't hijack the
+/// search field). `ArrowLeft` → `stop_replay` + `step(-1)`; `ArrowRight` →
+/// `stop_replay` + `step(+1)`.
+///
+/// Extracted from `App` so the guard is testable against the real code. The
+/// closure is leaked (`forget`) so it lives for the app's lifetime — the
+/// listener is document-scoped and outlives no shorter than the viewer.
+#[cfg(target_arch = "wasm32")]
+pub fn install_arrow_key_listener(
+    order: Memo<Vec<NodeId>>,
+    selected: RwSignal<Option<NodeId>>,
+    state: ReplayState,
+) {
+    use leptos::wasm_bindgen::JsCast;
+    use leptos::wasm_bindgen::prelude::Closure;
+
+    let handler = Closure::<dyn FnMut(leptos::web_sys::KeyboardEvent)>::new(
+        move |ev: leptos::web_sys::KeyboardEvent| {
+            // Reference guard: skip when typing in a form control.
+            if let Some(target) = ev.target()
+                && let Some(el) = target.dyn_ref::<leptos::web_sys::Element>()
+            {
+                let tag = el.tag_name();
+                if tag == "INPUT" || tag == "SELECT" {
+                    return;
+                }
+            }
+            let dir = match ev.key().as_str() {
+                "ArrowLeft" => Some(Step::Prev),
+                "ArrowRight" => Some(Step::Next),
+                _ => None,
+            };
+            if let Some(dir) = dir {
+                stop_replay(state);
+                advance(&order.get(), selected, dir);
+            }
+        },
+    );
+    if let Some(doc) = leptos::web_sys::window().and_then(|w| w.document()) {
+        let _ =
+            doc.add_event_listener_with_callback("keydown", handler.as_ref().unchecked_ref());
+    }
+    handler.forget();
+}
+
 // ── ReplayBar component ───────────────────────────────────────────────────────
 
 /// The replay controls: `‹` (prev) / `▶ Replay`⇄`⏸ Pause` (play) / `›` (next).
@@ -209,6 +258,11 @@ pub fn ReplayBar(
             playing.set(true);
         }
     };
+
+    // Belt-and-suspenders teardown: if the bar itself unmounts (e.g. the map
+    // surface swaps), clear the interval here too. App also tears it down on its
+    // own unmount, sharing the same handle — clearing twice is safe (idempotent).
+    on_cleanup(move || stop_replay(state));
 
     let play_label = move || {
         if playing.get() {

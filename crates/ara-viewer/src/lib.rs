@@ -111,48 +111,9 @@ pub fn App() -> impl IntoView {
     on_cleanup(move || replay::stop_replay(replay_state));
 
     // ── Document-level ←/→ key listener (wasm-only) ───────────────────────────
-    // Mirrors the reference guard exactly: ignore when focus is in an INPUT or
-    // SELECT so arrow keys don't hijack the search field. ArrowLeft → stop +
-    // step(-1); ArrowRight → stop + step(+1).
+    // Installs the reference arrow-key stepper with its INPUT/SELECT guard.
     #[cfg(target_arch = "wasm32")]
-    {
-        use leptos::wasm_bindgen::prelude::Closure;
-        use leptos::wasm_bindgen::JsCast;
-        Effect::new(move |_| {
-            let handler = Closure::<dyn FnMut(leptos::web_sys::KeyboardEvent)>::new(
-                move |ev: leptos::web_sys::KeyboardEvent| {
-                    // Reference guard: skip when typing in a form control.
-                    if let Some(target) = ev.target()
-                        && let Some(el) = target.dyn_ref::<leptos::web_sys::Element>()
-                    {
-                        let tag = el.tag_name();
-                        if tag == "INPUT" || tag == "SELECT" {
-                            return;
-                        }
-                    }
-                    let key = ev.key();
-                    let dir = match key.as_str() {
-                        "ArrowLeft" => Some(replay::Step::Prev),
-                        "ArrowRight" => Some(replay::Step::Next),
-                        _ => None,
-                    };
-                    if let Some(dir) = dir {
-                        replay::stop_replay(replay_state);
-                        replay::advance(&node_order.get(), selected, dir);
-                    }
-                },
-            );
-            if let Some(doc) = leptos::web_sys::window().and_then(|w| w.document()) {
-                let _ = doc.add_event_listener_with_callback(
-                    "keydown",
-                    handler.as_ref().unchecked_ref(),
-                );
-            }
-            // Leak the closure so it stays alive for the app's lifetime (the
-            // listener is document-scoped and lives as long as the viewer).
-            handler.forget();
-        });
-    }
+    replay::install_arrow_key_listener(node_order, selected, replay_state);
 
     view! {
         <header class="app-header">
