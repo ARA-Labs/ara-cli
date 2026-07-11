@@ -365,6 +365,9 @@ code, kbd, samp, pre,
   flex-direction: column;
   gap: 0.75rem;
   padding: 0.25rem 0;
+  /* Cap the reading column so prose stays at a comfortable measure
+     (~66 chars) instead of running the full width of a wide detail pane. */
+  max-width: 70ch;
 }
 
 /* ── Detail header ─────────────────────────────────────────────────────────── */
