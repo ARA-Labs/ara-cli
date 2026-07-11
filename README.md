@@ -1,5 +1,12 @@
 # bara
 
+[![CI](https://github.com/EYH0602/bara/actions/workflows/ci.yml/badge.svg)](https://github.com/EYH0602/bara/actions/workflows/ci.yml)
+[![Crates.io](https://img.shields.io/crates/v/ara-cli.svg)](https://crates.io/crates/ara-cli)
+[![docs.rs](https://img.shields.io/docsrs/ara-core)](https://docs.rs/ara-core)
+[![Downloads](https://img.shields.io/crates/d/ara-cli.svg)](https://crates.io/crates/ara-cli)
+[![License: MPL 2.0](https://img.shields.io/badge/License-MPL_2.0-brightgreen.svg)](https://opensource.org/licenses/MPL-2.0)
+[![MSRV](https://img.shields.io/badge/MSRV-1.85%2B-blue.svg)](https://blog.rust-lang.org/2025/02/20/Rust-1.85.0.html)
+
 Blazing-fast **ARA viewer** — a Rust runtime that parses, serves, and renders
 Agent-Native Research Artifacts (ARAs) as an interactive, drill-down DAG in the
 browser. (`bara` = *blazing ara*.)
