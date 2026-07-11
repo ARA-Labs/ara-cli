@@ -116,6 +116,12 @@ pub struct Node {
     pub fields: NodeFields,
     /// Free-text evidence entries (the non-`C##` part of `evidence:`).
     pub evidence_notes: Vec<String>,
+    /// Whether this node is the root of an *isolated* subtree — a branch the
+    /// exploration reached but that hangs off the main tree on its own. Drives
+    /// the viewer's "isolated subtree" partition. Defaults to `false`; only the
+    /// root of a subtree carries it (children inherit placement from their root).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub isolated: bool,
     /// Center position assigned by layout. Absent when layout has not run.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub pos: Option<Point>,

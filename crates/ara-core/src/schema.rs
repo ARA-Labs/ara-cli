@@ -46,6 +46,9 @@ pub(crate) struct RawNode {
     pub source_refs: Vec<String>,
     #[serde(default)]
     pub description: Option<String>,
+    /// Marks the root of an isolated subtree. Defaults to `false`.
+    #[serde(default)]
+    pub isolated: bool,
     // experiment
     #[serde(default)]
     pub result: Option<String>,

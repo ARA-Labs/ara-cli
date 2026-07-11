@@ -227,6 +227,7 @@ impl Normalizer {
             description: raw.description.clone(),
             fields,
             evidence_notes,
+            isolated: raw.isolated,
             pos: None,
         });
         self.also.push((id.clone(), raw.also_depends_on.clone()));
@@ -611,6 +612,24 @@ tree:
                 .any(|d| d.path.contains("claims[C01]") && d.message.contains("duplicate claim id")),
             "expected duplicate-claim-id error, got: {err}"
         );
+    }
+
+    #[test]
+    fn isolated_field_defaults_false_and_sources_from_raw() {
+        // Absent `isolated:` → false; an explicit `isolated: true` on a node is
+        // carried through to the normalized node.
+        let yaml = "\
+tree:
+  - id: N01
+    type: question
+    children:
+      - id: N02
+        type: experiment
+        isolated: true
+";
+        let (m, _r) = parse_sources(yaml, None).expect("ok");
+        assert!(!m.nodes[0].isolated, "N01 has no isolated key → false");
+        assert!(m.nodes[1].isolated, "N02 carries isolated: true");
     }
 
     #[test]

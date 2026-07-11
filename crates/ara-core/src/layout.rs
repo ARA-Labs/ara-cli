@@ -223,6 +223,7 @@ mod tests {
                     description: None,
                     fields: NodeFields::Question,
                     evidence_notes: vec![],
+                    isolated: false,
                     pos: None,
                 },
                 Node {
@@ -234,6 +235,7 @@ mod tests {
                     description: None,
                     fields: NodeFields::Experiment { result: None },
                     evidence_notes: vec![],
+                    isolated: false,
                     pos: None,
                 },
                 Node {
@@ -249,6 +251,7 @@ mod tests {
                         rationale: None,
                     },
                     evidence_notes: vec![],
+                    isolated: false,
                     pos: None,
                 },
             ],
@@ -348,6 +351,7 @@ mod tests {
                 description: None,
                 fields: NodeFields::Question,
                 evidence_notes: vec![],
+                isolated: false,
                 pos: None,
             }],
             links: vec![],

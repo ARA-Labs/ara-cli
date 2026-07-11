@@ -68,6 +68,24 @@ Real box sizes depend on browser text measurement; the client may relayout (same
 `ara-core` wasm) if it needs exact text fit. Core's output is authoritative for
 the fixed-size case.
 
+## `Node.isolated`
+
+```json
+{ "isolated": true }
+```
+
+- Type: `bool` (raw key `isolated:` on a node; defaults to `false`).
+- Marks the **root of an isolated subtree** — a branch the exploration reached
+  that hangs off the main tree on its own rather than under a normal parent.
+  Only the root of such a subtree carries the flag; its children inherit their
+  placement from the root.
+- Serialized with `#[serde(default, skip_serializing_if = "std::ops::Not::not")]`
+  so `false` (the common case) is omitted from the wire form and old manifests
+  round-trip unchanged.
+- Consumed by the viewer's tree-list mode to render isolated roots inside a
+  dedicated "isolated subtree" box. This is a **logical** (not geometry) field,
+  so it is additively extensible and needs no coordinated version bump.
+
 ## Logical model extensibility
 
 The **logical** model (`nodes`, `links`, `bindings`, `claims`, `NodeKind`,

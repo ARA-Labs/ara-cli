@@ -144,6 +144,7 @@ mod tests {
             description: None,
             fields: NodeFields::Question,
             evidence_notes: vec![],
+            isolated: false,
             pos: None,
         }
     }

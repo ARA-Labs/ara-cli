@@ -444,6 +444,7 @@ mod tests {
             description: None,
             fields,
             evidence_notes: vec![],
+            isolated: false,
             pos: None,
         }
     }
