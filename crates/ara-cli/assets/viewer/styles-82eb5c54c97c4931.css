@@ -16,6 +16,11 @@
   --glyph-ink: #5a5142;
   --sel-bg:    #f7ead2;
 
+  /* Isolated-subtree box (tree-list mode) — reference values verbatim. */
+  --iso-line:  #cdbfa6;
+  --iso-bg:    #f7f1e6;
+  --iso-ink:   #8a7a5c;
+
   /* Typography */
   --font-body: ui-sans-serif, system-ui, sans-serif;
   --font-mono: ui-monospace, monospace;
@@ -425,6 +430,178 @@ code, kbd, samp, pre,
 .dead_end .kind-chip {
   background-color: var(--warn);
   color: #fff;
+}
+
+/* ── Tree-list display mode ───────────────────────────────────────────────────
+   The DOM indented tree-list, an alternate to the SVG graph. All rules are
+   scoped under `.tree-map` so the reference class names (.node, .glyph, .dep,
+   .kid, .sel, .dim, .deptarget, .isobox) never collide with the SVG graph's
+   `.graph-svg .node` / `.node.dimmed` rules. Values are the published
+   research-visualizer scaffold's exact px/colours so the tree is visually
+   identical to the static artifact.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+.tree-map .node {
+  display: flex;
+  gap: 9px;
+  align-items: flex-start;
+  padding: 7px 9px;
+  border-radius: 9px;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.tree-map .node:hover {
+  background: var(--panel2);
+}
+
+/* Selected row: warm fill + accent border (reference `.sel`). */
+.tree-map .node.sel {
+  background: var(--sel-bg);
+  border-color: var(--accent);
+}
+
+/* Dependency-hover highlight (reference `.deptarget`). */
+.tree-map .node.deptarget {
+  background: var(--sel-bg);
+  outline: 1px dashed var(--accent);
+  outline-offset: -1px;
+}
+
+/* Filter dimming (reference `.dim` — distinct from the SVG graph's `.dimmed`). */
+.tree-map .node.dim {
+  opacity: 0.4;
+}
+
+/* Kind glyph chip. Neutral for all kinds; only dead_end is coloured, matching
+   the graph's colourblind-safe encoding. */
+.tree-map .glyph {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 21px;
+  height: 21px;
+  border-radius: 7px;
+  background: var(--glyph-bg);
+  color: var(--glyph-ink);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.tree-map .glyph.dead_end {
+  background: var(--warn);
+  color: #fff;
+}
+
+/* Row meta line: id + optional dep marker. */
+.tree-map .meta {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.tree-map .nid {
+  color: var(--muted);
+  font-size: 11px;
+  font-family: var(--font-mono);
+}
+
+.tree-map .ntitle {
+  font-size: 13px;
+  color: var(--ink);
+}
+
+/* Dead-end row: warn colour + strikethrough on the title. */
+.tree-map .node.dead .ntitle {
+  color: var(--warn);
+  text-decoration: line-through;
+  text-decoration-color: rgba(162, 59, 45, 0.4);
+}
+
+/* Child container — a sibling of the row, indented with a spine. */
+.tree-map .kid {
+  margin-left: 19px;
+  border-left: 1px solid var(--line);
+  padding-left: 7px;
+}
+
+/* Dependency marker `⇠ {ids}`. */
+.tree-map .dep {
+  color: var(--muted);
+  font-size: 10.5px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 0 5px;
+}
+
+/* Isolated-subtree box. */
+.tree-map .isobox {
+  border: 1px dashed var(--iso-line);
+  background: var(--iso-bg);
+  border-radius: 9px;
+  padding: 7px;
+  margin-top: 9px;
+}
+
+.tree-map .isohdr {
+  color: var(--iso-ink);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 5px;
+}
+
+/* ── Replay controls + shared count ──────────────────────────────────────────
+   The reference sits the replay buttons inline in the toolbar after a spacer,
+   reusing the `.btn` / `.btn.primary` skin, and shares a `.count` (`#rstat`)
+   span with the filter readout.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+.replay-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 0.5rem;
+}
+
+.btn {
+  font-family: var(--font-body);
+  font-size: 0.78rem;
+  color: var(--ink);
+  background-color: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 0.2rem 0.5rem;
+  height: 1.75rem;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.12s, background-color 0.12s;
+}
+
+.btn:hover {
+  border-color: var(--accent);
+}
+
+.btn:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+.btn.primary {
+  background-color: var(--sel-bg);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.count {
+  font-size: 0.72rem;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  white-space: nowrap;
+}
+
+.spacer {
+  flex: 1;
 }
 
 /* ── Detail pane ─────────────────────────────────────────────────────────────── */
