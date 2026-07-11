@@ -150,9 +150,18 @@ fn build_row(
     let node = by_id.get(id).copied();
     let meta = node.map(|n| kind_meta(&n.kind));
 
-    // Reference fallback chain: title ?? body ?? "(untitled)".
+    // Reference fallback chain: title || body || "(untitled)". The reference
+    // `nodeRow` uses JS truthy `||`, so an empty-string title falls through to
+    // the body (and an empty body to "(untitled)"). Treat empty/whitespace-only
+    // strings as absent to match that exactly.
+    let non_empty = |s: &String| (!s.trim().is_empty()).then(|| s.clone());
     let label = node
-        .and_then(|n| n.label.clone().or_else(|| n.description.clone()))
+        .and_then(|n| {
+            n.label
+                .as_ref()
+                .and_then(non_empty)
+                .or_else(|| n.description.as_ref().and_then(non_empty))
+        })
         .unwrap_or_else(|| "(untitled)".to_string());
 
     let (glyph, css_class, is_dead_end) = match (node, &meta) {
@@ -536,6 +545,29 @@ mod tests {
         assert_eq!(
             model.roots[0].children[0].children[0].row.label,
             "(untitled)"
+        );
+    }
+
+    #[test]
+    fn label_empty_title_falls_through_like_reference_truthy_or() {
+        // Reference `title || body` treats an empty-string title as falsy, so it
+        // falls through to the body. An empty title + empty body → "(untitled)".
+        let mut m = bare_manifest();
+        let mut n01 = node("N01", NodeKind::Question, Some(""));
+        n01.description = Some("Body wins".to_string());
+        let mut n02 = node("N02", NodeKind::Experiment, Some("   "));
+        n02.description = Some(String::new());
+        m.nodes = vec![n01, n02];
+        m.links = vec![child("N01", "N02")];
+
+        let model = tree_model(&m);
+        assert_eq!(
+            model.roots[0].row.label, "Body wins",
+            "empty title falls through to body"
+        );
+        assert_eq!(
+            model.roots[0].children[0].row.label, "(untitled)",
+            "whitespace title + empty body → (untitled)"
         );
     }
 
