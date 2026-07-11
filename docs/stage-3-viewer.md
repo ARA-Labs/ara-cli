@@ -71,6 +71,55 @@ swaps like the other view-state signals) applied as a `.layout-stack` /
 divider between a right and a bottom border. Narrow viewports (≤ 800px) stack
 regardless of the selected mode.
 
+### Display modes
+
+The `#map` pane renders the exploration graph in one of two user-selectable
+modes, chosen with a segmented **graph | tree** toggle in the header toolbar
+(a `DisplayMode` signal in `App`, session-only like `LayoutMode`):
+
+- **Graph** (default) — the interactive SVG DAG with pan/zoom (issue #7 keeps
+  this as the default; see [`stage-3-svg-spike.md`](stage-3-svg-spike.md)).
+- **Tree** — the published `research-visualizer` **DOM indented tree-list**, an
+  exact reproduction of the static `trajectory.html` scaffold. Rows show a kind
+  glyph, the node id, an optional `⇠ id` dependency marker, and the node title;
+  children nest in indented `.kid` containers with a spine. A dead-end row is
+  struck through in `--warn`. Roots whose node carries `isolated: true` render
+  inside a trailing "isolated subtree" box (`.isobox`); the demo has none, so no
+  box ships today. Hovering a row highlights the rows it depends on
+  (`.deptarget`). The tree rows label off `title ?? body ?? "(untitled)"` and
+  drive the same shared `selected` signal as the graph, so the detail pane and
+  filter dimming work identically in both modes. All tree CSS is scoped under
+  `.tree-map`, using the reference class names (`.node`/`.glyph`/`.dep`/`.kid`/
+  `.sel`/`.dim`) without colliding with the SVG graph.
+
+Both toggles are built from one generic `seg_toggle` control (a `SegMode`
+trait), so `LayoutToggle` and `DisplayToggle` share one implementation of the
+segment loop + `is-active`/`aria-pressed`/`data-mode` a11y.
+
+The `Node.isolated` flag that drives the tree partition is a logical (not
+geometry) manifest field, serde-default `false` so old manifests round-trip
+unchanged — see [`manifest-schema.md`](manifest-schema.md).
+
+The kind glyphs are the published set — `question 'Q'`, `experiment '✦'`,
+`decision '→'`, `dead_end '✗'`, `insight '!'`, other `'•'` — read from the same
+`kind_meta` single source of truth by both renderers, so the SVG graph and the
+tree-list show identical glyphs.
+
+### Replay stepper
+
+A **replay stepper** in the toolbar (`‹` / `▶ Replay`⇄`⏸ Pause` / `›`) steps the
+shared `selected` signal through node order (`manifest.nodes`, i.e. pre-order
+DFS), and works in **both** display modes. Prev/next stop any running replay
+first, then move one step, clamping at both ends with no wrap — stepping
+"previous" from no selection lands on the first node (the reference clamp
+`indexOf(None) = -1`). Play toggles a 1300 ms interval that advances each tick
+and auto-stops at the last node (no loop); the interval is torn down on pause,
+on reaching the last node, and on unmount. The `←` / `→` arrow keys mirror
+prev/next via a document listener, guarded to ignore keystrokes while a search
+`<input>`/`<select>` is focused. A shared `#rstat` readout in the toolbar shows
+`step {i} / {N}` when a node is selected, else `{shown} / {N} steps` for the
+active filter — the same span the reference shares between filter and replay.
+
 ## Architecture
 
 Crate layout (`lib` + `bin` so components are import-testable):
