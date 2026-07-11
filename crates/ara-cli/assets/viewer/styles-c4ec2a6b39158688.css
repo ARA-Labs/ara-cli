@@ -137,27 +137,96 @@ code, kbd, samp, pre,
   font-family: var(--font-body);
 }
 
+/* ── Layout mode toggle (segmented control) ─────────────────────────────────── */
+/* Two adjacent buttons (stack | split) sharing a single pill outline. The       */
+/* active segment fills with the selection colour + accent border.               */
+
+.layout-toggle {
+  display: inline-flex;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  overflow: hidden;
+  height: 1.75rem;
+}
+
+.layout-toggle-btn {
+  font-family: var(--font-body);
+  font-size: 0.78rem;
+  /* --ink (not --muted) so the resting label clears WCAG AA (4.5:1) — these
+     are interactive control labels, not decorative metadata. Matches the
+     hover/focus-visible colour below, so the state transition is subtle. */
+  color: var(--ink);
+  background-color: var(--panel);
+  border: none;
+  padding: 0 0.6rem;
+  cursor: pointer;
+  outline: none;
+  transition: background-color 0.12s, color 0.12s;
+}
+
+/* Divider line between the two segments. */
+.layout-toggle-btn + .layout-toggle-btn {
+  border-left: 1px solid var(--line);
+}
+
+.layout-toggle-btn:hover {
+  color: var(--ink);
+}
+
+.layout-toggle-btn:focus-visible {
+  color: var(--ink);
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+/* Active segment: warm selection fill + accent ink. Weight stays constant
+   across states — the fill + accent colour carry the active affordance, and a
+   bold-only-when-active label would change width and nudge the segments. */
+.layout-toggle-btn.is-active {
+  background-color: var(--sel-bg);
+  color: var(--accent);
+}
+
 /* ── Main two-pane grid ─────────────────────────────────────────────────────── */
+/* The pane arrangement is user-selectable (see .layout-toggle). Two modifier    */
+/* classes swap the grid axis; the base rule holds the shared box properties.    */
 
 .app-main {
   display: grid;
-  grid-template-columns: minmax(320px, 38%) 1fr;
   flex: 1;
   min-height: 0;
   overflow: hidden;
+}
+
+/* Stack (default): map on top at full width, detail below. Matches the wide,
+   short exploration DAG shape. The detail row floors at 180px so an empty
+   "Select a step" placeholder can't reserve an oversized row, then grows to
+   share leftover height (2fr map / 1fr detail). */
+.app-main.layout-stack {
+  grid-template-columns: 1fr;
+  grid-template-rows: 2fr minmax(180px, 1fr);
+}
+
+/* Split: map left, detail right (the pre-issue-#9 behaviour). */
+.app-main.layout-split {
+  grid-template-columns: minmax(320px, 38%) 1fr;
 }
 
 /* ── Shared panel surface ───────────────────────────────────────────────────── */
 
 .panel {
   background-color: var(--panel);
-  border-right: 1px solid var(--line);
   overflow: auto;
   padding: 1rem;
 }
 
-.panel-detail {
-  border-right: none;
+/* Split mode: vertical divider between the side-by-side panes. */
+.app-main.layout-split .panel-map {
+  border-right: 1px solid var(--line);
+}
+
+/* Stack mode: horizontal divider under the top (map) pane. */
+.app-main.layout-stack .panel-map {
+  border-bottom: 1px solid var(--line);
 }
 
 /* Anchor the map-hint affordance to the map pane's bottom-left corner. */
@@ -680,9 +749,10 @@ pre.diff {
 }
 
 /* ── Responsive: narrow viewports (≤ 800 px) ────────────────────────────────
-   Two-pane grid stacks to a single column.  The map panel goes on top and the
-   detail panel below, each independently scrollable.  The header toolbar wraps
-   below the title when horizontal space is tight.
+   Both panes stack to a single column regardless of the chosen LayoutMode —
+   there is no room for a side-by-side split on a narrow screen. The map panel
+   goes on top and the detail panel below, each independently scrollable. The
+   header toolbar wraps below the title when horizontal space is tight.
    ─────────────────────────────────────────────────────────────────────────── */
 
 @media (max-width: 800px) {
@@ -697,16 +767,18 @@ pre.diff {
     flex-wrap: wrap;
   }
 
-  /* Main grid: single column, two rows, each taking roughly half the viewport. */
-  .app-main {
+  /* Main grid: single column, two rows, each taking roughly half the viewport.
+     The doubled class selector matches the specificity of .app-main.layout-*
+     so it wins over whichever mode is active. */
+  .app-main.app-main {
     grid-template-columns: 1fr;
     grid-template-rows: 1fr 1fr;
     overflow: auto;
   }
 
-  /* Restore right border on the map panel (normally supplied by .panel-detail
-     removing its own border; in stacked layout both panels stand alone). */
-  .panel-map {
+  /* Force the horizontal divider even in split mode (both panels stand alone
+     stacked). Doubled class keeps specificity above .app-main.layout-split. */
+  .app-main.app-main .panel-map {
     border-right: none;
     border-bottom: 1px solid var(--line);
   }

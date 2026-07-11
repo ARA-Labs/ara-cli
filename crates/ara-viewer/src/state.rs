@@ -78,6 +78,50 @@ pub fn safe_viewbox(bounds: Option<&Rect>) -> (f64, f64, f64, f64) {
     }
 }
 
+// ── Layout mode ───────────────────────────────────────────────────────────────
+
+/// Which way the `#map` (graph) and `#detail` panes are arranged in `.app-main`.
+///
+/// User-selectable via the header toolbar. The value is a plain `Copy` enum so
+/// it can live in a Leptos signal and be unit-tested on native.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum LayoutMode {
+    /// Map on top (full viewport width), detail below — `grid-template-rows`.
+    /// The default: matches the naturally wide-and-short exploration DAG shape.
+    #[default]
+    Stack,
+    /// Map left, detail right — `grid-template-columns`. The pre-issue-#9
+    /// behaviour, kept as an opt-in mode.
+    Split,
+}
+
+impl LayoutMode {
+    /// CSS modifier class applied to `.app-main` for this mode.
+    pub fn css_class(self) -> &'static str {
+        match self {
+            LayoutMode::Stack => "layout-stack",
+            LayoutMode::Split => "layout-split",
+        }
+    }
+
+    /// Stable wire token (used as the toolbar button id and for round-tripping).
+    pub fn as_token(self) -> &'static str {
+        match self {
+            LayoutMode::Stack => "stack",
+            LayoutMode::Split => "split",
+        }
+    }
+
+    /// Parse a token back to a mode. Unknown input falls back to the default
+    /// (`Stack`) so a stale/garbage value can never wedge the layout.
+    pub fn from_token(s: &str) -> Self {
+        match s {
+            "split" => LayoutMode::Split,
+            _ => LayoutMode::Stack,
+        }
+    }
+}
+
 // ── View state ────────────────────────────────────────────────────────────────
 
 /// Minimal pan/zoom state.  Steps 3b/5 will extend this; it is a plain value
@@ -247,6 +291,32 @@ mod tests {
             vb.2 > 0.0 && vb.3 > 0.0,
             "viewBox must have positive extent"
         );
+    }
+
+    // ── LayoutMode ────────────────────────────────────────────────────────────
+
+    #[test]
+    fn layout_mode_default_is_stack() {
+        assert_eq!(LayoutMode::default(), LayoutMode::Stack);
+    }
+
+    #[test]
+    fn layout_mode_css_class_mapping() {
+        assert_eq!(LayoutMode::Stack.css_class(), "layout-stack");
+        assert_eq!(LayoutMode::Split.css_class(), "layout-split");
+    }
+
+    #[test]
+    fn layout_mode_token_round_trip() {
+        for mode in [LayoutMode::Stack, LayoutMode::Split] {
+            assert_eq!(LayoutMode::from_token(mode.as_token()), mode);
+        }
+    }
+
+    #[test]
+    fn layout_mode_from_unknown_token_falls_back_to_stack() {
+        assert_eq!(LayoutMode::from_token(""), LayoutMode::Stack);
+        assert_eq!(LayoutMode::from_token("garbage"), LayoutMode::Stack);
     }
 
     // ── apply_manifest ────────────────────────────────────────────────────────

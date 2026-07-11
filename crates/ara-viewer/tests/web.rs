@@ -22,7 +22,8 @@ use std::collections::HashSet;
 use ara_viewer::{
     detail::DetailPane,
     scene::{GraphRenderer, GraphView, LayoutView, SvgRenderer},
-    state::{LoadState, PanZoom, parse_manifest},
+    state::{LayoutMode, LoadState, PanZoom, parse_manifest},
+    toolbar::LayoutToggle,
 };
 use leptos::prelude::*;
 use wasm_bindgen::JsCast;
@@ -533,6 +534,88 @@ fn insight_node_shows_description_no_typed_fields() {
     assert!(
         reason_block.is_none(),
         "insight node detail must NOT have a .reason block"
+    );
+}
+
+// ── Test: layout toggle flips the active segment + drives the signal ──────────
+
+/// Mounts `LayoutToggle` bound to a `layout` signal. Asserts:
+///  - two segment buttons render (stack, split);
+///  - "stack" is active initially (the default), "split" is not;
+///  - clicking "split" flips the signal to `Split`, moving `is-active` +
+///    `aria-pressed="true"` onto the split button.
+#[wasm_bindgen_test]
+async fn layout_toggle_flips_active_segment() {
+    let doc = web_sys::window().unwrap().document().unwrap();
+    let container = body_div(&doc);
+
+    let layout: RwSignal<LayoutMode> = RwSignal::new(LayoutMode::default());
+
+    let _handle = leptos::mount::mount_to(container.clone(), move || {
+        view! { <LayoutToggle layout=layout /> }
+    });
+
+    let stack_btn = container
+        .query_selector("button[data-mode='stack']")
+        .unwrap()
+        .expect("stack segment button must be present")
+        .dyn_into::<HtmlElement>()
+        .unwrap();
+    let split_btn = container
+        .query_selector("button[data-mode='split']")
+        .unwrap()
+        .expect("split segment button must be present")
+        .dyn_into::<HtmlElement>()
+        .unwrap();
+
+    // Initial state: stack active, split not.
+    assert!(
+        stack_btn
+            .get_attribute("class")
+            .unwrap_or_default()
+            .contains("is-active"),
+        "stack must be the initially active segment"
+    );
+    assert_eq!(
+        stack_btn.get_attribute("aria-pressed").as_deref(),
+        Some("true"),
+        "stack must be aria-pressed initially"
+    );
+    assert!(
+        !split_btn
+            .get_attribute("class")
+            .unwrap_or_default()
+            .contains("is-active"),
+        "split must not be active initially"
+    );
+
+    // Click "split" — it's an HtmlElement so .click() is available.
+    split_btn.click();
+    leptos::task::tick().await;
+
+    assert_eq!(
+        layout.get_untracked(),
+        LayoutMode::Split,
+        "signal must flip to Split"
+    );
+    assert!(
+        split_btn
+            .get_attribute("class")
+            .unwrap_or_default()
+            .contains("is-active"),
+        "split must become active after click"
+    );
+    assert_eq!(
+        split_btn.get_attribute("aria-pressed").as_deref(),
+        Some("true"),
+        "split must be aria-pressed after click"
+    );
+    assert!(
+        !stack_btn
+            .get_attribute("class")
+            .unwrap_or_default()
+            .contains("is-active"),
+        "stack must no longer be active after selecting split"
     );
 }
 

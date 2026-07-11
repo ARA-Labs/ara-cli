@@ -10,6 +10,7 @@ use leptos::prelude::*;
 
 use crate::filter::FilterState;
 use crate::kind::kind_meta;
+use crate::state::LayoutMode;
 
 // ── Kind option ───────────────────────────────────────────────────────────────
 
@@ -59,6 +60,43 @@ fn kind_options(manifest: &Manifest) -> Vec<KindOption> {
             label: badge,
         })
         .collect()
+}
+
+// ── Layout toggle component ─────────────────────────────────────────────────
+
+/// Segmented two-button control for choosing the `.app-main` [`LayoutMode`].
+///
+/// `layout` is owned by [`crate::App`]; clicking a segment sets it, which flips
+/// the reactive modifier class on `.app-main`. The active segment carries
+/// `is-active` + `aria-pressed="true"`. `Stack` is the default.
+#[component]
+pub fn LayoutToggle(layout: RwSignal<LayoutMode>) -> impl IntoView {
+    // One <button> per mode, in display order. `label` is the visible text;
+    // `mode` is the value it selects.
+    let segments = [(LayoutMode::Stack, "stack"), (LayoutMode::Split, "split")];
+
+    view! {
+        // role="group" + aria-label names the segmented control for AT users.
+        <div class="layout-toggle" role="group" aria-label="Layout">
+            {segments
+                .into_iter()
+                .map(|(mode, label)| {
+                    view! {
+                        <button
+                            type="button"
+                            class="layout-toggle-btn"
+                            class:is-active=move || layout.get() == mode
+                            aria-pressed=move || (layout.get() == mode).to_string()
+                            data-mode=mode.as_token()
+                            on:click=move |_| layout.set(mode)
+                        >
+                            {label}
+                        </button>
+                    }
+                })
+                .collect_view()}
+        </div>
+    }
 }
 
 // ── Toolbar component ─────────────────────────────────────────────────────────

@@ -107,6 +107,18 @@ jobs:
           fi
           exit $FAIL
 
+  viewer-embed-fresh:
+    name: viewer-embed-fresh
+    runs-on: ubuntu-24.04
+    # Fails if the ara-viewer frontend source changed but the bundle baked into
+    # ara-cli (crates/ara-cli/assets/viewer/) wasn't regenerated — so `ara serve`
+    # can't silently ship a stale UI. Keyed on a content hash of the frontend
+    # SOURCE (deterministic, toolchain-independent), so this job needs no trunk
+    # or wasm toolchain and stays fast. Regenerate with scripts/embed-viewer.sh.
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - run: scripts/embed-viewer.sh --check
+
   viewer-web-test:
     name: viewer-web-test
     runs-on: ubuntu-24.04

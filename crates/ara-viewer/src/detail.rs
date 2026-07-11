@@ -214,7 +214,7 @@ fn typed_fields_for(node: &Node) -> Vec<TypedField> {
 /// Renders the detail pane for the currently selected node.
 ///
 /// Reacts to both `load_state` and `selected`:
-/// - `selected` is `None` → placeholder "Select a step on the left."
+/// - `selected` is `None` → placeholder "Select a step to see its details."
 /// - `selected` is `Some(id)` but manifest not loaded → same placeholder
 /// - `selected` is `Some(id)` and manifest loaded → find node and render
 #[component]
@@ -228,12 +228,12 @@ pub fn DetailPane(
 
         match (sel, state) {
             (None, _) | (_, LoadState::Loading) => view! {
-                <p class="placeholder-text">"Select a step on the left."</p>
+                <p class="placeholder-text">"Select a step to see its details."</p>
             }
             .into_any(),
 
             (_, LoadState::Failed(_)) => view! {
-                <p class="placeholder-text">"Select a step on the left."</p>
+                <p class="placeholder-text">"Select a step to see its details."</p>
             }
             .into_any(),
 

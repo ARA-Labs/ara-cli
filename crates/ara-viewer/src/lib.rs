@@ -21,8 +21,8 @@ use filter::FilterState;
 use leptos::prelude::*;
 use scene::{GraphRenderer, GraphView, LayoutView, SvgRenderer};
 use source::{ManifestSource, connect_live, fetch_manifest};
-use state::{LoadState, MapSurface, PanZoom, map_surface, safe_viewbox};
-use toolbar::Toolbar;
+use state::{LayoutMode, LoadState, MapSurface, PanZoom, map_surface, safe_viewbox};
+use toolbar::{LayoutToggle, Toolbar};
 
 /// Mount the [`App`] component to `<body>`.
 ///
@@ -35,9 +35,10 @@ pub fn mount() {
 
 /// Root application shell.
 ///
-/// Renders the two-pane layout: a fixed header with title and toolbar area,
-/// and a CSS grid main section containing the `#map` (left) and `#detail`
-/// (right) panels.
+/// Renders a fixed header with title and toolbar area, and a CSS grid main
+/// section containing the `#map` and `#detail` panels. The panes are arranged
+/// per the user-selected [`LayoutMode`]: `Stack` (map on top, detail below —
+/// the default) or `Split` (map left, detail right).
 #[component]
 pub fn App() -> impl IntoView {
     // ── Manifest load state ──────────────────────────────────────────────────
@@ -62,6 +63,11 @@ pub fn App() -> impl IntoView {
     // ── Filter state (Step 5: toolbar + dimming; survives manifest swaps) ─────
     let filter: RwSignal<FilterState> = RwSignal::new(FilterState::default());
 
+    // ── Layout mode (stack vs. split; survives manifest swaps) ────────────────
+    // Stack (map on top, detail below) is the default — it matches the wide DAG
+    // shape and uses the full viewport width. Split is the opt-in side-by-side.
+    let layout: RwSignal<LayoutMode> = RwSignal::new(LayoutMode::default());
+
     view! {
         <header class="app-header">
             <div class="header-title">
@@ -73,6 +79,9 @@ pub fn App() -> impl IntoView {
             </div>
             // role="toolbar" gives AT users a named landmark for the filter controls.
             <div class="toolbar-area" role="toolbar" aria-label="Filters">
+                // Layout mode selector — first so the filter controls stay
+                // grouped on the right.
+                <LayoutToggle layout=layout />
                 // Extract the manifest for the Toolbar kind-options derive.
                 // When not loaded, pass None so the select is disabled.
                 {move || {
@@ -86,7 +95,7 @@ pub fn App() -> impl IntoView {
                 }}
             </div>
         </header>
-        <main class="app-main">
+        <main class=move || format!("app-main {}", layout.get().css_class())>
             // role="region" + aria-label lets screen-reader users jump between panes.
             <section id="map" class="panel panel-map" role="region" aria-label="Exploration graph">
                 <MapPane load_state=load_state selected=selected pan_zoom=pan_zoom filter=filter />

@@ -49,9 +49,27 @@ token set is vendored verbatim into `public/styles.css`:
 | `--sel-bg` | `#f7ead2` | selected node fill |
 
 Body `ui-sans-serif`, ids/code `ui-monospace`. No new palette, no default font
-stack. A two-pane `<main>` grid `minmax(320px, 38%) 1fr` — left `#map`
-(exploration tree), right `#detail` (drill-down) — that stacks to a single
-column below 800px.
+stack. A two-pane `<main>` grid holds `#map` (exploration tree) and `#detail`
+(drill-down); its arrangement is user-selectable via a header toggle (see
+**Layout modes** below). Below 800px it always collapses to a single column.
+
+### Layout modes
+
+The map and detail panes arrange in one of two user-selectable modes, chosen
+with a segmented **stack | split** toggle in the header toolbar:
+
+- **Stack** (default) — map on top at full viewport width, detail below
+  (`grid-template-rows: 2fr minmax(180px, 1fr)`). Matches the naturally
+  wide-and-short exploration DAG so the graph uses the full width instead of
+  being squeezed into a narrow column (issue #9).
+- **Split** — map left, detail right (`grid-template-columns: minmax(320px, 38%)
+  1fr`); the pre-#9 side-by-side behaviour, kept as an opt-in.
+
+The choice is a `LayoutMode` signal in `App` (session-only, survives manifest
+swaps like the other view-state signals) applied as a `.layout-stack` /
+`.layout-split` modifier class on `.app-main`, which also flips the panel
+divider between a right and a bottom border. Narrow viewports (≤ 800px) stack
+regardless of the selected mode.
 
 ## Architecture
 
@@ -62,12 +80,12 @@ Crate layout (`lib` + `bin` so components are import-testable):
 | `lib.rs` | `App` shell + `MapPane`; owns the view-state signals |
 | `main.rs` | 8-line binary → `ara_viewer::mount()` |
 | `kind.rs` | `kind_meta(&NodeKind)` — the single source of truth for wire css class / glyph / badge |
-| `state.rs` | `LoadState`, `MapSurface`/`map_surface`, `safe_viewbox`, `PanZoom`/`ViewState`/`apply_manifest`, `parse_manifest` |
+| `state.rs` | `LoadState`, `MapSurface`/`map_surface`, `safe_viewbox`, `PanZoom`/`ViewState`/`apply_manifest`, `LayoutMode`, `parse_manifest` |
 | `source.rs` | `ManifestSource` seam + the wasm-only `fetch_manifest` |
 | `scene.rs` | pure scene model + `GraphRenderer` trait + `SvgRenderer` + the interactive `GraphView` |
 | `detail.rs` | pure `detail_model` + the `DetailPane` component |
 | `filter.rs` | `FilterState` + the pure `node_matches` predicate |
-| `toolbar.rs` | the header `Toolbar` component |
+| `toolbar.rs` | the header `Toolbar` (filters) + `LayoutToggle` (stack/split) components |
 | `canvas.rs` | `CanvasRenderer` stub (the fps contingency, unbuilt) |
 
 Three ideas keep the stage honest and Stage-4-ready:

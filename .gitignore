@@ -23,3 +23,4 @@ target
 # ara-viewer Trunk build output and cache (source files index.html / Trunk.toml are committed)
 crates/ara-viewer/dist/
 crates/ara-viewer/.trunk/
+.gstack/

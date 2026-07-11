@@ -6,6 +6,30 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- Viewer: selectable layout modes for the map/detail panes via a segmented
+  toggle in the header — **Stack** (map on top at full width, detail below; the
+  new default, matching the wide exploration-DAG shape) and **Split** (map left,
+  detail right; the previous side-by-side behaviour). Session-only; narrow
+  viewports always stack. (#9)
+
+### Changed
+- Build: `scripts/embed-viewer.sh` is now the canonical way to regenerate the
+  viewer bundle baked into `ara-cli`, and a new CI job (`viewer-embed-fresh`)
+  runs `--check` to fail a PR when the ara-viewer frontend source changes without
+  a matching regen — so `ara serve` can't silently ship a stale embedded UI. (#9)
+
+### Fixed
+- Viewer: detail-pane placeholder now reads "Select a step to see its details."
+  instead of "…on the left." — the map sits on top in the default stack mode, so
+  the directional copy was wrong. (#9)
+- Viewer: inactive layout-toggle label now uses `--ink` (~11.6:1) instead of
+  `--muted` (~3.57:1), clearing the WCAG AA 4.5:1 contrast threshold for an
+  interactive control label. (#9)
+- Viewer: the active layout-toggle segment no longer bolds its label, which was
+  changing the label width and nudging the segments sideways on every toggle.
+  (#9)
+
 ## [0.1.0] - 2026-07-11
 
 First published release. The `ara` CLI (`validate` + `layout` + `serve` with a
