@@ -742,7 +742,10 @@ fn tree_view_renders_rows_and_nesting() {
 
     // Nesting: at least one .kid container (N01's children, N02's, N10's).
     let kids = tree.query_selector_all("div.kid").unwrap();
-    assert!(kids.length() >= 1, "child rows live in sibling .kid containers");
+    assert!(
+        kids.length() >= 1,
+        "child rows live in sibling .kid containers"
+    );
 
     // Each row carries a .glyph chip and an .ntitle.
     assert!(tree.query_selector("span.glyph").unwrap().is_some());
@@ -807,7 +810,10 @@ fn tree_isolated_root_renders_in_isobox() {
     let iso_row = isobox
         .query_selector("div.node[aria-label*='Isolated root']")
         .unwrap();
-    assert!(iso_row.is_some(), "isolated root row must live inside .isobox");
+    assert!(
+        iso_row.is_some(),
+        "isolated root row must live inside .isobox"
+    );
 }
 
 // ── Test: dep marker ⇠ renders; hover applies .deptarget ──────────────────────
@@ -846,8 +852,7 @@ async fn tree_dep_marker_and_hover_deptarget() {
         .expect("N01 row must be present");
     let init = web_sys::PointerEventInit::new();
     init.set_bubbles(true);
-    let enter =
-        web_sys::PointerEvent::new_with_event_init_dict("pointerenter", &init).unwrap();
+    let enter = web_sys::PointerEvent::new_with_event_init_dict("pointerenter", &init).unwrap();
     n01_row.dispatch_event(&enter).unwrap();
     leptos::task::tick().await;
 
@@ -1147,11 +1152,8 @@ async fn replay_play_auto_stops_at_last() {
 async fn gloo_timers_sleep(dur: std::time::Duration) {
     let promise = js_sys::Promise::new(&mut |resolve, _reject| {
         let win = web_sys::window().unwrap();
-        win.set_timeout_with_callback_and_timeout_and_arguments_0(
-            &resolve,
-            dur.as_millis() as i32,
-        )
-        .unwrap();
+        win.set_timeout_with_callback_and_timeout_and_arguments_0(&resolve, dur.as_millis() as i32)
+            .unwrap();
     });
     let _ = wasm_bindgen_futures::JsFuture::from(promise).await;
 }

@@ -433,7 +433,11 @@ mod tests {
             .iter()
             .map(|c| c.row.id.as_str())
             .collect();
-        assert_eq!(kids, ["N03", "N02"], "children follow Child-link source order");
+        assert_eq!(
+            kids,
+            ["N03", "N02"],
+            "children follow Child-link source order"
+        );
     }
 
     // ── isolated partition ──────────────────────────────────────────────────────
@@ -586,7 +590,8 @@ mod tests {
 
         // Both nodes have an incoming Child edge → no root. Force a root by
         // adding a third node that points into the cycle.
-        m.nodes.insert(0, node("N00", NodeKind::Question, Some("start")));
+        m.nodes
+            .insert(0, node("N00", NodeKind::Question, Some("start")));
         m.links.insert(0, child("N00", "N01"));
 
         // Must not infinite-loop.

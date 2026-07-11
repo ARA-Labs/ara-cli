@@ -173,8 +173,7 @@ pub fn install_arrow_key_listener(
         },
     );
     if let Some(doc) = leptos::web_sys::window().and_then(|w| w.document()) {
-        let _ =
-            doc.add_event_listener_with_callback("keydown", handler.as_ref().unchecked_ref());
+        let _ = doc.add_event_listener_with_callback("keydown", handler.as_ref().unchecked_ref());
     }
     handler.forget();
 }
@@ -244,10 +243,9 @@ pub fn ReplayBar(
                     stop_replay(state);
                 }
             };
-            if let Ok(h) = set_interval_with_handle(
-                tick,
-                std::time::Duration::from_millis(REPLAY_INTERVAL_MS),
-            ) {
+            if let Ok(h) =
+                set_interval_with_handle(tick, std::time::Duration::from_millis(REPLAY_INTERVAL_MS))
+            {
                 state.handle.set_value(Some(h));
             }
         }
@@ -399,7 +397,11 @@ mod tests {
     fn counter_zero_when_unselected() {
         let order = ids(&["N01", "N02", "N03"]);
         assert_eq!(counter(&order, None), (0, 3));
-        assert_eq!(counter(&order, Some(&NodeId::new("N99"))), (0, 3), "unknown → 0");
+        assert_eq!(
+            counter(&order, Some(&NodeId::new("N99"))),
+            (0, 3),
+            "unknown → 0"
+        );
     }
 
     // ── rstat string forms ───────────────────────────────────────────────────────

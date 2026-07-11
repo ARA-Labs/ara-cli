@@ -222,7 +222,8 @@ pub fn MapPane(
                 let manifest_for_surface = manifest.clone();
                 let surface = move || match display.get() {
                     DisplayMode::Graph => {
-                        let scene = SvgRenderer.scene(&manifest_for_surface, &LayoutView::default());
+                        let scene =
+                            SvgRenderer.scene(&manifest_for_surface, &LayoutView::default());
                         view! {
                             <GraphView
                                 scene=scene
