@@ -72,6 +72,15 @@ the sections below and called out in the review report.
   tokens part 4 needs (`--code-bg --reason-bg --iso-*` etc.) are added only as
   far as the tree-list itself uses them (`--iso-*`); the diff/scrim/shadow
   tokens land with part 4.
+- **Per-node narrative (#12) is deferred, and the tree-list is intentionally
+  *not* blocked on it.** Issue #12 lists #7 as "blocked on schema widening," but
+  that only applies to per-node prose (detail-pane narrative + part-4 layer
+  panels). The tree-list rows label off `title ?? body ?? "(untitled)"`
+  (see §3), not off a narrative field, so parts 1–3 ship without it. The
+  narrative field lands with the same `T-REAL-CORPUS` schema widening as part 4;
+  the plan **keeps graceful omission today** (absent field → renders nothing, as
+  now) rather than shipping an empty placeholder box — see "Future: per-node
+  narrative field (#12)" below.
 - **Tree CSS classes** use the **published reference names** (`.node`, `.kid`,
   `.nid`, `.ntitle`, `.isobox`, `.deptarget`, `.dim`) but are **scoped under a
   `.tree-map` container** so they never collide with the SVG graph's existing
@@ -431,6 +440,45 @@ implementation has no open questions.
 5. **Step count → both modes** (toolbar-level, shared by filter + replay), and
    **`Prev` from no-selection → first node** (reference clamp quirk). Resolved by
    reading the reference.
+
+## Future: per-node narrative field (#12)
+
+Issue #12 tracks an **upstream** ask: add a canonical per-node **narrative**
+field to the ARA schema so the viewer can show the prose the old static
+`trajectory.html` baked in. The viewer renders YAML deterministically and never
+calls an LLM at view time, so narrative can only appear if precomputed upstream
+and stored on the node.
+
+**Decision for this PR: keep graceful omission — do not ship an empty
+placeholder box.** Absent narrative renders nothing today (`detail.rs` already
+omits absent fields), which #12 itself confirms is correct behaviour, not a bug.
+An empty box would (a) contradict the plan's "no dead chrome" scope stance,
+(b) appear on *every* node until the schema widens (today's demo has no
+narrative anywhere), reading as broken UI, and (c) break the detail pane's
+existing omit-when-absent pattern. Graceful omission also makes the later add
+strictly additive — `None`/absent and a future `Some(text)` differ only in
+whether prose renders, with no placeholder logic to remove.
+
+**When upstream lands the field (under `T-REAL-CORPUS`, same schema widening as
+part 4):**
+
+1. **`schema.rs`** — add `narrative: Option<String>` (exact key/type per
+   upstream) to `RawNode`, `#[serde(default)]` so old manifests still parse.
+2. **`parse.rs`** — pass it through when constructing the core node.
+3. **`manifest.rs`** — add it to `Node`, mirroring `isolated`:
+   `#[serde(default, skip_serializing_if = "Option::is_none")]` so
+   narrative-less manifests round-trip unchanged.
+4. **`detail.rs`** — add it to `DetailModel` and render it in `DetailPane`:
+   `None` → nothing (as today), `Some(text)` → the prose. This is where
+   graceful omission pays off — a pure superset, no behaviour change for
+   narrative-less nodes.
+5. **`docs/manifest-schema.md`** — document the field (as with `isolated`).
+6. **Close / reference #12** in that PR.
+
+**Pin with upstream before implementing** (open questions in #12 +
+`docs/ara-format-feedback.md`): the exact key name; whether it's a flat string
+or structured markdown (affects whether `DetailPane` needs a markdown renderer);
+and any `schema_version` guarantee (affects whether we branch on version).
 
 ## GSTACK REVIEW REPORT
 
