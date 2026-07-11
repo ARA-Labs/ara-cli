@@ -1,6 +1,11 @@
 [build]
 target = "index.html"
 dist = "dist"
+# NOTE: cargo_profile is intentionally NOT set here.
+# Setting it globally would slow `trunk serve` dev rebuilds (lto=fat + codegen-units=1).
+# For the CI size-gate / release wasm build, select the wasm-release profile via env:
+#   TRUNK_BUILD_CARGO_PROFILE=wasm-release trunk build --release
+# This keeps the dev path (plain `trunk serve` / `trunk build`) on the fast default profile.
 
 [serve]
 port = 3000

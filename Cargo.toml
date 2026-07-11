@@ -15,3 +15,16 @@ categories = ["command-line-utilities", "visualization"]
 [profile.release]
 opt-level = 3
 lto = "thin"
+
+# Wasm-specific release profile: maximise binary size reduction.
+# Used only for the CI size-gate and release wasm builds via:
+#   TRUNK_BUILD_CARGO_PROFILE=wasm-release trunk build --release
+# NOT used by `trunk serve` or plain `trunk build` (dev stays on the default
+# debug profile so incremental rebuilds stay fast).
+[profile.wasm-release]
+inherits = "release"
+opt-level = "z"
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+strip = true

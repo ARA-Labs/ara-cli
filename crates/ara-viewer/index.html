@@ -8,7 +8,7 @@
     <!-- Copy manifest.json to dist/ so the runtime fetch URL "manifest.json" resolves. -->
     <!-- Trunk does not auto-copy public/ contents; this directive is required.        -->
     <link data-trunk rel="copy-file" href="public/manifest.json" />
-    <link data-trunk rel="rust" data-wasm-opt="z" data-weak-refs />
+    <link data-trunk rel="rust" data-wasm-opt="z" data-wasm-opt-params="--enable-bulk-memory --enable-bulk-memory-opt" data-weak-refs />
   </head>
   <body></body>
 </html>

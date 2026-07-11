@@ -55,6 +55,55 @@ jobs:
       # browser-facing cdylib), not just ara-core.
       - run: cargo build -p ara-core -p ara-wasm --target wasm32-unknown-unknown --locked
 
+  viewer-size:
+    name: viewer-size
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+      # binaryen (wasm-opt) and brotli are both in the ubuntu-24.04 apt package list.
+      # trunk is installed from crates.io (same trust root as other dependencies);
+      # rust-cache keeps the compiled binary warm across runs.
+      - name: Install system tools
+        run: sudo apt-get install -y binaryen brotli
+      - name: Install trunk
+        run: cargo install trunk --locked
+      # Use the wasm-release profile (opt-level="z", lto="fat", codegen-units=1,
+      # panic="abort", strip=true) via the TRUNK_BUILD_CARGO_PROFILE env override.
+      # This does NOT touch the default Trunk.toml so `trunk serve` stays on the
+      # fast dev profile.
+      - name: Build wasm (wasm-release profile)
+        run: |
+          cd crates/ara-viewer
+          TRUNK_BUILD_CARGO_PROFILE=wasm-release trunk build --release
+      - name: Check wasm size budget
+        run: |
+          WASM=$(ls crates/ara-viewer/dist/*_bg.wasm | head -1)
+          UNCOMPRESSED=$(wc -c < "$WASM")
+          BROTLI=$(brotli -q 11 -c "$WASM" | wc -c)
+
+          BUDGET_UNCOMPRESSED=1048576  # 1 MB
+          BUDGET_BROTLI=358400         # 350 KB
+
+          echo "=== Wasm size report ==="
+          echo "  Uncompressed : ${UNCOMPRESSED} bytes (budget: ${BUDGET_UNCOMPRESSED})"
+          echo "  Brotli q11   : ${BROTLI} bytes (budget: ${BUDGET_BROTLI})"
+
+          FAIL=0
+          if [ "$UNCOMPRESSED" -ge "$BUDGET_UNCOMPRESSED" ]; then
+            echo "FAIL: uncompressed ${UNCOMPRESSED} >= ${BUDGET_UNCOMPRESSED} (1 MB)"
+            FAIL=1
+          else
+            echo "PASS: uncompressed ${UNCOMPRESSED} < ${BUDGET_UNCOMPRESSED}"
+          fi
+          if [ "$BROTLI" -ge "$BUDGET_BROTLI" ]; then
+            echo "FAIL: brotli ${BROTLI} >= ${BUDGET_BROTLI} (350 KB)"
+            FAIL=1
+          else
+            echo "PASS: brotli ${BROTLI} < ${BUDGET_BROTLI}"
+          fi
+          exit $FAIL
+
   viewer-web-test:
     name: viewer-web-test
     runs-on: ubuntu-24.04
