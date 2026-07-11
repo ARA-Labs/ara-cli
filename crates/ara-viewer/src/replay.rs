@@ -86,65 +86,84 @@ pub fn rstat_text(order: &[NodeId], current: Option<&NodeId>, shown: usize) -> S
     }
 }
 
-// ── ReplayBar component ───────────────────────────────────────────────────────
+// ── Replay runtime state + control helpers ───────────────────────────────────
 
 /// Replay interval, matching the reference (`1300 ms`).
 #[cfg(target_arch = "wasm32")]
 const REPLAY_INTERVAL_MS: u64 = 1300;
 
+/// Imperative runtime state for the replay interval, owned by `App` so both the
+/// [`ReplayBar`] buttons and the document-level arrow-key listener share one
+/// timer. `playing` drives the button label; `handle` holds the live interval
+/// (a `StoredValue`, since it is imperative timer state, not reactive view
+/// state). Both are `Copy`.
+#[derive(Clone, Copy)]
+pub struct ReplayState {
+    pub playing: RwSignal<bool>,
+    pub handle: StoredValue<Option<IntervalHandle>>,
+}
+
+impl Default for ReplayState {
+    fn default() -> Self {
+        Self {
+            playing: RwSignal::new(false),
+            handle: StoredValue::new(None),
+        }
+    }
+}
+
+/// Clear the interval (if any) and reset the playing flag. Safe on native
+/// (the handle is always `None` there).
+pub fn stop_replay(state: ReplayState) {
+    state.handle.update_value(|h| {
+        if let Some(h) = h.take() {
+            h.clear();
+        }
+    });
+    state.playing.set(false);
+}
+
+/// Advance / retreat the selection by one step through `order`, clamping.
+pub fn advance(order: &[NodeId], selected: RwSignal<Option<NodeId>>, dir: Step) {
+    if let Some(next) = step(order, selected.get().as_ref(), dir) {
+        selected.set(Some(next));
+    }
+}
+
+// ── ReplayBar component ───────────────────────────────────────────────────────
+
 /// The replay controls: `‹` (prev) / `▶ Replay`⇄`⏸ Pause` (play) / `›` (next).
 ///
 /// Works in **both** display modes; steps the shared `selected` signal through
-/// `order`. Prev/next call `stop()` first (per the reference). Play toggles a
-/// 1300 ms interval: if nothing is selected it selects `order[0]`, then each
-/// tick advances; at the last node it auto-stops (no wrap, no loop). The timer
-/// is wasm-only; on native the play button is inert. The interval is torn down
-/// on pause, on reaching the last node, and on unmount (`on_cleanup`).
+/// `order`. Prev/next call [`stop_replay`] first (per the reference). Play
+/// toggles a 1300 ms interval: if nothing is selected it selects `order[0]`,
+/// then each tick advances; at the last node it auto-stops (no wrap, no loop).
+/// The timer is wasm-only; on native the play button is inert. `state` is owned
+/// by `App`, which tears the interval down on unmount and shares it with the
+/// arrow-key listener.
 #[component]
 pub fn ReplayBar(
     order: Memo<Vec<NodeId>>,
     selected: RwSignal<Option<NodeId>>,
+    state: ReplayState,
 ) -> impl IntoView {
-    // Whether the play interval is currently running (drives the button label).
-    let playing = RwSignal::new(false);
-    // The live interval handle, so play/stop/cleanup can cancel it. Stored (not
-    // a signal) because it is imperative timer state, not reactive view state.
-    let handle: StoredValue<Option<IntervalHandle>> = StoredValue::new(None);
-
-    // stop(): clear the timer + reset the label. Safe on native (no-op handle).
-    let stop = move || {
-        handle.update_value(|h| {
-            if let Some(h) = h.take() {
-                h.clear();
-            }
-        });
-        playing.set(false);
-    };
-
-    // Advance one step in `dir`, clamping. Shared by prev/next + the tick.
-    let advance = move |dir: Step| {
-        let ord = order.get();
-        let next = step(&ord, selected.get().as_ref(), dir);
-        if let Some(n) = next {
-            selected.set(Some(n));
-        }
-    };
+    let playing = state.playing;
 
     // Prev / next: stop() first, then a single step (reference order).
     let on_prev = move |_| {
-        stop();
-        advance(Step::Prev);
+        stop_replay(state);
+        advance(&order.get(), selected, Step::Prev);
     };
     let on_next = move |_| {
-        stop();
-        advance(Step::Next);
+        stop_replay(state);
+        advance(&order.get(), selected, Step::Next);
     };
 
     // Play toggle. The interval is wasm-only; on native this just no-ops the
     // timer (the button still renders but does not animate).
     let on_play = move |_| {
         if playing.get() {
-            stop();
+            stop_replay(state);
             return;
         }
         #[cfg(target_arch = "wasm32")]
@@ -164,7 +183,7 @@ pub fn ReplayBar(
                 let (i, n) = counter(&ord, cur.as_ref());
                 // At (or past) the last node → auto-stop, no wrap.
                 if n == 0 || i >= n {
-                    stop();
+                    stop_replay(state);
                     return;
                 }
                 if let Some(next) = step(&ord, cur.as_ref(), Step::Next) {
@@ -173,14 +192,14 @@ pub fn ReplayBar(
                 // If that step landed on the last node, stop after it.
                 let (i2, n2) = counter(&ord, selected.get().as_ref());
                 if i2 >= n2 {
-                    stop();
+                    stop_replay(state);
                 }
             };
             if let Ok(h) = set_interval_with_handle(
                 tick,
                 std::time::Duration::from_millis(REPLAY_INTERVAL_MS),
             ) {
-                handle.set_value(Some(h));
+                state.handle.set_value(Some(h));
             }
         }
         #[cfg(not(target_arch = "wasm32"))]
@@ -190,15 +209,6 @@ pub fn ReplayBar(
             playing.set(true);
         }
     };
-
-    // Tear the interval down on unmount so it can't outlive the component.
-    on_cleanup(move || {
-        handle.update_value(|h| {
-            if let Some(h) = h.take() {
-                h.clear();
-            }
-        });
-    });
 
     let play_label = move || {
         if playing.get() {
