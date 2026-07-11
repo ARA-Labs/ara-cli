@@ -9,10 +9,11 @@ mod scene;
 mod source;
 mod state;
 
+use ara_core::NodeId;
 use leptos::prelude::*;
-use scene::{GraphRenderer, LayoutView, SvgRenderer, render_scene};
+use scene::{GraphRenderer, GraphView, LayoutView, SvgRenderer};
 use source::{ManifestSource, fetch_manifest};
-use state::{LoadState, MapSurface, ViewState, map_surface, safe_viewbox};
+use state::{LoadState, MapSurface, PanZoom, map_surface, safe_viewbox};
 
 fn main() {
     console_error_panic_hook::set_once();
@@ -34,8 +35,13 @@ fn App() -> impl IntoView {
     let source = ManifestSource::default();
     fetch_manifest(source, move |s| set_load_state.set(s));
 
-    // ── View state (selection + pan/zoom) ─────────────────────────────────────
-    let (_view_state, _set_view_state) = signal(ViewState::default());
+    // ── Selection state (shared with future detail pane, Step 4) ─────────────
+    // Owned here so it survives manifest swaps and can be read by the detail
+    // pane without requiring prop-drilling through MapPane.
+    let selected: RwSignal<Option<NodeId>> = RwSignal::new(None);
+
+    // ── Pan/zoom state (persists across manifest swaps) ───────────────────────
+    let pan_zoom: RwSignal<PanZoom> = RwSignal::new(PanZoom::default());
 
     view! {
         <header class="app-header">
@@ -49,10 +55,19 @@ fn App() -> impl IntoView {
         </header>
         <main class="app-main">
             <section id="map" class="panel panel-map">
-                <MapPane load_state=load_state />
+                <MapPane load_state=load_state selected=selected pan_zoom=pan_zoom />
             </section>
             <section id="detail" class="panel panel-detail">
-                <p class="placeholder-text">"Select a step on the left."</p>
+                // Step 4 will build the real detail pane.
+                // For now, show the selected node id or a placeholder.
+                {move || match selected.get() {
+                    None => view! {
+                        <p class="placeholder-text">"Select a step on the left."</p>
+                    }.into_any(),
+                    Some(id) => view! {
+                        <p class="placeholder-text">"Selected: " {id.as_str().to_string()}</p>
+                    }.into_any(),
+                }}
             </section>
         </main>
     }
@@ -60,7 +75,11 @@ fn App() -> impl IntoView {
 
 /// The map pane — renders one of four surfaces based on [`LoadState`].
 #[component]
-fn MapPane(load_state: ReadSignal<LoadState>) -> impl IntoView {
+fn MapPane(
+    load_state: ReadSignal<LoadState>,
+    selected: RwSignal<Option<NodeId>>,
+    pan_zoom: RwSignal<PanZoom>,
+) -> impl IntoView {
     move || {
         let state = load_state.get();
         match map_surface(&state) {
@@ -96,23 +115,9 @@ fn MapPane(load_state: ReadSignal<LoadState>) -> impl IntoView {
                 let view_params = LayoutView::default();
                 let renderer = SvgRenderer;
                 let scene = renderer.scene(&manifest, &view_params);
-                let (bx, by, bw, bh) = (
-                    scene.bounds.x,
-                    scene.bounds.y,
-                    scene.bounds.width,
-                    scene.bounds.height,
-                );
-                let viewbox_str = format!("{bx} {by} {bw} {bh}");
-                let scene_content = render_scene(&scene);
 
                 view! {
-                    <svg
-                        class="graph-svg"
-                        viewBox=viewbox_str
-                        xmlns="http://www.w3.org/2000/svg"
-                    >
-                        {scene_content}
-                    </svg>
+                    <GraphView scene=scene selected=selected pan_zoom=pan_zoom />
                 }
                 .into_any()
             }

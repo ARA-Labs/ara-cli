@@ -13,9 +13,11 @@ use std::collections::HashMap;
 
 use ara_core::{LinkKind, Manifest, NodeId, NodeKind, Rect};
 use leptos::prelude::*;
+use leptos::wasm_bindgen::JsCast;
+use leptos::web_sys;
 
 use crate::kind::kind_meta;
-use crate::state::safe_viewbox;
+use crate::state::{PanZoom, safe_viewbox};
 
 // ── Layout parameters ─────────────────────────────────────────────────────────
 
@@ -42,13 +44,13 @@ impl Default for LayoutView {
 
 /// A single node in the scene with all display-relevant fields precomputed.
 pub struct SceneNode {
-    // `id` and `kind` are consumed by tests and will be used by the interaction
-    // layer in Step 3b (selection, focus, hit-testing).  Suppress the dead-code
-    // lint that fires because the current binary path only uses the derived fields.
-    #[allow(dead_code)]
+    /// Node identifier — used by the interaction layer for selection/hit-testing.
     pub id: NodeId,
     /// Top-left origin bounding box: `x = pos.x - w/2`, `y = pos.y - h/2`.
     pub rect: Rect,
+    /// Node kind — consumed by tests and kind-specific rendering.
+    /// Suppressed because the binary path drives rendering from pre-derived
+    /// `css_class`/`glyph`/`badge`; the raw kind is only read by tests.
     #[allow(dead_code)]
     pub kind: NodeKind,
     pub glyph: char,
@@ -60,10 +62,10 @@ pub struct SceneNode {
 
 /// A directed edge in the scene with a precomputed SVG path string.
 pub struct SceneEdge {
-    // `from`/`to` are consumed by tests and will be used by the interaction
-    // layer in Step 3b.  See note on SceneNode above.
+    /// Source node — consumed by tests; the binary path only uses `path`.
     #[allow(dead_code)]
     pub from: NodeId,
+    /// Target node — consumed by tests; the binary path only uses `path`.
     #[allow(dead_code)]
     pub to: NodeId,
     /// SVG path `d` attribute: straight center-to-center line.
@@ -164,15 +166,62 @@ impl GraphRenderer for SvgRenderer {
     }
 }
 
-// ── SVG render function ───────────────────────────────────────────────────────
+// ── Owned per-node display struct ────────────────────────────────────────────
 
-/// Render a [`GraphScene`] as Leptos SVG content.
+/// All display-relevant data for one node, owned for rendering.
+struct NodeDisplay {
+    id: NodeId,
+    rx: f64,
+    ry: f64,
+    rw: f64,
+    rh: f64,
+    label: String,
+    glyph: char,
+    group_class: String,
+    badge: String,
+    is_dead_end: bool,
+    aria_label: String,
+}
+
+impl NodeDisplay {
+    fn from_scene_node(n: &SceneNode) -> Self {
+        let group_class = format!("node {}", n.css_class);
+        let aria_label = format!("{}, {}", n.label, n.badge);
+        Self {
+            id: n.id.clone(),
+            rx: n.rect.x,
+            ry: n.rect.y,
+            rw: n.rect.width,
+            rh: n.rect.height,
+            label: n.label.clone(),
+            glyph: n.glyph,
+            group_class,
+            badge: n.badge.clone(),
+            is_dead_end: n.is_dead_end,
+            aria_label,
+        }
+    }
+}
+
+// ── Interactive graph view component ─────────────────────────────────────────
+
+/// Interactive SVG graph: selection, focus, pan/zoom, hit-testing, a11y.
 ///
-/// Produces the *inner* content to be placed inside `<svg class="graph-svg">`.
-/// Edges are rendered first (under nodes).  This is a static render — no event
-/// handlers, no tabindex, no selection classes.
-pub fn render_scene(scene: &GraphScene) -> impl IntoView {
-    // Pre-collect edges into owned data for the `view!` macro.
+/// This is the Step-3b interaction layer.  It replaces the static
+/// `render_scene` function.  The pure `scene()` compute is unchanged.
+///
+/// Selection state is kept in `selected` (shared with the future detail pane).
+/// Pan/zoom state is kept in `pan_zoom` (survives manifest swaps in Stage 4).
+#[component]
+pub fn GraphView(
+    scene: GraphScene,
+    selected: RwSignal<Option<NodeId>>,
+    pan_zoom: RwSignal<PanZoom>,
+) -> impl IntoView {
+    // Unpack scene into owned, Clone-able parts suitable for closures.
+    let bounds = scene.bounds;
+
+    // ── Edge display data ─────────────────────────────────────────────────────
     let edges: Vec<(String, &'static str)> = scene
         .edges
         .iter()
@@ -185,134 +234,225 @@ pub fn render_scene(scene: &GraphScene) -> impl IntoView {
         })
         .collect();
 
-    // Pre-collect node data for the `view!` macro.
-    #[allow(clippy::type_complexity)]
-    let nodes: Vec<(
-        f64,
-        f64,
-        f64,
-        f64,
-        String,
-        char,
-        &'static str,
-        String,
-        String,
-        bool,
-    )> = scene
+    // ── Node display data ─────────────────────────────────────────────────────
+    let nodes: Vec<NodeDisplay> = scene
         .nodes
         .iter()
-        .map(|n| {
-            (
-                n.rect.x,
-                n.rect.y,
-                n.rect.width,
-                n.rect.height,
-                n.label.clone(),
-                n.glyph,
-                n.css_class,
-                // class string for the <g> element
-                format!("node {}", n.css_class),
-                n.badge.clone(),
-                n.is_dead_end,
-            )
-        })
+        .map(NodeDisplay::from_scene_node)
         .collect();
 
+    // ── Reactive viewBox derived from pan_zoom ────────────────────────────────
+    let viewbox = move || {
+        let pz = pan_zoom.get();
+        // zoom > 1 = zoomed in → divide viewBox dims by zoom (smaller viewport).
+        let vb_w = bounds.width / pz.zoom;
+        let vb_h = bounds.height / pz.zoom;
+        // pan offsets shift the top-left origin.
+        let vb_x = bounds.x + pz.x;
+        let vb_y = bounds.y + pz.y;
+        format!("{vb_x} {vb_y} {vb_w} {vb_h}")
+    };
+
+    // ── Drag pan state (in SVG-unit space) ───────────────────────────────────
+    // We track whether a drag is in progress and the pointer start position
+    // (in SVG units).  Only pointer events on the SVG background start a drag.
+    let drag_start: RwSignal<Option<(f64, f64, f64, f64)>> = RwSignal::new(None);
+    // drag_start stores (client_x, client_y, pan_x_at_start, pan_y_at_start).
+
     view! {
-        <g class="edges">
-            {edges
-                .into_iter()
-                .map(|(path, cls)| {
-                    view! { <path d=path class=cls /> }
-                })
-                .collect_view()}
-        </g>
-        <g class="nodes">
-            {nodes
-                .into_iter()
-                .map(|(rx, ry, rw, rh, label, glyph, _css, group_class, badge, is_dead_end)| {
-                    // Chip dimensions: 20×20, placed at top-left corner of the node box.
-                    let chip_x = rx + 4.0;
-                    let chip_y = ry + 4.0;
-                    let chip_size = 20.0;
-                    // Label text: centered horizontally, positioned after the chip.
-                    let label_x = rx + chip_size + 10.0;
-                    let label_y = ry + 26.0;
-                    // Badge: bottom-right corner.
-                    let badge_x = rx + rw - 4.0;
-                    let badge_y = ry + rh - 5.0;
-                    // Clip path id for label truncation.
-                    let chip_fill = if is_dead_end {
-                        "var(--warn)"
-                    } else {
-                        "var(--glyph-bg)"
-                    };
-                    let chip_ink = if is_dead_end { "#fff" } else { "var(--glyph-ink)" };
-                    view! {
-                        <g class=group_class>
-                            // Node background rect
-                            <rect
-                                x=rx
-                                y=ry
-                                width=rw
-                                height=rh
-                                rx="6"
-                                ry="6"
-                                fill="var(--panel)"
-                                stroke="var(--line)"
-                                stroke-width="1"
-                            />
-                            // Glyph chip background
-                            <rect
-                                x=chip_x
-                                y=chip_y
-                                width=chip_size
-                                height=chip_size
-                                rx="4"
-                                ry="4"
-                                fill=chip_fill
-                            />
-                            // Glyph character
-                            <text
-                                x=chip_x + chip_size / 2.0
-                                y=chip_y + chip_size / 2.0 + 5.0
-                                text-anchor="middle"
-                                fill=chip_ink
-                                font-size="11"
-                                font-weight="700"
-                                font-family="ui-monospace, monospace"
-                            >
-                                {glyph.to_string()}
-                            </text>
-                            // Label with native tooltip via <title>
-                            <text
-                                x=label_x
-                                y=label_y
-                                fill="var(--ink)"
-                                font-size="11"
-                                font-family="ui-sans-serif, system-ui, sans-serif"
-                                clip-path=format!("inset(0 0 0 0)")
-                            >
-                                {label.clone()}
-                                // Truncation is handled visually by the clip below.
-                                <title>{label}</title>
-                            </text>
-                            // Kind badge (bottom-right)
-                            <text
-                                x=badge_x
-                                y=badge_y
-                                text-anchor="end"
-                                fill="var(--muted)"
-                                font-size="9"
-                                font-family="ui-sans-serif, system-ui, sans-serif"
-                            >
-                                {badge}
-                            </text>
-                        </g>
+        <svg
+            class="graph-svg"
+            viewBox=viewbox
+            xmlns="http://www.w3.org/2000/svg"
+            preserveAspectRatio="xMidYMid meet"
+            on:wheel=move |ev: web_sys::WheelEvent| {
+                ev.prevent_default();
+                let delta = ev.delta_y();
+                pan_zoom.update(|pz| {
+                    // Positive delta_y = scroll down = zoom out.
+                    let factor = if delta > 0.0 { 0.9 } else { 1.0 / 0.9 };
+                    pz.zoom = (pz.zoom * factor).clamp(0.2, 5.0);
+                });
+            }
+            on:pointerdown=move |ev: web_sys::PointerEvent| {
+                // Only start a drag when clicking the SVG background (not a node).
+                // We check the target element's class: if it contains "node" we
+                // skip starting the drag so that node clicks are not intercepted.
+                let target = ev.target();
+                let target_class = target
+                    .as_ref()
+                    .and_then(|t| t.dyn_ref::<web_sys::Element>())
+                    .map(|el| el.class_name())
+                    .unwrap_or_default();
+                let is_node = target_class.contains("node");
+                if !is_node {
+                    let pz = pan_zoom.get();
+                    drag_start.set(Some((
+                        ev.client_x() as f64,
+                        ev.client_y() as f64,
+                        pz.x,
+                        pz.y,
+                    )));
+                    // Capture pointer so we receive move/up even when cursor leaves.
+                    if let Some(tgt) = ev.current_target()
+                        && let Some(el) = tgt.dyn_ref::<web_sys::Element>()
+                    {
+                        let _ = el.set_pointer_capture(ev.pointer_id());
                     }
-                })
-                .collect_view()}
-        </g>
+                }
+            }
+            on:pointermove=move |ev: web_sys::PointerEvent| {
+                if let Some((start_cx, start_cy, pan_x0, pan_y0)) = drag_start.get() {
+                    let dx_screen = ev.client_x() as f64 - start_cx;
+                    let dy_screen = ev.client_y() as f64 - start_cy;
+                    // Convert screen delta to SVG-unit delta.
+                    // SVG units per pixel ≈ viewBox_width / svg_pixel_width.
+                    // We approximate using current zoom: 1 screen px ≈ 1/zoom SVG units
+                    // (exact when preserveAspectRatio fills the container, approximate otherwise).
+                    let pz = pan_zoom.get();
+                    let svg_units_per_px = 1.0 / pz.zoom;
+                    // Panning right in screen space moves the viewBox origin left (negative pan).
+                    pan_zoom.update(|pz| {
+                        pz.x = pan_x0 - dx_screen * svg_units_per_px * (bounds.width / 600.0);
+                        pz.y = pan_y0 - dy_screen * svg_units_per_px * (bounds.height / 400.0);
+                    });
+                }
+            }
+            on:pointerup=move |_ev: web_sys::PointerEvent| {
+                drag_start.set(None);
+            }
+            on:pointercancel=move |_ev: web_sys::PointerEvent| {
+                drag_start.set(None);
+            }
+        >
+            // ── Edges (rendered under nodes) ──────────────────────────────────
+            <g class="edges">
+                {edges
+                    .into_iter()
+                    .map(|(path, cls)| {
+                        view! { <path d=path class=cls /> }
+                    })
+                    .collect_view()}
+            </g>
+            // ── Nodes (interactive) ───────────────────────────────────────────
+            <g class="nodes">
+                {nodes
+                    .into_iter()
+                    .map(|nd| {
+                        let node_id = nd.id.clone();
+                        let node_id_click = node_id.clone();
+                        let node_id_key = node_id.clone();
+
+                        // Reactive class: add "selected" when this node is selected.
+                        let group_class_base = nd.group_class.clone();
+                        let group_class = move || {
+                            if selected.get().as_ref() == Some(&node_id) {
+                                format!("{group_class_base} selected")
+                            } else {
+                                group_class_base.clone()
+                            }
+                        };
+
+                        let rx = nd.rx;
+                        let ry = nd.ry;
+                        let rw = nd.rw;
+                        let rh = nd.rh;
+                        let label = nd.label.clone();
+                        let badge = nd.badge.clone();
+                        let glyph = nd.glyph;
+                        let is_dead_end = nd.is_dead_end;
+                        let aria_label = nd.aria_label.clone();
+
+                        // Chip dimensions: 20×20, top-left corner of the node box.
+                        let chip_x = rx + 4.0;
+                        let chip_y = ry + 4.0;
+                        let chip_size = 20.0;
+                        // foreignObject for the 2-line clamped label.
+                        let fo_x = rx + chip_size + 10.0;
+                        let fo_y = ry + 4.0;
+                        let fo_w = rw - chip_size - 18.0;
+                        let fo_h = rh - 18.0; // leaves room for badge
+                        // Badge: bottom-right corner.
+                        let badge_x = rx + rw - 4.0;
+                        let badge_y = ry + rh - 5.0;
+
+                        let chip_fill = if is_dead_end { "var(--warn)" } else { "var(--glyph-bg)" };
+                        let chip_ink = if is_dead_end { "#fff" } else { "var(--glyph-ink)" };
+
+                        view! {
+                            <g
+                                class=group_class
+                                tabindex="0"
+                                role="button"
+                                aria-label=aria_label
+                                on:click=move |_ev| {
+                                    selected.set(Some(node_id_click.clone()));
+                                }
+                                on:keydown=move |ev: web_sys::KeyboardEvent| {
+                                    let key = ev.key();
+                                    if key == "Enter" || key == " " {
+                                        ev.prevent_default();
+                                        selected.set(Some(node_id_key.clone()));
+                                    }
+                                }
+                            >
+                                // Full tooltip text on the <g>
+                                <title>{label.clone()}</title>
+                                // Node background rect
+                                <rect
+                                    x=rx
+                                    y=ry
+                                    width=rw
+                                    height=rh
+                                    rx="6"
+                                    ry="6"
+                                    class="node-bg"
+                                />
+                                // Glyph chip background
+                                <rect
+                                    x=chip_x
+                                    y=chip_y
+                                    width=chip_size
+                                    height=chip_size
+                                    rx="4"
+                                    ry="4"
+                                    fill=chip_fill
+                                />
+                                // Glyph character
+                                <text
+                                    x=chip_x + chip_size / 2.0
+                                    y=chip_y + chip_size / 2.0 + 5.0
+                                    text-anchor="middle"
+                                    fill=chip_ink
+                                    font-size="11"
+                                    font-weight="700"
+                                    font-family="ui-monospace, monospace"
+                                >
+                                    {glyph.to_string()}
+                                </text>
+                                // 2-line clamped label via foreignObject + XHTML div
+                                <foreignObject x=fo_x y=fo_y width=fo_w height=fo_h>
+                                    <div class="node-label">
+                                        {label.clone()}
+                                    </div>
+                                </foreignObject>
+                                // Kind badge (bottom-right)
+                                <text
+                                    x=badge_x
+                                    y=badge_y
+                                    text-anchor="end"
+                                    fill="var(--muted)"
+                                    font-size="9"
+                                    font-family="ui-sans-serif, system-ui, sans-serif"
+                                >
+                                    {badge}
+                                </text>
+                            </g>
+                        }
+                    })
+                    .collect_view()}
+            </g>
+        </svg>
     }
 }
 

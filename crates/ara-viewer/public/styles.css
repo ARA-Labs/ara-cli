@@ -198,14 +198,59 @@ code, kbd, samp, pre,
 /* ── Graph nodes ────────────────────────────────────────────────────────────── */
 /* Each node is a <g class="node <kind>"> group.                                */
 
-.node rect {
-  /* Node background and border are set inline from CSS variables. */
+/* Default node background rect. */
+.node .node-bg {
+  fill: var(--panel);
+  stroke: var(--line);
+  stroke-width: 1;
 }
 
-/* Clip label text to node box width (inline clip-path handles truncation). */
-.node text {
+/* Selected state: warm highlight + accent border. */
+.node.selected .node-bg {
+  fill: var(--sel-bg);
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+
+/* Focus ring: dashed accent stroke, visually distinct from the solid selection
+   border.  We suppress the default browser outline on the <g> element and
+   instead style the child rect so the ring appears inside SVG space. */
+.node:focus {
+  outline: none;
+}
+
+.graph-svg .node:focus-visible .node-bg {
+  stroke: var(--accent);
+  stroke-dasharray: 4 2;
+  stroke-width: 2;
+}
+
+/* Cursor affordance — nodes are interactive. */
+.node {
+  cursor: pointer;
+}
+
+/* ── Node label (foreignObject div) ─────────────────────────────────────────── */
+/* 2-line clamp + ellipsis.  The foreignObject constrains the width; the div     */
+/* clamps the overflow to 2 lines.                                               */
+
+.node-label {
+  font-family: var(--font-body);
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--ink);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  white-space: nowrap;
+  text-overflow: ellipsis;
+  word-break: break-word;
+  pointer-events: none;
+}
+
+/* Dead-end nodes get strikethrough on the label text. */
+.node.dead_end .node-label {
+  text-decoration: line-through;
 }
 
 /* ── Kind chip glyphs ───────────────────────────────────────────────────────── */
