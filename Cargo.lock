@@ -131,7 +131,10 @@ version = "0.0.4"
 dependencies = [
  "ara-core",
  "console_error_panic_hook",
+ "gloo-net",
  "leptos",
+ "serde_json",
+ "wasm-bindgen-futures",
 ]
 
 [[package]]

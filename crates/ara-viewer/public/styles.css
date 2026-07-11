@@ -117,6 +117,65 @@ code, kbd, samp, pre,
   padding-top: 2rem;
 }
 
+/* ── Loading skeleton ───────────────────────────────────────────────────────── */
+
+.skeleton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 120px;
+  border-radius: 6px;
+  background: linear-gradient(
+    90deg,
+    var(--panel2) 25%,
+    var(--chip)   50%,
+    var(--panel2) 75%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.4s ease-in-out infinite;
+}
+
+.skeleton-text {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+@keyframes skeleton-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ── Error card ─────────────────────────────────────────────────────────────── */
+
+.error-card {
+  border: 1px solid var(--warn);
+  border-radius: 6px;
+  background-color: var(--panel);
+  padding: 1rem 1.25rem;
+}
+
+.error-card-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--warn);
+  margin-bottom: 0.375rem;
+}
+
+.error-card-reason {
+  font-size: 0.8rem;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  word-break: break-all;
+}
+
+/* ── Graph SVG scaffold ─────────────────────────────────────────────────────── */
+
+.graph-svg {
+  width: 100%;
+  height: calc(100% - 2rem);
+  display: block;
+}
+
 /* ── Kind chip glyphs ───────────────────────────────────────────────────────── */
 /* Kind is read from the glyph + badge, NEVER from colour: every kind uses the  */
 /* neutral --glyph-bg. Only dead_end is coloured (--warn, white ink), which     */

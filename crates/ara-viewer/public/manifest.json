@@ -1,0 +1,510 @@
+{
+  "nodes": [
+    {
+      "id": "N01",
+      "kind": "question",
+      "label": "Is learning better networks as easy as stacking more layers?",
+      "support_level": "explicit",
+      "source_refs": [
+        "§1 introduction",
+        "Fig. 1"
+      ],
+      "description": "Central research question that frames the entire paper. The introduction explicitly poses this question and uses CIFAR-10 plain-{20, 56} curves (Fig. 1) to motivate why the answer is \"no, not in the obvious way.\"",
+      "fields": "question",
+      "evidence_notes": [],
+      "pos": {
+        "x": 560.0,
+        "y": 30.0
+      }
+    },
+    {
+      "id": "N02",
+      "kind": "experiment",
+      "label": "Plain-net depth scan on CIFAR-10 (depths 20–110)",
+      "support_level": "explicit",
+      "source_refs": [
+        "Fig. 1",
+        "Fig. 6 left"
+      ],
+      "description": "Train plain CNNs of depth {20, 32, 44, 56, 110} on CIFAR-10 with BN + MSRA init. Observe whether deeper plain nets improve.",
+      "fields": {
+        "experiment": {
+          "result": "Deeper plain nets degrade. Plain-110 fails badly (>60% error, not displayed in Fig. 6). Plain-56 is worse than plain-20."
+        }
+      },
+      "evidence_notes": [],
+      "pos": {
+        "x": 90.0,
+        "y": 140.0
+      }
+    },
+    {
+      "id": "N03",
+      "kind": "experiment",
+      "label": "Plain-net depth scan on ImageNet (18 vs. 34)",
+      "support_level": "explicit",
+      "source_refs": [
+        "Table 2",
+        "Fig. 4 left"
+      ],
+      "description": "Train plain-{18, 34} on ImageNet with the standard recipe (§3.4).",
+      "fields": {
+        "experiment": {
+          "result": "plain-34 = 28.54% top-1, plain-18 = 27.94% top-1 → degradation confirmed on a large dataset, not specific to CIFAR."
+        }
+      },
+      "evidence_notes": [],
+      "pos": {
+        "x": 320.0,
+        "y": 140.0
+      }
+    },
+    {
+      "id": "N04",
+      "kind": "dead_end",
+      "label": "Vanishing-gradient hypothesis",
+      "support_level": "explicit",
+      "source_refs": [
+        "§4.1 plain networks discussion"
+      ],
+      "description": "A natural first explanation for plain-net degradation. The authors rule it out by noting BN keeps forward signals at non-zero variance and that backward gradient norms are healthy.",
+      "fields": {
+        "dead_end": {
+          "why_failed": "With BN in place, signals do not vanish; the plain-34 net still reaches competitive accuracy (24.19% top-1 with 10-crop, Table 3), showing SGD is making progress — just slowly."
+        }
+      },
+      "evidence_notes": [],
+      "pos": {
+        "x": 550.0,
+        "y": 140.0
+      }
+    },
+    {
+      "id": "N05",
+      "kind": "dead_end",
+      "label": "More training iterations alone (3×) on plain nets",
+      "support_level": "inferred",
+      "source_refs": [
+        "§4.1 (footnote 3)"
+      ],
+      "description": "The footnote reports that the authors tried training plain nets for 3× more iterations and still observed the degradation problem.",
+      "fields": {
+        "dead_end": {
+          "why_failed": "The degradation is not just slow optimization; longer training does not close the gap."
+        }
+      },
+      "evidence_notes": [],
+      "pos": {
+        "x": 780.0,
+        "y": 140.0
+      }
+    },
+    {
+      "id": "N06",
+      "kind": "insight",
+      "label": "Reformulate layers to fit a residual mapping F(x) := H(x) - x",
+      "support_level": "explicit",
+      "source_refs": [
+        "§1",
+        "§3.1"
+      ],
+      "description": "Key creative leap. Identity mapping should be expressible cheaply, so let stacked nonlinear layers learn the *residual* from identity.",
+      "fields": "insight",
+      "evidence_notes": [],
+      "pos": {
+        "x": 1010.0,
+        "y": 140.0
+      }
+    },
+    {
+      "id": "N07",
+      "kind": "decision",
+      "label": "Use parameter-free identity shortcuts (Eqn. 1)",
+      "support_level": "explicit",
+      "source_refs": [
+        "§3.2",
+        "Fig. 2"
+      ],
+      "description": "Decision to add x via an unparameterized skip connection, rather than a gated or projected one (contrasts with highway networks, RW01).",
+      "fields": {
+        "decision": {
+          "choice": null,
+          "alternatives": [],
+          "rationale": "No parameters, no FLOPs added, lets the deeper variant exactly match the shallower one's parameter budget for clean ablation."
+        }
+      },
+      "evidence_notes": [],
+      "pos": {
+        "x": 425.0,
+        "y": 250.0
+      }
+    },
+    {
+      "id": "N08",
+      "kind": "experiment",
+      "label": "Plain vs. ResNet at 18/34 layers on ImageNet",
+      "support_level": "explicit",
+      "source_refs": [
+        "Table 2",
+        "Fig. 4 right"
+      ],
+      "description": "Train ResNet-{18, 34} (option A shortcuts) under the same recipe as plain-{18, 34}.",
+      "fields": {
+        "experiment": {
+          "result": "ResNet-34 = 25.03% top-1 (3.51 pts better than plain-34, 2.85 pts better than ResNet-18). Degradation is removed."
+        }
+      },
+      "evidence_notes": [],
+      "pos": {
+        "x": 655.0,
+        "y": 250.0
+      }
+    },
+    {
+      "id": "N09",
+      "kind": "experiment",
+      "label": "Shortcut option ablation on ResNet-34 (A vs. B vs. C)",
+      "support_level": "explicit",
+      "source_refs": [
+        "Table 3",
+        "§\"Identity vs. Projection Shortcuts\""
+      ],
+      "description": "Ablation comparing parameter-free identity (A), projection on dimension changes only (B), and projection on every shortcut (C).",
+      "fields": {
+        "experiment": {
+          "result": "A = 25.03, B = 24.52, C = 24.19 top-1. Differences are small; option C is rejected as not worth the parameter / memory cost."
+        }
+      },
+      "evidence_notes": [],
+      "pos": {
+        "x": 915.0,
+        "y": 360.0
+      }
+    },
+    {
+      "id": "N10",
+      "kind": "dead_end",
+      "label": "Single-layer residual function F",
+      "support_level": "explicit",
+      "source_refs": [
+        "§3.2"
+      ],
+      "description": "Authors note Eqn. (1) with a single-layer F is similar to a linear layer.",
+      "fields": {
+        "dead_end": {
+          "why_failed": "\"We have not observed advantages.\" Authors require F to have ≥2 weighted layers."
+        }
+      },
+      "evidence_notes": [],
+      "pos": {
+        "x": 905.0,
+        "y": 250.0
+      }
+    },
+    {
+      "id": "N11",
+      "kind": "decision",
+      "label": "Adopt 1×1 → 3×3 → 1×1 bottleneck blocks for ≥50 layers",
+      "support_level": "explicit",
+      "source_refs": [
+        "§\"Deeper Bottleneck Architectures\"",
+        "Fig. 5 right"
+      ],
+      "description": "Replace the basic 2-layer block with a 3-layer bottleneck of comparable per-block time complexity.",
+      "fields": {
+        "decision": {
+          "choice": null,
+          "alternatives": [],
+          "rationale": "Lets us push depth to 50/101/152 layers at FLOPs comparable to ResNet-34 (3.8 / 7.6 / 11.3 GFLOPs vs. 3.6 GFLOPs)."
+        }
+      },
+      "evidence_notes": [],
+      "pos": {
+        "x": 1155.0,
+        "y": 360.0
+      }
+    },
+    {
+      "id": "N12",
+      "kind": "experiment",
+      "label": "Depth scan with bottleneck blocks (50 / 101 / 152 layers)",
+      "support_level": "explicit",
+      "source_refs": [
+        "Table 3",
+        "Table 4",
+        "Table 5"
+      ],
+      "description": "Train ResNet-50 / 101 / 152 with option B shortcuts under the same ImageNet recipe.",
+      "fields": {
+        "experiment": {
+          "result": "Top-1 error drops monotonically (22.85 → 21.75 → 21.43); 6-model ensemble achieves 3.57% top-5 on the test set, winning ILSVRC 2015."
+        }
+      },
+      "evidence_notes": [],
+      "pos": {
+        "x": 1217.5,
+        "y": 250.0
+      }
+    },
+    {
+      "id": "N13",
+      "kind": "experiment",
+      "label": "CIFAR-10 depth scan (20 → 1202 layers)",
+      "support_level": "explicit",
+      "source_refs": [
+        "Table 6",
+        "Fig. 6",
+        "§4.2"
+      ],
+      "description": "Train ResNet-{20, 32, 44, 56, 110, 1202} on CIFAR-10. ResNet-110 uses LR warmup (LR 0.01 for ~400 iters until train err <80%, then restore LR 0.1).",
+      "fields": {
+        "experiment": {
+          "result": "Test error decreases through depth 110 (6.43% mean, best 6.61 ± 0.16). ResNet-1202 trains successfully (training error <0.1%) but overfits to 7.93% test error."
+        }
+      },
+      "evidence_notes": [],
+      "pos": {
+        "x": 1447.5,
+        "y": 250.0
+      }
+    },
+    {
+      "id": "N14",
+      "kind": "decision",
+      "label": "Warm up LR for the 110-layer CIFAR ResNet",
+      "support_level": "explicit",
+      "source_refs": [
+        "§4.2 paragraph on n=18",
+        "footnote 5"
+      ],
+      "description": "At depth 110, LR 0.1 from iter 0 fails to start converging cleanly. Pre-warm at LR 0.01 for ~400 iters (until train error <80%), then restore LR 0.1.",
+      "fields": {
+        "decision": {
+          "choice": null,
+          "alternatives": [],
+          "rationale": "Gets the optimizer into a basin where the standard LR schedule then trains stably. LR 0.1 from start eventually reaches similar accuracy after several epochs of >90% error, but warmup is the chosen recipe."
+        }
+      },
+      "evidence_notes": [],
+      "pos": {
+        "x": 1447.5,
+        "y": 360.0
+      }
+    },
+    {
+      "id": "N15",
+      "kind": "experiment",
+      "label": "Detection transfer with ResNet-101 (PASCAL VOC, COCO)",
+      "support_level": "explicit",
+      "source_refs": [
+        "Table 7",
+        "Table 8",
+        "Appendix A"
+      ],
+      "description": "Swap VGG-16 for ResNet-101 in baseline Faster R-CNN; fine-tune on PASCAL VOC and COCO.",
+      "fields": {
+        "experiment": {
+          "result": "PASCAL VOC07 mAP: 73.2 → 76.4. COCO mAP@.5: 41.5 → 48.4. COCO mAP@[.5, .95]: 21.2 → 27.2 (28% relative improvement)."
+        }
+      },
+      "evidence_notes": [],
+      "pos": {
+        "x": 1457.5,
+        "y": 140.0
+      }
+    }
+  ],
+  "links": [
+    {
+      "from": "N01",
+      "to": "N02",
+      "kind": "child"
+    },
+    {
+      "from": "N01",
+      "to": "N03",
+      "kind": "child"
+    },
+    {
+      "from": "N01",
+      "to": "N04",
+      "kind": "child"
+    },
+    {
+      "from": "N01",
+      "to": "N05",
+      "kind": "child"
+    },
+    {
+      "from": "N01",
+      "to": "N06",
+      "kind": "child"
+    },
+    {
+      "from": "N06",
+      "to": "N07",
+      "kind": "child"
+    },
+    {
+      "from": "N06",
+      "to": "N08",
+      "kind": "child"
+    },
+    {
+      "from": "N06",
+      "to": "N09",
+      "kind": "child"
+    },
+    {
+      "from": "N06",
+      "to": "N10",
+      "kind": "child"
+    },
+    {
+      "from": "N06",
+      "to": "N11",
+      "kind": "child"
+    },
+    {
+      "from": "N06",
+      "to": "N12",
+      "kind": "child"
+    },
+    {
+      "from": "N06",
+      "to": "N13",
+      "kind": "child"
+    },
+    {
+      "from": "N13",
+      "to": "N14",
+      "kind": "child"
+    },
+    {
+      "from": "N01",
+      "to": "N15",
+      "kind": "child"
+    },
+    {
+      "from": "N12",
+      "to": "N09",
+      "kind": "depends_on"
+    },
+    {
+      "from": "N12",
+      "to": "N11",
+      "kind": "depends_on"
+    },
+    {
+      "from": "N15",
+      "to": "N12",
+      "kind": "depends_on"
+    }
+  ],
+  "bindings": [],
+  "claims": [
+    {
+      "id": "C01",
+      "title": "Plain CNNs exhibit a depth-induced degradation problem",
+      "statement": "For sufficiently deep \"plain\" CNNs (no shortcuts), increasing depth strictly increases *training* error on both CIFAR-10 and ImageNet, even with BN and competent initialization.",
+      "status": "supported",
+      "proof": [
+        "E01"
+      ],
+      "deps": []
+    },
+    {
+      "id": "C02",
+      "title": "Residual learning eliminates the degradation problem",
+      "statement": "Replacing each pair of stacked 3×3 layers in a plain net with a residual block F(x) + x (with identity shortcut, no extra parameters) makes the deeper variant achieve *lower* training and validation error than the shallower one for matched depths.",
+      "status": "supported",
+      "proof": [
+        "E01",
+        "E02"
+      ],
+      "deps": [
+        "C01"
+      ]
+    },
+    {
+      "id": "C03",
+      "title": "Residual networks gain accuracy from increased depth up to 152 layers on ImageNet",
+      "statement": "Deeper ResNets (50, 101, 152) achieve monotonically lower top-1 and top-5 ImageNet validation error than shallower ResNets, with the 152-layer model still having lower complexity (11.3 GFLOPs) than VGG-16/19 (15.3/19.6 GFLOPs).",
+      "status": "supported",
+      "proof": [
+        "E03"
+      ],
+      "deps": [
+        "C02"
+      ]
+    },
+    {
+      "id": "C04",
+      "title": "Identity shortcuts are sufficient; projection shortcuts give only marginal gains",
+      "statement": "Among shortcut options A (zero-padding identity), B (projection only when dimensions change), and C (projection on every shortcut), the differences in ImageNet top-1 error are small (≤0.65 pts on ResNet-34); identity shortcuts (A) suffice to fix degradation, and option C is rejected as not worth its parameter / memory cost.",
+      "status": "supported",
+      "proof": [
+        "E04"
+      ],
+      "deps": [
+        "C02"
+      ]
+    },
+    {
+      "id": "C05",
+      "title": "Bottleneck blocks make 50/101/152-layer ResNets practical",
+      "statement": "Replacing the 2-layer 3×3 building block with a 3-layer 1×1 → 3×3 → 1×1 *bottleneck* block of the same per-block time complexity allows construction of 50/101/152-layer ResNets that achieve lower error than the 34-layer ResNet without exploding compute.",
+      "status": "supported",
+      "proof": [
+        "E03"
+      ],
+      "deps": [
+        "C02",
+        "C04"
+      ]
+    },
+    {
+      "id": "C06",
+      "title": "Residual nets generalize to extreme CIFAR-10 depths (110 layers; 1202 layers without optimization difficulty)",
+      "statement": "On CIFAR-10, ResNets at depths {20, 32, 44, 56, 110} all train successfully, with the 110-layer model achieving 6.43% test error (best mean ± std 6.61 ± 0.16); a 1202-layer ResNet trains with no optimization difficulty (final training error <0.1%) although it overfits to 7.93% test error on this small dataset.",
+      "status": "supported",
+      "proof": [
+        "E05"
+      ],
+      "deps": [
+        "C02",
+        "C03"
+      ]
+    },
+    {
+      "id": "C07",
+      "title": "Warming up the learning rate is necessary for the 110-layer CIFAR ResNet",
+      "statement": "A 110-layer ResNet on CIFAR-10 fails to start converging cleanly with the default initial LR of 0.1; warming up at LR 0.01 for ~400 iterations until training error drops below ~80%, then restoring LR 0.1, restores convergence.",
+      "status": "supported",
+      "proof": [
+        "E05"
+      ],
+      "deps": [
+        "C06"
+      ]
+    },
+    {
+      "id": "C08",
+      "title": "ResNet representations transfer to detection, giving large COCO gains over VGG-16",
+      "statement": "Replacing the VGG-16 backbone with ResNet-101 in baseline Faster R-CNN improves COCO val mAP@[.5,.95] from 21.2 to 27.2, a 6.0-point absolute (28% relative) increase, attributed solely to the better learned representations.",
+      "status": "supported",
+      "proof": [
+        "E06"
+      ],
+      "deps": [
+        "C03"
+      ]
+    }
+  ],
+  "bounds": {
+    "x": 0.0,
+    "y": 0.0,
+    "width": 1547.5,
+    "height": 390.0
+  }
+}
