@@ -7,6 +7,20 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- `ara serve <dir>`: axum 0.8 server for a single ARA directory (Stage 4). Serves
+  the viewer (**embedded by default** via `include_dir!`, so `cargo install
+  ara-cli` works with no extra files; `--assets <dist>` overrides with an on-disk
+  Trunk `dist/`, served through `ServeDir` with precompressed brotli/gzip),
+  `/api/manifest` (parse-once cache, strong `ETag`, `304` on `If-None-Match`,
+  `no-cache`), range-capable `/api/figure/*` sandboxed to `<dir>/evidence`, and a
+  `/api/live` WebSocket. A debounced `notify` watcher (`--poll` for network
+  mounts) reparses on change, atomically swaps the cache, and pushes the new
+  `ETag`; the client re-fetches and re-renders **preserving pan/zoom/selection**.
+  Flags: `--port` (default 8080), `--assets`, `--poll`.
+- Viewer client (`crates/ara-viewer`): `ManifestSource::Api` live mode — tries
+  `/api/manifest`, falls back to the static `manifest.json`, and subscribes to
+  `/api/live` for reparse-driven refresh; one wasm bundle works under both
+  `ara serve` and static hosting.
 - Leptos CSR client (`crates/ara-viewer`): SVG DAG **skinned to the published ARA
   design** (warm-cream theme, glyph+label node kinds, dead-end highlighting) from
   Stage-2 positions via a pure scene-model `GraphRenderer`, with pan/zoom,

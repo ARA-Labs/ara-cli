@@ -20,7 +20,7 @@ use detail::DetailPane;
 use filter::FilterState;
 use leptos::prelude::*;
 use scene::{GraphRenderer, GraphView, LayoutView, SvgRenderer};
-use source::{ManifestSource, fetch_manifest};
+use source::{ManifestSource, connect_live, fetch_manifest};
 use state::{LoadState, MapSurface, PanZoom, map_surface, safe_viewbox};
 use toolbar::Toolbar;
 
@@ -43,10 +43,13 @@ pub fn App() -> impl IntoView {
     // ── Manifest load state ──────────────────────────────────────────────────
     let (load_state, set_load_state) = signal(LoadState::Loading);
 
-    // On mount, start the async fetch.  The fetch is cfg'd out on native so
-    // `cargo test` compiles without browser deps.
-    let source = ManifestSource::default();
-    fetch_manifest(source, move |s| set_load_state.set(s));
+    // On mount, start the async fetch, then subscribe to live-reload pushes.
+    // Both are cfg'd out on native so `cargo test` compiles without browser
+    // deps. `set_load_state` is Copy, so the update closure is Clone — required
+    // by `connect_live`, which re-fetches on every WebSocket message.
+    let update = move |s| set_load_state.set(s);
+    fetch_manifest(ManifestSource::default(), update);
+    connect_live(ManifestSource::default(), update);
 
     // ── Selection state (shared with detail pane) ────────────────────────────
     // Owned here so it survives manifest swaps and can be read by the detail

@@ -16,11 +16,26 @@ name = "ara"
 path = "src/main.rs"
 
 [dependencies]
-ara-core = { path = "../ara-core", version = "0.0.5" }
+ara-core = { path = "../ara-core", version = "0.0.6" }
 clap = { version = "4", features = ["derive"] }
 serde_json = "1"
+
+# `ara serve` (Stage 4) — axum server + file-watch live reload. Native only.
+axum = { version = "0.8", features = ["ws"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "signal", "sync", "time"] }
+tower-http = { version = "0.6", features = ["fs", "compression-br", "compression-gzip"] }
+notify-debouncer-full = "0.5"
+arc-swap = "1"
+bytes = "1"
+# Embedded viewer assets (default; `--assets <dir>` overrides at runtime).
+include_dir = "0.7"
+mime_guess = "2"
 
 [dev-dependencies]
 assert_cmd = "2"
 predicates = "3"
 tempfile = "3"
+# HTTP-layer tests drive the router directly via `ServiceExt::oneshot`
+# (no socket/port binding), reading bodies with http-body-util.
+tower = { version = "0.5", features = ["util"] }
+http-body-util = "0.1"

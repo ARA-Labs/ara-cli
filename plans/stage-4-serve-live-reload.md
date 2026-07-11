@@ -3,6 +3,26 @@
 **PR target:** `stage4-serve-live-reload` → `main`. **Depends on:** Stage 3.
 **Version bump:** `0.0.5 → 0.0.6`. (Stage 3 took `0.0.5`.)
 
+## Resolved decisions (2026-07-11)
+
+Two forks the original plan left open, decided with the human developer:
+
+1. **Asset delivery — embed by default + `--assets <dir>` override.** `ara-cli`
+   embeds a prebuilt viewer `dist/` via `include_dir!` so `cargo install ara-cli`
+   → `ara serve ./my-ara` works with zero config (resolves `T-VIEWER-DIST-PACKAGING`).
+   `--assets <dir>` overrides with an on-disk `dist/` (dev + the Stage-5 Docker
+   `--assets /assets` model). Embedded assets are served by a small custom
+   handler (correct `.wasm` MIME, `no-cache` for `index.html`, `immutable` for
+   hashed bundles); the `--assets` path uses `tower-http` `ServeDir` with
+   `precompressed_brotli()/gzip()`. The committed dist lives at
+   `crates/ara-cli/assets/viewer/` (built by `trunk build --release`); this is
+   the accepted cost of embedding (binary wasm in git), refreshed at release.
+2. **Client mode auto-detection (one wasm bundle).** The client first tries
+   `/api/manifest`; on network error / 404 it falls back to the static
+   `manifest.json` (so the same bundle works under `ara serve` **and** static
+   hosting / `trunk serve`). It always attempts the `/api/live` WebSocket; if the
+   socket never opens (static host) live-reload is simply inert.
+
 ## Problem background
 
 With parse+layout (Stages 1–2) and a client that renders a static manifest

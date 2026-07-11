@@ -1,7 +1,10 @@
 //! `ara`: command-line entry point for the ARA viewer runtime.
 //!
 //! Installed via `cargo install ara-cli`, this ships a binary named `ara`.
-//! Stage 1 provides `ara validate`; Stage 2 adds `ara layout`.
+//! Stage 1 provides `ara validate`; Stage 2 adds `ara layout`; Stage 4 adds
+//! `ara serve`.
+
+mod serve;
 
 use std::path::PathBuf;
 use std::process::ExitCode;
@@ -22,6 +25,8 @@ enum Command {
     Validate(ValidateArgs),
     /// Compute a layered DAG layout and emit the positioned manifest as JSON.
     Layout(LayoutArgs),
+    /// Serve an ARA directory with a live-reloading web viewer.
+    Serve(serve::ServeArgs),
 }
 
 #[derive(clap::Args)]
@@ -53,6 +58,7 @@ fn main() -> ExitCode {
     match cli.command {
         Command::Validate(args) => validate(args),
         Command::Layout(args) => layout_cmd(args),
+        Command::Serve(args) => serve::run(args),
     }
 }
 
