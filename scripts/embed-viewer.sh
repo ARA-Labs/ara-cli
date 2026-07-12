@@ -19,6 +19,11 @@
 # upstream crate (e.g. ara-core) can alter the compiled wasm without changing
 # this hash — regenerate manually after such changes.
 #
+# Cargo.toml is hashed with version-number literals (version = "x.y.z")
+# normalized away, because every functional PR bumps the workspace version and
+# rewrites the ara-core dep pin without changing the built UI. A real dependency
+# add/remove/rename still moves the hash.
+#
 # Usage:
 #   scripts/embed-viewer.sh            # rebuild + copy into assets/viewer/ + write hash
 #   scripts/embed-viewer.sh --check    # recompute hash, compare to committed; nonzero if stale
@@ -45,7 +50,21 @@ compute_source_hash() {
       "$VIEWER_DIR/Cargo.toml"
   } | LC_ALL=C sort | while read -r f; do
     # Emit "<sha256>  <repo-relative-path>" so the digest is location-stable.
-    shasum -a 256 "$f" | awk -v p="${f#"$ROOT"/}" '{print $1 "  " p}'
+    case "$f" in
+      */Cargo.toml)
+        # Normalize version-number literals (version = "x.y.z") to a placeholder
+        # before hashing. Every functional PR bumps the workspace version, which
+        # rewrites the ara-core dep pin here; that churn does NOT change the built
+        # UI, so it must not mark the embed stale. A real dep add/remove/rename
+        # still moves the hash. (version.workspace = true has no quoted literal
+        # and is untouched.)
+        sed -E 's/version = "[^"]*"/version = "*"/g' "$f" \
+          | shasum -a 256 | awk -v p="${f#"$ROOT"/}" '{print $1 "  " p}'
+        ;;
+      *)
+        shasum -a 256 "$f" | awk -v p="${f#"$ROOT"/}" '{print $1 "  " p}'
+        ;;
+    esac
   done | shasum -a 256 | awk '{print $1}'
   # LC_ALL=C pins the sort to a bytewise order so the file list — and thus the
   # digest — is identical across locales (macOS en_US vs CI C/POSIX). Without it

@@ -79,6 +79,38 @@ ara validate path/to/ara-dir   # parse + validate an artifact directory
 ara serve    path/to/ara-dir   # serve the live-reloading web viewer
 ```
 
+## Run locally
+
+From a clone of this repo, run the CLI through Cargo. The workspace has two
+binaries (`ara` and `ara-viewer`), so pass `-p ara-cli` (or `--bin ara`) to tell
+Cargo which one to run:
+
+```bash
+cargo run -p ara-cli -- validate path/to/ara-dir
+cargo run -p ara-cli -- serve    path/to/ara-dir   # http://127.0.0.1:8080
+```
+
+### Example artifacts
+
+A corpus of real ARAs is wired in as a git submodule
+([`AmberLJC/ara-paperbench`](https://github.com/AmberLJC/ara-paperbench)). It is
+**not** checked out by default — a fresh clone stays cheap and required CI does
+not need it. Fetch it once when you want something to view:
+
+```bash
+git submodule update --init corpus-external/ara-paperbench
+```
+
+Then point `serve` at any artifact directory under it:
+
+```bash
+cargo run -p ara-cli -- serve corpus-external/ara-paperbench/artifacts/paperbench/pinn
+```
+
+Open http://127.0.0.1:8080 and the viewer live-reloads as you edit the artifact.
+Any directory under `corpus-external/ara-paperbench/artifacts/` (e.g.
+`paperbench/*`, `rebench/*`) is a valid ARA to serve.
+
 ## Build
 
 ```bash

@@ -55,6 +55,8 @@ The version is stored in `Cargo.toml` under `[workspace.package] version`.
 - Every PR **that changes functional code** must bump the patch version in `Cargo.toml` before merging.
 - Every PR **that changes functional code** must add an entry to `CHANGELOG.md` under the `## [Unreleased]` section.
 - Non-functional PRs (docs, comments, formatting, CI/tooling with no behavior change) do **not** require a version bump or changelog entry.
+  - "Functional code" means the **shipped** behavior of the `ara` binary / published crates changes. A `Cargo.toml` edit is *not* automatically functional: manifest metadata (`default-run`, `readme`, keywords), build-script/CI tweaks (`scripts/`, `.github/`), and dev-only ergonomics (how `cargo run` resolves *inside this workspace*) all ship identical behavior and need **no** bump.
+  - Bump only when a user-observable behavior, public API, or dependency of a published crate actually changes. When unsure, ask rather than bumping — an unnecessary bump drags in a viewer-bundle regen (see the note in `docs/stage-4-serve.md` about `viewer-embed-fresh`) for no reason.
 - When merging a release branch (e.g. `release/beta` → `main`), bump the minor version and move `[Unreleased]` entries under a versioned heading.
 - The current release track is `0.1.x` (initial release track).
 
