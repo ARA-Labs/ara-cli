@@ -7,8 +7,9 @@
   --panel2:    #f4ecdf;
   --line:      #e6ddcc;
   --ink:       #2f2a23;
-  --muted:     #90856f;
+  --muted:     #726751;
   --accent:    #bf6a2e;
+  --accent-text: #8c4414;
   --chip:      #f1e9da;
   --ok:        #5d7c3f;
   --warn:      #a23b2d;
@@ -188,7 +189,7 @@ code, kbd, samp, pre,
    bold-only-when-active label would change width and nudge the segments. */
 .layout-toggle-btn.is-active {
   background-color: var(--sel-bg);
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 /* ── Main two-pane grid ─────────────────────────────────────────────────────── */
@@ -589,7 +590,7 @@ code, kbd, samp, pre,
 
 .btn.primary {
   background-color: var(--sel-bg);
-  color: var(--accent);
+  color: var(--accent-text);
   border-color: var(--accent);
 }
 
