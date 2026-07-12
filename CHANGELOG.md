@@ -10,6 +10,10 @@ All notable changes to this project are documented here. The format follows
 - CLI: set `default-run = "ara"` on the `ara-cli` package so a bare
   `cargo run -- <args>` resolves to the `ara` binary instead of erroring on the
   ambiguous `ara` / `ara-viewer` binary choice. (#16)
+- CI: `viewer-embed-fresh` now normalizes `version = "…"` literals out of
+  `Cargo.toml` before hashing the viewer source, so a version/dep-pin bump no
+  longer marks the embedded bundle stale. Real dependency add/remove/rename
+  still trips the check. (#16)
 
 ## [0.1.2] - 2026-07-11
 
