@@ -11,9 +11,9 @@ cold. Remove an item when it lands.
 - **Why:** Stage 0 dropped the unverified `rust-version = "1.85"` claim (nothing
   tested it). Once ara-core is published and external crates can depend on it, an
   untested MSRV misleads consumers.
-- **Context:** Belongs in the `0.0.5 → 0.1.0` release PR (see
-  `plans/stage-overview.md`), which is the first crates.io publish.
-- **Depends on:** Stage 4.
+- **Context:** Do this before the first crates.io publish (the `0.1.x` track is
+  released but not yet published to crates.io).
+- **Depends on:** first crates.io publish.
 
 ### T-WASM-CLIPPY — clippy the wasm32 target once cfg-gated code exists
 - **What:** Add `cargo clippy --target wasm32-unknown-unknown` (ara-core,
@@ -25,18 +25,6 @@ cold. Remove an item when it lands.
   browser layer), so native clippy no longer covers the full crate. (`ara-wasm`
   was dropped in Stage 3 — target `ara-viewer`, not `ara-wasm`.)
 - **Depends on:** — (met: cfg-gated code now exists).
-
-### T-DOCS — create docs/ and wire the plan→docs migration lifecycle
-- **What:** Create a `docs/` directory and follow `CLAUDE.md`'s rule that a
-  merged stage's plan is folded into `docs/` and removed from `plans/`.
-- **Why:** `CLAUDE.md` and `stage-overview.md` both assume completed plans
-  migrate to `docs/`, but no `docs/` exists yet — the lifecycle has nowhere to
-  land.
-- **Context:** Stage 0's own plan is the first migration candidate; do this when
-  Stage 0 merges. (`docs/` now exists — `docs/ara-format-feedback.md` was added
-  in the Stage 1 review — so the directory part is done; the plan→docs migration
-  step still stands.)
-- **Depends on:** none.
 
 ## Deferred from Stage 1 eng review (2026-07-08)
 
@@ -188,29 +176,6 @@ cold. Remove an item when it lands.
   signals unchanged. Layer panels + abstract stay inert until T-REAL-CORPUS
   widens the schema. Tracked in GitHub issue #7.
 - **Depends on:** Stage 3 viewer (PR #6); layer panels depend on T-REAL-CORPUS.
-
-## Deferred from Stage 3 eng review (2026-07-10)
-
-### T-VIEWER-DIST-PACKAGING — how the ara-viewer frontend reaches users
-- **What:** Decide and implement how the Trunk `dist/` (wasm + assets) from
-  `crates/ara-viewer` is distributed. `cargo install ara-cli` cannot serve a
-  generated/gitignored frontend.
-- **Why:** Stage 4 (`ara serve`) serves the `dist/`, and the `0.1.0` release
-  publishes `ara-core → ara-wasm → ara-cli` but not `ara-viewer`'s assets. Without
-  a plan, the released CLI has no frontend to serve.
-- **Context:** Options — embed `dist/` into the `ara-cli` binary at build time
-  (e.g. `rust-embed`), copy it during the release, or publish `ara-viewer` assets
-  separately. Surfaced by the Stage 3 eng-review outside voice (Codex).
-- **Depends on:** Stage 4 (`ara serve`) / the `0.1.0` release cut.
-
-### T-STAGE4-VERSION-BUMP — reconcile Stage 3/4 version collision
-- **What:** Update the Stage 4 plan: if Stage 3 takes `0.0.5`, Stage 4 is
-  `0.0.5 → 0.0.6` (both plans currently say `0.0.4 → 0.0.5`).
-- **Why:** Two PRs can't both bump to `0.0.5`; the per-stage patch-bump chain in
-  `stage-overview.md` breaks otherwise.
-- **Context:** One-line edit to `plans/stage-4-serve-live-reload.md` when Stage 3
-  merges. Surfaced by the Stage 3 eng-review outside voice.
-- **Depends on:** Stage 3 merge.
 
 ## Deferred from Stage 5 eng review (2026-07-12)
 

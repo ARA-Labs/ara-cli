@@ -16,8 +16,8 @@ it at any ARA directory and it validates, lays out, and serves an interactive
 viewer locally — no hub account, no build step, no LLM calls at view time.
 
 > Status: released, `0.1.x`. `ara validate`, `ara layout`, and `ara serve`
-> (live-reloading web viewer) all work. See `plans/ara-runtime-impl-plan.md`
-> for the design and `docs/` for the shipped-stage write-ups.
+> (live-reloading web viewer) all work. See `docs/` for the shipped-stage
+> design write-ups.
 
 ## Why bara?
 
