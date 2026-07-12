@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-07-12
+
 ### Added
 - `ara serve --hub --ara-root <dir>`: read-only multi-ARA mode. Scans the root
   once at startup, parses each child directory into a per-ARA parse-once cache,
