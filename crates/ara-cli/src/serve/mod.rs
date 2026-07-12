@@ -7,6 +7,7 @@
 
 mod assets;
 mod cache;
+mod hub;
 mod watch;
 
 use std::path::{Path, PathBuf};
