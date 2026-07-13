@@ -172,7 +172,13 @@ pub fn step_ratio(
     pane1_min_px: f64,
     pane2_min_px: f64,
 ) -> f64 {
-    clamp_split_ratio(current + delta, axis_px, gutter_px, pane1_min_px, pane2_min_px)
+    clamp_split_ratio(
+        current + delta,
+        axis_px,
+        gutter_px,
+        pane1_min_px,
+        pane2_min_px,
+    )
 }
 
 // ── Splitter component (web-sys driven) ────────────────────────────────────────
