@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.1.6] - 2026-07-13
+
 ### Added
 - Pre-built release binaries and a Homebrew formula, driven by cargo-dist. A
   new tag-triggered `release.yml` cross-builds the `ara` binary for
