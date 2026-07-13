@@ -1,10 +1,18 @@
-//! Pure resize-math helpers for the resizable split/stack panel divider.
+//! Resizable split/stack panel divider — pure resize math plus the DOM widget.
 //!
-//! This module contains **only** constants and pure functions — no `web-sys`,
-//! no Leptos components. It compiles and is testable on native targets with
-//! `cargo test -p ara-viewer`. The Leptos `<Splitter>` component that drives
-//! these helpers from pointer/keyboard events lives in a separate module added
-//! in a later implementation step.
+//! The top half is pure: floor/default constants, `clamp_split_ratio`,
+//! `step_ratio`, and the per-mode helpers. It has no browser dependencies and is
+//! fully unit-tested on native targets (`cargo test -p ara-viewer`).
+//!
+//! The bottom half is the Leptos [`Splitter`] component: a WAI-ARIA
+//! window-splitter that drives the pure math from real pointer/keyboard/dblclick
+//! events. It accesses the DOM through `leptos::web_sys` (not a direct `web-sys`
+//! import) so the whole module still compiles on native as well as wasm, mirroring
+//! the pattern in `scene.rs`.
+
+use leptos::prelude::*;
+use leptos::wasm_bindgen::JsCast;
+use leptos::web_sys;
 
 use crate::state::LayoutMode;
 
@@ -165,6 +173,259 @@ pub fn step_ratio(
     pane2_min_px: f64,
 ) -> f64 {
     clamp_split_ratio(current + delta, axis_px, gutter_px, pane1_min_px, pane2_min_px)
+}
+
+// ── Splitter component (web-sys driven) ────────────────────────────────────────
+//
+// The pure math above is fully testable on native. The component below wires it
+// to real pointer/keyboard/dblclick events. It uses `leptos::web_sys` (not a
+// direct `web-sys` import) so it compiles on BOTH native and wasm — matching the
+// pattern in `scene.rs`.
+
+/// Add body classes via `document().body().class_list()`.
+///
+/// No-ops silently if any DOM handle is missing (never panics); a missing body
+/// during teardown must not crash the drag handlers.
+fn body_class_add(classes: &[&str]) {
+    if let Some(body) = web_sys::window()
+        .and_then(|w| w.document())
+        .and_then(|d| d.body())
+    {
+        let list = body.class_list();
+        for c in classes {
+            let _ = list.add_1(c);
+        }
+    }
+}
+
+/// Remove body classes via `document().body().class_list()`.
+///
+/// Companion to [`body_class_add`]; same no-op-on-missing-handle contract.
+fn body_class_remove(classes: &[&str]) {
+    if let Some(body) = web_sys::window()
+        .and_then(|w| w.document())
+        .and_then(|d| d.body())
+    {
+        let list = body.class_list();
+        for c in classes {
+            let _ = list.remove_1(c);
+        }
+    }
+}
+
+/// Measure the drag geometry from the gutter element.
+///
+/// Walks up to the `.app-main` container and reads its bounding rect, returning
+/// `(origin, axis_px, gutter_px)`:
+///
+/// - **Split** (vertical divider): `origin` = container left, `axis_px` =
+///   container width, `gutter_px` = gutter width.
+/// - **Stack** (horizontal divider): `origin` = container top, `axis_px` =
+///   container height, `gutter_px` = gutter height.
+///
+/// Returns `None` if `.app-main` can't be found (e.g. detached node); callers
+/// then no-op instead of computing against garbage.
+fn measure(gutter_el: &web_sys::Element, layout: LayoutMode) -> Option<(f64, f64, f64)> {
+    let main = gutter_el.closest(".app-main").ok().flatten()?;
+    let main_rect = main.get_bounding_client_rect();
+    let gutter_rect = gutter_el.get_bounding_client_rect();
+    let out = match layout {
+        LayoutMode::Split => (main_rect.left(), main_rect.width(), gutter_rect.width()),
+        LayoutMode::Stack => (main_rect.top(), main_rect.height(), gutter_rect.height()),
+    };
+    Some(out)
+}
+
+/// Draggable divider between the map and detail panes.
+///
+/// Renders a `role="separator"` div that resizes the two panes via pointer drag,
+/// arrow-key steps, Home/End, and double-click-to-default. It drives the pure
+/// [`clamp_split_ratio`]/[`step_ratio`] helpers and writes the resulting fraction
+/// into the active per-mode ratio signal (`split_ratio` for Split, `stack_ratio`
+/// for Stack).
+///
+/// The `dragging` signal is read by `<main>`'s reactive class closure to add
+/// `.is-dragging` — it must NOT be toggled imperatively here, since a re-render
+/// would wipe an imperatively-set class.
+#[component]
+pub fn Splitter(
+    layout: RwSignal<LayoutMode>,
+    split_ratio: RwSignal<f64>,
+    stack_ratio: RwSignal<f64>,
+    dragging: RwSignal<bool>,
+) -> impl IntoView {
+    // Last-measured `(axis_px, gutter_px)`, refreshed on pointerdown/move/keydown.
+    // Read only by aria-valuemin/valuemax so AT announces reachable bounds; before
+    // the first measure it is None and the aria bounds fall back to 0 / 100.
+    let measured: RwSignal<Option<(f64, f64)>> = RwSignal::new(None);
+
+    // Pick the active ratio signal for a layout. RwSignal is Copy, so returning it
+    // by value is cheap and lets each handler read/write without extra plumbing.
+    let active_signal = move |lay: LayoutMode| -> RwSignal<f64> {
+        match lay {
+            LayoutMode::Split => split_ratio,
+            LayoutMode::Stack => stack_ratio,
+        }
+    };
+
+    // Shared cleanup for pointerup AND pointercancel. Unlike scene.rs (which never
+    // releases capture), we MUST release here and drop the body lock on BOTH — a
+    // cancelled drag that skipped this would leave `is-resizing` stuck globally,
+    // freezing cursor/selection for the whole document.
+    let end_drag = move |ev: &web_sys::PointerEvent| {
+        if let Some(el) = ev
+            .current_target()
+            .and_then(|t| t.dyn_into::<web_sys::Element>().ok())
+        {
+            let _ = el.release_pointer_capture(ev.pointer_id());
+        }
+        dragging.set(false);
+        body_class_remove(&["is-resizing", "resizing-col", "resizing-row"]);
+    };
+
+    // aria-valuemin as a percent: the lowest reachable map fraction (raw=0 clamped
+    // to the map floor) given the last measurement; 0 before first measure.
+    let value_min_pct = move || -> i64 {
+        let lay = layout.get();
+        match measured.get() {
+            Some((axis, gutter)) => {
+                let (min1, min2) = floors_for(lay);
+                (clamp_split_ratio(0.0, axis, gutter, min1, min2) * 100.0).round() as i64
+            }
+            None => 0,
+        }
+    };
+    // aria-valuemax as a percent: the highest reachable map fraction (raw=1 clamped
+    // to leave the detail floor); 100 before first measure.
+    let value_max_pct = move || -> i64 {
+        let lay = layout.get();
+        match measured.get() {
+            Some((axis, gutter)) => {
+                let (min1, min2) = floors_for(lay);
+                (clamp_split_ratio(1.0, axis, gutter, min1, min2) * 100.0).round() as i64
+            }
+            None => 100,
+        }
+    };
+
+    view! {
+        <div
+            class="panel-gutter"
+            role="separator"
+            tabindex="0"
+            aria-label="Resize panels"
+            aria-orientation=move || match layout.get() {
+                // Split = vertical divider between columns; Stack = horizontal.
+                LayoutMode::Split => "vertical",
+                LayoutMode::Stack => "horizontal",
+            }
+            aria-valuemin=value_min_pct
+            aria-valuemax=value_max_pct
+            aria-valuenow=move || {
+                let lay = layout.get();
+                (active_signal(lay).get() * 100.0).round() as i64
+            }
+            on:pointerdown=move |ev: web_sys::PointerEvent| {
+                // The gutter div itself is current_target.
+                let Some(el) = ev
+                    .current_target()
+                    .and_then(|t| t.dyn_into::<web_sys::Element>().ok())
+                else {
+                    return;
+                };
+                let lay = layout.get_untracked();
+                if let Some((_, axis, gutter)) = measure(&el, lay) {
+                    measured.set(Some((axis, gutter)));
+                }
+                let _ = el.set_pointer_capture(ev.pointer_id());
+                dragging.set(true);
+                // Global cursor/selection lock while dragging; per-axis class picks
+                // the resize cursor (col-resize vs row-resize) in CSS.
+                let split = matches!(lay, LayoutMode::Split);
+                body_class_add(&[
+                    "is-resizing",
+                    if split { "resizing-col" } else { "resizing-row" },
+                ]);
+            }
+            on:pointermove=move |ev: web_sys::PointerEvent| {
+                if !dragging.get_untracked() {
+                    return;
+                }
+                let Some(el) = ev
+                    .current_target()
+                    .and_then(|t| t.dyn_into::<web_sys::Element>().ok())
+                else {
+                    return;
+                };
+                let lay = layout.get_untracked();
+                let Some((origin, axis_px, gutter_px)) = measure(&el, lay) else {
+                    return;
+                };
+                let split = matches!(lay, LayoutMode::Split);
+                let coord = if split {
+                    ev.client_x() as f64
+                } else {
+                    ev.client_y() as f64
+                };
+                // Offset the pointer by half the gutter so the fraction tracks the
+                // gutter CENTRE under the cursor, not its leading edge.
+                let raw = (coord - origin - gutter_px / 2.0) / axis_px;
+                let (min1, min2) = floors_for(lay);
+                let clamped = clamp_split_ratio(raw, axis_px, gutter_px, min1, min2);
+                active_signal(lay).set(clamped);
+                measured.set(Some((axis_px, gutter_px)));
+            }
+            on:pointerup=move |ev: web_sys::PointerEvent| end_drag(&ev)
+            on:pointercancel=move |ev: web_sys::PointerEvent| end_drag(&ev)
+            on:keydown=move |ev: web_sys::KeyboardEvent| {
+                let Some(el) = ev
+                    .current_target()
+                    .and_then(|t| t.dyn_into::<web_sys::Element>().ok())
+                else {
+                    return;
+                };
+                let lay = layout.get_untracked();
+                // Measure first: the correct clamp window depends on the axis size.
+                let Some((_, axis, gutter)) = measure(&el, lay) else {
+                    return;
+                };
+                let (min1, min2) = floors_for(lay);
+                let sig = active_signal(lay);
+                let current = sig.get_untracked();
+                let key = ev.key();
+                let split = matches!(lay, LayoutMode::Split);
+                // Map each key to the target fraction; None = key not handled (we
+                // then leave the event alone and skip preventDefault).
+                let new = match key.as_str() {
+                    "ArrowLeft" if split => {
+                        Some(step_ratio(current, -KEYBOARD_STEP, axis, gutter, min1, min2))
+                    }
+                    "ArrowRight" if split => {
+                        Some(step_ratio(current, KEYBOARD_STEP, axis, gutter, min1, min2))
+                    }
+                    "ArrowUp" if !split => {
+                        Some(step_ratio(current, -KEYBOARD_STEP, axis, gutter, min1, min2))
+                    }
+                    "ArrowDown" if !split => {
+                        Some(step_ratio(current, KEYBOARD_STEP, axis, gutter, min1, min2))
+                    }
+                    "Home" => Some(clamp_split_ratio(0.0, axis, gutter, min1, min2)),
+                    "End" => Some(clamp_split_ratio(1.0, axis, gutter, min1, min2)),
+                    _ => None,
+                };
+                if let Some(new) = new {
+                    ev.prevent_default();
+                    sig.set(new);
+                    measured.set(Some((axis, gutter)));
+                }
+            }
+            on:dblclick=move |_ev: web_sys::MouseEvent| {
+                // Double-click restores the shipped default fraction for the mode.
+                let lay = layout.get_untracked();
+                active_signal(lay).set(default_ratio(lay));
+            }
+        ></div>
+    }
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────

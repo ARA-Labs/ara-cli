@@ -25,6 +25,7 @@ use leptos::prelude::*;
 use replay::{ReplayBar, ReplayState};
 use scene::{GraphRenderer, GraphView, LayoutView, SvgRenderer};
 use source::{ManifestSource, connect_live, fetch_manifest};
+use splitter::Splitter;
 use state::{DisplayMode, LayoutMode, LoadState, MapSurface, PanZoom, map_surface, safe_viewbox};
 use toolbar::{DisplayToggle, LayoutToggle, Toolbar};
 use tree::{TreeView, tree_model};
@@ -72,6 +73,20 @@ pub fn App() -> impl IntoView {
     // Stack (map on top, detail below) is the default — it matches the wide DAG
     // shape and uses the full viewport width. Split is the opt-in side-by-side.
     let layout: RwSignal<LayoutMode> = RwSignal::new(LayoutMode::default());
+
+    // Per-mode split fractions (map fraction of the main axis). In-memory only;
+    // reset to defaults on reload. Two signals so the column (split) and row
+    // (stack) fractions don't bleed into each other when toggling modes.
+    let split_ratio: RwSignal<f64> = RwSignal::new(splitter::SPLIT_DEFAULT_RATIO);
+    let stack_ratio: RwSignal<f64> = RwSignal::new(splitter::STACK_DEFAULT_RATIO);
+    // Drag-active flag, folded into the <main> class closure (Leptos owns that
+    // attribute — do NOT toggle it imperatively, a re-render would wipe it).
+    let dragging: RwSignal<bool> = RwSignal::new(false);
+    // The ratio signal for the active mode (what <main>'s --split reads).
+    let active_ratio = move || match layout.get() {
+        LayoutMode::Split => split_ratio,
+        LayoutMode::Stack => stack_ratio,
+    };
 
     // ── Display mode (graph vs. tree; survives manifest swaps) ────────────────
     // Graph (SVG DAG) is the default; Tree is the published DOM tree-list.
@@ -147,7 +162,14 @@ pub fn App() -> impl IntoView {
                 <span class="count" id="rstat">{move || rstat.get()}</span>
             </div>
         </header>
-        <main class=move || format!("app-main {}", layout.get().css_class())>
+        <main
+            class=move || format!(
+                "app-main {}{}",
+                layout.get().css_class(),
+                if dragging.get() { " is-dragging" } else { "" },
+            )
+            style=move || format!("--split: {}%;", (active_ratio().get() * 100.0).clamp(0.0, 100.0))
+        >
             // role="region" + aria-label lets screen-reader users jump between panes.
             <section id="map" class="panel panel-map" role="region" aria-label="Exploration graph">
                 <MapPane
@@ -160,6 +182,7 @@ pub fn App() -> impl IntoView {
                     replay_state=replay_state
                 />
             </section>
+            <Splitter layout=layout split_ratio=split_ratio stack_ratio=stack_ratio dragging=dragging />
             <section id="detail" class="panel panel-detail" role="region" aria-label="Detail">
                 <DetailPane load_state=load_state selected=selected />
             </section>
