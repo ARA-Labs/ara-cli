@@ -1,6 +1,6 @@
-# bara
+# ara
 
-[![CI](https://github.com/EYH0602/bara/actions/workflows/ci.yml/badge.svg)](https://github.com/EYH0602/bara/actions/workflows/ci.yml)
+[![CI](https://github.com/ARA-Labs/ara-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/ARA-Labs/ara-cli/actions/workflows/ci.yml)
 [![Crates.io](https://img.shields.io/crates/v/ara-cli.svg)](https://crates.io/crates/ara-cli)
 [![docs.rs](https://img.shields.io/docsrs/ara-core)](https://docs.rs/ara-core)
 [![Downloads](https://img.shields.io/crates/d/ara-cli.svg)](https://crates.io/crates/ara-cli)
@@ -9,26 +9,26 @@
 
 Blazing-fast **ARA viewer** — a Rust runtime that parses, serves, and renders
 Agent-Native Research Artifacts (ARAs) as an interactive, drill-down DAG in the
-browser. (`bara` = *blazing ara*.)
+browser.
 
-`bara` is an **independent, community-built** runtime for the ARA format. Point
-it at any ARA directory and it validates, lays out, and serves an interactive
-viewer locally — no hub account, no build step, no LLM calls at view time.
+`ara` is the **official ARA-Labs** runtime for the ARA format. Point it at any
+ARA directory and it validates, lays out, and serves an interactive viewer
+locally — no hub account, no build step, no LLM calls at view time.
 
 > Status: released, `0.1.x`. `ara validate`, `ara layout`, and `ara serve`
 > (live-reloading web viewer) all work. See `docs/` for the shipped-stage
 > design write-ups.
 
-## Why bara?
+## Why ara?
 
-The official ARA project defines the format and hosts a hub where each artifact
-is published with its own pre-baked viewer page. `bara` is a **local-first,
-deterministic alternative** you run yourself. The differences are deliberate
-design decisions, not accidents:
+ARA-Labs hosts a hub where each artifact is published with its own pre-baked
+viewer page. `ara` is the **local-first, deterministic viewer** you run
+yourself — the same runtime is being prepared to power the hub. Rendering the
+YAML directly instead of a baked page is a deliberate design decision:
 
 - **Renders the YAML directly — never calls an LLM at view time.** Reference ARA
   viewers ship a static, upstream-baked HTML page per artifact (prose generated
-  once, then frozen). `bara` reads `exploration_tree.yaml` + `claims.md` and
+  once, then frozen). `ara` reads `exploration_tree.yaml` + `claims.md` and
   renders them **deterministically** every load, so the view is byte-reproducible
   and always matches the source on disk. Missing upstream prose degrades
   gracefully to the structured fields — it is never faked at view time.
@@ -53,10 +53,10 @@ design decisions, not accidents:
   directory and live-reloads on change (preserving pan/zoom/selection). The
   browser frontend is embedded into the `ara` binary, so there is one artifact to
   ship and no external services to run.
-- **Open and independent.** MPL-2.0, no telemetry, no lock-in, and an active
-  feedback loop with the format maintainer (`docs/ara-format-feedback.md`).
+- **Open, no lock-in.** MPL-2.0, no telemetry, and format development happens in
+  the open (`docs/ara-format-feedback.md`).
 
-Use `bara` when you want to explore ARAs **on your own machine**, keep the
+Use `ara` when you want to explore ARAs **on your own machine**, keep the
 rendering faithful to the source, script it into CI/validation, or view
 artifacts that never went through the hub.
 

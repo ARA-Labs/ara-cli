@@ -1,6 +1,6 @@
 # ara-viewer
 
-The browser client for the [ARA viewer runtime](https://github.com/EYH0602/bara)
+The browser client for the [ARA viewer runtime](https://github.com/ARA-Labs/ara-cli)
 — *bara*, the blazing-fast ARA viewer. A [Leptos](https://leptos.dev) CSR
 (client-side-rendered) WebAssembly app that renders an Agent-Native Research
 Artifact's exploration graph as an interactive, drill-down DAG, skinned to the

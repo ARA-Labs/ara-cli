@@ -1,6 +1,6 @@
 # ara-cli
 
-The command-line runtime for the [ARA viewer](https://github.com/EYH0602/bara).
+The command-line runtime for the [ARA viewer](https://github.com/ARA-Labs/ara-cli).
 Installs a binary named `ara`.
 
 ```bash

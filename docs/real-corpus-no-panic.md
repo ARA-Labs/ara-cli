@@ -1,6 +1,6 @@
 # Real-ARA no-panic regression coverage (issue #3)
 
-Design record for the corpus robustness net shipped for [issue #3](https://github.com/EYH0602/bara/issues/3)
+Design record for the corpus robustness net shipped for [issue #3](https://github.com/ARA-Labs/ara-cli/issues/3)
 (PR #4, workspace `0.0.3`). It permanently guarantees the parser **runs to
 completion without panicking on real data**, and locks in the schema-drift
 knowledge before Stage 2 froze the wire schema.

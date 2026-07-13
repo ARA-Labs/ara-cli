@@ -1,6 +1,6 @@
 # ara-core
 
-Shared core of the [ARA viewer runtime](https://github.com/EYH0602/bara): parsing,
+Shared core of the [ARA viewer runtime](https://github.com/ARA-Labs/ara-cli): parsing,
 normalization, binding resolution, and layered DAG layout. Compiled to both native
 and `wasm32-unknown-unknown` so the server and browser client share one
 implementation.

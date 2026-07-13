@@ -6,9 +6,9 @@ members = ["crates/*"]
 version = "0.1.3"
 edition = "2024"
 license = "MPL-2.0"
-repository = "https://github.com/EYH0602/bara"
-authors = ["Yifeng He <yfhe.prsn@gmail.com>"]
-homepage = "https://github.com/EYH0602/bara"
+repository = "https://github.com/ARA-Labs/ara-cli"
+authors = ["Yifeng He <yfhe.cs@gmail.com>"]
+homepage = "https://github.com/ARA-Labs/ara-cli"
 keywords = ["ara", "research", "viewer", "dag", "wasm"]
 categories = ["command-line-utilities", "visualization"]
 

@@ -6,7 +6,7 @@
 //! is the single source of truth that keeps the server and client from
 //! drifting.
 //!
-//! See <https://github.com/EYH0602/bara>.
+//! See <https://github.com/ARA-Labs/ara-cli>.
 
 mod claims;
 pub mod layout;
