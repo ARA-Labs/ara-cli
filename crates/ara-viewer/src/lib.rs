@@ -10,6 +10,7 @@ pub mod filter;
 pub mod kind;
 pub mod replay;
 pub mod scene;
+pub mod splitter;
 pub mod source;
 pub mod state;
 pub mod toolbar;
