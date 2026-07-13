@@ -12,12 +12,20 @@ categories.workspace = true
 readme = "README.md"
 default-run = "ara"
 
+# The workspace defaults `dist = false`; ara-cli opts back in so only the `ara`
+# binary ships. `formula = "ara"` names the Homebrew formula after the binary
+# (not the crate), so the install command is `brew install ARA-Labs/tap/ara`,
+# not `.../ara-cli`.
+[package.metadata.dist]
+dist = true
+formula = "ara"
+
 [[bin]]
 name = "ara"
 path = "src/main.rs"
 
 [dependencies]
-ara-core = { path = "../ara-core", version = "0.1.4" }
+ara-core = { path = "../ara-core", version = "0.1.5" }
 clap = { version = "4", features = ["derive"] }
 serde_json = "1"
 

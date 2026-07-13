@@ -6,6 +6,16 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- Pre-built release binaries and a Homebrew formula, driven by cargo-dist. A
+  new tag-triggered `release.yml` cross-builds the `ara` binary for
+  `aarch64-apple-darwin` (macOS Apple Silicon) and `x86_64-unknown-linux-gnu`
+  (Linux x86_64), attaches tarballs + checksums to the GitHub Release, and
+  generates a `curl | sh` installer and the `ara.rb` Homebrew formula. The
+  formula targets the `ARA-Labs/homebrew-tap` tap, so users can
+  `brew install ARA-Labs/tap/ara`. (Auto-push to the tap is deferred; the
+  formula is committed by hand from the release asset for now.)
+
 ### Changed
 - Bump dependencies: `tower-http` 0.6 → 0.7 and `notify-debouncer-full` 0.5 →
   0.7 (`ara-cli`), and `gloo-net` 0.6 → 0.7 (`ara-viewer`). Regenerated the

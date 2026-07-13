@@ -3,7 +3,7 @@ resolver = "3"
 members = ["crates/*"]
 
 [workspace.package]
-version = "0.1.4"
+version = "0.1.5"
 edition = "2024"
 license = "MPL-2.0"
 repository = "https://github.com/ARA-Labs/ara-cli"
@@ -11,6 +11,34 @@ authors = ["Yifeng He <yfhe.cs@gmail.com>"]
 homepage = "https://github.com/ARA-Labs/ara-cli"
 keywords = ["ara", "research", "viewer", "dag", "wasm"]
 categories = ["command-line-utilities", "visualization"]
+
+# Config for 'dist'
+[workspace.metadata.dist]
+# The preferred dist version to use in CI (Cargo.toml SemVer syntax)
+cargo-dist-version = "0.32.0"
+# CI backends to support
+ci = "github"
+# The installers to generate for each app
+installers = ["shell", "homebrew"]
+# A GitHub repo to push Homebrew formulas to
+tap = "ARA-Labs/homebrew-tap"
+# Target platforms to build apps for (Rust target-triple syntax)
+targets = ["aarch64-apple-darwin", "x86_64-unknown-linux-gnu"]
+# Default every workspace member to do-not-distribute; ara-cli opts back in with
+# `dist = true` in its own Cargo.toml. This keeps only the `ara` binary shipping
+# (ara-viewer is a Leptos/wasm build entrypoint, not a native tool; ara-core /
+# ara-wasm are libs). Done via this workspace-level flag + a per-package opt-in
+# on ara-cli so the opt-out stays OUT of crates/ara-viewer/Cargo.toml, whose
+# contents are hashed by the viewer-embed-fresh gate (scripts/embed-viewer.sh).
+dist = false
+# Which actions to run on pull requests
+pr-run-mode = "plan"
+# Path that installers should place binaries in
+install-path = "CARGO_HOME"
+# Whether to install an updater program
+install-updater = false
+# Skip checking whether the specified configuration files are up to date
+allow-dirty = ["ci"]
 
 [profile.release]
 opt-level = 3
@@ -28,3 +56,8 @@ lto = "fat"
 codegen-units = 1
 panic = "abort"
 strip = true
+
+# The profile that 'dist' will build with
+[profile.dist]
+inherits = "release"
+lto = "thin"

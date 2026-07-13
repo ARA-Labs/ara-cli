@@ -71,6 +71,14 @@ artifacts that never went through the hub.
 
 ## Install
 
+Pre-built binaries for macOS (Apple Silicon) and Linux (x86_64) via Homebrew:
+
+```bash
+brew install ARA-Labs/tap/ara
+```
+
+Or build from source with Cargo (any platform, needs a Rust toolchain):
+
 ```bash
 cargo install ara-cli   # ships the `ara` binary
 ara --help
