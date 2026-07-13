@@ -22,6 +22,9 @@
   --iso-bg:    #f7f1e6;
   --iso-ink:   #8a7a5c;
 
+  /* draggable divider hit area; the painted line is 1px */
+  --gutter: 6px;
+
   /* Typography */
   --font-body: ui-sans-serif, system-ui, sans-serif;
   --font-mono: ui-monospace, monospace;
@@ -204,17 +207,17 @@ code, kbd, samp, pre,
 }
 
 /* Stack (default): map on top at full width, detail below. Matches the wide,
-   short exploration DAG shape. The detail row floors at 180px so an empty
-   "Select a step" placeholder can't reserve an oversized row, then grows to
-   share leftover height (2fr map / 1fr detail). */
+   short exploration DAG shape. The gutter track separates map and detail.
+   Runtime var(--split) sets the ratio; map row floors at 180px, detail at 180px. */
 .app-main.layout-stack {
   grid-template-columns: 1fr;
-  grid-template-rows: 2fr minmax(180px, 1fr);
+  grid-template-rows: minmax(180px, var(--split, 66.7%)) var(--gutter) minmax(180px, 1fr);
 }
 
-/* Split: map left, detail right (the pre-issue-#9 behaviour). */
+/* Split: map left, gutter, detail right. Runtime var(--split) sets the ratio;
+   map column floors at 320px, detail at 240px. */
 .app-main.layout-split {
-  grid-template-columns: minmax(320px, 38%) 1fr;
+  grid-template-columns: minmax(320px, var(--split, 38%)) var(--gutter) minmax(240px, 1fr);
 }
 
 /* ── Shared panel surface ───────────────────────────────────────────────────── */
@@ -223,16 +226,6 @@ code, kbd, samp, pre,
   background-color: var(--panel);
   overflow: auto;
   padding: 1rem;
-}
-
-/* Split mode: vertical divider between the side-by-side panes. */
-.app-main.layout-split .panel-map {
-  border-right: 1px solid var(--line);
-}
-
-/* Stack mode: horizontal divider under the top (map) pane. */
-.app-main.layout-stack .panel-map {
-  border-bottom: 1px solid var(--line);
 }
 
 /* Anchor the map-hint affordance to the map pane's bottom-left corner. */
@@ -254,6 +247,44 @@ code, kbd, samp, pre,
   pointer-events: none;
   user-select: none;
 }
+
+/* ── Resizable divider (gutter) ─────────────────────────────────────────────── */
+/* Thin visible line (1px ::before) inside a wide invisible hit-area track. */
+.panel-gutter {
+  position: relative;
+  align-self: stretch;
+  justify-self: stretch;
+  background: transparent;   /* the track is invisible; the line is ::before */
+  touch-action: none;        /* pointer drag must not scroll the page */
+}
+.panel-gutter::before {
+  content: "";
+  position: absolute;
+  background-color: var(--line);
+  transition: background-color 0.12s;   /* app-standard interactive timing */
+}
+.app-main.layout-split .panel-gutter::before { top: 0; bottom: 0; left: 50%; width: 1px; transform: translateX(-50%); }
+.app-main.layout-stack .panel-gutter::before { left: 0; right: 0; top: 50%; height: 1px; transform: translateY(-50%); }
+
+.app-main.layout-split .panel-gutter { cursor: col-resize; }
+.app-main.layout-stack .panel-gutter { cursor: row-resize; }
+
+/* Calm hover/focus: brighten the 1px line with a mid-tone — NOT a full accent bar. */
+.panel-gutter:hover::before,
+.panel-gutter:focus-visible::before {
+  background-color: color-mix(in srgb, var(--accent) 45%, var(--line));
+}
+.panel-gutter:focus-visible { outline: 2px solid var(--accent); outline-offset: -1px; }
+
+/* Active drag: full --accent line + GLOBAL body cursor + selection lock, so a
+   fast drag that leaves the gutter keeps the resize cursor and selects no text. */
+.app-main.is-dragging .panel-gutter::before { background-color: var(--accent); }
+body.is-resizing { user-select: none; }
+body.is-resizing.resizing-col { cursor: col-resize; }
+body.is-resizing.resizing-row { cursor: row-resize; }
+
+/* Touch/coarse pointers: widen the invisible hit area, keep the line 1px. */
+@media (pointer: coarse) { :root { --gutter: 24px; } }
 
 /* ── Placeholder text ───────────────────────────────────────────────────────── */
 
@@ -964,10 +995,12 @@ pre.diff {
     overflow: auto;
   }
 
-  /* Force the horizontal divider even in split mode (both panels stand alone
-     stacked). Doubled class keeps specificity above .app-main.layout-split. */
+  /* Hide the gutter — not needed in the forced single-column collapse. */
+  .app-main .panel-gutter { display: none; }
+
+  /* Restore the horizontal divider under the map pane now that the gutter is
+     hidden. Doubled class keeps specificity above .app-main.layout-split. */
   .app-main.app-main .panel-map {
-    border-right: none;
     border-bottom: 1px solid var(--line);
   }
 

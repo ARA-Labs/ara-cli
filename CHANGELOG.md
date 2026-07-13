@@ -15,6 +15,13 @@ All notable changes to this project are documented here. The format follows
   formula targets the `ARA-Labs/homebrew-tap` tap, so users can
   `brew install ARA-Labs/tap/ara`. (Auto-push to the tap is deferred; the
   formula is committed by hand from the release asset for now.)
+- Resizable viewer panels: drag (or keyboard-resize) the divider between the
+  map and detail panes to rebalance them. The gutter is a real WAI-ARIA
+  window-splitter — focusable, Arrow/Home/End operable, and value-bearing —
+  with per-mode split ratios (side-by-side vs. stacked), structural pane floors,
+  a global cursor/selection lock while dragging, and double-click to reset. The
+  ratio is in-memory only (resets on reload); on narrow (<800px) screens the
+  layout still collapses to a single column with the gutter hidden.
 
 ### Changed
 - Bump dependencies: `tower-http` 0.6 → 0.7 and `notify-debouncer-full` 0.5 →
