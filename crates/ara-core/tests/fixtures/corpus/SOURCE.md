@@ -3,7 +3,7 @@
 The artifacts under this directory are a **curated, pinned subset** of the
 `ara-paperbench` corpus. Unlike the canonical examples under `official/`, these
 real artifacts exercise a **wider schema** than `ara-core` models today (extra
-node fields, transition fields, real cycles, broken evidence refs, and an
+node fields, redundant ancestor back-edges, broken evidence refs, and an
 `ara-2.0` streams document). They back the always-on `corpus_no_panic`
 regression test (`crates/ara-core/tests/corpus_no_panic.rs`), which asserts the
 parser **never unwind-panics and always produces a `ParseReport`** on real data
@@ -17,8 +17,10 @@ Do not hand-edit these files. Re-vendor at a new pin with
 - **License:** CC-BY-4.0 (see the upstream `LICENSE`). Attribution:
   "Amber Liu and the ARA project contributors."
 
-Only `trace/exploration_tree.yaml` and `logic/claims.md` are copied — the parser
-consumes only those two files.
+For the six subset fixtures below, only `trace/exploration_tree.yaml` and
+`logic/claims.md` are copied. (`paperbench/self-composing-policies/` is the
+exception — a full artifact copy; see its section below — because `parse_dir`
+now also reads `PAPER.md` and the `logic/` + `evidence/` layers.)
 
 ## Files
 
@@ -30,8 +32,25 @@ consumes only those two files.
 | `speedrun/nanogpt-speedrun/` | `artifacts/speedrun/nanogpt-speedrun/` |
 | `rebench/rebench-rust_codecontests/` | `artifacts/rebench/rebench-rust_codecontests/` |
 | `rebench/rebench-restricted_mlm/` | `artifacts/rebench/rebench-restricted_mlm/` |
+| `paperbench/self-composing-policies/` | `artifacts/paperbench/self-composing-policies/` |
 
 Each fixture keeps both `trace/exploration_tree.yaml` and `logic/claims.md`.
+
+## Exception: `paperbench/self-composing-policies/` (full artifact)
+
+Unlike the other fixtures, this one is a **full, byte-verbatim artifact copy**
+(`PAPER.md`, `logic/**` including `problem.md` / `concepts.md` /
+`related_work.md` / `solution/*.md`, `trace/`, `evidence/`, `src/`, `rubric/`).
+It backs the logic-layer snapshot test `self_composing_policies_snapshot`
+(`crates/ara-core/tests/parse_fixtures.rs`), which locks the parsed
+`paper` / `problem` / `concepts` / `related_work` / `recipes` fields.
+
+No hand-edits. The trace's `N10` and `N11` each carry `also_depends_on: [N09]`
+on their own parent `N09`; the parser treats a dependency on an ancestor as a
+**redundant back-edge** (the child nesting already encodes it) and drops it with
+a *warning* rather than flagging a fatal cycle, so `parse_dir` returns `Ok` on
+the unmodified upstream file (2 warnings). Real published artifacts do this, so
+tolerating it is required to open them at all.
 
 ## Verified drift outcomes
 
@@ -44,22 +63,27 @@ no-panic test.
 
 | artifact | drift dimension | outcome | errors | warnings |
 |----------|-----------------|---------|-------:|---------:|
-| `extra/andes` | warnings-only: unknown node fields `failure_mode` / `hypothesis` / `lesson` | PASS (`Ok`) | 0 | 3 |
-| `extra/expbench` | real cycle + transition fields `from` / `to` / `trigger` | FAIL (`Err`) | 1 | 9 |
-| `paperbench/sample-specific-masks` | multiple real cycles | FAIL (`Err`) | 2 | 6 |
-| `speedrun/nanogpt-speedrun` | broken `evidence:` claim refs — stresses the error path | FAIL (`Err`) | 29 | 13 |
-| `rebench/rebench-rust_codecontests` | large; many unknown-field warnings | PASS (`Ok`) | 0 | 35 |
+| `extra/andes` | node fields `failure_mode` / `hypothesis` / `lesson` — now modeled (clean) | PASS (`Ok`) | 0 | 0 |
+| `extra/expbench` | redundant ancestor back-edge (tolerated) + `pivot` transition fields `from`/`to`/`trigger` — now modeled | PASS (`Ok`) | 0 | 1 |
+| `paperbench/sample-specific-masks` | multiple redundant ancestor back-edges (tolerated as warnings) | PASS (`Ok`) | 0 | 2 |
+| `speedrun/nanogpt-speedrun` | broken `evidence:` claim refs — stresses the error path | FAIL (`Err`) | 29 | 2 |
+| `rebench/rebench-rust_codecontests` | large; many unknown-field warnings | PASS (`Ok`) | 0 | 29 |
 | `rebench/rebench-restricted_mlm` | **`ara-2.0`** streams format (no `tree:`/`root:`) | FAIL (`Err`) | 1 | 8 |
 
-Notes on outcomes observed during verification (step 1.5):
+Notes on outcomes observed during verification:
 
-- `extra/expbench` error is `cycle detected: edge to N09 closes a cycle`; its
-  warnings include the transition fields `from` / `to` / `trigger`.
-- `paperbench/sample-specific-masks` errors are two `cycle detected` diagnostics
-  (`N04`, `N08`) — this artifact turned out to cover the **real-cycle** dimension
-  rather than broken evidence refs. The broken `evidence:` claim-ref dimension is
-  instead covered by `speedrun/nanogpt-speedrun`, whose 29 errors are all
-  `evidence references unknown claim`.
+- `extra/andes` is now fully clean: the `failure_mode` / `hypothesis` / `lesson`
+  dead-end fields it carries are modeled (no longer unknown-field warnings).
+- `extra/expbench` and `paperbench/sample-specific-masks` were previously `FAIL`
+  on `cycle detected` diagnostics. Those "cycles" are all **redundant
+  `also_depends_on` edges pointing at an ancestor** (`N10→N09`; `N12→N04`,
+  `N12→N08`) — the child nesting already encodes the dependency. The parser now
+  drops such edges with a `redundant ... ancestor` **warning** instead of a fatal
+  cycle error, so both artifacts `PASS`. Genuine cross-cycles (a dependency on a
+  sibling/descendant that closes a loop) remain fatal — covered by the synthetic
+  `broken/cycle.yaml` and `crates/ara-cli/tests/fixtures/cycle-dir`.
+- `speedrun/nanogpt-speedrun` still exercises the broken `evidence:` claim-ref
+  error path: its 29 errors are all `evidence references unknown claim`.
 - `rebench/rebench-restricted_mlm` is the `ara-2.0` streams document: it has no
   `tree:` or `root:`, so the single error is `neither tree: nor root: is
   present`, with warnings for the `ara-2.0` fields (`schema_version`, `anchors`,

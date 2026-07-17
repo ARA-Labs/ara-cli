@@ -1,4 +1,6 @@
-# N02 depends back on its ancestor N01 -> cycle in children + also_depends_on.
+# N02 and N03 depend on each other -> a genuine cross-cycle (neither is an
+# ancestor of the other). detect_cycles flags this as an error, so `layout` and
+# `validate --layout` must report the cycle and skip layout.
 tree:
   - id: N01
     type: question
@@ -6,5 +8,9 @@ tree:
     children:
       - id: N02
         type: experiment
-        title: "Cycles back to N01"
-        also_depends_on: [N01]
+        title: "A"
+        also_depends_on: [N03]
+      - id: N03
+        type: insight
+        title: "B"
+        also_depends_on: [N02]

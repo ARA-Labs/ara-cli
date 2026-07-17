@@ -95,6 +95,159 @@ pub struct Manifest {
     /// Bounding rectangle enclosing all laid-out nodes. Populated by layout.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub bounds: Option<Rect>,
+    /// Paper-level metadata from `PAPER.md` frontmatter. Absent when the file is
+    /// missing or has no frontmatter fence.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub paper: Option<PaperMeta>,
+    /// Typed prior-work dependencies from `logic/related_work.md`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub related_work: Vec<RelatedWork>,
+    /// Glossary terms from `logic/concepts.md`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub concepts: Vec<Concept>,
+    /// Problem framing from `logic/problem.md`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub problem: Option<Problem>,
+    /// Solution recipes, one per `logic/solution/*.md` file (source order).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub recipes: Vec<Recipe>,
+    /// Figures/tables from `evidence/`. Populated by a later evidence task.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub exhibits: Vec<Exhibit>,
+    /// Node → related-work edges. Populated by a later resolution task.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub built_on: Vec<BuiltOn>,
+    /// Node → exhibit edges. Populated by a later resolution task.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub node_exhibits: Vec<NodeExhibit>,
+}
+
+/// Paper-level metadata, parsed from `PAPER.md` YAML frontmatter.
+///
+/// Every field is optional: a `PAPER.md` with no frontmatter fence still yields
+/// a `PaperMeta` carrying only the `title` (from the first `# H1`). `year` is
+/// normalized to a `String` even when the source encodes it as an integer.
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+pub struct PaperMeta {
+    /// Paper title.
+    pub title: Option<String>,
+    /// Author names, in source order.
+    pub authors: Vec<String>,
+    /// Publication year, normalized from int or string.
+    pub year: Option<String>,
+    /// Venue string.
+    pub venue: Option<String>,
+    /// DOI or arXiv id. `None` when the source is `null` or absent.
+    pub doi: Option<String>,
+    /// Abstract text (`abstract` in the source).
+    #[serde(rename = "abstract")]
+    pub abstract_: Option<String>,
+    /// Keyword list, in source order.
+    pub keywords: Vec<String>,
+}
+
+/// One typed prior-work dependency, parsed from `logic/related_work.md`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct RelatedWork {
+    /// Reference id (`RW01`).
+    pub id: String,
+    /// Citation text — the header content after the id.
+    pub cite: String,
+    /// DOI or arXiv id, when present.
+    pub doi: Option<String>,
+    /// Relationship kind (`Type:` value), raw — may combine (e.g.
+    /// `baseline, extends`).
+    pub kind: Option<String>,
+    /// `Delta → What changed`.
+    pub what_changed: Option<String>,
+    /// `Delta → Why`.
+    pub why: Option<String>,
+    /// `Adopted elements`.
+    pub adopted: Option<String>,
+    /// Claims this reference affects, from the inline `C##` list. A prose
+    /// `none` resolves to an empty list.
+    pub claims_affected: Vec<ClaimId>,
+}
+
+/// One glossary term, parsed from `logic/concepts.md`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Concept {
+    /// The term (the `## <Term>` header text).
+    pub term: String,
+    /// Notation, LaTeX preserved verbatim.
+    pub notation: Option<String>,
+    /// Definition prose.
+    pub definition: Option<String>,
+    /// Boundary conditions (`Boundary` or `Boundary conditions`).
+    pub boundary: Option<String>,
+    /// Related term names, split from a comma-separated list.
+    pub related: Vec<String>,
+}
+
+/// Problem framing, parsed from `logic/problem.md`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Problem {
+    /// Intro prose before the first `##` section.
+    pub statement: Option<String>,
+    /// `O#` observation items, full text including the id, in source order.
+    pub observations: Vec<String>,
+    /// `G#` gap items, full text including the id, in source order.
+    pub gaps: Vec<String>,
+    /// Key-insight / `I#` items, in source order.
+    pub insights: Vec<String>,
+}
+
+/// One solution recipe, one per `logic/solution/*.md` file.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Recipe {
+    /// Filename stem (e.g. `algorithm`).
+    pub name: String,
+    /// First `# Title` in the file, when present.
+    pub title: Option<String>,
+    /// Raw markdown body, verbatim.
+    pub body: String,
+}
+
+/// The kind of an exhibit. `Other` preserves anything not a figure or table.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ExhibitKind {
+    Figure,
+    Table,
+    Other,
+}
+
+/// One figure or table, parsed from `evidence/`. Populated by a later task.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Exhibit {
+    /// Exhibit id.
+    pub id: String,
+    /// Source file, relative to the artifact root.
+    pub file: String,
+    /// Figure / table / other.
+    pub kind: ExhibitKind,
+    /// Origin of the exhibit, when stated.
+    pub source: Option<String>,
+    /// Caption / description prose.
+    pub description: Option<String>,
+    /// Claims this exhibit supports.
+    pub claims: Vec<ClaimId>,
+    /// Raw markdown body, verbatim.
+    pub body: String,
+}
+
+/// A node → related-work edge. Populated by a later resolution task.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BuiltOn {
+    pub node: NodeId,
+    pub related_work: String,
+}
+
+/// A node → exhibit edge. Populated by a later resolution task.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct NodeExhibit {
+    pub node: NodeId,
+    pub exhibit: String,
 }
 
 /// One exploration node.

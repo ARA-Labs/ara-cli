@@ -1,0 +1,691 @@
+---
+source: crates/ara-core/tests/parse_fixtures.rs
+expression: manifest
+---
+{
+  "nodes": [
+    {
+      "id": "N01",
+      "kind": "question",
+      "label": "Can a growing NN scale to many CRL tasks while retaining full plasticity?",
+      "support_level": null,
+      "source_refs": [],
+      "description": "Prior growing NN approaches (ProgressiveNet) grow quadratically in parameters, and methods that control growth (PackNet, DEN) sacrifice plasticity. Can we design an architecture that avoids catastrophic forgetting, grows linearly, and maintains full plasticity for each new task?\n",
+      "fields": "question",
+      "evidence_notes": []
+    },
+    {
+      "id": "N02",
+      "kind": "experiment",
+      "label": "Test hidden-layer sharing for knowledge transfer (ProgressiveNet style)",
+      "support_level": null,
+      "source_refs": [],
+      "description": null,
+      "fields": {
+        "experiment": {
+          "result": "Lateral connections between hidden layers of all previous columns and the new column cause quadratic parameter growth O(n^2). At 100 tasks, memory and inference time become prohibitive.\n"
+        }
+      },
+      "evidence_notes": [
+        "Figure 3",
+        "Figure B.1",
+        "Appendix C.2",
+        "Rusu et al. 2016"
+      ]
+    },
+    {
+      "id": "N03",
+      "kind": "dead_end",
+      "label": "Hidden-layer lateral connections cause quadratic growth — abandoned",
+      "support_level": null,
+      "source_refs": [],
+      "description": null,
+      "fields": {
+        "dead_end": {
+          "hypothesis": "Sharing hidden representations allows rich knowledge transfer with manageable cost",
+          "failure_mode": "Each new column must connect to all previous columns' hidden layers, making the key matrix size scale with (number_of_tasks × hidden_size), yielding O(n^2) total parameters and inference cost.\n",
+          "lesson": "Knowledge transfer must happen at a fixed-size interface independent of the number of previous modules. Output vectors (action distributions) have constant size |A| regardless of the number of tasks — this is the key insight.\n",
+          "why_failed": null
+        }
+      },
+      "evidence_notes": []
+    },
+    {
+      "id": "N04",
+      "kind": "experiment",
+      "label": "Test compositional approaches with dedicated composer NN",
+      "support_level": null,
+      "source_refs": [],
+      "description": null,
+      "fields": {
+        "experiment": {
+          "result": "Joint training of composer and composed modules is non-stationary: the composing strategy depends on optimizing the modules, and vice versa. Training is unstable.\n"
+        }
+      },
+      "evidence_notes": [
+        "Rosenbaum et al. 2019",
+        "Khetarpal et al. 2022",
+        "Section 2"
+      ]
+    },
+    {
+      "id": "N05",
+      "kind": "dead_end",
+      "label": "Dedicated composer network causes training instability — abandoned",
+      "support_level": null,
+      "source_refs": [],
+      "description": null,
+      "fields": {
+        "dead_end": {
+          "hypothesis": "A separate router/composer NN can learn to compose specialized modules",
+          "failure_mode": "The composing strategy depends on the state of the modules being composed, and module optimization depends on the composing strategy, creating a non-stationary learning problem that is difficult to stabilize.\n",
+          "lesson": "Composition must be self-contained within each module — no external coordinator. Each module should autonomously learn how to combine previous outputs.\n",
+          "why_failed": null
+        }
+      },
+      "evidence_notes": []
+    },
+    {
+      "id": "N06",
+      "kind": "decision",
+      "label": "Choose output-level composition via attention as the key design",
+      "support_level": null,
+      "source_refs": [],
+      "description": null,
+      "fields": {
+        "decision": {
+          "choice": "Each new module receives the output action vectors of all previous modules (the Phi matrix) and uses attention conditioned on the current state to selectively combine them. No dedicated composer needed.\n",
+          "alternatives": [
+            "Hidden-layer lateral connections (ProgressiveNet style): O(n^2) growth",
+            "External routing network: training instability",
+            "Subspace of policies (Gaya et al. 2023): shared parameter space"
+          ],
+          "rationale": null
+        }
+      },
+      "evidence_notes": [
+        "Output vectors have constant size |A| per module, so the Phi matrix grows in rows (k-1) but not in columns, and attention weight matrices W_Q, W_K have sizes depending only on d_enc, |A|, d_model — all constants.\n"
+      ]
+    },
+    {
+      "id": "N07",
+      "kind": "experiment",
+      "label": "Verify linear parameter growth of output-level composition",
+      "support_level": null,
+      "source_refs": [],
+      "description": null,
+      "fields": {
+        "experiment": {
+          "result": "Each self-composing module has exactly 6 linear transformations and a feed-forward block with sizes depending only on fixed d_enc, d_model, |A|. Total parameters grow as O(m*n) where m is constant per module.\n"
+        }
+      },
+      "evidence_notes": [
+        "Appendix B",
+        "Figure B.1",
+        "Figure 3 (right)"
+      ]
+    },
+    {
+      "id": "N08",
+      "kind": "experiment",
+      "label": "Measure empirical inference time vs task count (up to 300)",
+      "support_level": null,
+      "source_refs": [],
+      "description": null,
+      "fields": {
+        "experiment": {
+          "result": "Despite O(n^2) theoretical complexity, CompoNet's empirical inference time grows substantially slower than ProgressiveNet up to 300 tasks due to parallel attention computation within each module.\n"
+        }
+      },
+      "evidence_notes": [
+        "Figure 3 (left)",
+        "Figure C.1",
+        "Appendix C.2"
+      ]
+    },
+    {
+      "id": "N09",
+      "kind": "experiment",
+      "label": "Validate three-scenario robustness (reuse, compose, scratch)",
+      "support_level": null,
+      "source_refs": [],
+      "description": null,
+      "fields": {
+        "experiment": {
+          "result": "(i) When an informative prior module exists, OutputAttentionHead rapidly assigns attention~1.0 to it; InternalPolicy converges to mimic its output. (iii) When all priors are non-informative, InternalPolicy dominates and CompoNet matches baseline performance with no interference.\n"
+        }
+      },
+      "evidence_notes": [
+        "Figure 4",
+        "Section 5.4"
+      ]
+    },
+    {
+      "id": "N10",
+      "kind": "experiment",
+      "label": "Ablate Output Attention Head on Freeway sequence",
+      "support_level": null,
+      "source_refs": [],
+      "description": null,
+      "fields": {
+        "experiment": {
+          "result": "Removing Output Attention Head causes significant performance degradation on Freeway (sparse reward: policy reuse critical) but minimal impact on SpaceInvaders (denser reward: internal policy sufficient).\n"
+        }
+      },
+      "evidence_notes": [
+        "Figure G.1",
+        "Appendix G.1"
+      ]
+    },
+    {
+      "id": "N11",
+      "kind": "experiment",
+      "label": "Ablate Input Attention Head — shifted informative module",
+      "support_level": null,
+      "source_refs": [],
+      "description": null,
+      "fields": {
+        "experiment": {
+          "result": "Without the Input Attention Head, CompoNet cannot extract useful signal from a shifted informative module (direct imitation blocked); performance matches baseline. Original CompoNet significantly outperforms.\n"
+        }
+      },
+      "evidence_notes": [
+        "Figure G.2",
+        "Appendix G.2"
+      ]
+    },
+    {
+      "id": "N12",
+      "kind": "experiment",
+      "label": "Main benchmark: CompoNet vs 5 baselines on 3 task sequences",
+      "support_level": null,
+      "source_refs": [],
+      "description": null,
+      "fields": {
+        "experiment": {
+          "result": "CompoNet achieves superior or equal performance and forward transfer on all three sequences (Meta-World, SpaceInvaders, Freeway). CompoNet is the only method with non-negative FTr on Meta-World and exceeds RT on all sequences.\n"
+        }
+      },
+      "evidence_notes": [
+        "Table 1",
+        "Section 5.3",
+        "Figures F.1-F.3"
+      ]
+    }
+  ],
+  "links": [
+    {
+      "from": "N01",
+      "to": "N02",
+      "kind": "child"
+    },
+    {
+      "from": "N02",
+      "to": "N03",
+      "kind": "child"
+    },
+    {
+      "from": "N01",
+      "to": "N04",
+      "kind": "child"
+    },
+    {
+      "from": "N04",
+      "to": "N05",
+      "kind": "child"
+    },
+    {
+      "from": "N01",
+      "to": "N06",
+      "kind": "child"
+    },
+    {
+      "from": "N06",
+      "to": "N07",
+      "kind": "child"
+    },
+    {
+      "from": "N07",
+      "to": "N08",
+      "kind": "child"
+    },
+    {
+      "from": "N06",
+      "to": "N09",
+      "kind": "child"
+    },
+    {
+      "from": "N09",
+      "to": "N10",
+      "kind": "child"
+    },
+    {
+      "from": "N09",
+      "to": "N11",
+      "kind": "child"
+    },
+    {
+      "from": "N06",
+      "to": "N12",
+      "kind": "child"
+    },
+    {
+      "from": "N12",
+      "to": "N07",
+      "kind": "depends_on"
+    },
+    {
+      "from": "N12",
+      "to": "N09",
+      "kind": "depends_on"
+    }
+  ],
+  "bindings": [
+    {
+      "node": "N07",
+      "claim": "C01",
+      "role": "evidence"
+    },
+    {
+      "node": "N08",
+      "claim": "C04",
+      "role": "evidence"
+    },
+    {
+      "node": "N09",
+      "claim": "C03",
+      "role": "evidence"
+    },
+    {
+      "node": "N10",
+      "claim": "C03",
+      "role": "evidence"
+    },
+    {
+      "node": "N11",
+      "claim": "C03",
+      "role": "evidence"
+    },
+    {
+      "node": "N12",
+      "claim": "C02",
+      "role": "evidence"
+    },
+    {
+      "node": "N12",
+      "claim": "C05",
+      "role": "evidence"
+    }
+  ],
+  "claims": [
+    {
+      "id": "C01",
+      "title": "Linear Parameter Growth",
+      "statement": "The total number of parameters in CompoNet grows as O(n) with respect to the number of tasks n, because each self-composing policy module has a constant number of parameters independent of n (six linear transformations and a feed-forward block whose sizes depend only on fixed hyperparameters d_enc, d_model, |A|).",
+      "status": "supported",
+      "proof": [
+        "E04"
+      ],
+      "deps": []
+    },
+    {
+      "id": "C02",
+      "title": "Superior Performance and Forward Transfer",
+      "statement": "CompoNet achieves strictly higher or equal average performance P(T) and forward transfer FTr on all three task sequences (Meta-World, SpaceInvaders, Freeway) compared to all five baselines (Baseline, FT-1, FT-N, ProgressiveNet, PackNet), as reported in Table 1.",
+      "status": "supported",
+      "proof": [
+        "E01",
+        "E02",
+        "E03"
+      ],
+      "deps": [
+        "C03"
+      ]
+    },
+    {
+      "id": "C03",
+      "title": "Three-Scenario Robustness",
+      "statement": "CompoNet correctly handles all three task-relatedness scenarios: (i) when a previous policy solves the current task, the output attention head assigns high attention to it; (ii) when a function over previous policies can help, the module learns that function; (iii) when no previous policy is relevant, the internal policy overwrites the attention output and learns from scratch without interference.",
+      "status": "supported",
+      "proof": [
+        "E03"
+      ],
+      "deps": []
+    },
+    {
+      "id": "C04",
+      "title": "Empirical Inference Scalability",
+      "statement": "Although CompoNet's theoretical inference complexity is O(n²), its empirical inference time grows substantially slower than ProgressiveNet up to 300 tasks tested, because CompoNet computes attention keys and values in parallel over previous module outputs rather than through sequential layer-wise lateral connections.",
+      "status": "supported",
+      "proof": [
+        "E04"
+      ],
+      "deps": [
+        "C01"
+      ]
+    },
+    {
+      "id": "C05",
+      "title": "Knowledge Composition Beyond Fine-Tuning",
+      "statement": "CompoNet's forward transfer consistently exceeds the Reference Transfer (RT) in all three task sequences, demonstrating that it leverages compositional knowledge from multiple previous tasks simultaneously, beyond what fine-tuning on the single best previous task can achieve.",
+      "status": "supported",
+      "proof": [
+        "E01",
+        "E02",
+        "E03"
+      ],
+      "deps": [
+        "C02"
+      ]
+    }
+  ],
+  "paper": {
+    "title": "Self-Composing Policies for Scalable Continual Reinforcement Learning",
+    "authors": [
+      "Mikel Malagón",
+      "Josu Ceberio",
+      "Jose A. Lozano"
+    ],
+    "year": "2024",
+    "venue": "ICML 2024 (Proceedings of the 41st International Conference on Machine Learning, PMLR 235)",
+    "doi": "arXiv:2506.14811v1",
+    "abstract": "This work introduces a growable and modular neural network architecture that naturally avoids catastrophic forgetting and interference in continual reinforcement learning. The structure of each module allows the selective combination of previous policies along with its internal policy, accelerating the learning process on the current task. Unlike previous growing neural network approaches, we show that the number of parameters of the proposed approach grows linearly with respect to the number of tasks, and does not sacrifice plasticity to scale. Experiments conducted in benchmark continuous control and visual problems reveal that the proposed approach achieves greater knowledge transfer and performance than alternative methods.",
+    "keywords": [
+      "continual reinforcement learning",
+      "catastrophic forgetting",
+      "growing neural networks",
+      "policy composition",
+      "attention mechanism",
+      "knowledge transfer",
+      "modular architecture",
+      "forward transfer",
+      "Meta-World",
+      "Arcade Learning Environment"
+    ]
+  },
+  "related_work": [
+    {
+      "id": "RW01",
+      "cite": "Rusu et al., 2016 — Progressive Neural Networks",
+      "doi": "arXiv:1606.04671",
+      "kind": "baseline",
+      "what_changed": "CompoNet composes previous modules at the output (policy) level via attention; ProgressiveNet connects all hidden layers of all previous columns to each new column via lateral connections.",
+      "why": "Output-level composition yields linear O(n) parameter growth vs quadratic O(n²) in ProgressiveNet; avoids the hidden-layer coupling that causes quadratic growth.",
+      "adopted": "Freeze-and-grow paradigm (freeze previous module parameters; add new module per task); separate module per task.",
+      "claims_affected": [
+        "C01",
+        "C04"
+      ]
+    },
+    {
+      "id": "RW02",
+      "cite": "Mallya & Lazebnik, 2018 — PackNet",
+      "doi": "Proceedings of CVPR 2018, pp. 7765–7773",
+      "kind": "baseline",
+      "what_changed": "CompoNet grows the network; PackNet stores all task solutions in a single fixed-size network by iterative pruning and masking.",
+      "why": "PackNet's approach limits plasticity as tasks accumulate (trainable parameters decrease with each task until none remain); CompoNet maintains full plasticity.",
+      "adopted": "None directly; serves as ablation showing the plasticity–memory tradeoff.",
+      "claims_affected": [
+        "C02",
+        "C03"
+      ]
+    },
+    {
+      "id": "RW03",
+      "cite": "Haarnoja et al., 2018 — SAC",
+      "doi": "Proceedings of ICML 2018, pp. 1861–1870",
+      "kind": "imports",
+      "what_changed": "CompoNet uses SAC as the off-policy RL algorithm for continuous control (Meta-World); SAC's entropy regularization and replay buffer are unchanged.",
+      "why": "SAC is state-of-the-art for continuous control and is standard in the Meta-World CRL literature (Wolczyk et al., 2021).",
+      "adopted": "Entire SAC training loop with entropy auto-tuning; actor-critic architecture.",
+      "claims_affected": [
+        "C02"
+      ]
+    },
+    {
+      "id": "RW04",
+      "cite": "Schulman et al., 2017 — PPO",
+      "doi": "arXiv:1707.06347",
+      "kind": "imports",
+      "what_changed": "CompoNet uses PPO as the on-policy RL algorithm for discrete visual control (ALE environments); PPO's clipping objective and GAE are unchanged.",
+      "why": "PPO is standard for discrete action ALE tasks and does not require a replay buffer (avoiding its interaction with continual learning).",
+      "adopted": "Entire PPO training loop including GAE, advantage normalization, value clipping.",
+      "claims_affected": [
+        "C02"
+      ]
+    },
+    {
+      "id": "RW05",
+      "cite": "Wolczyk et al., 2021 — Continual World (CW20 Benchmark)",
+      "doi": "NeurIPS 2021, volume 34, pp. 28496–28510",
+      "kind": "bounds",
+      "what_changed": "CompoNet uses CW20's task sequence (10 Meta-World tasks × 2) but with v2 environments; adopts the same forward transfer and average performance metrics.",
+      "why": "CW20 provides a standardized benchmark enabling fair comparison with prior CRL methods.",
+      "adopted": "CW20 task ordering, FTr metric definition, RT concept, success rate metric, baseline comparison methodology.",
+      "claims_affected": [
+        "C02",
+        "C05"
+      ]
+    },
+    {
+      "id": "RW06",
+      "cite": "Vaswani et al., 2017 — Attention Is All You Need",
+      "doi": "NeurIPS 2017, volume 30",
+      "kind": "imports",
+      "what_changed": "CompoNet uses single-head scaled dot-product attention with cosine positional encoding (not multi-head, not learned positional encodings) applied to policy output vectors rather than token sequences.",
+      "why": "Attention provides a principled, differentiable mechanism for soft selection among previous policy outputs conditioned on the current state.",
+      "adopted": "Scaled dot-product attention formula; cosine positional encoding.",
+      "claims_affected": [
+        "C03"
+      ]
+    },
+    {
+      "id": "RW07",
+      "cite": "Rosenbaum et al., 2019 — Routing Networks Challenges",
+      "doi": "arXiv:1904.12774",
+      "kind": "refutes",
+      "what_changed": "CompoNet eliminates the need for a dedicated routing/composing network; modules learn to compose themselves autonomously.",
+      "why": "Rosenbaum et al. (2019) showed that jointly training the composing strategy and the modules being composed is non-stationary and unstable; CompoNet avoids this by using attention within each module.",
+      "adopted": "Problem framing of neural composition for multi-task RL.",
+      "claims_affected": [
+        "C03"
+      ]
+    },
+    {
+      "id": "RW08",
+      "cite": "Wolczyk et al., 2022 — Disentangling Transfer in CRL",
+      "doi": "NeurIPS 2022, volume 35, pp. 6304–6317",
+      "kind": "extends",
+      "what_changed": "CompoNet extends the disentangled transfer analysis framework with new metrics and sequences; adopts the forgetting metric and the FTr matrix analysis.",
+      "why": "Provides rigorous evaluation methodology for CRL that disentangles forward transfer from forgetting.",
+      "adopted": "Forgetting metric $F_i$; forward transfer matrix computation; methodology for computing RT.",
+      "claims_affected": [
+        "C02",
+        "C05"
+      ]
+    },
+    {
+      "id": "RW09",
+      "cite": "Gaya et al., 2023 — Subspace of Policies",
+      "doi": "ICLR 2023",
+      "kind": "baseline",
+      "what_changed": "CompoNet uses output-level attention-based composition with per-task modules; Gaya et al. build a policy subspace in a shared parameter space.",
+      "why": "CompoNet explicitly avoids catastrophic forgetting via module freezing, while subspace approaches may still require careful parameter management.",
+      "adopted": "Conceptual motivation for scalable continual policy learning.",
+      "claims_affected": [
+        "C01",
+        "C02"
+      ]
+    }
+  ],
+  "concepts": [
+    {
+      "term": "CompoNet",
+      "notation": "CompoNet with modules $\\{\\pi^{(1)}, \\ldots, \\pi^{(n)}\\}$",
+      "definition": "A growable modular neural network architecture for CRL that adds one self-composing policy module per task, freezes all previous modules, and allows each new module to access and compose the output vectors of all previous modules via attention mechanisms.",
+      "boundary": "Requires known task boundaries; assumes constant action space across tasks; state spaces should be approximately similar across tasks.",
+      "related": [
+        "Self-Composing Policy Module",
+        "ProgressiveNet",
+        "Continual Reinforcement Learning"
+      ]
+    },
+    {
+      "term": "Self-Composing Policy Module",
+      "notation": "$\\pi^{(k)}(a \\mid s, \\Phi^{k;s})$",
+      "definition": "The basic unit of CompoNet, comprising three blocks — Output Attention Head, Input Attention Head, Internal Policy — that together produce an action distribution by composing the current state encoding $h_s$ with the matrix of previous module outputs $\\Phi^{k;s}$.",
+      "boundary": "The first module has no previous modules to compose, so $\\Phi^{1;s}$ is empty and the module reduces to a standard policy network. After training, the module's parameters are frozen permanently.",
+      "related": [
+        "Output Attention Head",
+        "Input Attention Head",
+        "Internal Policy",
+        "Phi Matrix"
+      ]
+    },
+    {
+      "term": "Phi Matrix",
+      "notation": "$\\Phi^{k;s} \\in \\mathbb{R}^{(k-1) \\times |A|}$",
+      "definition": "The matrix whose j-th row is the output vector of the j-th frozen module when given state $s$ as input, for the current task k. Rows represent probability values (discrete) or mean vectors (continuous) of the action distribution of each previous module.",
+      "boundary": "Only defined when $k \\geq 2$; dimension grows with number of tasks but each module receives it as a dynamic input, not a fixed-size parameter.",
+      "related": [
+        "Self-Composing Policy Module",
+        "Output Attention Head",
+        "Input Attention Head"
+      ]
+    },
+    {
+      "term": "Output Attention Head",
+      "notation": "$v = \\text{Attention}(q, K, V)$ where $q = h_s W^Q_{out}$, $K = (\\Phi^{k;s} + E_{out}) W^K_{out}$, $V = \\Phi^{k;s}$",
+      "definition": "A single-head scaled dot-product attention block that produces a tentative output vector $v \\in \\mathbb{R}^{|A|}$ as a weighted linear combination of the rows of $\\Phi^{k;s}$, conditioned on the current state encoding $h_s$. Learnable parameters: $W^Q_{out} \\in \\mathbb{R}^{d_{enc} \\times d_{model}}$, $W^K_{out} \\in \\mathbb{R}^{|A| \\times d_{model}}$.",
+      "boundary": "$V = \\Phi^{k;s}$ requires no transformation; positional encoding $E_{out}$ is cosine-based (Vaswani et al., 2017).",
+      "related": [
+        "Scaled Dot-Product Attention",
+        "Phi Matrix",
+        "State Encoding"
+      ]
+    },
+    {
+      "term": "Input Attention Head",
+      "notation": "Output $= \\text{Attention}(q, K, V)$ where $q = h_s W^Q_{in}$, $K = (P + E_{in}) W^K_{in}$, $V = P W^V_{in}$, $P = [v; \\Phi^{k;s}]$ (row-wise concat)",
+      "definition": "A single-head scaled dot-product attention block that retrieves relevant information from the concatenation of the tentative vector $v$ (from Output Attention Head) and $\\Phi^{k;s}$, producing a context vector of size $d_{model}$ used as input to the Internal Policy. Learnable parameters: $W^Q_{in} \\in \\mathbb{R}^{d_{enc} \\times d_{model}}$, $W^K_{in} \\in \\mathbb{R}^{|A| \\times d_{model}}$, $W^V_{in} \\in \\mathbb{R}^{|A| \\times d_{model}}$.",
+      "boundary": "Unlike the Output Attention Head, values are linearly transformed ($V = PW^V_{in}$), enabling more expressive retrieval.",
+      "related": [
+        "Output Attention Head",
+        "Internal Policy",
+        "Phi Matrix"
+      ]
+    },
+    {
+      "term": "Internal Policy",
+      "notation": "$\\delta = \\text{FF}([h_s; \\text{InHead}(h_s, P)]) \\in \\mathbb{R}^{|A|}$; final output $= v + \\delta$",
+      "definition": "A multi-layer feed-forward network that takes the concatenation of $h_s$ (size $d_{enc}$) and the output of the Input Attention Head (size $d_{model}$) as input, producing a residual correction vector $\\delta$ of size $|A|$ that is added to the tentative vector $v$ from the Output Attention Head to form the module's final output.",
+      "boundary": "When previous policies are irrelevant, $\\delta$ dominates $v$; when a previous policy already solves the task, $\\delta \\approx 0$ (analogous to a residual connection). Output may require normalization depending on action space type.",
+      "related": [
+        "Output Attention Head",
+        "Input Attention Head",
+        "Self-Composing Policy Module"
+      ]
+    },
+    {
+      "term": "Scaled Dot-Product Attention",
+      "notation": "$\\text{Attention}(q, K, V) = \\text{softmax}\\!\\left(\\frac{qK^T}{\\sqrt{d_{model}}}\\right) V$",
+      "definition": "The attention mechanism (Vaswani et al., 2017) that computes a weighted sum of value vectors $V$ where weights are determined by the similarity of a query vector $q$ to key vectors $K$, scaled by $1/\\sqrt{d_{model}}$ for numerical stability.",
+      "boundary": "Applied without multi-head extension in CompoNet (single head per attention block).",
+      "related": [
+        "Output Attention Head",
+        "Input Attention Head"
+      ]
+    },
+    {
+      "term": "State Encoding",
+      "notation": "$h_s \\in \\mathbb{R}^{d_{enc}}$",
+      "definition": "A fixed-dimensional representation of the current environment state $s$. For low-dimensional vector states (Meta-World): $h_s = s$, $d_{enc} = 39$. For image-based states (ALE): $h_s = \\text{CNN}(s)$, $d_{enc} = 512$ (output of a 3-layer CNN with dense final layer). Each module has its own CNN encoder for ALE tasks, initialized from the previous module's encoder.",
+      "boundary": "The encoder's parameters are frozen when the corresponding module is frozen. For extremely long sequences or high-resolution images, a shared foundational model (e.g., DINOv2) may be used instead.",
+      "related": [
+        "Self-Composing Policy Module",
+        "CompoNet"
+      ]
+    },
+    {
+      "term": "Continual Reinforcement Learning (CRL)",
+      "notation": "Non-stationary MDP sequence $\\{M^{(k)}\\}_{k=1,\\ldots,N}$ where $M^{(k)} = \\langle S^{(k)}, A^{(k)}, p^{(k)}, r^{(k)}, \\gamma^{(k)} \\rangle$",
+      "definition": "A setting where an agent learns a sequence of tasks presented one at a time, with a limited budget $\\Delta$ timesteps per task, aiming to accelerate performance on new tasks by leveraging knowledge from previous ones.",
+      "boundary": "The paper assumes: (1) constant action space $A$, (2) known task boundaries and identifiers, (3) approximately similar state spaces.",
+      "related": [
+        "Forward Transfer",
+        "Average Performance",
+        "Catastrophic Forgetting"
+      ]
+    },
+    {
+      "term": "Forward Transfer",
+      "notation": "$\\text{FTr}_i = \\frac{\\text{AUC}_i - \\text{AUC}^b_i}{1 - \\text{AUC}^b_i}$",
+      "definition": "A metric measuring the normalized area between a method's success rate training curve on task $i$ and the baseline's training curve on the same task, where $\\text{AUC}_i = \\frac{1}{\\Delta}\\int_{(i-1)\\Delta}^{i\\Delta} p_i(t)\\,dt$ and $\\text{AUC}^b_i = \\frac{1}{\\Delta}\\int_0^\\Delta p^b_i(t)\\,dt$. Positive FTr indicates the method learns task $i$ faster than a randomly initialized baseline.",
+      "boundary": "Denominator $1 - \\text{AUC}^b_i$ prevents division by zero when the baseline solves the task immediately; metric is bounded to $(-\\infty, 1]$.",
+      "related": [
+        "Reference Forward Transfer",
+        "Average Performance",
+        "Continual Reinforcement Learning"
+      ]
+    },
+    {
+      "term": "Reference Forward Transfer (RT)",
+      "notation": "$\\text{RT} = \\frac{1}{N}\\sum_{i=2}^{N} \\max_{j<i} \\text{FTr}(j, i)$",
+      "definition": "The average over tasks of the maximum forward transfer achievable by training from scratch on any previous task $j$ and fine-tuning on the current task $i$. It represents the performance of an ideal single-source fine-tuning oracle and serves as a strong baseline for CRL methods.",
+      "boundary": "Computed from $N(N-1)/2$ fine-tuning experiments (the forward transfer matrix); a CRL method can exceed RT by composing knowledge from multiple previous tasks simultaneously.",
+      "related": [
+        "Forward Transfer",
+        "CompoNet"
+      ]
+    },
+    {
+      "term": "Catastrophic Forgetting",
+      "notation": "$F_i = p_i(i \\cdot \\Delta) - p_i(T)$",
+      "definition": "The loss in performance on task $i$ that occurs after the agent has been trained on subsequent tasks. Formally, the difference between the success rate at the end of training on task $i$ and the success rate at the end of the entire sequence $T = N \\cdot \\Delta$. Growing NN architectures (CompoNet, ProgressiveNet) achieve zero forgetting by design through parameter freezing.",
+      "boundary": "Only methods that share a single network (Baseline, FT-1) suffer non-zero forgetting; methods that freeze parameters per task have $F_i = 0$ by construction.",
+      "related": [
+        "Continual Reinforcement Learning",
+        "Forward Transfer"
+      ]
+    }
+  ],
+  "problem": {
+    "statement": null,
+    "observations": [
+      "O1: Neural Networks Suffer Catastrophic Forgetting in Sequential Task Learning",
+      "O2: Growing Neural Networks (e.g., ProgressiveNet) Grow Quadratically in Parameters",
+      "O3: Compositional NN Approaches Require a Dedicated Composer Network",
+      "O4: Methods Avoiding Forgetting via Plasticity Reduction Create a Dilemma",
+      "O5: Knowledge Transfer Between Related Tasks Can Accelerate Learning"
+    ],
+    "gaps": [
+      "G1: No Growing NN Achieves Both Linear Scaling and Full Plasticity",
+      "G2: Policy-Level Composition Without a Dedicated Composer Is Unsolved"
+    ],
+    "insights": [
+      "If a new module has direct access to the output probability vectors of all previous modules (rather than their hidden activations), it can use attention mechanisms conditioned on the current state to (a) selectively imitate the best previous policy, (b) learn a function over previous policies, or (c) ignore all previous outputs and learn from scratch — all without a dedicated composer and with only a constant-sized module per task."
+    ]
+  },
+  "recipes": [
+    {
+      "name": "algorithm",
+      "title": "Algorithm: Self-Composing Policy Forward Pass",
+      "body": "# Algorithm: Self-Composing Policy Forward Pass\n\n## Mathematical Formulation\n\nGiven: current state $s \\in S^{(k)}$, set of frozen modules $\\{\\pi^{(j)}\\}_{j=1}^{k-1}$, trainable module $\\pi^{(k)}$\n\n**Step 1 — State Encoding:**\n$$h_s = \\begin{cases} s & \\text{(low-dim vector states, Meta-World)} \\\\ \\text{CNN}_k(s) & \\text{(image states, ALE)} \\end{cases} \\in \\mathbb{R}^{d_{enc}}$$\n\n**Step 2 — Collect Previous Outputs:**\n$$\\Phi^{k;s} = \\begin{bmatrix} \\pi^{(1)}(s) \\\\ \\pi^{(2)}(s, \\Phi^{2;s}) \\\\ \\vdots \\\\ \\pi^{(k-1)}(s, \\Phi^{(k-1);s}) \\end{bmatrix} \\in \\mathbb{R}^{(k-1) \\times |A|}$$\n\n**Step 3 — Output Attention Head:**\n$$q = h_s W^Q_{out}, \\quad W^Q_{out} \\in \\mathbb{R}^{d_{enc} \\times d_{model}}$$\n$$K = (\\Phi^{k;s} + E_{out}) W^K_{out}, \\quad W^K_{out} \\in \\mathbb{R}^{|A| \\times d_{model}}, \\quad E_{out} \\in \\mathbb{R}^{(k-1) \\times |A|}$$\n$$V = \\Phi^{k;s}$$\n$$v = \\text{softmax}\\!\\left(\\frac{qK^T}{\\sqrt{d_{model}}}\\right) V \\in \\mathbb{R}^{|A|}$$\n\n**Step 4 — Construct Input Matrix:**\n$$P = \\begin{bmatrix} v \\\\ \\Phi^{k;s} \\end{bmatrix} \\in \\mathbb{R}^{k \\times |A|}$$\n\n**Step 5 — Input Attention Head:**\n$$q' = h_s W^Q_{in}, \\quad W^Q_{in} \\in \\mathbb{R}^{d_{enc} \\times d_{model}}$$\n$$K' = (P + E_{in}) W^K_{in}, \\quad W^K_{in} \\in \\mathbb{R}^{|A| \\times d_{model}}, \\quad E_{in} \\in \\mathbb{R}^{k \\times |A|}$$\n$$V' = P W^V_{in}, \\quad W^V_{in} \\in \\mathbb{R}^{|A| \\times d_{model}}$$\n$$\\text{ctx} = \\text{softmax}\\!\\left(\\frac{q'(K')^T}{\\sqrt{d_{model}}}\\right) V' \\in \\mathbb{R}^{d_{model}}$$\n\n**Step 6 — Internal Policy:**\n$$\\delta = \\text{FF}([h_s \\,\\|\\, \\text{ctx}]) \\in \\mathbb{R}^{|A|}, \\quad \\text{input dim} = d_{enc} + d_{model}$$\n\n**Step 7 — Final Output:**\n$$\\text{out} = v + \\delta \\in \\mathbb{R}^{|A|}$$\n$$\\pi^{(k)}(a \\mid s, \\Phi^{k;s}) = \\text{normalize}(\\text{out}) \\quad \\text{[softmax for discrete; tanh + scale for continuous]}$$\n\n## Pseudocode\n\n```python\ndef componet_forward(s, frozen_modules, current_module):\n    # Step 1: Encode state\n    h_s = current_module.encoder(s)  # [d_enc]\n\n    # Step 2: Collect previous outputs (sequential, each depends on prior)\n    Phi = []\n    for mod in frozen_modules:\n        out = mod.forward(s)  # [|A|]\n        Phi.append(out)\n    Phi = stack(Phi)  # [(k-1) x |A|]\n\n    # Step 3: Output Attention Head\n    q = h_s @ W_Q_out  # [d_model]\n    K = (Phi + E_out) @ W_K_out  # [(k-1) x d_model]\n    V = Phi  # [(k-1) x |A|]\n    attn_weights = softmax(q @ K.T / sqrt(d_model))  # [(k-1)]\n    v = attn_weights @ V  # [|A|]\n\n    # Step 4: Construct P\n    P = concat([v.unsqueeze(0), Phi], dim=0)  # [k x |A|]\n\n    # Step 5: Input Attention Head\n    q_in = h_s @ W_Q_in  # [d_model]\n    K_in = (P + E_in) @ W_K_in  # [k x d_model]\n    V_in = P @ W_V_in  # [k x d_model]\n    attn_in = softmax(q_in @ K_in.T / sqrt(d_model))  # [k]\n    ctx = attn_in @ V_in  # [d_model]\n\n    # Step 6: Internal Policy\n    delta = feedforward(concat([h_s, ctx]))  # [|A|]\n\n    # Step 7: Final output\n    out = v + delta  # [|A|]\n    return normalize(out)  # action distribution\n```\n\n## Complexity Analysis\n\n**Per module inference:** $T_{module}(n) = O(n)$ where $n$ = number of previous modules\n- Output attention head: $O(n)$ — dot product of query with $(n-1)$ keys\n- Input attention head: $O(n)$ — dot product with $n$ keys\n- Internal policy: $O(1)$ — fixed-size input/output, independent of $n$\n\n**Total CompoNet inference** (all $n$ modules sequentially): $n \\cdot O(n) = O(n^2)$\n\n**Empirical note**: Despite $O(n^2)$ theoretical complexity, parallel GPU computation of attention keys/values makes CompoNet's empirical inference time grow substantially slower than ProgressiveNet up to 300 tasks tested (Figure 3 and Figure C.1).\n\n**Memory complexity**: $O(m \\cdot n)$ where $m$ = constant parameters per module = $O(1)$ with respect to $n$.\n"
+    },
+    {
+      "name": "architecture",
+      "title": "System Architecture: CompoNet",
+      "body": "# System Architecture: CompoNet\n\n## Overview\nCompoNet is a cascading graph of self-composing policy modules that grows in depth with the number of tasks. At task k, states s are fed to all k modules; the k-th (active) module receives both s and the outputs of all k-1 frozen modules.\n\n## Component Graph\n\n```\nState s ──────────────────────────────────────────────────────────────┐\n         │                                                             │\n         ├──► Module 1 (frozen) ──────────────────────────────────────┤\n         │         │ π^(1)(a|s)                                        │\n         ├──► Module 2 (frozen) ──────────────────────────────────────┤\n         │         │ π^(2)(a|s, Φ^{2;s})                              │\n         │         ...                                                 │\n         ├──► Module k-1 (frozen) ─────────────────────────────────── ► Φ^{k;s}\n         │                                                             │\n         └──► Module k (trainable) ◄──────────────────────────────────┘\n                   │\n                   ▼\n              π^(k)(a|s, Φ^{k;s})  [final action distribution]\n```\n\n## Module k Internal Architecture\n\n```\nh_s (from encoder or raw s)\n      │                         Φ^{k;s} [(k-1) × |A|]\n      │                              │\n      ├────────────────────────────► Output Attention Head\n      │                              │\n      │                         v ∈ R^|A| (tentative output)\n      │                              │\n      ├──────────────────────────────┼──► [v; Φ^{k;s}] = P [(k) × |A|]\n      │                              │\n      ├────────────────────────────► Input Attention Head\n      │                              │\n      │                    context ∈ R^{d_model}\n      │                              │\n      └──► [h_s ; context] ──────────► Internal Policy (FF MLP)\n                                       │\n                                  δ ∈ R^|A|\n                                       │\n                              v + δ = final output\n                                       │\n                               [normalize if needed]\n                                       │\n                              π^(k)(a|s, Φ^{k;s})\n```\n\n## Components\n\n### State Encoder\n- **Purpose**: Produce fixed-dimensional state representation h_s\n- **Inputs**: Raw state s (39-dim vector for Meta-World; 210×160 RGB for ALE)\n- **Outputs**: h_s ∈ R^{d_enc}\n- **Design**: For Meta-World: identity (h_s = s, d_enc = 39). For ALE: 3-layer CNN (channels: 32, 64, 64; filters: 8, 4, 3) + dense layer (output: 512), giving d_enc = 512. Each CompoNet module has its own encoder for ALE tasks; new encoder initialized from previous module's encoder weights.\n- **Interactions**: Feeds h_s into all three blocks of the module; also fed directly to value function (critic).\n\n### Output Attention Head\n- **Purpose**: Propose a tentative output action vector v by attending over previous policy outputs\n- **Inputs**: h_s ∈ R^{d_enc}, Φ^{k;s} ∈ R^{(k-1) × |A|}\n- **Outputs**: v ∈ R^{|A|}\n- **Parameters**: W^Q_out ∈ R^{d_enc × d_model}, W^K_out ∈ R^{|A| × d_model}; V = Φ^{k;s} (no transformation)\n- **Key design**: No learned value transformation — allows direct soft-copying of previous policy outputs\n- **Interactions**: v fed to Input Attention Head (as row 0 of P) and added to Internal Policy output\n\n### Input Attention Head\n- **Purpose**: Retrieve relevant compositional context from previous policies and the tentative output\n- **Inputs**: h_s ∈ R^{d_enc}, P = [v; Φ^{k;s}] ∈ R^{k × |A|}\n- **Outputs**: context ∈ R^{d_model}\n- **Parameters**: W^Q_in ∈ R^{d_enc × d_model}, W^K_in ∈ R^{|A| × d_model}, W^V_in ∈ R^{|A| × d_model}\n- **Key design**: Values are transformed (V = P W^V_in), enabling expressive information retrieval beyond simple output copying\n- **Interactions**: context concatenated with h_s and fed to Internal Policy\n\n### Internal Policy (Feed-Forward Block)\n- **Purpose**: Adjust, overwrite, or retain the tentative output from the Output Attention Head\n- **Inputs**: [h_s; context] ∈ R^{d_enc + d_model}\n- **Outputs**: δ ∈ R^{|A|}\n- **Architecture**: Multi-layer MLP; for Meta-World: 2 hidden layers, width d_model=256; for ALE: 2 hidden layers, width d_model=512\n- **Key design**: Residual addition (v + δ) — when δ=0, the output attention head's proposal is passed unchanged (like a residual connection)\n- **Interactions**: δ added to v; result normalized if needed (softmax for discrete, tanh-clamp for continuous)\n\n### Critic Network\n- **Purpose**: Estimate state value V(s) for actor-critic training\n- **Design**: Reset at each task boundary; separate from actor (CompoNet not applied to critic)\n- **Meta-World (SAC)**: 2-layer MLP with two output heads (mean and log-std of normal distribution), 3 total layers\n- **ALE (PPO)**: Single fully connected layer taking h_s (output of shared encoder) to scalar value\n\n## Growth Policy\n- Task k begins: freeze parameters of module k-1; instantiate new module k with random parameters (except ALE encoder: initialized from module k-1's encoder)\n- Task k ends: freeze module k\n- Total modules after N tasks: N (one per task, all frozen except the current one)\n- Memory: O(m · N) where m = constant parameters per module\n\n## Positional Encoding\n- **Type**: Cosine positional encoding (Vaswani et al., 2017)\n- **Applied to**: Keys matrix in both attention heads (E_out for Output Head, E_in for Input Head)\n- **Purpose**: Differentiate module positions in Φ^{k;s} to allow the model to reason about which previous module is which\n"
+    },
+    {
+      "name": "constraints",
+      "title": "Constraints and Limitations",
+      "body": "# Constraints and Limitations\n\n## Boundary Conditions\n\n### BC1: Constant Action Space Required\n- **Condition**: The action space $A$ must remain constant across all tasks in the sequence.\n- **Rationale**: The $\\Phi^{k;s}$ matrix has fixed column dimension $|A|$; all attention weight matrices are of size $|A| \\times d_{model}$.\n- **Relaxation**: Soft — tasks with different action subsets can be unified by setting probabilities of irrelevant actions to zero (masking).\n\n### BC2: Known Task Boundaries and Identifiers\n- **Condition**: The agent must know when one task ends and the next begins, and must be able to identify which task it is currently in.\n- **Rationale**: Module freezing and new module instantiation are triggered at task boundaries. Critic reset also requires this knowledge.\n- **Impact**: This is a standard assumption in the CRL literature (Wolczyk et al., 2021, 2022; Khetarpal et al., 2022). Removing it would require automatic task detection — noted as future work.\n\n### BC3: Similar State Spaces Across Tasks\n- **Condition**: $S^{(i)} \\approx S^{(j)}$ for all task pairs; large domain shifts violate the assumption.\n- **Rationale**: Encoders are frozen per module; if state distributions shift dramatically, a frozen encoder produces non-stationary inputs to later modules.\n- **Relaxation**: Foundational models (e.g., DINOv2) may handle wider distributions; preliminary results in Appendix A show feasibility.\n\n### BC4: Fixed Hyperparameters $d_{enc}$, $d_{model}$, $|A|$ Throughout Training\n- **Condition**: Architecture parameters $d_{enc}$, $d_{model}$, $|A|$ must be set before training begins and cannot change.\n- **Rationale**: All weight matrices depend on these dimensions; changing them would invalidate frozen module compatibility.\n\n### BC5: Output-Level Composition Only\n- **Condition**: CompoNet composes at the policy output level (action distributions), not at intermediate hidden representations.\n- **Consequence**: Cannot reuse partial feature abstractions learned in previous tasks; entire compositional signal comes from final action probabilities.\n\n## Known Limitations\n\n### L1: Theoretical $O(n^2)$ Inference Complexity\n- Sequential module evaluation is required because module $k$ depends on module $k-1$'s output. Even with parallelism within each module, total complexity is $O(n^2)$.\n- **Mitigation**: Empirical performance shows much slower growth than theoretical bound up to 300 tasks; quantization and policy distillation are suggested future directions.\n\n### L2: Memory Still Grows Linearly\n- Although linear growth is a major improvement over quadratic, indefinitely long task sequences will eventually exhaust memory.\n- **Practical limit**: With $d_{model}=256$ and $d_{enc}=39$, CompoNet can grow to more than 10,000 modules within 24GB VRAM (Figure B.2).\n\n### L3: No Backward Transfer\n- Frozen parameters prevent any module from benefiting from knowledge acquired in later tasks. Methods like FT-1 can in principle achieve negative forgetting (backward transfer), which CompoNet cannot.\n\n### L4: Requires Actor-Critic Separation\n- CRL is applied only to the actor (CompoNet); the critic is reset at each task boundary. This may limit critic stability in practice.\n\n### L5: Non-Deterministic Module Composition Count\n- The $\\Phi^{k;s}$ matrix grows with $k$, making the input to attention heads dynamically sized. Implementation must handle variable-length sequences in the attention computation.\n"
+    },
+    {
+      "name": "heuristics",
+      "title": "Heuristics",
+      "body": "# Heuristics\n\n## H01: Initialize New ALE Encoder from Previous Module's Encoder\n- **Rationale**: Cold-starting a new CNN encoder on a new ALE task wastes the feature extraction knowledge learned on prior visually similar tasks. Warm-starting from the previous module's encoder accelerates early-stage learning.\n- **Sensitivity**: medium — beneficial for visually similar task sequences (SpaceInvaders modes, Freeway modes); less important when tasks are visually dissimilar.\n- **Bounds**: Applied whenever a new module is added for ALE tasks. Previous encoder must exist (not applicable to the first module).\n- **Code ref**: [src/execution/encoder.py]\n- **Source**: Appendix E.2 (CompoNet-specific implementation details)\n\n## H02: Reset Critic at Each Task Boundary\n- **Rationale**: The critic learns Q-values or state values specific to the current task's reward function $r^{(k)}$ and transition dynamics $p^{(k)}$. Carrying over a critic from a previous task introduces biased value estimates that destabilize actor training on the new task.\n- **Sensitivity**: high — incorrect critic initialization can significantly harm early-task performance.\n- **Bounds**: Applied universally to all methods in the experimental comparison (Baseline, FT-1, FT-N, ProgressiveNet, PackNet, CompoNet).\n- **Code ref**: [src/execution/componet.py]\n- **Source**: Appendix E (implementation details), common practice per Wolczyk et al. (2022)\n\n## H03: Cosine Positional Encoding for Module Identity\n- **Rationale**: The attention mechanism is permutation-invariant by default; without positional encoding, the model cannot distinguish which previous module produced which row of $\\Phi^{k;s}$. Cosine positional encoding provides a stable, non-learned representation of module order.\n- **Sensitivity**: low — any reasonable positional encoding scheme should work; cosine encoding is parameter-free and well-established.\n- **Bounds**: Applied to keys matrices in both Output and Input Attention Heads ($E_{out}$, $E_{in}$). Matrix size matches $\\Phi^{k;s}$.\n- **Code ref**: [src/execution/componet.py]\n- **Source**: Section 4.2; Vaswani et al. (2017)\n\n## H04: Re-initialize Output Head at Each Task Boundary (FT-N, ProgressiveNet, PackNet)\n- **Rationale**: Keeping an output head trained on task $k-1$ biases early exploration on task $k$ toward actions that solved the previous task, potentially increasing interference. Re-initializing the output head ensures the new task starts with an unbiased policy head while preserving learned features in earlier layers.\n- **Sensitivity**: medium — following Wolczyk et al. (2021); primarily applicable to methods that share trunk parameters across tasks.\n- **Bounds**: Applied to all methods in the comparison following established CRL practice. Not applicable to CompoNet (new module added entirely).\n- **Code ref**: [src/execution/componet.py]\n- **Source**: Appendix E.2 (FT-N, ProgressiveNet, PackNet descriptions); Wolczyk et al. (2021)\n\n## H05: PackNet Retrain Budget = 20% of Task Timestep Budget\n- **Rationale**: After pruning, the network must be retrained to recover performance before parameters are frozen. Using 20% of $\\Delta = 1\\text{M}$ timesteps (200K steps) provides enough retraining without reducing the available training budget for exploration on the main task.\n- **Sensitivity**: medium — too few retraining steps leads to performance collapse after pruning; too many reduces effective exploration.\n- **Bounds**: Exactly 200,000 retraining timesteps per task for PackNet ($= 0.2 \\times 1\\text{M}$).\n- **Code ref**: [src/execution/componet.py]\n- **Source**: Appendix E.2 (PackNet implementation details)\n"
+    }
+  ]
+}

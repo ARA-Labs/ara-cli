@@ -22,7 +22,13 @@ pub fn parse_manifest(json: &str) -> Result<Manifest, String> {
 // ── Load state ────────────────────────────────────────────────────────────────
 
 /// The lifecycle of a manifest fetch.
+///
+/// `Loaded` intentionally carries the `Manifest` by value: it is the single
+/// happy-path payload threaded through the reactive signal, and boxing it would
+/// force a deref at every read site for no runtime benefit. The size gap to the
+/// other variants is therefore expected, not a bug.
 #[derive(Debug, Clone)]
+#[allow(clippy::large_enum_variant)]
 pub enum LoadState {
     /// Fetch in-flight; no manifest available yet.
     Loading,

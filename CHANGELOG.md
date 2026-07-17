@@ -10,6 +10,15 @@ All notable changes to this project are documented here. The format follows
 - Model `pivot` nodes (`from`/`to`/`trigger`) and the
   `hypothesis`/`failure_mode`/`lesson` fields on `dead_end` nodes, which
   previously degraded to unknown-field warnings.
+- Parse the artifact logic layer into the `Manifest`. `parse_dir` now reads
+  `PAPER.md` frontmatter (`paper`), `logic/problem.md` (`problem`),
+  `logic/concepts.md` (`concepts`), `logic/related_work.md` (`related_work`),
+  and every `logic/solution/*.md` (`recipes`, one per file, sorted). The readers
+  are tolerant — an absent file is skipped silently, a malformed present file
+  adds a warning without failing the parse. Manifest also gains the (currently
+  empty) `exhibits`/`built_on`/`node_exhibits` fields, reserved for a later
+  evidence/resolution task. Old manifests and artifacts lacking these files
+  round-trip and serialize identically (all new fields skip when empty).
 
 ## [0.1.6] - 2026-07-13
 

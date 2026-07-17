@@ -11,14 +11,17 @@
 mod claims;
 pub mod layout;
 pub mod manifest;
+mod paper;
 mod parse;
 pub mod report;
 mod schema;
+mod sections;
 
 pub use layout::{LayoutOptions, LayoutResult, NodePosition, Point, Rect};
 pub use manifest::{
-    Binding, BindingRole, Claim, ClaimId, Link, LinkKind, Manifest, Node, NodeFields, NodeId,
-    NodeKind,
+    Binding, BindingRole, BuiltOn, Claim, ClaimId, Concept, Exhibit, ExhibitKind, Link, LinkKind,
+    Manifest, Node, NodeExhibit, NodeFields, NodeId, NodeKind, PaperMeta, Problem, Recipe,
+    RelatedWork,
 };
 pub use report::{Diagnostic, ParseReport, Severity};
 

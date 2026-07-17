@@ -1,0 +1,139 @@
+# Exploration Tree — self-composing-policies
+# Research DAG: nested tree with cross-edges (also_depends_on) forming a DAG.
+# Node types: question | experiment | dead_end | decision | pivot
+
+tree:
+  - id: N01
+    type: question
+    title: "Can a growing NN scale to many CRL tasks while retaining full plasticity?"
+    description: >
+      Prior growing NN approaches (ProgressiveNet) grow quadratically in parameters,
+      and methods that control growth (PackNet, DEN) sacrifice plasticity. Can we
+      design an architecture that avoids catastrophic forgetting, grows linearly,
+      and maintains full plasticity for each new task?
+    children:
+
+      - id: N02
+        type: experiment
+        title: "Test hidden-layer sharing for knowledge transfer (ProgressiveNet style)"
+        result: >
+          Lateral connections between hidden layers of all previous columns and the
+          new column cause quadratic parameter growth O(n^2). At 100 tasks, memory
+          and inference time become prohibitive.
+        evidence: ["Figure 3", "Figure B.1", "Appendix C.2", "Rusu et al. 2016"]
+        children:
+
+          - id: N03
+            type: dead_end
+            title: "Hidden-layer lateral connections cause quadratic growth — abandoned"
+            hypothesis: "Sharing hidden representations allows rich knowledge transfer with manageable cost"
+            failure_mode: >
+              Each new column must connect to all previous columns' hidden layers, making
+              the key matrix size scale with (number_of_tasks × hidden_size), yielding O(n^2)
+              total parameters and inference cost.
+            lesson: >
+              Knowledge transfer must happen at a fixed-size interface independent of the
+              number of previous modules. Output vectors (action distributions) have constant
+              size |A| regardless of the number of tasks — this is the key insight.
+
+      - id: N04
+        type: experiment
+        title: "Test compositional approaches with dedicated composer NN"
+        result: >
+          Joint training of composer and composed modules is non-stationary: the composing
+          strategy depends on optimizing the modules, and vice versa. Training is unstable.
+        evidence: ["Rosenbaum et al. 2019", "Khetarpal et al. 2022", "Section 2"]
+        children:
+
+          - id: N05
+            type: dead_end
+            title: "Dedicated composer network causes training instability — abandoned"
+            hypothesis: "A separate router/composer NN can learn to compose specialized modules"
+            failure_mode: >
+              The composing strategy depends on the state of the modules being composed,
+              and module optimization depends on the composing strategy, creating a
+              non-stationary learning problem that is difficult to stabilize.
+            lesson: >
+              Composition must be self-contained within each module — no external coordinator.
+              Each module should autonomously learn how to combine previous outputs.
+
+      - id: N06
+        type: decision
+        title: "Choose output-level composition via attention as the key design"
+        choice: >
+          Each new module receives the output action vectors of all previous modules
+          (the Phi matrix) and uses attention conditioned on the current state to
+          selectively combine them. No dedicated composer needed.
+        alternatives:
+          - "Hidden-layer lateral connections (ProgressiveNet style): O(n^2) growth"
+          - "External routing network: training instability"
+          - "Subspace of policies (Gaya et al. 2023): shared parameter space"
+        evidence: >
+          Output vectors have constant size |A| per module, so the Phi matrix grows
+          in rows (k-1) but not in columns, and attention weight matrices W_Q, W_K
+          have sizes depending only on d_enc, |A|, d_model — all constants.
+        children:
+
+          - id: N07
+            type: experiment
+            title: "Verify linear parameter growth of output-level composition"
+            result: >
+              Each self-composing module has exactly 6 linear transformations and a
+              feed-forward block with sizes depending only on fixed d_enc, d_model, |A|.
+              Total parameters grow as O(m*n) where m is constant per module.
+            evidence: ["C01", "Appendix B", "Figure B.1", "Figure 3 (right)"]
+            children:
+
+              - id: N08
+                type: experiment
+                title: "Measure empirical inference time vs task count (up to 300)"
+                result: >
+                  Despite O(n^2) theoretical complexity, CompoNet's empirical inference
+                  time grows substantially slower than ProgressiveNet up to 300 tasks due
+                  to parallel attention computation within each module.
+                evidence: ["C04", "Figure 3 (left)", "Figure C.1", "Appendix C.2"]
+                children: []
+
+          - id: N09
+            type: experiment
+            title: "Validate three-scenario robustness (reuse, compose, scratch)"
+            result: >
+              (i) When an informative prior module exists, OutputAttentionHead rapidly
+              assigns attention~1.0 to it; InternalPolicy converges to mimic its output.
+              (iii) When all priors are non-informative, InternalPolicy dominates and
+              CompoNet matches baseline performance with no interference.
+            evidence: ["C03", "Figure 4", "Section 5.4"]
+            children:
+
+              - id: N10
+                type: experiment
+                title: "Ablate Output Attention Head on Freeway sequence"
+                result: >
+                  Removing Output Attention Head causes significant performance degradation
+                  on Freeway (sparse reward: policy reuse critical) but minimal impact on
+                  SpaceInvaders (denser reward: internal policy sufficient).
+                evidence: ["C03", "Figure G.1", "Appendix G.1"]
+                also_depends_on: [N09]
+                children: []
+
+              - id: N11
+                type: experiment
+                title: "Ablate Input Attention Head — shifted informative module"
+                result: >
+                  Without the Input Attention Head, CompoNet cannot extract useful
+                  signal from a shifted informative module (direct imitation blocked);
+                  performance matches baseline. Original CompoNet significantly outperforms.
+                evidence: ["C03", "Figure G.2", "Appendix G.2"]
+                also_depends_on: [N09]
+                children: []
+
+          - id: N12
+            type: experiment
+            title: "Main benchmark: CompoNet vs 5 baselines on 3 task sequences"
+            result: >
+              CompoNet achieves superior or equal performance and forward transfer on all
+              three sequences (Meta-World, SpaceInvaders, Freeway). CompoNet is the only
+              method with non-negative FTr on Meta-World and exceeds RT on all sequences.
+            evidence: ["C02", "C05", "Table 1", "Section 5.3", "Figures F.1-F.3"]
+            also_depends_on: [N07, N09]
+            children: []

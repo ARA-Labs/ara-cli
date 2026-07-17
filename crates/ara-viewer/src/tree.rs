@@ -348,6 +348,14 @@ mod tests {
             bindings: vec![],
             claims: vec![],
             bounds: None,
+            paper: None,
+            related_work: vec![],
+            concepts: vec![],
+            problem: None,
+            recipes: vec![],
+            exhibits: vec![],
+            built_on: vec![],
+            node_exhibits: vec![],
         }
     }
 

@@ -270,6 +270,14 @@ mod tests {
             bindings: vec![],
             claims: vec![],
             bounds: None,
+            paper: None,
+            related_work: vec![],
+            concepts: vec![],
+            problem: None,
+            recipes: vec![],
+            exhibits: vec![],
+            built_on: vec![],
+            node_exhibits: vec![],
         }
     }
 
@@ -332,6 +340,14 @@ mod tests {
             bindings: vec![],
             claims: vec![],
             bounds: None,
+            paper: None,
+            related_work: vec![],
+            concepts: vec![],
+            problem: None,
+            recipes: vec![],
+            exhibits: vec![],
+            built_on: vec![],
+            node_exhibits: vec![],
         };
         let result = layout(&m, &LayoutOptions::default());
         assert!(result.positions.is_empty());
@@ -358,6 +374,14 @@ mod tests {
             bindings: vec![],
             claims: vec![],
             bounds: None,
+            paper: None,
+            related_work: vec![],
+            concepts: vec![],
+            problem: None,
+            recipes: vec![],
+            exhibits: vec![],
+            built_on: vec![],
+            node_exhibits: vec![],
         };
         let opts = LayoutOptions::default();
         let result = layout(&m, &opts);

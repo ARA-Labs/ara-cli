@@ -1,0 +1,5 @@
+tree:
+  - id: N01
+    type: experiment
+    title: Only a trace and claims
+    evidence: [C01]

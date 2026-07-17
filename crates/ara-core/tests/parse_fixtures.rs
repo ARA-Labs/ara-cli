@@ -156,3 +156,92 @@ fn missing_dir_is_clean_error() {
     assert!(!err.is_ok());
     assert!(err.errors()[0].message.contains("cannot read"));
 }
+
+/// Full snapshot over a real artifact: locks the logic-section fields
+/// (`paper`/`problem`/`concepts`/`related_work`/`recipes`). The evidence-derived
+/// fields (`exhibits`/`built_on`/`node_exhibits`) stay empty for this slice.
+#[test]
+#[cfg(feature = "native")]
+fn self_composing_policies_snapshot() {
+    let path = fixtures().join("corpus/paperbench/self-composing-policies");
+    let (manifest, _) = ara_core::parse_dir(&path).expect("ok");
+    // Sanity-checks on the parsed logic layer before the snapshot locks it.
+    let paper = manifest.paper.as_ref().expect("paper present");
+    assert_eq!(
+        paper.title.as_deref(),
+        Some("Self-Composing Policies for Scalable Continual Reinforcement Learning")
+    );
+    assert_eq!(paper.year.as_deref(), Some("2024"));
+    assert_eq!(manifest.concepts.first().map(|c| c.term.as_str()), Some("CompoNet"));
+    assert_eq!(manifest.related_work.len(), 9);
+    assert_eq!(manifest.related_work[0].id, "RW01");
+    assert_eq!(manifest.recipes.len(), 4); // solution/*.md, sorted
+    assert!(manifest.exhibits.is_empty());
+    assert!(manifest.built_on.is_empty());
+    assert!(manifest.node_exhibits.is_empty());
+    insta::assert_json_snapshot!("self_composing_policies_manifest", manifest);
+}
+
+/// Present-but-malformed logic files WARN (never error): parse_dir still returns
+/// `Ok`, partial output is retained, and one warning is raised per defect.
+#[test]
+#[cfg(feature = "native")]
+fn malformed_logic_files_warn_not_fatal() {
+    let path = fixtures().join("sections/malformed");
+    let (manifest, report) = ara_core::parse_dir(&path).expect("Ok despite malformed logic files");
+    assert!(report.is_ok(), "malformed logic must not error: {report}");
+
+    // PAPER.md: broken frontmatter → warning, paper dropped to None.
+    assert!(manifest.paper.is_none());
+    assert!(
+        report
+            .warnings()
+            .iter()
+            .any(|w| w.path == "PAPER.md" && w.message.contains("malformed")),
+        "expected PAPER.md malformed warning, got: {report}"
+    );
+
+    // concepts.md: block with no Definition → partial concept + warning.
+    assert_eq!(manifest.concepts.len(), 1);
+    assert!(manifest.concepts[0].definition.is_none());
+    assert!(manifest.concepts[0].notation.is_some()); // partial output kept
+    assert!(
+        report
+            .warnings()
+            .iter()
+            .any(|w| w.path.starts_with("concepts[") && w.message.contains("no definition")),
+        "expected concepts warning, got: {report}"
+    );
+
+    // related_work.md: block with no DOI (and no Claims affected) → partial + warn.
+    assert_eq!(manifest.related_work.len(), 1);
+    assert!(manifest.related_work[0].doi.is_none());
+    assert!(manifest.related_work[0].claims_affected.is_empty());
+    assert_eq!(manifest.related_work[0].kind.as_deref(), Some("baseline"));
+    assert!(
+        report
+            .warnings()
+            .iter()
+            .any(|w| w.path.starts_with("related_work[") && w.message.contains("no DOI")),
+        "expected related_work warning, got: {report}"
+    );
+}
+
+/// An artifact carrying only `trace/` + `logic/claims.md` parses with ZERO new
+/// warnings and no logic-section content — absent files are silently skipped.
+#[test]
+#[cfg(feature = "native")]
+fn absent_logic_files_add_no_warnings() {
+    let path = fixtures().join("sections/absent");
+    let (manifest, report) = ara_core::parse_dir(&path).expect("ok");
+    assert!(report.is_ok());
+    assert!(
+        report.warnings().is_empty(),
+        "absent logic files must not warn: {report}"
+    );
+    assert!(manifest.paper.is_none());
+    assert!(manifest.problem.is_none());
+    assert!(manifest.concepts.is_empty());
+    assert!(manifest.related_work.is_empty());
+    assert!(manifest.recipes.is_empty());
+}
