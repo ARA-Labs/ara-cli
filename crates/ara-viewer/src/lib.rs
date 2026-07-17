@@ -10,6 +10,7 @@ pub mod detail;
 pub mod filter;
 pub mod kind;
 pub mod modal;
+pub mod panels;
 pub mod replay;
 pub mod scene;
 pub mod source;
@@ -25,6 +26,7 @@ use deps::DependenciesPanel;
 use detail::DetailPane;
 use filter::FilterState;
 use leptos::prelude::*;
+use panels::{ContextPanel, GlossaryPanel, RecipesPanel};
 use replay::{ReplayBar, ReplayState};
 use scene::{GraphRenderer, GraphView, LayoutView, SvgRenderer};
 use source::{ManifestSource, connect_live, fetch_manifest};
@@ -143,10 +145,14 @@ pub fn App() -> impl IntoView {
                 <PaperHeader load_state=load_state />
             </div>
             // Panel launchers (right-aligned, before the filter toolbar). Each
-            // launcher owns its button + modal; slice 6 adds Glossary/Context/
-            // Recipes here. A launcher hides itself when its data is absent.
+            // launcher owns its button + modal. A launcher hides itself when its
+            // data is absent. Order matches the hub: Context · Glossary ·
+            // Dependencies · Recipes.
             <div class="panel-launchers">
+                <ContextPanel load_state=load_state />
+                <GlossaryPanel load_state=load_state />
                 <DependenciesPanel load_state=load_state />
+                <RecipesPanel load_state=load_state />
             </div>
             // role="toolbar" gives AT users a named landmark for the filter controls.
             <div class="toolbar-area" role="toolbar" aria-label="Filters">

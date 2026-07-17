@@ -853,6 +853,54 @@ body.is-resizing.resizing-row { cursor: row-resize; }
   color: var(--muted);
 }
 
+/* ── Context / Glossary / Recipes panels (reuse .block / .rw-* / .chip) ──────── */
+
+.context-statement {
+  color: var(--ink);
+  line-height: 1.5;
+  margin: 0 0 0.5rem;
+}
+
+.context-list {
+  margin: 0.25rem 0 0;
+  padding-left: 1.1rem;
+  color: var(--ink);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.concept-term {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--accent-text);
+  margin-bottom: 0.25rem;
+}
+
+/* Cross-reference to another glossary term: dotted underline, no navigation. */
+.concept-xref {
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
+}
+
+/* Inert LaTeX (D3): shown verbatim as monospace, never interpreted. */
+.latex-inert {
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+  white-space: pre-wrap;
+}
+
+/* Recipe body: raw markdown, not rendered (D4); scrolls rather than overflows. */
+.recipe-body {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: var(--ink);
+  white-space: pre-wrap;
+  overflow-x: auto;
+  max-width: 100%;
+  margin: 0;
+}
+
 /* ── Detail pane ─────────────────────────────────────────────────────────────── */
 
 .detail-root {

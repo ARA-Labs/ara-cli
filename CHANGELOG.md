@@ -7,6 +7,14 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Viewer Context, Glossary, and Recipes panels — three more consumers of the
+  shared `Modal`. Each has a header launcher (hidden when its data is absent):
+  Context (`logic/problem.md` — statement, observations, gaps, key insight),
+  Glossary (a count of `logic/concepts.md` terms, each with notation/definition/
+  boundary and dotted cross-reference chips for related terms), and Recipes (one
+  per `logic/solution/*.md` file). Concept/recipe LaTeX (`$…$`) renders as inert
+  monospace, never interpreted. Each panel carries its own case-insensitive
+  filter.
 - Viewer Dependencies panel, built on a new shared accessible `Modal` component.
   A header launcher button shows a live count of the manifest's `related_work`
   (hidden entirely at a 0 count) and opens a modal listing every reference in

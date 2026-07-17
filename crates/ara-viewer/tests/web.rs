@@ -24,6 +24,7 @@ use ara_viewer::{
     deps::DependenciesPanel,
     detail::DetailPane,
     modal::Modal,
+    panels::{ContextPanel, GlossaryPanel, RecipesPanel},
     replay::{ReplayBar, ReplayState, install_arrow_key_listener, node_order},
     scene::{GraphRenderer, GraphView, LayoutView, SvgRenderer},
     source::ws_url_from_base,
@@ -2654,4 +2655,188 @@ async fn dependencies_filter_narrows_the_list() {
     assert!(text.contains("RW02"), "filter 'RW02' keeps RW02");
     assert!(!text.contains("RW01"), "filter 'RW02' drops RW01");
     assert!(!text.contains("RW03"), "filter 'RW02' drops RW03");
+}
+
+// ── Context / Glossary / Recipes panels ───────────────────────────────────────
+
+/// A Manifest carrying a problem framing, `n` concepts (one with `$…$` LaTeX and
+/// a related-term cross-reference), and `n` recipes.
+fn manifest_with_panels(n: usize) -> ara_core::Manifest {
+    let concepts = (1..=n)
+        .map(|i| ara_core::Concept {
+            term: format!("Concept{i}"),
+            notation: Some(format!("$\\pi^{{({i})}}$")),
+            definition: Some(format!("definition of concept {i}")),
+            boundary: None,
+            related: vec!["ProgressiveNet".to_string()],
+        })
+        .collect();
+    let recipes = (1..=n)
+        .map(|i| ara_core::Recipe {
+            name: format!("recipe{i}"),
+            title: Some(format!("Recipe {i}")),
+            body: format!("step body for recipe {i}"),
+        })
+        .collect();
+    ara_core::Manifest {
+        nodes: vec![],
+        links: vec![],
+        bindings: vec![],
+        claims: vec![],
+        bounds: None,
+        paper: None,
+        related_work: vec![],
+        concepts,
+        problem: Some(ara_core::Problem {
+            statement: Some("the problem statement".to_string()),
+            observations: vec!["O1: observed thing".to_string()],
+            gaps: vec!["G1: the gap".to_string()],
+            insights: vec!["I1: the insight".to_string()],
+        }),
+        recipes,
+        exhibits: vec![],
+        built_on: vec![],
+        node_exhibits: vec![],
+    }
+}
+
+#[wasm_bindgen_test]
+async fn glossary_shows_count_opens_with_latex_and_xref() {
+    let doc = web_sys::window().unwrap().document().unwrap();
+    let container = body_div(&doc);
+    let (load_state, _) = signal(LoadState::Loaded(manifest_with_panels(2)));
+    let _handle = leptos::mount::mount_to(container.clone(), move || {
+        view! { <GlossaryPanel load_state=load_state /> }
+    });
+
+    let btn = container
+        .query_selector(".panel-launch-btn")
+        .unwrap()
+        .expect("Glossary launcher present with concepts");
+    let btn_text = btn.unchecked_ref::<HtmlElement>().inner_text();
+    assert!(btn_text.contains("Glossary"), "labelled Glossary");
+    assert!(btn_text.contains('2'), "shows the live count (2)");
+
+    btn.unchecked_ref::<HtmlElement>().click();
+    leptos::task::tick().await;
+
+    let modal = doc.query_selector(".modal").unwrap().expect("modal opens");
+    assert_eq!(
+        modal.get_attribute("role").as_deref(),
+        Some("dialog"),
+        "panel opens a role=dialog"
+    );
+    let text = modal.unchecked_ref::<HtmlElement>().inner_text();
+    assert!(text.contains("Concept1"), "lists Concept1");
+    // Inert LaTeX span rendered verbatim as monospace, never interpreted (D3).
+    let latex = modal
+        .query_selector("code.latex-inert")
+        .unwrap()
+        .expect("notation rendered as inert LaTeX");
+    assert!(
+        latex
+            .unchecked_ref::<HtmlElement>()
+            .inner_text()
+            .contains('$'),
+        "inert LaTeX keeps the $…$ delimiters verbatim"
+    );
+    // Related term is a dotted cross-reference chip.
+    assert!(
+        modal.query_selector(".concept-xref").unwrap().is_some(),
+        "related term rendered as a cross-reference chip"
+    );
+}
+
+#[wasm_bindgen_test]
+fn glossary_hidden_at_zero() {
+    let doc = web_sys::window().unwrap().document().unwrap();
+    let container = body_div(&doc);
+    let (load_state, _) = signal(LoadState::Loaded(manifest_with_panels(0)));
+    let _handle = leptos::mount::mount_to(container.clone(), move || {
+        view! { <GlossaryPanel load_state=load_state /> }
+    });
+    assert!(
+        container
+            .query_selector(".panel-launch-btn")
+            .unwrap()
+            .is_none(),
+        "0 concepts hides the Glossary launcher"
+    );
+}
+
+#[wasm_bindgen_test]
+async fn context_opens_and_hidden_without_problem() {
+    let doc = web_sys::window().unwrap().document().unwrap();
+    let container = body_div(&doc);
+    let (load_state, _) = signal(LoadState::Loaded(manifest_with_panels(1)));
+    let _handle = leptos::mount::mount_to(container.clone(), move || {
+        view! { <ContextPanel load_state=load_state /> }
+    });
+
+    let btn = container
+        .query_selector(".panel-launch-btn")
+        .unwrap()
+        .expect("Context launcher present when a problem exists");
+    btn.unchecked_ref::<HtmlElement>().click();
+    leptos::task::tick().await;
+    let modal = doc
+        .query_selector(".modal")
+        .unwrap()
+        .expect("context modal opens");
+    let text = modal.unchecked_ref::<HtmlElement>().inner_text();
+    assert!(
+        text.contains("the problem statement"),
+        "shows the statement"
+    );
+    assert!(text.contains("O1: observed thing"), "shows observations");
+
+    // A manifest with no problem hides the launcher.
+    let container2 = body_div(&doc);
+    let mut no_problem = manifest_with_panels(1);
+    no_problem.problem = None;
+    let (ls2, _) = signal(LoadState::Loaded(no_problem));
+    let _h2 = leptos::mount::mount_to(container2.clone(), move || {
+        view! { <ContextPanel load_state=ls2 /> }
+    });
+    assert!(
+        container2
+            .query_selector(".panel-launch-btn")
+            .unwrap()
+            .is_none(),
+        "no problem → no Context launcher"
+    );
+}
+
+#[wasm_bindgen_test]
+async fn recipes_shows_count_and_opens() {
+    let doc = web_sys::window().unwrap().document().unwrap();
+    let container = body_div(&doc);
+    let (load_state, _) = signal(LoadState::Loaded(manifest_with_panels(4)));
+    let _handle = leptos::mount::mount_to(container.clone(), move || {
+        view! { <RecipesPanel load_state=load_state /> }
+    });
+
+    let btn = container
+        .query_selector(".panel-launch-btn")
+        .unwrap()
+        .expect("Recipes launcher present");
+    let btn_text = btn.unchecked_ref::<HtmlElement>().inner_text();
+    assert!(btn_text.contains("Recipes"), "labelled Recipes");
+    assert!(
+        btn_text.contains('4'),
+        "count = one per solution file (E8 fallback)"
+    );
+
+    btn.unchecked_ref::<HtmlElement>().click();
+    leptos::task::tick().await;
+    let modal = doc
+        .query_selector(".modal")
+        .unwrap()
+        .expect("recipes modal opens");
+    let text = modal.unchecked_ref::<HtmlElement>().inner_text();
+    assert!(text.contains("Recipe 1"), "lists Recipe 1 by title");
+    assert!(
+        text.contains("step body for recipe 1"),
+        "shows the raw body"
+    );
 }
