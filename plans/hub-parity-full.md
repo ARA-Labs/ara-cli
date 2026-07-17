@@ -26,7 +26,7 @@ evidence notes + claims · sources. Missing:
 |---|---|---|
 | **REASONING** | **generated narrative prose** (not in any source file) | 🚫 **Dropped for v1** (D1 RESOLVED) — LLM-generated at publish time; reproducing it would break the no-LLM-at-view-time promise. Reserved as an inert slot for a future stored `reasoning:` field. See D1. |
 | **WHAT IT DID** | node `result` field | ✅ Have it (Experiment `result` typed field) — just relabel. |
-| **RESULT** | `evidence/figures/*.md` + `evidence/tables/*.md`, rendered as full markdown tables | ❌ We never read `evidence/`. Figure refs (`"Figure 3"`) land in `evidence_notes` as bare strings. No markdown-table rendering. |
+| **RESULT** | `evidence/figures/*.md` + `evidence/tables/*.md` | ❌ We never read `evidence/`. Figure refs (`"Figure 3"`) land in `evidence_notes` as bare strings. **v1 ships the data layer only** (parse into `exhibits`, resolve node→exhibit linkage, show evidence chips); **table/markdown rendering is deferred to D4** (client-side markdown, GitHub issue) to keep the sub-MB wasm bundle gate green. |
 | **BUILT ON** | `logic/related_work.md` (RW01…), linked node → claim → RW via each RW's `Claims affected` | ❌ No RW model; file never read. |
 | **ARTIFACT** | pointer into `src/code/…` | ❌ No code-pointer linkage. |
 
@@ -167,8 +167,12 @@ serde-defaulted so old manifests round-trip (as `isolated`/`pos` already do).
    - `concepts: Vec<Concept>` (term, notation, definition, boundary, related).
    - `problem: Option<Problem>` (observations, insights, statement).
    - `recipes: Vec<Recipe>` (name, kind, body markdown).
-   - `evidence: Vec<Evidence>` (id/file, source, `claims: Vec<ClaimId>`,
-     description, rendered body / parsed tables).
+   - `exhibits: Vec<Exhibit>` (id/file, source, `claims: Vec<ClaimId>`,
+     description, **raw markdown body string**). **Named `exhibits`, NOT
+     `evidence` (E4)** — the node-level `evidence:` concept (`C##` claim-refs +
+     prose, already modeled as `Binding` + `evidence_notes`) is unrelated, and a
+     second `evidence` in the same `Manifest` would mislead every reader. v1
+     carries the raw markdown string through; the client renders it later (D4).
 3. **New readers** in `parse_dir` (each optional, missing → skipped, never
    fatal; malformed → warning):
    - `PAPER.md` frontmatter parser (needs a YAML-frontmatter split; reuse
@@ -176,19 +180,38 @@ serde-defaulted so old manifests round-trip (as `isolated`/`pos` already do).
    - `logic/related_work.md`, `logic/concepts.md`, `logic/problem.md`,
      `logic/solution/*.md` markdown-section parsers.
    - `evidence/README.md` index + `evidence/**/*.md` bodies.
-   - Keep `parse_sources` (wasm, in-memory) working: thread the new files
-     through as additional `(path, contents)` inputs so wasm callers can pass
-     them too. `parse_dir` becomes the native "read all these files" wrapper.
+   - **Readers live in `parse_dir` only (E1).** The wasm client never runs the
+     parser — it fetches the already-built `Manifest` JSON from `/api/manifest`
+     (`source.rs:64`) and deserializes it; `ara-wasm` is a stub. So the enriched
+     manifest is assembled entirely native-side in `parse_dir`, serialized to
+     JSON, and the client just deserializes it. **Keep `parse_sources` as the
+     pure 2-arg (tree + claims) core; do NOT thread the new files through it**
+     (the earlier "wasm callers can pass them too" wording was wrong — see the
+     Risks note that already said wasm needn't read them). Section-parsing logic
+     for `related_work.md` / `concepts.md` / `problem.md` / `solution/*.md` and
+     the `evidence/README.md` index runs inside `parse_dir`, integration-tested
+     over on-disk fixtures (E2).
 4. **Resolution passes** (deterministic, source-order preserving):
-   - node → RESULT evidence (rule 1 above).
+   - node → exhibit (claim-based, rule 1 above).
    - node → BUILT ON (node → claims → RW via `claims_affected`).
    - This finally gives **T-EVIDENCE**-adjacent linkage; keep `E##` proof refs
      out of scope (still no registry).
-5. **Markdown table rendering.** RESULT/tables need GFM tables → a structured
-   form (`Vec<Row>`) so the viewer renders real `<table>`, not raw text. Decide:
-   parse to rows in core (testable, deterministic) vs. render markdown in the
-   client. Recommendation: **parse to a minimal table AST in core**; leave prose
-   as markdown strings the client renders with a tiny inline formatter.
+   - **Evidence-index parser must be column-NAME-tolerant (E5).** Verified
+     across all 32 artifacts: the `evidence/README.md` header is **not** stable
+     — 26 use `File|Source|Claims|Description`, 3 use a different column *order*
+     (`File|Description|Source|Claims`), 1 uses `Key refs`, and **2 have no
+     `Claims` column at all**. Match columns by header name, not position; a
+     missing `Claims` column → "no linkage, empty RESULT, warn-not-fatal". **Re-
+     derive/validate the resolution rule against ≥10 artifacts before locking**
+     (the plan's earlier "sample 2–3" was calibrated to the wrong risk). Add the
+     header variants above as fixtures.
+5. **No table AST in core (E6 / D4).** RESULT rendering is deferred (D4): the
+   core carries each exhibit's **raw markdown body string** through the manifest
+   and does no table parsing. The client renders markdown later. This drops the
+   plan's earlier "minimal table AST in `Vec<Row>` in core" recommendation —
+   with client-side rendering locked, a core AST would re-implement what the
+   client renderer already does, and the files carry caption/axes prose that
+   doesn't fit a row model anyway.
 
 ### Viewer (`ara-viewer`)
 
@@ -201,12 +224,25 @@ serde-defaulted so old manifests round-trip (as `isolated`/`pos` already do).
      — see below).
 7. **Four header panels** (Context / Glossary / Dependencies / Recipes). **There is
    no existing "overlay pattern" to reuse** — the resizable divider is a splitter, not
-   a modal. This is a **new component** and must be specced, not hand-waved. From the
-   hub screenshot, each panel is:
+   a modal. This is a **new component** and must be specced, not hand-waved.
+   - **Build ONE shared `Modal` component first, before any panel (E7).** The
+     a11y contract below (focus-trap, return-focus across a wasm re-render,
+     scrim-vs-content click) is fiddly in Leptos with no existing modal to copy.
+     Build + test the reusable `Modal` once (with its wasm a11y tests, GAP-12);
+     all four panels consume it. This proves the hard part before three panels
+     depend on it, and keeps the four panels DRY.
+   From the hub screenshot, each panel is:
    - a **centered modal overlay** (not a side dock), max-width ~880px, scrim behind,
      opened from the labelled header buttons that carry a **live count**
-     (`Glossary 12`, `Dependencies 9`, `Recipes 28` — counts are a required
-     affordance, not decoration; a 0 count hides the button).
+     (`Glossary 12` = `## Term` blocks, `Dependencies 9` = `## RW` blocks; a 0
+     count hides the button). **`Recipes` count is an OPEN QUESTION (E8) —
+     blocks slice with panels.** The source (`AmberLJC/ara-paperbench` README)
+     defines only `solution/` = 4 files (`algorithm`/`architecture`/
+     `constraints`/`heuristics`); "recipe" is a viewer-side label with no schema
+     unit, and the plan's "28" is not reproducible from any counting scheme (4
+     files, 16 `##` sections, 31 `##`+`###`). **Ask the maintainer what a recipe
+     is before locking; fall back to `recipe = one solution file` (count = 4) if
+     no timely answer.**
    - has its **own filter/search box** (Glossary shows `filter…`) scoped to that
      panel's items, plus an **`✕ Esc`** affordance.
    - **Accessibility contract (mandatory, this is a headline project feature):**
@@ -243,6 +279,18 @@ serde-defaulted so old manifests round-trip (as `isolated`/`pos` already do).
 > in TODOS.md)** — deferred because it adds JS/wasm weight that tensions the bundle
 > gate and is not needed for structural parity.
 
+> **D4 (RESOLVED 2026-07-16, eng review) — RESULT table rendering deferred to a
+> GitHub issue; slice 2 ships only the data layer.** RESULT bodies are full GFM
+> markdown. Rendering them client-side adds a markdown renderer to the wasm bundle,
+> which tensions the same sub-MB gate D3 cited when deferring KaTeX. **Decision:**
+> the core parses each exhibit into the manifest as a **raw markdown body string**
+> and resolves node→exhibit linkage (slice 2); the viewer's RESULT block shows the
+> evidence chips + linkage in v1; **client-side markdown rendering of the tables is
+> raised to a GitHub issue** ([ARA-Labs/ara-cli#32](https://github.com/ARA-Labs/ara-cli/issues/32)) and gated on a bundle-size check (pick a light pure-Rust
+> markdown crate, verify the bundle stays under the gate, else fall back). Same
+> treatment as D3/T-MATH-RENDER. **Consequence:** N07's RESULT shows which exhibits
+> apply (chips + linkage), not the rendered fig3/figB.1 tables, in v1.
+
 ### Hub mode
 
 12. **T-HUB-FIGURES**: once figures render, image `src` must resolve under
@@ -254,22 +302,41 @@ serde-defaulted so old manifests round-trip (as `isolated`/`pos` already do).
 
 ## Implementation steps (suggested slices, each shippable + patch-bump)
 
-Sequenced so each step is independently reviewable and testable. Steps 1–2 are
-pure core; 3+ light up the UI.
+Restructured per eng review (E-seq): **land the full `ara-core` schema in ONE
+core slice** rather than widening the `Manifest` across four UI slices. Every
+schema change re-baselines `insta` snapshots and (if it touches the UI)
+regenerates the embedded wasm bundle (the expensive `viewer-embed-fresh` gate);
+splitting the additive, serde-defaulted schema across slices only buys snapshot
+churn + rebase friction. Core-only slices do NOT regen the bundle; UI slices
+regen once each when the UI actually changes.
 
-1. **Node-body widening** (T-REAL-CORPUS core): dead-end 3 fields + `pivot`.
-   Snapshot tests over vendored fixtures; assert the ×67 dead-end-field warnings
-   drop to zero on the corpus. No UI yet beyond typed-field rendering.
-2. **PAPER.md + paper header**: frontmatter reader → `PaperMeta` → viewer header
-   + Abstract. Smallest visible win.
-3. **RESULT**: evidence readers + index + claim-based resolution + table AST +
-   per-node RESULT block. Decide the resolution rule first (sample ≥3 artifacts).
-4. **BUILT ON + Dependencies panel**: `related_work.md` reader + node→claim→RW
-   linkage + RW chips (per-node) and the Dependencies overlay (global).
-5. **Glossary + Context + Recipes panels**: `concepts.md` / `problem.md` /
-   `solution/*.md` readers + three overlays.
-6. **ARTIFACT pointer** + **hub figure serving** (only if images are actually
-   used by any artifact; tables need neither).
+1. **Node-body widening** (T-REAL-CORPUS core, pure core): dead-end 3 fields +
+   `Pivot { from, to, trigger }` + `NodeKind::Pivot`. Snapshot tests over
+   vendored fixtures; assert the ×67 dead-end-field warnings drop to zero on the
+   corpus. Verified: all 6 real `pivot` nodes carry an `id`, so the id-drop
+   error path is not tripped. No UI, no bundle regen.
+2. **Full manifest schema + all readers + resolution** (pure core, ONE
+   rebaseline, no bundle regen): `paper` / `related_work` / `concepts` /
+   `problem` / `recipes` (solution) / `exhibits`, all readers in `parse_dir`
+   (E1), both resolution passes (node→exhibit column-name-tolerant E5,
+   node→claims→RW). Decide the RESULT resolution rule here, validated against
+   ≥10 artifacts (E5). No table AST (E6). Enumerated malformed/partial fixtures
+   per reader (E-tests). This is the whole data layer in one reviewable slice.
+3. **PAPER.md paper header + Abstract** (UI): `PaperMeta` → viewer header +
+   Abstract `<details>`. Smallest visible win; consumes slice-2 schema.
+4. **Per-node blocks** (UI): un-inert detail-pane slots → WHAT IT DID (relabel)
+   → evidence chips → BUILT ON (RW chips). RESULT block shows evidence chips +
+   linkage only; **table rendering is D4 (deferred to a GitHub issue)**.
+5. **Shared `Modal` + Dependencies panel** (UI): build the reusable a11y `Modal`
+   component first with its wasm a11y tests (E7 / GAP-12), then the Dependencies
+   overlay as its first consumer.
+6. **Glossary + Context + Recipes panels** (UI): three more `Modal` consumers.
+   **Blocked on E8** (maintainer's definition of a "recipe" / the count).
+7. **ARTIFACT pointer** + **hub figure serving** (only if images are actually
+   used by any artifact; the sampled artifacts use markdown tables, not images —
+   verify first).
+8. **RESULT markdown rendering** (D4, tracked as a GitHub issue): client-side
+   markdown renderer for exhibit bodies, gated on a wasm bundle-size check.
 
 Per-step: bump patch version + `CHANGELOG.md` entry (functional). Each core step
 extends the `insta` snapshots and the `corpus_no_panic` net. Run
@@ -277,30 +344,46 @@ extends the `insta` snapshots and the `corpus_no_panic` net. Run
 
 ## Risks / decisions to lock before coding
 
-- **Resolution rule for RESULT** (claim-based vs direct-ref) — sample more
-  artifacts. Blocks step 3.
-- **Table rendering location** (core AST vs client markdown) — recommend core.
-- **wasm file-passing**: hub/live already fetch `manifest.json`; the new files
-  are read server-side into the manifest, so wasm needn't read them directly —
-  confirm the live/hub `/api/manifest` path carries the enriched manifest and the
-  static `manifest.json` fallback still works.
+- **Resolution rule for RESULT** (claim-based vs direct-ref) — RESOLVED
+  claim-based (rule 1), but the evidence-index parser must be **column-name-
+  tolerant** and the rule **validated against ≥10 artifacts** before locking (E5;
+  verified: 5 header variants across 32 artifacts, 2 with no `Claims` column).
+  Blocks slice 2's resolution pass.
+- **Table rendering location** — RESOLVED: **client-side, deferred to a GitHub
+  issue (D4)**. No core table AST (E6). Slice 2 carries raw markdown strings.
+- **Reader placement** — RESOLVED: readers live in **`parse_dir` only** (E1);
+  `parse_sources` stays the pure 2-arg core; the wasm client only deserializes
+  the enriched `/api/manifest` JSON. Confirm the enriched manifest serializes and
+  the static `manifest.json` fallback still round-trips (serde-default old
+  manifests — add an explicit round-trip test, GAP-1).
+- **Recipes unit / count** — OPEN (E8): ask the maintainer what a "recipe" is;
+  fall back to `recipe = one solution file` (count = 4). **Blocks slice 6.**
 - **Schema drift**: model the *observed* convention now; T-ARA-SCHEMA swaps to a
   published schema later. Keep readers tolerant (warn, never fatal) so
   non-conforming artifacts still open.
 - **Scope of ARADemo corpus**: verify conventions hold on `ARA-Labs/ARA-Demo`
-  too (it uses a DOM tree-list viewer), not just paperbench.
+  too (it uses a DOM tree-list viewer), not just paperbench. **Load-bearing** —
+  5/32 paperbench artifacts already lack `related_work.md`, so BUILT ON /
+  Dependencies being absent is a normal state, not an error path.
 
 ## Definition of done
 
 `ara serve` on `paperbench/self-composing-policies` renders, for N07, in the
 corrected hub order: paper header + abstract, WHAT IT DID (`result`), evidence
-chips, BUILT ON (RW01/RW09), RESULT (fig3 + figB.1 tables), and the four populated
-header panels (Context, Glossary 12, Dependencies 9, Recipes 28) — **in our
-warm-cream + glyph-only skin (D2), with REASONING handled per D1**. Every new
-surface has its empty/partial/error/loading state (Pass 1) and its <800px behaviour
-(Pass 5). The four panels satisfy the modal a11y contract (focus-trap, Esc,
-return-focus). Corpus sweep emits zero dead-end-field warnings. All snapshots
-updated; embedded bundle fresh.
+chips, BUILT ON (RW01/RW09), RESULT (**exhibit chips + node→exhibit linkage for
+fig3 + figB.1; table markdown rendering deferred to D4**), and the four populated
+header panels (Context, Glossary 12, Dependencies 9, Recipes — count per E8) —
+**in our warm-cream + glyph-only skin (D2), with REASONING handled per D1**. Every
+new surface has its empty/partial/error/loading state (Pass 1) and its <800px
+behaviour (Pass 5). The shared `Modal` component (E7) satisfies the a11y contract
+(focus-trap, Esc, return-focus, scrim-close) and has **mandatory wasm a11y tests in
+`tests/web.rs`** (GAP-12); all four panels consume it. The five new `parse_dir`
+readers have **enumerated malformed/partial/empty fixtures** (missing `---` fence,
+RW block with no DOI / no `Claims affected`, concept term with no Definition,
+evidence index row → missing file, node with a claim but no matching exhibit, RW
+referenced but file absent), each asserting warn-not-fatal + correct partial output.
+Old manifests still deserialize (serde-default round-trip, GAP-1). Corpus sweep
+emits zero dead-end-field warnings. All snapshots updated; embedded bundle fresh.
 
 ## Design decisions to lock before implementation (from /plan-design-review)
 
@@ -319,44 +402,141 @@ updated; embedded bundle fresh.
   RESULT → ARTIFACT (REASONING gated on D1).
 - **Panels are a new modal component**, not a reuse of the divider; a11y contract is
   mandatory.
+- **D4 — RESULT table rendering** (RESOLVED, eng review). Client-side markdown,
+  deferred to a GitHub issue; slice 2 ships raw markdown strings in `exhibits`.
+
+## Eng review decisions (2026-07-16, /plan-eng-review)
+
+- **E1 — Readers in `parse_dir` only.** `parse_sources` stays the pure 2-arg
+  (tree + claims) core; the wasm client only deserializes the enriched
+  `/api/manifest` JSON (`source.rs:64`). Drops the wrong "wasm passes them too"
+  wording.
+- **E2 — Section parsers integration-tested in `parse_dir`** (over on-disk
+  fixtures), per user choice. Tradeoff accepted: malformed-input edge cases are
+  disk-fixture-only, not pure unit tests.
+- **E4 — Manifest section named `exhibits: Vec<Exhibit>`**, not `evidence` —
+  avoids collision with the node-level `evidence:` (claim-refs) concept.
+- **E5 — Evidence-index parser is column-name-tolerant**; RESULT resolution rule
+  validated against ≥10 artifacts before locking (5 header variants across 32
+  artifacts, 2 with no `Claims` column).
+- **E6 — No table AST in core** (follows D4).
+- **E7 — Build one shared a11y `Modal` component first**, before any panel; all
+  four panels consume it. Mandatory wasm a11y tests (GAP-12).
+- **E8 — Recipes count is an OPEN QUESTION.** Ask the maintainer what a "recipe"
+  is; fall back to `recipe = one solution file` (count = 4). Blocks slice 6.
+- **E-seq — Land the full `ara-core` schema in ONE core slice** (slice 2), not
+  spread across UI slices — avoids repeated snapshot rebaselines + bundle regens.
+- **E-tests — Enumerate malformed/partial/empty fixtures** per reader; add a
+  serde-default old-manifest round-trip test (GAP-1).
+
+## NOT in scope
+
+- **RESULT table markdown rendering** — deferred to a GitHub issue (D4); v1 ships
+  the data layer + linkage only.
+- **KaTeX / real math rendering** — inert monospace for v1 (D3, T-MATH-RENDER).
+- **REASONING narrative block** — dropped for v1 (D1); inert slot reserved.
+- **`E##` proof-ref registry** (T-EVIDENCE) — no registry upstream; refs stay raw.
+- **Hub figure-IMAGE serving** (slice 7) — only if any artifact uses image files;
+  the sampled artifacts use markdown tables, so verify before building.
+- **`T-PARSE-DEPTH`, `T-EDGE-ROUTING`, `T-VIEWER-TREE-LIST`** — unrelated deferred
+  backlog, not touched here.
+- **Adopting a published ARA schema** (T-ARA-SCHEMA) — model the observed
+  convention now; swap later without changing the viewer.
+
+## What already exists (reused, not rebuilt)
+
+- **`parse_sources` / `parse_dir` / `Normalizer`** (`parse.rs`) — the tolerant,
+  warn-never-fatal pipeline the new readers extend. Reuse the `parse_claims`
+  pattern (pure str→struct) as the model for new section parsers.
+- **`serde` default + `skip_serializing_if`** round-tripping (`manifest.rs`, as
+  `isolated`/`pos` already do) — new sections ride the same additive path.
+- **`DetailModel` / `DetailPane` + reserved inert slots** (`detail.rs:386`) — the
+  new blocks plug into slots already reserved and CSS-styled; do not invent chrome.
+- **`kind_meta` glyph source + `.block` / `.block.reason` styling** — reused for
+  the new blocks and the Pivot kind.
+- **Parse-once + `ArcSwap` cache + ETag/304** (`serve/mod.rs`) — the enriched
+  manifest rides the existing cache; no per-request cost, no new serving path
+  (except optional slice-7 figure images).
+- **`corpus_no_panic` net + `insta` snapshot harness** (`tests/`) — extended, not
+  replaced, for the new schema.
+- **`<base href>` + relative-URL manifest fetch** (`source.rs`) — the enriched
+  manifest flows through the existing local + hub `/api/manifest` path unchanged.
+
+## Implementation Tasks
+Synthesized from this review's findings. Each task derives from a specific
+finding above. Run with Claude Code or Codex; checkbox as you ship.
+
+- [ ] **T1 (P1, human: ~1d / CC: ~40min)** — ara-core — Land full manifest schema
+  + `parse_dir` readers + resolution passes in one core slice
+  - Surfaced by: E1, E-seq — readers in `parse_dir`; single schema rebaseline
+  - Files: `crates/ara-core/src/manifest.rs`, `crates/ara-core/src/parse.rs`
+  - Verify: `cargo test --workspace`; snapshots rebaselined; no bundle regen
+- [ ] **T2 (P1, human: ~1h / CC: ~15min)** — ara-core — Widen `DeadEnd` (3 fields)
+  + add `Pivot { from, to, trigger }` + `NodeKind::Pivot`
+  - Surfaced by: T-REAL-CORPUS core; ×67 warnings; 6 real pivot nodes (all have ids)
+  - Files: `crates/ara-core/src/manifest.rs`, `crates/ara-core/src/schema.rs`, `parse.rs`
+  - Verify: corpus sweep emits zero dead-end-field warnings
+- [ ] **T3 (P1, human: ~half day / CC: ~30min)** — ara-core — Column-name-tolerant
+  evidence-index parser; validate RESULT rule against ≥10 artifacts
+  - Surfaced by: E5 — 5 header variants across 32 artifacts, 2 with no Claims column
+  - Files: `crates/ara-core/src/parse.rs`, `crates/ara-core/tests/fixtures/`
+  - Verify: fixtures for each header variant; missing-column → warn-not-fatal
+- [ ] **T4 (P1, human: ~1d / CC: ~40min)** — ara-core/tests — Enumerate
+  malformed/partial fixtures per reader + serde-default round-trip test
+  - Surfaced by: E-tests, GAP-1..GAP-9 — "tolerant" must be verified
+  - Files: `crates/ara-core/tests/`
+  - Verify: each malformed case asserts warn-not-fatal + correct partial output
+- [ ] **T5 (P1, human: ~1.5d / CC: ~40min)** — ara-viewer — Build shared a11y
+  `Modal` component with wasm a11y tests, before any panel
+  - Surfaced by: E7, GAP-12 — focus-trap/return-focus is the headline a11y feature
+  - Files: `crates/ara-viewer/src/`, `crates/ara-viewer/tests/web.rs`
+  - Verify: focus in-on-open, trap, Esc, return-focus, scrim-close all tested
+- [ ] **T6 (P2, human: ~30min / CC: ~5min)** — plans/docs — Ask maintainer for the
+  "recipe" definition + count before slice 6
+  - Surfaced by: E8 — "28" is ungrounded; source defines only `solution/` = 4 files
+  - Files: `plans/hub-parity-full.md`
+  - Verify: count unit locked; fall back to file=recipe (4) if no answer
 
 ## GSTACK REVIEW REPORT
 
-Design review of `plans/hub-parity-full.md` — /plan-design-review, 2026-07-16.
-Calibrated against three captured references (live hub screenshots in
-`~/.gstack/projects/AmberLJC-ara-paperbench/designs/hub-parity-20260716/` +
-`/tmp/hub-parity-refs/`, the baked `trace/exploration_tree.html`, and the current
-warm-cream viewer). No `DESIGN.md`; tokens are vendored in
-`crates/ara-viewer/public/styles.css` (T-DESIGN-TOKENS open).
+| Review | Trigger | Why | Runs | Status | Findings |
+|--------|---------|-----|------|--------|----------|
+| CEO Review | `/plan-ceo-review` | Scope & strategy | 0 | — | — |
+| Codex Review | `/codex review` | Independent 2nd opinion | 1 | issues_found | outside voice (Claude subagent; codex not authed): 8 findings, 3 verified-new folded |
+| Eng Review | `/plan-eng-review` | Architecture & tests (required) | 1 | issues_open | 11 issues folded (E1–E8, E-seq, E-tests, D4); 1 open (E8 recipe count) |
+| Design Review | `/plan-design-review` | UI/UX gaps | 1 | clean | score 6.5→8/10, D1–D3 resolved |
+| DX Review | `/plan-devex-review` | Developer experience gaps | 0 | — | — |
 
-| Dimension | Before | After edits | Note |
-|---|---|---|---|
-| Interaction state coverage | 2/10 | 8/10 | Added empty/partial/error/loading per surface (step 9) |
-| AI slop risk | 6/10 | 8/10 | Killed "reuse the overlay pattern" fiction; specced real modal |
-| Information architecture | 4/10 | 8/10 | Corrected section order against hub screenshot |
-| User journey | 5/10 | 7/10 | Panel counts promoted to required affordance |
-| Responsive | 1/10 | 7/10 | <800px full-screen modals + table horizontal-scroll (step 10) |
-| Accessibility | 1/10 | 8/10 | Modal focus-trap/Esc/return-focus contract now mandatory |
-| Visual system / language conflict | 3/10 | 7/10 | D2 forces a canonical-reference decision |
-| **Overall** | **6.5/10** | **~8/10 (D1–D3 all resolved)** | Data layer was already strong; design layer now specced |
+**Eng review summary (2026-07-16):** Scope confirmed — full 6-slice parity
+(user chose complete over reduced). Architecture: 2 findings (E1 reader
+placement → `parse_dir` only, verified against `source.rs:64`; E2 parser seam →
+integration-tested per user), 1 verified-clear (all 6 `pivot` nodes carry ids →
+no id-drop). Code quality: 3 (E4 `exhibits` rename; D4 RESULT rendering
+deferred; DoD corrected). Tests: coverage diagram produced, ~15 gaps — 2
+resolved as decisions (GAP-12 mandatory wasm a11y tests; GAP-2..9 enumerated
+malformed fixtures), rest folded. Performance: 0 issues — parse-once + ArcSwap
+cache + ETag/304 already handles the tiny corpus scale (max 236 nodes, 9 RW, 9
+exhibits per artifact).
 
-Runs: 1 (inline). Status: issues_found → addressed in-plan.
-Findings: 3 blocking design decisions raised (D1 REASONING-vs-no-LLM,
-D2 canonical-reference/skin, D3 LaTeX), section order corrected, panels re-specced
-as a new modal component with a mandatory a11y contract, interaction states +
-responsive behaviour added.
+**Outside voice (Claude subagent — Codex installed but not authed):** sampled
+all 32 artifacts (my review had calibrated on N07's artifact only) and surfaced
+4 verified-new findings, all confirmed against the corpus and folded: E5
+(evidence-index format not stable — 5 header variants, 2 with no `Claims`
+column → column-name-tolerant parser + validate rule vs ≥10 artifacts), E8
+(`Recipes 28` is ungrounded — source defines only `solution/` = 4 files → open
+question for the maintainer), E-seq (schema spread across 4 slices → land in one
+core slice), E7 (modal component unspecced → shared `Modal` spike first). Its
+other findings (RESULT deferral, drop core table AST, sequencing) overlapped
+decisions already made in-session.
 
-Design mockups: **not generated** — this is a parity task with three existing
-official reference renderings, so I captured the live hub as the pixel spec instead
-of inventing designs (more faithful than AI mockups here).
+**CROSS-MODEL:** no tension — the outside voice agreed with the eng-review
+direction on RESULT deferral and dropping the core table AST, and its new
+findings were verified and folded rather than contested.
 
-VERDICT: Plan is materially stronger and **all three design decisions (D1–D3) are now
-resolved and documented** (2026-07-16). No design blockers remain — the plan is ready
-to proceed to implementation, starting with slice 1 (node-body widening, pure core).
+**VERDICT:** DESIGN + ENG reviewed; plan materially strengthened and internally
+consistent. Ready to implement starting with slice 1 (node-body widening, pure
+core) then slice 2 (full core schema) — with **one open item (E8)** to resolve
+before slice 6 (Glossary/Context/Recipes panels).
 
-RESOLVED (2026-07-16):
-- D1 — v1 drops REASONING and leads with WHAT IT DID (structured `result`); a REASONING slot stays inert until the schema carries a stored `reasoning:` field. The hub's REASONING is LLM-generated at publish time and absent from source, so reproducing it would break the "never fake prose at view time" promise.
-- D2 — keep our warm-cream + glyph-only skin, port only the hub's structure (the hub/baked HTML is LLM-generated per artifact, so its look is non-reproducible).
-- D3 — inert monospace `$…$` for v1; KaTeX renderer deferred to future work (T-MATH-RENDER + GitHub issue).
-
-NO UNRESOLVED DECISIONS
+**UNRESOLVED DECISIONS:**
+- **E8 — the "recipe" unit / count is undefined.** Source (`AmberLJC/ara-paperbench` README) defines only `solution/` = 4 files; the plan's "28" is not reproducible. Ask the maintainer before locking slice 6; fall back to `recipe = one solution file` (count = 4) if no timely answer. Does not block slices 1–5.
