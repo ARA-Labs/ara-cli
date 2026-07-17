@@ -7,6 +7,13 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Viewer detail pane: per-node **BUILT ON** and **RESULT** blocks in the
+  corrected hub order. BUILT ON renders chips for the related work a node builds
+  on (id + citation, resolved from `built_on` → `related_work`); RESULT renders
+  chips for the exhibits linked to a node (id + figure/table label, resolved
+  from `node_exhibits` → `exhibits`). Both omit entirely when empty. The
+  experiment `result` field is relabelled **WHAT IT DID**. (REASONING is
+  intentionally deferred; exhibit table/markdown bodies are not rendered yet.)
 - Viewer paper header: title, authors, venue/year, and a collapsible Abstract
   from `PAPER.md`. When the loaded manifest carries a titled `PaperMeta` the app
   header shows the paper metadata (Abstract collapsed by default); otherwise it

@@ -8,7 +8,7 @@
 //!    the rest of the viewer it compiles on native too (no browser-only APIs),
 //!    so no `cfg` gating is needed.
 
-use ara_core::{Manifest, Node, NodeFields, NodeId};
+use ara_core::{ExhibitKind, Manifest, Node, NodeFields, NodeId};
 use leptos::prelude::*;
 
 use crate::kind::kind_meta;
@@ -29,6 +29,34 @@ pub struct ClaimView {
 pub enum FieldValue {
     Text(String),
     List(Vec<String>),
+}
+
+/// A related-work reference this node builds on (BUILT ON block).
+///
+/// Resolved from a `manifest.built_on` edge against `manifest.related_work`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct BuiltOnView {
+    /// Related-work id (e.g. `RW01`).
+    pub id: String,
+    /// Citation text; empty when the id has no matching `related_work` entry.
+    pub cite: String,
+}
+
+/// An exhibit (figure/table) linked to this node (RESULT block).
+///
+/// Resolved from a `manifest.node_exhibits` edge against `manifest.exhibits`.
+/// Chips + linkage only — the exhibit `body` is intentionally not carried here
+/// (table/markdown rendering is deferred; see the RESULT block comment).
+#[derive(Debug, Clone, PartialEq)]
+pub struct ExhibitView {
+    /// Exhibit id.
+    pub id: String,
+    /// Source file, relative to the artifact root.
+    pub file: String,
+    /// Short kind label: `"figure"` | `"table"` | `"other"`.
+    pub kind: String,
+    /// Origin of the exhibit, when stated.
+    pub source: Option<String>,
 }
 
 /// A single typed field entry in the per-kind section.
@@ -65,6 +93,10 @@ pub struct DetailModel {
     pub evidence_notes: Vec<String>,
     /// Claims resolved from `manifest.bindings` filtered to this node.
     pub claims: Vec<ClaimView>,
+    /// Related work this node builds on (BUILT ON block), in source order.
+    pub built_on: Vec<BuiltOnView>,
+    /// Exhibits linked to this node (RESULT block), in source order.
+    pub result_exhibits: Vec<ExhibitView>,
     /// Provenance refs.
     pub source_refs: Vec<String>,
 }
@@ -73,12 +105,14 @@ impl DetailModel {
     /// True when there is nothing to show beyond the header.
     ///
     /// Criteria: description is `None`, no typed fields, no evidence notes, no
-    /// claims, no source refs.
+    /// claims, no built-on refs, no result exhibits, no source refs.
     pub fn is_empty(&self) -> bool {
         self.description.is_none()
             && self.typed_fields.is_empty()
             && self.evidence_notes.is_empty()
             && self.claims.is_empty()
+            && self.built_on.is_empty()
+            && self.result_exhibits.is_empty()
             && self.source_refs.is_empty()
     }
 }
@@ -121,6 +155,48 @@ pub fn detail_model(node: &Node, manifest: &Manifest) -> DetailModel {
         })
         .collect();
 
+    // ── BUILT ON: node→related-work edges, resolved to id + cite ─────────────
+    // Preserve `manifest.built_on` order. A missing related_work entry still
+    // yields a view with an empty cite (never panics, never drops the id).
+    let built_on: Vec<BuiltOnView> = manifest
+        .built_on
+        .iter()
+        .filter(|b| b.node == node.id)
+        .map(|b| {
+            let cite = manifest
+                .related_work
+                .iter()
+                .find(|rw| rw.id == b.related_work)
+                .map(|rw| rw.cite.clone())
+                .unwrap_or_default();
+            BuiltOnView {
+                id: b.related_work.clone(),
+                cite,
+            }
+        })
+        .collect();
+
+    // ── RESULT: node→exhibit edges, resolved to id/file/kind/source ──────────
+    // Preserve `manifest.node_exhibits` order. An exhibit id with no matching
+    // exhibit is skipped (graceful degradation), never panics.
+    let result_exhibits: Vec<ExhibitView> = manifest
+        .node_exhibits
+        .iter()
+        .filter(|ne| ne.node == node.id)
+        .filter_map(|ne| {
+            manifest
+                .exhibits
+                .iter()
+                .find(|ex| ex.id == ne.exhibit)
+                .map(|ex| ExhibitView {
+                    id: ex.id.clone(),
+                    file: ex.file.clone(),
+                    kind: exhibit_kind_label(&ex.kind).to_string(),
+                    source: ex.source.clone(),
+                })
+        })
+        .collect();
+
     DetailModel {
         title,
         kind_badge: meta.badge,
@@ -131,7 +207,19 @@ pub fn detail_model(node: &Node, manifest: &Manifest) -> DetailModel {
         typed_fields,
         evidence_notes: node.evidence_notes.clone(),
         claims,
+        built_on,
+        result_exhibits,
         source_refs: node.source_refs.clone(),
+    }
+}
+
+/// Short lowercase label for an [`ExhibitKind`], matching our lowercase
+/// block-label convention.
+fn exhibit_kind_label(kind: &ExhibitKind) -> &'static str {
+    match kind {
+        ExhibitKind::Figure => "figure",
+        ExhibitKind::Table => "table",
+        ExhibitKind::Other => "other",
     }
 }
 
@@ -139,7 +227,8 @@ pub fn detail_model(node: &Node, manifest: &Manifest) -> DetailModel {
 ///
 /// Order requirements (from plan):
 /// - `Question`  → none
-/// - `Experiment { result }` → `[("result", result)]` if Some; mark primary
+/// - `Experiment { result }` → `[("what it did", result)]` if Some; mark
+///   primary (the experiment result is the node's WHAT IT DID block)
 /// - `Decision { choice, rationale, alternatives }` →
 ///   `("choice", choice?)`, `("rationale", rationale?)` [primary],
 ///   `("alternatives", alternatives)` if non-empty; omit None/empty
@@ -159,8 +248,10 @@ fn typed_fields_for(node: &Node) -> Vec<TypedField> {
         NodeFields::Experiment { result } => {
             let mut fields = Vec::new();
             if let Some(r) = result {
+                // Relabelled to "what it did" per the corrected hub order (the
+                // experiment's `result` field is the node's WHAT IT DID block).
                 fields.push(TypedField {
-                    label: "result",
+                    label: "what it did",
                     value: FieldValue::Text(r.clone()),
                     is_primary: true,
                 });
@@ -350,7 +441,15 @@ fn render_detail(m: DetailModel) -> impl IntoView {
                 </div>
             })}
 
-            // ── 3. Typed fields (per-kind, in canonical order) ─────────────
+            // ── Inert REASONING slot ──────────────────────────────────────
+            // REASONING is intentionally dropped for v1 (D1): the schema does
+            // not yet carry a stored `reasoning:` field. When it does, the
+            // REASONING block plugs in HERE — above WHAT IT DID — matching the
+            // hub order. No visible UI until then.
+
+            // ── 3. WHAT IT DID + other typed fields (per-kind order) ───────
+            // For an Experiment the sole typed field is `result`, relabelled
+            // "what it did" in `typed_fields_for` (the WHAT IT DID block).
             {m.typed_fields.iter().map(|tf| {
                 let block_class = if tf.is_primary {
                     "block reason"
@@ -419,7 +518,53 @@ fn render_detail(m: DetailModel) -> impl IntoView {
                 None
             }}
 
-            // ── 5. Provenance ─────────────────────────────────────────────
+            // ── 5. Built on (related work this node builds on) ─────────────
+            // Omit entirely when empty — a bare node shows nothing, matching
+            // the hub. Chips carry the RW id + cite.
+            {if !m.built_on.is_empty() {
+                Some(view! {
+                    <div class="block built-on-block">
+                        <span class="block-label">"built on"</span>
+                        <div class="chip-row">
+                            {m.built_on.iter().map(|bo| {
+                                let text = if bo.cite.is_empty() {
+                                    bo.id.clone()
+                                } else {
+                                    format!("{} · {}", bo.id, bo.cite)
+                                };
+                                view! { <span class="chip">{text}</span> }
+                            }).collect::<Vec<_>>()}
+                        </div>
+                    </div>
+                })
+            } else {
+                None
+            }}
+
+            // ── 6. Result (exhibits linked to this node) ───────────────────
+            // Chips + linkage ONLY — no exhibit `body` / table rendering (that
+            // is deferred to a follow-up issue). Each chip shows the exhibit id
+            // + kind label; the file/source is a hover tooltip on the chip.
+            {if !m.result_exhibits.is_empty() {
+                Some(view! {
+                    <div class="block result-block">
+                        <span class="block-label">"result"</span>
+                        <div class="chip-row">
+                            {m.result_exhibits.iter().map(|ex| {
+                                let text = format!("{} · {}", ex.id, ex.kind);
+                                let note = ex.source.clone().unwrap_or_else(|| ex.file.clone());
+                                view! {
+                                    <span class="chip" title=note>{text}</span>
+                                }
+                            }).collect::<Vec<_>>()}
+                        </div>
+                    </div>
+                })
+            } else {
+                None
+            }}
+
+            // ── 7. Provenance ─────────────────────────────────────────────
             {if !m.source_refs.is_empty() {
                 Some(view! {
                     <div class="block provenance-block">
@@ -480,7 +625,8 @@ fn status_css_class(status: Option<&str>) -> &'static str {
 mod tests {
     use super::*;
     use ara_core::{
-        Binding, BindingRole, Claim, ClaimId, Manifest, Node, NodeFields, NodeId, NodeKind,
+        Binding, BindingRole, BuiltOn, Claim, ClaimId, Exhibit, ExhibitKind, Manifest, Node,
+        NodeExhibit, NodeFields, NodeId, NodeKind, RelatedWork,
     };
 
     // ── Helpers ───────────────────────────────────────────────────────────────
@@ -665,7 +811,8 @@ mod tests {
 
     // ── Experiment ────────────────────────────────────────────────────────────
 
-    /// `Experiment { result: Some(_) }` → one typed field, is_primary.
+    /// `Experiment { result: Some(_) }` → one typed field labelled
+    /// "what it did" (the WHAT IT DID block), is_primary.
     #[test]
     fn experiment_result_present() {
         let node = Node {
@@ -676,7 +823,7 @@ mod tests {
         };
         let m = detail_model(&node, &bare_manifest());
         assert_eq!(m.typed_fields.len(), 1);
-        assert_eq!(m.typed_fields[0].label, "result");
+        assert_eq!(m.typed_fields[0].label, "what it did");
         assert!(m.typed_fields[0].is_primary);
         assert_eq!(
             m.typed_fields[0].value,
@@ -896,5 +1043,207 @@ mod tests {
             m.typed_fields[0].value,
             FieldValue::List(vec!["A".to_string(), "B".to_string()])
         );
+    }
+
+    // ── Built on + Result linkage ─────────────────────────────────────────────
+
+    /// A node with `built_on` + `node_exhibits` resolves both in source order:
+    /// built_on carries id + cite, result_exhibits carries id/file/kind.
+    #[test]
+    fn built_on_and_result_exhibits_resolve_in_source_order() {
+        let node = make_node(
+            "N01",
+            NodeKind::Experiment,
+            NodeFields::Experiment { result: None },
+        );
+
+        let mut manifest = bare_manifest();
+        manifest.related_work = vec![
+            RelatedWork {
+                id: "RW01".to_string(),
+                cite: "Vaswani et al., 2017".to_string(),
+                doi: None,
+                kind: None,
+                what_changed: None,
+                why: None,
+                adopted: None,
+                claims_affected: vec![],
+            },
+            RelatedWork {
+                id: "RW02".to_string(),
+                cite: "He et al., 2016".to_string(),
+                doi: None,
+                kind: None,
+                what_changed: None,
+                why: None,
+                adopted: None,
+                claims_affected: vec![],
+            },
+        ];
+        // Source order RW02 then RW01 — must be preserved.
+        manifest.built_on = vec![
+            BuiltOn {
+                node: NodeId::new("N01"),
+                related_work: "RW02".to_string(),
+            },
+            BuiltOn {
+                node: NodeId::new("N01"),
+                related_work: "RW01".to_string(),
+            },
+        ];
+        manifest.exhibits = vec![
+            Exhibit {
+                id: "E01".to_string(),
+                file: "evidence/fig1.md".to_string(),
+                kind: ExhibitKind::Figure,
+                source: Some("Fig. 1".to_string()),
+                description: None,
+                claims: vec![],
+                body: String::new(),
+            },
+            Exhibit {
+                id: "T01".to_string(),
+                file: "evidence/tab1.md".to_string(),
+                kind: ExhibitKind::Table,
+                source: None,
+                description: None,
+                claims: vec![],
+                body: String::new(),
+            },
+        ];
+        manifest.node_exhibits = vec![
+            NodeExhibit {
+                node: NodeId::new("N01"),
+                exhibit: "T01".to_string(),
+            },
+            NodeExhibit {
+                node: NodeId::new("N01"),
+                exhibit: "E01".to_string(),
+            },
+        ];
+
+        let m = detail_model(&node, &manifest);
+
+        // built_on: source order RW02, RW01 with resolved cites.
+        assert_eq!(m.built_on.len(), 2);
+        assert_eq!(m.built_on[0].id, "RW02");
+        assert_eq!(m.built_on[0].cite, "He et al., 2016");
+        assert_eq!(m.built_on[1].id, "RW01");
+        assert_eq!(m.built_on[1].cite, "Vaswani et al., 2017");
+
+        // result_exhibits: source order T01 (table), E01 (figure).
+        assert_eq!(m.result_exhibits.len(), 2);
+        assert_eq!(m.result_exhibits[0].id, "T01");
+        assert_eq!(m.result_exhibits[0].file, "evidence/tab1.md");
+        assert_eq!(m.result_exhibits[0].kind, "table");
+        assert_eq!(m.result_exhibits[0].source, None);
+        assert_eq!(m.result_exhibits[1].id, "E01");
+        assert_eq!(m.result_exhibits[1].kind, "figure");
+        assert_eq!(m.result_exhibits[1].source, Some("Fig. 1".to_string()));
+
+        assert!(!m.is_empty(), "built_on + exhibits make it non-empty");
+    }
+
+    /// Only edges for the selected node are resolved; other nodes' edges ignored.
+    #[test]
+    fn built_on_and_exhibits_filter_to_selected_node() {
+        let node = make_node("N01", NodeKind::Question, NodeFields::Question);
+        let mut manifest = bare_manifest();
+        manifest.related_work = vec![RelatedWork {
+            id: "RW01".to_string(),
+            cite: "Other, 2020".to_string(),
+            doi: None,
+            kind: None,
+            what_changed: None,
+            why: None,
+            adopted: None,
+            claims_affected: vec![],
+        }];
+        manifest.built_on = vec![BuiltOn {
+            node: NodeId::new("N02"), // different node
+            related_work: "RW01".to_string(),
+        }];
+        manifest.exhibits = vec![Exhibit {
+            id: "E01".to_string(),
+            file: "evidence/fig1.md".to_string(),
+            kind: ExhibitKind::Figure,
+            source: None,
+            description: None,
+            claims: vec![],
+            body: String::new(),
+        }];
+        manifest.node_exhibits = vec![NodeExhibit {
+            node: NodeId::new("N02"), // different node
+            exhibit: "E01".to_string(),
+        }];
+
+        let m = detail_model(&node, &manifest);
+        assert!(m.built_on.is_empty());
+        assert!(m.result_exhibits.is_empty());
+    }
+
+    /// An unresolvable RW id keeps the id with an empty cite (no panic); an
+    /// unresolvable exhibit id is skipped.
+    #[test]
+    fn unresolvable_ids_degrade_gracefully() {
+        let node = make_node("N01", NodeKind::Question, NodeFields::Question);
+        let mut manifest = bare_manifest();
+        // built_on points at RW99, which is not in related_work.
+        manifest.built_on = vec![BuiltOn {
+            node: NodeId::new("N01"),
+            related_work: "RW99".to_string(),
+        }];
+        // node_exhibits points at E99, which is not in exhibits.
+        manifest.node_exhibits = vec![NodeExhibit {
+            node: NodeId::new("N01"),
+            exhibit: "E99".to_string(),
+        }];
+
+        let m = detail_model(&node, &manifest);
+        // RW99 still shown, with empty cite.
+        assert_eq!(m.built_on.len(), 1);
+        assert_eq!(m.built_on[0].id, "RW99");
+        assert_eq!(m.built_on[0].cite, "");
+        // E99 skipped silently.
+        assert!(m.result_exhibits.is_empty());
+    }
+
+    /// A node with no linkage yields empty vecs.
+    #[test]
+    fn no_linkage_yields_empty_vecs() {
+        let node = make_node("N01", NodeKind::Question, NodeFields::Question);
+        let m = detail_model(&node, &bare_manifest());
+        assert!(m.built_on.is_empty());
+        assert!(m.result_exhibits.is_empty());
+    }
+
+    /// `is_empty` accounts for built_on alone and result_exhibits alone.
+    #[test]
+    fn is_empty_accounts_for_new_fields() {
+        // built_on alone → not empty.
+        let node = make_node("N01", NodeKind::Question, NodeFields::Question);
+        let mut m1 = bare_manifest();
+        m1.built_on = vec![BuiltOn {
+            node: NodeId::new("N01"),
+            related_work: "RW01".to_string(),
+        }];
+        assert!(!detail_model(&node, &m1).is_empty());
+
+        // result_exhibits alone → not empty.
+        let mut m2 = bare_manifest();
+        m2.exhibits = vec![Exhibit {
+            id: "E01".to_string(),
+            file: "evidence/fig1.md".to_string(),
+            kind: ExhibitKind::Figure,
+            source: None,
+            description: None,
+            claims: vec![],
+            body: String::new(),
+        }];
+        m2.node_exhibits = vec![NodeExhibit {
+            node: NodeId::new("N01"),
+            exhibit: "E01".to_string(),
+        }];
+        assert!(!detail_model(&node, &m2).is_empty());
     }
 }

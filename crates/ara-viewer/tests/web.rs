@@ -613,6 +613,150 @@ fn insight_node_shows_description_no_typed_fields() {
     );
 }
 
+// ── Built-on / Result linkage fixture ─────────────────────────────────────────
+//
+// N01 (Experiment) carries an evidence note + a built_on edge (→ RW01) + a
+// node_exhibit edge (→ E01). N02 (Insight) carries a description only, no
+// linkage. The new manifest fields are serde-defaulted, so we include only what
+// these tests exercise.
+const LINKAGE_FIXTURE_JSON: &str = r#"{
+  "nodes": [
+    {
+      "id": "N01",
+      "kind": "experiment",
+      "label": "Train the transformer",
+      "description": "Ran the training experiment.",
+      "source_refs": [],
+      "evidence_notes": ["Logged in run 42"],
+      "fields": { "experiment": { "result": "28.4 BLEU" } },
+      "pos": { "x": 100.0, "y": 100.0 }
+    },
+    {
+      "id": "N02",
+      "kind": "insight",
+      "label": "A bare insight",
+      "description": "No linkage here.",
+      "source_refs": [],
+      "evidence_notes": [],
+      "fields": "insight",
+      "pos": { "x": 300.0, "y": 100.0 }
+    }
+  ],
+  "links": [],
+  "bindings": [],
+  "claims": [],
+  "related_work": [
+    { "id": "RW01", "cite": "Vaswani et al., 2017", "doi": null, "kind": null,
+      "what_changed": null, "why": null, "adopted": null, "claims_affected": [] }
+  ],
+  "exhibits": [
+    { "id": "E01", "file": "evidence/fig1.md", "kind": "figure",
+      "source": "Fig. 1", "description": null, "claims": [], "body": "" }
+  ],
+  "built_on": [
+    { "node": "N01", "related_work": "RW01" }
+  ],
+  "node_exhibits": [
+    { "node": "N01", "exhibit": "E01" }
+  ],
+  "bounds": { "x": 0.0, "y": 0.0, "width": 500.0, "height": 500.0 }
+}"#;
+
+// ── Test: built-on + result blocks render, in order after evidence ────────────
+
+/// N01 has an evidence note, a built_on edge (→ RW01) and a node_exhibit
+/// (→ E01). The detail pane must render a `.built-on-block` (with the RW chip)
+/// and a `.result-block` (with the exhibit chip), in that DOM order after the
+/// evidence block.
+#[wasm_bindgen_test]
+fn built_on_and_result_blocks_render_after_evidence() {
+    let doc = web_sys::window().unwrap().document().unwrap();
+    let container = body_div(&doc);
+
+    let manifest = parse_manifest(LINKAGE_FIXTURE_JSON).expect("linkage fixture must parse");
+    let selected: RwSignal<Option<ara_core::NodeId>> =
+        RwSignal::new(Some(ara_core::NodeId::new("N01")));
+    let (load_state, _) = signal(LoadState::Loaded(manifest));
+
+    let _handle = leptos::mount::mount_to(container.clone(), move || {
+        view! { <DetailPane load_state=load_state selected=selected /> }
+    });
+
+    // Both new blocks are present.
+    let built_on = container
+        .query_selector("div.built-on-block")
+        .unwrap()
+        .expect("built-on-block must render")
+        .dyn_into::<HtmlElement>()
+        .unwrap();
+    let result = container
+        .query_selector("div.result-block")
+        .unwrap()
+        .expect("result-block must render")
+        .dyn_into::<HtmlElement>()
+        .unwrap();
+
+    // Chips carry the resolved linkage.
+    assert!(
+        built_on.inner_text().contains("RW01") && built_on.inner_text().contains("Vaswani"),
+        "built-on chip must show the RW id + cite, got: {:?}",
+        built_on.inner_text()
+    );
+    assert!(
+        result.inner_text().contains("E01"),
+        "result chip must show the exhibit id, got: {:?}",
+        result.inner_text()
+    );
+
+    // DOM order: evidence < built on < result.
+    let text = container.inner_text();
+    let pos_evidence = text.find("evidence").expect("'evidence' label must appear");
+    let pos_built_on = text.find("built on").expect("'built on' label must appear");
+    let pos_result = text.find("result").expect("'result' label must appear");
+    assert!(
+        pos_evidence < pos_built_on,
+        "built-on block must appear after the evidence block"
+    );
+    assert!(
+        pos_built_on < pos_result,
+        "result block must appear after the built-on block"
+    );
+}
+
+// ── Test: node with no linkage renders neither block ──────────────────────────
+
+/// N02 has no built_on and no node_exhibit edges. The detail pane must render
+/// neither `.built-on-block` nor `.result-block`.
+#[wasm_bindgen_test]
+fn node_without_linkage_renders_neither_block() {
+    let doc = web_sys::window().unwrap().document().unwrap();
+    let container = body_div(&doc);
+
+    let manifest = parse_manifest(LINKAGE_FIXTURE_JSON).expect("linkage fixture must parse");
+    let selected: RwSignal<Option<ara_core::NodeId>> =
+        RwSignal::new(Some(ara_core::NodeId::new("N02")));
+    let (load_state, _) = signal(LoadState::Loaded(manifest));
+
+    let _handle = leptos::mount::mount_to(container.clone(), move || {
+        view! { <DetailPane load_state=load_state selected=selected /> }
+    });
+
+    assert!(
+        container
+            .query_selector("div.built-on-block")
+            .unwrap()
+            .is_none(),
+        "node with no built_on must NOT render a built-on-block"
+    );
+    assert!(
+        container
+            .query_selector("div.result-block")
+            .unwrap()
+            .is_none(),
+        "node with no exhibits must NOT render a result-block"
+    );
+}
+
 // ── Test: layout toggle flips the active segment + drives the signal ──────────
 
 /// Mounts `LayoutToggle` bound to a `layout` signal. Asserts:

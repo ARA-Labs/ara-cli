@@ -873,7 +873,10 @@ body.is-resizing.resizing-row { cursor: row-resize; }
   border: 1px solid var(--line);
 }
 
-/* ── Provenance chips ────────────────────────────────────────────────────────── */
+/* ── Chip rows (provenance, built-on, result) ────────────────────────────────
+   `.built-on-block` and `.result-block` are plain `.block` wrappers whose chips
+   reuse `.chip-row` + `.chip` verbatim — no new colours (warm-cream skin). No
+   dedicated rules are needed; they are listed here so the reuse is explicit. */
 
 .chip-row {
   display: flex;
