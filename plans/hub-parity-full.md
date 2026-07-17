@@ -42,19 +42,22 @@ evidence notes + claims · sources. Missing:
 > deferred slots); **(c)** change the product thesis (not recommended — it's the
 > headline differentiator). Lock D1 before any per-node rendering work.
 
-> **D2 (design review, blocking) — which reference is canonical?** There are **three
-> official renderings and they disagree visually**:
-> - baked `trace/exploration_tree.html` (in every artifact): cool grays, Inter,
->   **per-kind colours** (question=blue, experiment=orange, decision=green,
->   dead_end=red, pivot=purple), no panels, no RESULT/BUILT ON.
-> - the live hub: serif headings, REASONING narrative, four modal side-panels.
-> - our viewer: warm-cream vendored tokens, **glyph-not-colour** (a deliberate
->   colour-blind-safe choice, README + T-DESIGN-TOKENS), sans + mono.
+> **D2 (RESOLVED 2026-07-16) — keep our skin, port only structure.** There is **no
+> single "hub skin" to match**: each artifact's `trace/exploration_tree.html` (and the
+> hub view built from it) is **LLM-generated at publish time**, so the colour theme and
+> styling **differ per artifact** — it is a non-reproducible target. Confirmed by the
+> maintainer. Therefore we keep the **warm-cream vendored tokens + glyph-not-colour**
+> skin (deliberate colour-blind-safe choice, README + T-DESIGN-TOKENS) and port only
+> the hub's *structure* (which sections exist, their order, the panels). This governs
+> every colour/type/spacing choice below: **do not** import the hub's serif, per-kind
+> colours, or any artifact-specific styling. Same root cause resolves D1 — the hub's
+> *look and its REASONING prose are both LLM-generated and non-deterministic*; we
+> render the structured source deterministically instead.
 >
-> "Matching the hub" silently picks reference #2 and abandons the accessibility
-> stance in #3. Decide: keep our warm-cream + glyph-only skin and port only the hub's
-> *structure* (recommended — preserves the a11y differentiator), or adopt the hub skin
-> wholesale (drops glyph-only). This governs every colour/type/spacing choice below.
+> For reference only (not a skin to copy): the baked HTML happens to use cool grays +
+> per-kind colours (question=blue, experiment=orange, decision=green, dead_end=red,
+> pivot=purple); the live hub uses serif headings + REASONING narrative + modal panels.
+> Neither is canonical.
 
 **Global header panels** — all four missing. These are exactly the "inert" slots
 already reserved (commented) in `crates/ara-viewer/src/detail.rs:386`:
@@ -213,13 +216,12 @@ serde-defaulted so old manifests round-trip (as `isolated`/`pos` already do).
 11. **Regen the embedded viewer bundle** (`scripts/embed-viewer.sh`) — the
     `viewer-embed-fresh` CI gate will fail otherwise.
 
-> **D3 (design review).** Concepts/Recipes carry LaTeX (`$\pi^{(k)}$`,
-> `$\Phi^{k;s}$`). Options: **(a)** ship a KaTeX-style renderer (adds JS/wasm weight —
-> tension with the sub-MB bundle gate); **(b)** render raw `$…$` as monospace inert
-> text (honest, cheap, ugly for heavy math); **(c)** defer math-heavy panels
-> (Recipes/Glossary) to a later slice and ship Context/Dependencies first. Recommend
-> **(b)** for v1 with a follow-up TODO — keeps the bundle gate green and nothing is
-> faked. Lock before slice 5.
+> **D3 (RESOLVED 2026-07-16) — inert monospace for v1.** Concepts/Recipes carry LaTeX
+> (`$\pi^{(k)}$`, `$\Phi^{k;s}$`). Render raw `$…$` as monospace inert text for v1:
+> honest, cheap, keeps the sub-MB wasm bundle gate green, fakes nothing. A proper
+> KaTeX-style renderer is tracked as **future work (GitHub issue, see T-MATH-RENDER
+> in TODOS.md)** — deferred because it adds JS/wasm weight that tensions the bundle
+> gate and is not needed for structural parity.
 
 ### Hub mode
 
@@ -284,10 +286,12 @@ updated; embedded bundle fresh.
 
 - **D1 — REASONING vs the no-LLM-at-view-time promise** (blocking). Recommend drop
   REASONING, lead with WHAT IT DID.
-- **D2 — canonical reference / visual language** (blocking). Recommend keep our
-  warm-cream + glyph-only skin, port only the hub's *structure*.
-- **D3 — LaTeX rendering** in Glossary/Recipes. Recommend inert monospace `$…$` for
-  v1 + follow-up TODO.
+- **D2 — canonical reference / visual language** (RESOLVED). Keep our warm-cream +
+  glyph-only skin, port only the hub's *structure*. Rationale: the hub/baked HTML is
+  LLM-generated per artifact, so its look is non-reproducible — there is nothing
+  stable to match. Do not import the hub's serif or per-kind colours.
+- **D3 — LaTeX rendering** in Glossary/Recipes (RESOLVED). Inert monospace `$…$` for
+  v1; KaTeX renderer deferred to future work (T-MATH-RENDER + GitHub issue).
 - **Section order corrected** to the live hub: WHAT IT DID → evidence → BUILT ON →
   RESULT → ARTIFACT (REASONING gated on D1).
 - **Panels are a new modal component**, not a reuse of the divider; a11y contract is
@@ -329,5 +333,7 @@ every colour/type choice). Recommend answering all three before slice 2.
 
 **UNRESOLVED DECISIONS:**
 - D1 — REASONING block vs the "never call an LLM at view time" promise (recommend: drop REASONING, lead with WHAT IT DID).
-- D2 — canonical reference + visual language: keep warm-cream+glyph-only skin vs adopt hub skin (recommend: keep our skin, port structure only).
-- D3 — LaTeX rendering in Glossary/Recipes (recommend: inert monospace for v1).
+
+RESOLVED (2026-07-16):
+- D2 — keep our warm-cream + glyph-only skin, port only the hub's structure (the hub/baked HTML is LLM-generated per artifact, so its look is non-reproducible).
+- D3 — inert monospace `$…$` for v1; KaTeX renderer deferred to future work (T-MATH-RENDER + GitHub issue).
