@@ -24,23 +24,43 @@ evidence notes + claims · sources. Missing:
 
 | Hub section | Source of truth | Our status |
 |---|---|---|
-| **REASONING** | **generated narrative prose** (not in any source file) | ⚠️ **Conflicts with our founding constraint** — see D1 below. Not a straight "build it" item. |
+| **REASONING** | **generated narrative prose** (not in any source file) | 🚫 **Dropped for v1** (D1 RESOLVED) — LLM-generated at publish time; reproducing it would break the no-LLM-at-view-time promise. Reserved as an inert slot for a future stored `reasoning:` field. See D1. |
 | **WHAT IT DID** | node `result` field | ✅ Have it (Experiment `result` typed field) — just relabel. |
 | **RESULT** | `evidence/figures/*.md` + `evidence/tables/*.md`, rendered as full markdown tables | ❌ We never read `evidence/`. Figure refs (`"Figure 3"`) land in `evidence_notes` as bare strings. No markdown-table rendering. |
 | **BUILT ON** | `logic/related_work.md` (RW01…), linked node → claim → RW via each RW's `Claims affected` | ❌ No RW model; file never read. |
 | **ARTIFACT** | pointer into `src/code/…` | ❌ No code-pointer linkage. |
 
-> **D1 (design review, blocking).** The hub's **REASONING** block is LLM-generated
-> narrative prose baked into the hub at publish time. Our README thesis is the
-> opposite: *"Renders the YAML directly — never calls an LLM at view time … missing
-> upstream prose degrades gracefully to the structured fields — it is never faked at
-> view time."* So "full parity" as literally stated is **impossible without breaking
-> the product's core promise**. Resolution options: **(a)** drop REASONING, keep
-> WHAT IT DID (the structured `result`) as the top block — this is the honest,
-> on-brand choice and the recommended default; **(b)** render REASONING *only* if a
-> future schema carries it as a stored field (inert until then, like the other
-> deferred slots); **(c)** change the product thesis (not recommended — it's the
-> headline differentiator). Lock D1 before any per-node rendering work.
+> **D1 (RESOLVED 2026-07-16) — drop REASONING for v1; lead with WHAT IT DID; reserve
+> an inert slot for a future stored field.** The hub's **REASONING** block is
+> LLM-generated narrative prose baked in at publish time — it is **not present in any
+> source file** (N07's `exploration_tree.yaml` carries only a terse `result:`). Our
+> README thesis is the opposite: *"Renders the YAML directly — never calls an LLM at
+> view time … missing upstream prose degrades gracefully to the structured fields — it
+> is never faked at view time."* So literal "full parity" here is **impossible without
+> breaking the product's core promise**.
+>
+> **Decision (a + b):**
+> - **(a) v1:** do **not** render a REASONING block. Make the structured `result`
+>   field the top block, labelled **WHAT IT DID** (the hub's own label for it). Honest,
+>   on-brand, needs no new data.
+> - **(b) upgrade path:** reserve REASONING as an **inert slot** (like the other
+>   deferred slots at `crates/ara-viewer/src/detail.rs:386`). If the ARA schema ever
+>   adds a stored per-node `reasoning:`/`narrative:` field, render it above WHAT IT DID
+>   — because then it is *source data*, not view-time fabrication. Until then it shows
+>   nothing.
+>
+> **Rejected (c):** generating/serving prose like the hub. This throws away the
+> single clearest differentiator (deterministic, byte-reproducible, no LLM at view
+> time) and drags LLM infra + non-determinism into the viewer. Only revisit if the
+> product goal changes from "faithful-to-source local viewer" to "be the hub."
+>
+> **Accepted cost:** on nodes with a rich authored `result`, our pane opens with the
+> terse structured field instead of the hub's polished paragraph, so it looks sparser.
+> That sparseness is the visible price of "deterministic and honest" — and since the
+> README sells exactly that, sparser-but-faithful is on-brand, not a regression.
+> Same root cause as D2: the hub's *look and its REASONING prose are both
+> LLM-generated per artifact and non-deterministic*; we render the structured source
+> deterministically instead.
 
 > **D2 (RESOLVED 2026-07-16) — keep our skin, port only structure.** There is **no
 > single "hub skin" to match**: each artifact's `trace/exploration_tree.html` (and the
@@ -284,8 +304,11 @@ updated; embedded bundle fresh.
 
 ## Design decisions to lock before implementation (from /plan-design-review)
 
-- **D1 — REASONING vs the no-LLM-at-view-time promise** (blocking). Recommend drop
-  REASONING, lead with WHAT IT DID.
+- **D1 — REASONING vs the no-LLM-at-view-time promise** (RESOLVED). v1 drops
+  REASONING and leads with WHAT IT DID (the structured `result`); a REASONING slot
+  stays inert until the schema carries a stored `reasoning:` field. Rationale: the
+  hub's REASONING is LLM-generated at publish time and absent from source, so
+  reproducing it would break the "never fake prose at view time" promise.
 - **D2 — canonical reference / visual language** (RESOLVED). Keep our warm-cream +
   glyph-only skin, port only the hub's *structure*. Rationale: the hub/baked HTML is
   LLM-generated per artifact, so its look is non-reproducible — there is nothing
@@ -315,7 +338,7 @@ warm-cream viewer). No `DESIGN.md`; tokens are vendored in
 | Responsive | 1/10 | 7/10 | <800px full-screen modals + table horizontal-scroll (step 10) |
 | Accessibility | 1/10 | 8/10 | Modal focus-trap/Esc/return-focus contract now mandatory |
 | Visual system / language conflict | 3/10 | 7/10 | D2 forces a canonical-reference decision |
-| **Overall** | **6.5/10** | **~8/10 pending D1–D3** | Data layer was already strong; design layer now specced |
+| **Overall** | **6.5/10** | **~8/10 (D1–D3 all resolved)** | Data layer was already strong; design layer now specced |
 
 Runs: 1 (inline). Status: issues_found → addressed in-plan.
 Findings: 3 blocking design decisions raised (D1 REASONING-vs-no-LLM,
@@ -327,13 +350,13 @@ Design mockups: **not generated** — this is a parity task with three existing
 official reference renderings, so I captured the live hub as the pixel spec instead
 of inventing designs (more faithful than AI mockups here).
 
-VERDICT: Plan is materially stronger and safe to proceed **once D1–D3 are answered**.
-D1 and D2 are true blockers — they can invalidate whole slices (per-node rendering,
-every colour/type choice). Recommend answering all three before slice 2.
-
-**UNRESOLVED DECISIONS:**
-- D1 — REASONING block vs the "never call an LLM at view time" promise (recommend: drop REASONING, lead with WHAT IT DID).
+VERDICT: Plan is materially stronger and **all three design decisions (D1–D3) are now
+resolved and documented** (2026-07-16). No design blockers remain — the plan is ready
+to proceed to implementation, starting with slice 1 (node-body widening, pure core).
 
 RESOLVED (2026-07-16):
+- D1 — v1 drops REASONING and leads with WHAT IT DID (structured `result`); a REASONING slot stays inert until the schema carries a stored `reasoning:` field. The hub's REASONING is LLM-generated at publish time and absent from source, so reproducing it would break the "never fake prose at view time" promise.
 - D2 — keep our warm-cream + glyph-only skin, port only the hub's structure (the hub/baked HTML is LLM-generated per artifact, so its look is non-reproducible).
 - D3 — inert monospace `$…$` for v1; KaTeX renderer deferred to future work (T-MATH-RENDER + GitHub issue).
+
+NO UNRESOLVED DECISIONS
