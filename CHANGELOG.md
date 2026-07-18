@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.1.7] - 2026-07-17
+
 ### Added
 - Viewer Context, Glossary, and Recipes panels — three more consumers of the
   shared `Modal`. Each has a header launcher (hidden when its data is absent):
