@@ -22,9 +22,11 @@ ci = "github"
 installers = ["shell", "homebrew"]
 # A GitHub repo to push Homebrew formulas to
 tap = "ARA-Labs/homebrew-tap"
-# Publish jobs to run in CI (auto-push the generated formula to the tap; reads
-# the cross-repo push token from the HOMEBREW_TAP_TOKEN secret)
-publish-jobs = ["homebrew"]
+# NOTE: auto-push of the generated formula to the tap is disabled. It required a
+# cross-repo push token (HOMEBREW_TAP_TOKEN) whose approval is gated on the org
+# owner. The homebrew installer above still generates the formula as a release
+# artifact; publishing it to the tap is done manually for now. To re-enable, add
+# back `publish-jobs = ["homebrew"]` and regenerate CI (`dist generate`).
 # Target platforms to build apps for (Rust target-triple syntax)
 targets = ["aarch64-apple-darwin", "x86_64-unknown-linux-gnu"]
 # Default every workspace member to do-not-distribute; ara-cli opts back in with
