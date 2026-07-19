@@ -10,6 +10,7 @@
 
 mod claims;
 pub mod layout;
+pub mod lint;
 pub mod manifest;
 mod parse;
 pub mod report;
@@ -31,6 +32,10 @@ pub use manifest::{
     RelatedWork,
 };
 pub use report::{Diagnostic, ParseReport, Severity};
+
+#[cfg(feature = "native")]
+pub use lint::check_dir;
+pub use lint::{FixCandidate, LintDiagnostic, LintFile, LintReport, LintRuleId};
 
 #[cfg(feature = "native")]
 pub use parse::parse_dir;
