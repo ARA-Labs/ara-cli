@@ -2819,9 +2819,12 @@ async fn recipes_shows_count_and_opens() {
     let btn = container
         .query_selector(".panel-launch-btn")
         .unwrap()
-        .expect("Recipes launcher present");
+        .expect("Solution files launcher present");
     let btn_text = btn.unchecked_ref::<HtmlElement>().inner_text();
-    assert!(btn_text.contains("Recipes"), "labelled Recipes");
+    assert!(
+        btn_text.contains("Solution files"),
+        "labelled Solution files"
+    );
     assert!(
         btn_text.contains('4'),
         "count = one per solution file (E8 fallback)"

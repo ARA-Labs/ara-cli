@@ -7,6 +7,9 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Changed
+- Viewer: renamed the Recipes panel to "Solution files" so its count is honestly a
+  per-file count of `logic/solution/*.md` rather than an ungrounded "recipe" count
+  (#35).
 - Release workflow now auto-pushes the generated Homebrew formula (`ara.rb`) to
   `ARA-Labs/homebrew-tap` on every tag via cargo-dist's `homebrew` publish job
   (`publish-jobs = ["homebrew"]`). A tag is now the only manual release step; the

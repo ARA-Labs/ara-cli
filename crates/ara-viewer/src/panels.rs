@@ -285,9 +285,11 @@ pub fn recipe_matches(r: &Recipe, query: &str) -> bool {
     hay.to_lowercase().contains(&q)
 }
 
-/// The Recipes launcher + modal. Count = number of `logic/solution/*.md` files
-/// (E8: "recipe" is unresolved upstream; we apply the plan's documented fallback
-/// of one recipe per solution file, not the ungrounded "28").
+/// The "Solution files" launcher + modal. Count = number of `logic/solution/*.md`
+/// files, one entry per file. The label is deliberately a file count, not a
+/// "recipe" count: per ARA-Labs/ara-cli#35 the maintainer deferred defining a
+/// canonical "recipe" unit, so the panel names what it actually counts. The
+/// internal `RecipesPanel` / `recipes` names stay until that unit is defined.
 #[component]
 pub fn RecipesPanel(load_state: ReadSignal<LoadState>) -> impl IntoView {
     let open = RwSignal::new(false);
@@ -306,18 +308,18 @@ pub fn RecipesPanel(load_state: ReadSignal<LoadState>) -> impl IntoView {
                     class="btn panel-launch-btn"
                     on:click=move |_| open.update(|o| *o = !*o)
                 >
-                    "Recipes"
+                    "Solution files"
                     <span class="launch-count">{count}</span>
                 </button>
             })
         }}
 
-        <Modal open=open title="Recipes">
+        <Modal open=open title="Solution files">
             <input
                 class="panel-filter"
                 type="text"
                 placeholder="filter\u{2026}"
-                aria-label="Filter recipes"
+                aria-label="Filter solution files"
                 prop:value=move || query.get()
                 on:input=move |ev| query.set(event_target_value(&ev))
             />
@@ -329,7 +331,7 @@ pub fn RecipesPanel(load_state: ReadSignal<LoadState>) -> impl IntoView {
                     .filter(|r| recipe_matches(r, &q))
                     .collect();
                 if items.is_empty() {
-                    view! { <p class="rw-empty">"No recipes match the filter."</p> }.into_any()
+                    view! { <p class="rw-empty">"No solution files match the filter."</p> }.into_any()
                 } else {
                     view! {
                         <div class="rw-list">

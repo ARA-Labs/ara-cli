@@ -3,7 +3,7 @@
 Design doc for the hub-parity work (workspace `0.1.7`). The official ARA Hub
 renders far more of an artifact than the local viewer did: a paper header, a
 per-node detail pane (what a node did, its evidence, what it built on, its
-results), and global panels (Context, Glossary, Dependencies, Recipes). This
+results), and global panels (Context, Glossary, Dependencies, Solution files). This
 change models what the corpus actually carries and renders those surfaces —
 **without** importing the hub's look. It implements the backlog item
 `T-REAL-CORPUS` and the adjacent `T-HUB-FIGURES` / `T-EVIDENCE` groundwork.
@@ -129,7 +129,8 @@ that closes a loop) remain fatal.
 - **Four header panels**, each a `Modal` consumer with a live count (hidden at 0)
   and its own case-insensitive filter: **Context** (problem framing),
   **Glossary** (concept terms with dotted cross-reference chips), **Dependencies**
-  (related work), **Recipes** (solution files). Concept/recipe LaTeX renders as
+  (related work), **Solution files** (`logic/solution/*.md`, one per file).
+  Concept/recipe LaTeX renders as
   inert monospace (`$…$` kept verbatim, never interpreted — D3).
 
 ## Deferred (tracked, not in this design)
@@ -143,9 +144,12 @@ that closes a loop) remain fatal.
   markdown tables (the sampled artifact has zero image files) and no v1 surface
   renders exhibit bodies, so there is no consumer yet.
 - **ARTIFACT code-pointer** — code linkage is not modelled.
-- **The "recipe" unit** (E8) — undefined upstream; the Recipes count uses the
-  fallback of one recipe per `logic/solution/*.md` file, pending a maintainer
-  answer.
+- **The "recipe" unit** (E8) — resolved per
+  [ARA-Labs/ara-cli#35](https://github.com/ARA-Labs/ara-cli/issues/35): rather
+  than block on defining a canonical "recipe", the panel is labelled **Solution
+  files** and shows a per-file count of `logic/solution/*.md` (one entry per
+  file). Defining a single "recipe" unit is deferred until something needs to
+  reference one.
 
 ## Testing
 
