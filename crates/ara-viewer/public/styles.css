@@ -1156,8 +1156,17 @@ figure.detail-figure figcaption {
   color: var(--muted);
 }
 
-/* Markdown-sourced data table. */
-table.md {
+/* Exhibit body: client-side-rendered GFM markdown (issue #32). Wide tables
+   scroll inside this block rather than overflowing the 70ch detail column. */
+.exhibit-body {
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+/* Markdown-sourced data table: the reserved `table.md` slot and the tables
+   rendered from exhibit bodies share one look. */
+table.md,
+.exhibit-body table {
   width: 100%;
   border-collapse: collapse;
   font-size: 0.82rem;
@@ -1165,13 +1174,16 @@ table.md {
 }
 
 table.md th,
-table.md td {
+table.md td,
+.exhibit-body th,
+.exhibit-body td {
   border: 1px solid var(--line);
   padding: 0.3rem 0.5rem;
   text-align: left;
 }
 
-table.md th {
+table.md th,
+.exhibit-body th {
   background-color: var(--panel2);
   font-weight: 600;
 }

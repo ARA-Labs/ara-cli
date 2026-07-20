@@ -6,6 +6,13 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+- Viewer: rendered exhibit-body tables now get the markdown data-table styling
+  (borders, cell padding, header shading) and sit in an `.exhibit-body` container
+  that scrolls wide tables inside their block instead of overflowing the detail
+  column. The initial #32 render shipped the `<table>` markup but not this
+  CSS/responsive layer, so exhibit tables were unstyled and could overflow (#32).
+
 ## [0.1.10] - 2026-07-19
 
 ### Added

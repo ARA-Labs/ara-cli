@@ -760,6 +760,89 @@ fn node_without_linkage_renders_neither_block() {
     );
 }
 
+// ── Exhibit body rendering fixture (issue #32) ────────────────────────────────
+//
+// N01 links to E01, whose `body` is a GFM table. The detail pane must render the
+// body as a real `<table>` inside a `.exhibit-body` scroll container.
+const EXHIBIT_BODY_FIXTURE_JSON: &str = r#"{
+  "nodes": [
+    {
+      "id": "N01",
+      "kind": "experiment",
+      "label": "Train the transformer",
+      "description": "Ran the training experiment.",
+      "source_refs": [],
+      "evidence_notes": [],
+      "fields": { "experiment": { "result": "28.4 BLEU" } },
+      "pos": { "x": 100.0, "y": 100.0 }
+    }
+  ],
+  "links": [],
+  "bindings": [],
+  "claims": [],
+  "related_work": [],
+  "exhibits": [
+    { "id": "E01", "file": "evidence/tables/tab1.md", "kind": "table",
+      "source": "Tab. 1", "description": null, "claims": [],
+      "body": "| method | bleu |\n|---|---|\n| baseline | 27.1 |\n| ours | 28.4 |\n" }
+  ],
+  "built_on": [],
+  "node_exhibits": [
+    { "node": "N01", "exhibit": "E01" }
+  ],
+  "bounds": { "x": 0.0, "y": 0.0, "width": 500.0, "height": 500.0 }
+}"#;
+
+// ── Test: exhibit body renders as a real table inside the scroll container ─────
+
+/// E01's GFM-table body must render as a real `<table>` (with `<th>`/`<td>` and
+/// cell text) mounted inside the `.exhibit-body` scroll wrapper, so wide tables
+/// scroll within the block rather than overflowing the detail column (#32).
+#[wasm_bindgen_test]
+fn exhibit_body_renders_table_in_scroll_container() {
+    let doc = web_sys::window().unwrap().document().unwrap();
+    let container = body_div(&doc);
+
+    let manifest =
+        parse_manifest(EXHIBIT_BODY_FIXTURE_JSON).expect("exhibit-body fixture must parse");
+    let selected: RwSignal<Option<ara_core::NodeId>> =
+        RwSignal::new(Some(ara_core::NodeId::new("N01")));
+    let (load_state, _) = signal(LoadState::Loaded(manifest));
+
+    let _handle = leptos::mount::mount_to(container.clone(), move || {
+        view! { <DetailPane load_state=load_state selected=selected /> }
+    });
+
+    // The scroll container wraps the rendered body.
+    let exhibit_body = container
+        .query_selector("div.exhibit-body")
+        .unwrap()
+        .expect("exhibit body must render a .exhibit-body scroll container")
+        .dyn_into::<HtmlElement>()
+        .unwrap();
+
+    // A real table lives *inside* that container (so it scrolls in-block).
+    let table = exhibit_body
+        .query_selector("table")
+        .unwrap()
+        .expect("exhibit body must render a real <table> inside .exhibit-body");
+    assert!(
+        table.query_selector("th").unwrap().is_some(),
+        "rendered table must have a <th> header cell"
+    );
+    assert!(
+        table.query_selector("td").unwrap().is_some(),
+        "rendered table must have a <td> data cell"
+    );
+
+    // Cell text made it through.
+    let text = exhibit_body.inner_text();
+    assert!(
+        text.contains("baseline") && text.contains("28.4"),
+        "rendered table must contain the source cell text, got: {text:?}"
+    );
+}
+
 // ── Test: layout toggle flips the active segment + drives the signal ──────────
 
 /// Mounts `LayoutToggle` bound to a `layout` signal. Asserts:

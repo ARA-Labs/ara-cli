@@ -545,9 +545,10 @@ fn render_detail(m: DetailModel) -> impl IntoView {
             }}
 
             // ── 6. Result (exhibits linked to this node) ───────────────────
-            // Chips + linkage ONLY — no exhibit `body` / table rendering (that
-            // is deferred to a follow-up issue). Each chip shows the exhibit id
-            // + kind label; the file/source is a hover tooltip on the chip.
+            // A chip row (id + kind label, file/source as hover tooltip) over
+            // the rendered exhibit bodies: each non-empty `body` is GFM markdown
+            // rendered client-side to HTML and mounted via `inner_html` in a
+            // `.exhibit-body` scroll container (issue #32, see `markdown.rs`).
             {if !m.result_exhibits.is_empty() {
                 Some(view! {
                     <div class="block result-block">
