@@ -4,6 +4,26 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/), and the project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+- Viewer: exhibit captions (`Exhibit.description`) now render above the
+  rendered exhibit body in the RESULT block — previously parsed but dropped
+  from the detail pane (#55).
+- Viewer: the detail header now shows the mono node id and an `isolated` pill
+  for nodes belonging to an isolated subtree (#56).
+- Viewer: DEPENDS ON block in the detail pane — outgoing and incoming
+  `DependsOn` links render as clickable chips that jump-select the target
+  node; unknown targets render non-clickable (#57).
+- Viewer: the evidence / built-on / depends-on / result / sources detail
+  blocks are now collapsible (`<details open>`) with right-aligned item
+  counts, so table-heavy artifacts stay readable (#58).
+
+### Fixed
+- Viewer: the global ←/→ replay keys are now also ignored while a modal panel
+  is open or focus is in a textarea, so arrows can't step the replay behind a
+  dialog (#59).
+
 ## [0.1.11] - 2026-07-20
 
 ### Fixed

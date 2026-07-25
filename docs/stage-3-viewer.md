@@ -219,14 +219,19 @@ the scene render, so a Stage-4 manifest swap will not reset it.
   is a single reactive `viewBox` update (wheel zoom clamped 0.2–5.0, pointer-drag
   pan). Nodes are `tabindex=0`, `role="button"`, `aria-label = "label, kind"`;
   Enter/Space selects.
-- **Detail (`#detail`)** — header (`label ?? id`, kind chip+badge, `support_level`
-  pill) → description → per-kind typed fields in canonical order (`Experiment`:
-  result; `Decision`: choice → rationale → alternatives; `DeadEnd`: `why_failed`
-  as the primary `.block.reason` lead; `Question`/`Insight`/`Other`: none) →
-  evidence notes + claims resolved through `bindings` with
-  supported/refuted/hypothesis status pills → `source_refs` provenance chips.
+- **Detail (`#detail`)** — header (mono node id, `label ?? id` title, kind
+  chip+badge, `support_level` pill, `isolated` pill when the node belongs to an
+  isolated subtree) → description → per-kind typed fields in canonical order
+  (`Experiment`: result; `Decision`: choice → rationale → alternatives; `DeadEnd`:
+  `why_failed` as the primary `.block.reason` lead; `Question`/`Insight`/`Other`:
+  none) → evidence notes + claims resolved through `bindings` with
+  supported/refuted/hypothesis status pills → BUILT ON chips → DEPENDS ON jump
+  chips (outgoing + "depended on by"; clicking a chip selects that node) → RESULT
+  (exhibit chips, `description` captions, rendered bodies) → `source_refs`
+  provenance chips. The evidence / built-on / depends-on / result / sources
+  blocks are collapsible `<details open>` with a right-aligned item count (#58).
   Empty nodes show "Nothing recorded for this node."; every block is omitted when
-  its data is absent. Richer blocks (quote/figure/table/diff/glossary/deps/recipe)
+  its data is absent. Richer blocks (quote/figure/table/diff/glossary/recipe)
   are skinned but **inert pending `T-REAL-CORPUS`**. No LLM is called at view time.
 - **Toolbar** — case-insensitive search (label/id/kind/bound-claim text), a type
   `<select>` (options derived from kinds present), and a "dead ends only"

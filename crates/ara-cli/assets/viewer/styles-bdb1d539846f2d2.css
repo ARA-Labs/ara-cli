@@ -967,6 +967,58 @@ body.is-resizing.resizing-row { cursor: row-resize; }
   border: 1px solid var(--line);
 }
 
+/* Node id in the detail meta row (#56). */
+.detail-node-id {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+/* Isolated-subtree pill (#56): reuses the tree-mode isobox tokens. */
+.pill.iso {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.1rem 0.45rem;
+  border-radius: 9999px;
+  font-size: 0.7rem;
+  background-color: var(--iso-bg);
+  color: var(--iso-ink);
+  border: 1px solid var(--iso-line);
+}
+
+/* ── Collapsible content blocks (#58) ────────────────────────────────────────
+   EVIDENCE / BUILT ON / DEPENDS ON / RESULT / SOURCES render as
+   `<details open>`; the summary carries the block label plus a right-aligned
+   muted item count, matching the hub's per-block count tags. */
+
+.block-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  cursor: pointer;
+  list-style: none;
+}
+
+.block-summary::-webkit-details-marker {
+  display: none;
+}
+
+.block-summary:hover .block-label {
+  color: var(--accent-text);
+}
+
+.block-count {
+  font-size: 0.7rem;
+  color: var(--muted);
+}
+
+/* A closed block shows only its summary row — no residual flex gap. */
+details.block:not([open]) {
+  gap: 0;
+  padding-top: 0.45rem;
+  padding-bottom: 0.45rem;
+}
+
 /* ── Content blocks ──────────────────────────────────────────────────────────── */
 
 .block {
@@ -1112,6 +1164,31 @@ body.is-resizing.resizing-row { cursor: row-resize; }
   font-size: 0.72rem;
   border-radius: 3px;
   border: 1px solid var(--line);
+}
+
+/* Clickable chip button (DEPENDS ON jump chips, #57). Truncates long labels
+   with an ellipsis; the full text stays available via the hover tooltip. */
+button.chip-jump {
+  cursor: pointer;
+  max-width: 36ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: border-color 0.12s, color 0.12s;
+}
+
+button.chip-jump:hover {
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+
+/* Exhibit caption (#55): `Exhibit.description` above the rendered body,
+   figcaption-style. */
+.exhibit-caption {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin: 0.5rem 0 0.2rem;
 }
 
 /* ── Empty-node note ─────────────────────────────────────────────────────────── */
