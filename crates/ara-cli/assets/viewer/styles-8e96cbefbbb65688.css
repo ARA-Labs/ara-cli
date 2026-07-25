@@ -1167,8 +1167,11 @@ details.block:not([open]) {
 }
 
 /* Clickable chip button (DEPENDS ON jump chips, #57). Truncates long labels
-   with an ellipsis; the full text stays available via the hover tooltip. */
+   with an ellipsis; the full text stays available via the hover tooltip.
+   `display: inline-block` overrides the inherited `.chip` `inline-flex` —
+   `text-overflow: ellipsis` has no effect on a flex container. */
 button.chip-jump {
+  display: inline-block;
   cursor: pointer;
   max-width: 36ch;
   overflow: hidden;

@@ -23,6 +23,10 @@ All notable changes to this project are documented here. The format follows
 - Viewer: the global ←/→ replay keys are now also ignored while a modal panel
   is open or focus is in a textarea, so arrows can't step the replay behind a
   dialog (#59).
+- Viewer: DEPENDS ON / DEPENDED ON BY jump chips (#57) now truncate long
+  labels with a proper ellipsis instead of a hard mid-word cut-off — the
+  `.chip` base class sets `display: inline-flex`, on which `text-overflow:
+  ellipsis` has no effect; `chip-jump` now overrides to `inline-block`.
 
 ## [0.1.11] - 2026-07-20
 
