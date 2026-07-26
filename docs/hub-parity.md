@@ -116,10 +116,14 @@ that closes a loop) remain fatal.
   Viewer" brand when the manifest carries no titled paper.
 - **Per-node detail blocks**, in the corrected hub order: *(inert REASONING
   slot)* → **WHAT IT DID** (`result`, relabelled) → **evidence** (notes +
-  claims) → **BUILT ON** (related-work chips) → **RESULT** (exhibit chips +
-  linkage) → provenance. BUILT ON and RESULT omit entirely when empty. RESULT
-  shows *which* exhibits apply (chips + `node→exhibit` linkage), **not** the
-  rendered figure/table bodies (D4).
+  claims) → **BUILT ON** (related-work chips) → **DEPENDS ON** (node→node
+  jump chips, outgoing + incoming; clicking selects the target node) →
+  **RESULT** (exhibit chips + linkage + `description` captions + rendered
+  markdown bodies) → provenance. BUILT ON, DEPENDS ON, and RESULT omit
+  entirely when empty. The evidence/built-on/depends-on/result/sources blocks
+  are collapsible `<details open>` with right-aligned item counts, matching
+  the hub's per-block count tags. The detail header carries the mono node id
+  and an `isolated` pill for nodes in an isolated subtree.
 - **Shared `Modal`** (E7) — one reusable, accessible dialog: `role="dialog"` +
   `aria-modal` + `aria-labelledby`, focus moves in on open, a Tab/Shift+Tab
   focus trap that wraps at both ends, Esc and scrim-click close, focus returns

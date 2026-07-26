@@ -8,7 +8,7 @@
 //!    the rest of the viewer it compiles on native too (no browser-only APIs),
 //!    so no `cfg` gating is needed.
 
-use ara_core::{ExhibitKind, Manifest, Node, NodeFields, NodeId};
+use ara_core::{ExhibitKind, LinkKind, Manifest, Node, NodeFields, NodeId};
 use leptos::prelude::*;
 
 use crate::kind::kind_meta;
@@ -57,8 +57,46 @@ pub struct ExhibitView {
     pub kind: String,
     /// Origin of the exhibit, when stated.
     pub source: Option<String>,
+    /// Caption / description prose, rendered above the exhibit body (#55).
+    pub description: Option<String>,
     /// Raw markdown body, verbatim (rendered client-side; issue #32).
     pub body: String,
+}
+
+/// A node referenced by a `DependsOn` link (DEPENDS ON block, #57).
+///
+/// Fields are private: construct via [`DepView::resolved`] /
+/// [`DepView::unresolved`] so `known` can never drift out of sync with
+/// `label` (a resolved target always carries the resolved label; an
+/// unresolved one always carries the raw id and is non-clickable).
+#[derive(Debug, Clone, PartialEq)]
+pub struct DepView {
+    /// Target node id.
+    id: NodeId,
+    /// Display text: target `label ?? id` when known, else the raw id.
+    label: String,
+    /// False when the target id has no matching node — renders non-clickable.
+    known: bool,
+}
+
+impl DepView {
+    /// A target that resolved to a real node: clickable chip, resolved label.
+    fn resolved(id: &NodeId, label: String) -> Self {
+        Self {
+            id: id.clone(),
+            label,
+            known: true,
+        }
+    }
+
+    /// A target id with no matching node: raw id as label, non-clickable.
+    fn unresolved(id: &NodeId) -> Self {
+        Self {
+            id: id.clone(),
+            label: id.as_str().to_string(),
+            known: false,
+        }
+    }
 }
 
 /// A single typed field entry in the per-kind section.
@@ -76,8 +114,13 @@ pub struct TypedField {
 /// Leptos `DetailPane` component (and by unit tests, without a browser).
 #[derive(Debug, Clone, PartialEq)]
 pub struct DetailModel {
+    /// Node id (e.g. `N03`), shown in the header meta row (#56).
+    pub id: NodeId,
     /// `label ?? id` — always present.
     pub title: String,
+    /// True when the node is the root of, or belongs to, an isolated subtree
+    /// (#56). Drives the `isolated` pill in the header.
+    pub isolated: bool,
     /// Kind badge string: canonical lowercase for named kinds, raw string for
     /// `Other(_)`.
     pub kind_badge: String,
@@ -99,6 +142,10 @@ pub struct DetailModel {
     pub built_on: Vec<BuiltOnView>,
     /// Exhibits linked to this node (RESULT block), in source order.
     pub result_exhibits: Vec<ExhibitView>,
+    /// Outgoing `DependsOn` targets (DEPENDS ON block, #57), in link order.
+    pub depends_on: Vec<DepView>,
+    /// Incoming `DependsOn` sources ("depended on by"), in link order.
+    pub depended_on_by: Vec<DepView>,
     /// Provenance refs.
     pub source_refs: Vec<String>,
 }
@@ -195,13 +242,39 @@ pub fn detail_model(node: &Node, manifest: &Manifest) -> DetailModel {
                     file: ex.file.clone(),
                     kind: exhibit_kind_label(&ex.kind).to_string(),
                     source: ex.source.clone(),
+                    description: ex.description.clone(),
                     body: ex.body.clone(),
                 })
         })
         .collect();
 
+    // ── DEPENDS ON: outgoing + incoming DependsOn links, link order ────────
+    // Labels resolve against `manifest.nodes` (`label ?? id`); an unknown
+    // target keeps the raw id and renders non-clickable (never panics).
+    let dep_view = |id: &NodeId| match manifest.nodes.iter().find(|n| &n.id == id) {
+        Some(n) => DepView::resolved(
+            id,
+            n.label.clone().unwrap_or_else(|| n.id.as_str().to_string()),
+        ),
+        None => DepView::unresolved(id),
+    };
+    let depends_on: Vec<DepView> = manifest
+        .links
+        .iter()
+        .filter(|l| l.kind == LinkKind::DependsOn && l.from == node.id)
+        .map(|l| dep_view(&l.to))
+        .collect();
+    let depended_on_by: Vec<DepView> = manifest
+        .links
+        .iter()
+        .filter(|l| l.kind == LinkKind::DependsOn && l.to == node.id)
+        .map(|l| dep_view(&l.from))
+        .collect();
+
     DetailModel {
+        id: node.id.clone(),
         title,
+        isolated: is_in_isolated_subtree(node, manifest),
         kind_badge: meta.badge,
         kind_css_class: meta.css_class.to_string(),
         kind_glyph: meta.glyph,
@@ -212,7 +285,43 @@ pub fn detail_model(node: &Node, manifest: &Manifest) -> DetailModel {
         claims,
         built_on,
         result_exhibits,
+        depends_on,
+        depended_on_by,
         source_refs: node.source_refs.clone(),
+    }
+}
+
+/// True when `node` carries the `isolated` flag itself or belongs to an
+/// isolated subtree (the flag lives on the subtree root only; children
+/// inherit placement — see `Node.isolated` in `ara-core`).
+///
+/// Walks `Child` links upward (first parent wins) to the subtree root and
+/// returns that root's flag. A `visited` set guards against malformed Child
+/// cycles so a bad manifest cannot infinite-loop (matches `tree_model`'s
+/// guard). A node with no parent is its own root.
+fn is_in_isolated_subtree(node: &Node, manifest: &Manifest) -> bool {
+    let mut current = &node.id;
+    let mut visited = std::collections::HashSet::new();
+    loop {
+        if !visited.insert(current) {
+            return false; // Child cycle — treat as non-isolated.
+        }
+        let parent = manifest
+            .links
+            .iter()
+            .find(|l| l.kind == LinkKind::Child && l.to == *current)
+            .map(|l| &l.from);
+        match parent {
+            Some(p) => current = p,
+            None => {
+                return manifest
+                    .nodes
+                    .iter()
+                    .find(|n| &n.id == current)
+                    .map(|n| n.isolated)
+                    .unwrap_or(false);
+            }
+        }
     }
 }
 
@@ -363,8 +472,9 @@ fn typed_fields_for(node: &Node) -> Vec<TypedField> {
 
 // ── Leptos component ──────────────────────────────────────────────────────────
 // Like the rest of the viewer (scene.rs, main.rs), this component is compiled
-// on both native and wasm32 targets.  No browser-only APIs are used here;
-// the Leptos proc-macros and signal types work on native too.
+// on both native and wasm32 targets. The only DOM-facing call (`set_open` on
+// a `NodeRef` element) is a no-op off-wasm because the ref is only populated
+// in the browser.
 
 /// Renders the detail pane for the currently selected node.
 ///
@@ -400,7 +510,7 @@ pub fn DetailPane(
                     .into_any(),
                     Some(node) => {
                         let model = detail_model(node, &manifest);
-                        render_detail(model).into_any()
+                        render_detail(model, selected).into_any()
                     }
                 }
             }
@@ -408,8 +518,46 @@ pub fn DetailPane(
     }
 }
 
+/// A collapsible content block (#58): `<details open>` with the block label
+/// on the left and a muted item count on the right, matching the hub's
+/// per-block count tags. Used for the EVIDENCE / BUILT ON / DEPENDS ON /
+/// RESULT / SOURCES blocks; the description and typed-field blocks stay
+/// always-open.
+///
+/// Collapse state must not leak across node selection: Leptos patches the
+/// `<details>` in place when `selected` changes (same view shape) and skips
+/// attribute writes whose value didn't change, so a user-collapsed block
+/// would silently stay collapsed for the next node. The effect below watches
+/// `selected` and forcibly re-applies `open` on the live element.
+#[component]
+fn CollapsibleBlock(
+    label: &'static str,
+    count: usize,
+    class: &'static str,
+    selected: RwSignal<Option<NodeId>>,
+    children: Children,
+) -> impl IntoView {
+    let details = NodeRef::<leptos::html::Details>::new();
+    Effect::new(move |_| {
+        selected.track();
+        // `None` off-wasm (no DOM); the open attribute already covers mount.
+        if let Some(el) = details.get() {
+            el.set_open(true);
+        }
+    });
+    view! {
+        <details node_ref=details class=format!("block {class}") open=true>
+            <summary class="block-summary">
+                <span class="block-label">{label}</span>
+                <span class="block-count">{count}</span>
+            </summary>
+            {children()}
+        </details>
+    }
+}
+
 /// Render a fully-populated `DetailModel` into DOM.
-fn render_detail(m: DetailModel) -> impl IntoView {
+fn render_detail(m: DetailModel, selected: RwSignal<Option<NodeId>>) -> impl IntoView {
     let is_empty = m.is_empty();
     let dead_end_class = if m.kind_css_class == "dead_end" {
         "dead_end"
@@ -423,6 +571,8 @@ fn render_detail(m: DetailModel) -> impl IntoView {
             <div class="detail-header">
                 <h2 class="detail-title">{m.title.clone()}</h2>
                 <div class="detail-meta">
+                    // Node id (#56): mono, muted, first in the meta row.
+                    <span class="node-id detail-node-id">{m.id.to_string()}</span>
                     // Kind chip: glyph + badge text.  dead_end gets warn colour.
                     <span class=format!("kind-chip-wrap {}", dead_end_class)>
                         <span class=format!("kind-chip {}", dead_end_class)>
@@ -433,6 +583,10 @@ fn render_detail(m: DetailModel) -> impl IntoView {
                     // Support-level pill (explicit/inferred) when present.
                     {m.support_level.clone().map(|sl| view! {
                         <span class="pill support">{sl}</span>
+                    })}
+                    // Isolated-subtree pill (#56) when the node is in one.
+                    {m.isolated.then(|| view! {
+                        <span class="pill iso">"isolated"</span>
                     })}
                 </div>
             </div>
@@ -483,9 +637,9 @@ fn render_detail(m: DetailModel) -> impl IntoView {
             // ── 4. Evidence (notes + claims) ──────────────────────────────
             // Omit the whole block if both are empty.
             {if !m.evidence_notes.is_empty() || !m.claims.is_empty() {
+                let count = m.evidence_notes.len() + m.claims.len();
                 Some(view! {
-                    <div class="block evidence-block">
-                        <span class="block-label">"evidence"</span>
+                    <CollapsibleBlock label="evidence" count=count class="evidence-block" selected=selected>
                         // Evidence notes list
                         {if !m.evidence_notes.is_empty() {
                             Some(view! {
@@ -515,7 +669,7 @@ fn render_detail(m: DetailModel) -> impl IntoView {
                                 </div>
                             }
                         }).collect::<Vec<_>>()}
-                    </div>
+                    </CollapsibleBlock>
                 })
             } else {
                 None
@@ -526,8 +680,7 @@ fn render_detail(m: DetailModel) -> impl IntoView {
             // the hub. Chips carry the RW id + cite.
             {if !m.built_on.is_empty() {
                 Some(view! {
-                    <div class="block built-on-block">
-                        <span class="block-label">"built on"</span>
+                    <CollapsibleBlock label="built on" count=m.built_on.len() class="built-on-block" selected=selected>
                         <div class="chip-row">
                             {m.built_on.iter().map(|bo| {
                                 let text = if bo.cite.is_empty() {
@@ -538,7 +691,60 @@ fn render_detail(m: DetailModel) -> impl IntoView {
                                 view! { <span class="chip">{text}</span> }
                             }).collect::<Vec<_>>()}
                         </div>
-                    </div>
+                    </CollapsibleBlock>
+                })
+            } else {
+                None
+            }}
+
+            // ── 5b. Depends on (node→node DependsOn links, #57) ────────────
+            // Clickable chips jump-select the target node; unknown targets
+            // render non-clickable. Incoming links ("depended on by") get
+            // their own labelled chip row inside the same block.
+            {if !m.depends_on.is_empty() || !m.depended_on_by.is_empty() {
+                let count = m.depends_on.len() + m.depended_on_by.len();
+                let dep_chip = move |d: &DepView| {
+                    let text = format!("{} · {}", d.id, d.label);
+                    let tip = text.clone();
+                    if d.known {
+                        let target = d.id.clone();
+                        view! {
+                            <button
+                                type="button"
+                                class="chip chip-jump"
+                                title=tip
+                                on:click=move |_| selected.set(Some(target.clone()))
+                            >
+                                {text}
+                            </button>
+                        }
+                        .into_any()
+                    } else {
+                        view! { <span class="chip" title=tip>{text}</span> }.into_any()
+                    }
+                };
+                Some(view! {
+                    <CollapsibleBlock label="depends on" count=count class="deps-block" selected=selected>
+                        {if !m.depends_on.is_empty() {
+                            Some(view! {
+                                <div class="chip-row">
+                                    {m.depends_on.iter().map(dep_chip).collect::<Vec<_>>()}
+                                </div>
+                            })
+                        } else {
+                            None
+                        }}
+                        {if !m.depended_on_by.is_empty() {
+                            Some(view! {
+                                <span class="block-label">"depended on by"</span>
+                                <div class="chip-row">
+                                    {m.depended_on_by.iter().map(dep_chip).collect::<Vec<_>>()}
+                                </div>
+                            })
+                        } else {
+                            None
+                        }}
+                    </CollapsibleBlock>
                 })
             } else {
                 None
@@ -551,8 +757,7 @@ fn render_detail(m: DetailModel) -> impl IntoView {
             // `.exhibit-body` scroll container (issue #32, see `markdown.rs`).
             {if !m.result_exhibits.is_empty() {
                 Some(view! {
-                    <div class="block result-block">
-                        <span class="block-label">"result"</span>
+                    <CollapsibleBlock label="result" count=m.result_exhibits.len() class="result-block" selected=selected>
                         <div class="chip-row">
                             {m.result_exhibits.iter().map(|ex| {
                                 let text = format!("{} · {}", ex.id, ex.kind);
@@ -565,10 +770,15 @@ fn render_detail(m: DetailModel) -> impl IntoView {
                         {m.result_exhibits.iter().filter(|ex| !ex.body.trim().is_empty()).map(|ex| {
                             let rendered = crate::markdown::render_exhibit_body(&ex.body);
                             view! {
+                                // Caption (#55): `Exhibit.description` rendered
+                                // above its body, figcaption-style.
+                                {ex.description.clone().map(|cap| view! {
+                                    <p class="exhibit-caption">{cap}</p>
+                                })}
                                 <div class="exhibit-body" inner_html=rendered></div>
                             }
                         }).collect::<Vec<_>>()}
-                    </div>
+                    </CollapsibleBlock>
                 })
             } else {
                 None
@@ -577,14 +787,13 @@ fn render_detail(m: DetailModel) -> impl IntoView {
             // ── 7. Provenance ─────────────────────────────────────────────
             {if !m.source_refs.is_empty() {
                 Some(view! {
-                    <div class="block provenance-block">
-                        <span class="block-label">"sources"</span>
+                    <CollapsibleBlock label="sources" count=m.source_refs.len() class="provenance-block" selected=selected>
                         <div class="chip-row">
                             {m.source_refs.iter().map(|r| view! {
                                 <span class="chip">{r.clone()}</span>
                             }).collect::<Vec<_>>()}
                         </div>
-                    </div>
+                    </CollapsibleBlock>
                 })
             } else {
                 None
@@ -635,7 +844,7 @@ fn status_css_class(status: Option<&str>) -> &'static str {
 mod tests {
     use super::*;
     use ara_core::{
-        Binding, BindingRole, BuiltOn, Claim, ClaimId, Exhibit, ExhibitKind, Manifest, Node,
+        Binding, BindingRole, BuiltOn, Claim, ClaimId, Exhibit, ExhibitKind, Link, Manifest, Node,
         NodeExhibit, NodeFields, NodeId, NodeKind, RelatedWork,
     };
 
@@ -1255,5 +1464,255 @@ mod tests {
             exhibit: "E01".to_string(),
         }];
         assert!(!detail_model(&node, &m2).is_empty());
+    }
+
+    // ── #55: exhibit captions ───────────────────────────────────────────────
+
+    /// `Exhibit.description` propagates to `ExhibitView.description`.
+    #[test]
+    fn exhibit_description_propagated() {
+        let node = make_node("N01", NodeKind::Question, NodeFields::Question);
+        let mut manifest = bare_manifest();
+        manifest.exhibits = vec![
+            Exhibit {
+                id: "T01".to_string(),
+                file: "evidence/tab1.md".to_string(),
+                kind: ExhibitKind::Table,
+                source: None,
+                description: Some("Table 1: Speedrun Progression".to_string()),
+                claims: vec![],
+                body: "| a | b |".to_string(),
+            },
+            Exhibit {
+                id: "T02".to_string(),
+                file: "evidence/tab2.md".to_string(),
+                kind: ExhibitKind::Table,
+                source: None,
+                description: None,
+                claims: vec![],
+                body: String::new(),
+            },
+        ];
+        manifest.node_exhibits = vec![
+            NodeExhibit {
+                node: NodeId::new("N01"),
+                exhibit: "T01".to_string(),
+            },
+            NodeExhibit {
+                node: NodeId::new("N01"),
+                exhibit: "T02".to_string(),
+            },
+        ];
+
+        let m = detail_model(&node, &manifest);
+        assert_eq!(
+            m.result_exhibits[0].description,
+            Some("Table 1: Speedrun Progression".to_string())
+        );
+        assert_eq!(m.result_exhibits[1].description, None);
+    }
+
+    // ── #56: node id + isolated ─────────────────────────────────────────────
+
+    #[test]
+    fn id_always_populated() {
+        let node = make_node("N07", NodeKind::Question, NodeFields::Question);
+        let m = detail_model(&node, &bare_manifest());
+        assert_eq!(m.id, NodeId::new("N07"));
+    }
+
+    /// A root carrying `isolated: true` → isolated model; a plain root → not.
+    #[test]
+    fn isolated_flag_on_root() {
+        let mut iso = make_node("N01", NodeKind::Question, NodeFields::Question);
+        iso.isolated = true;
+        let mut manifest = bare_manifest();
+        manifest.nodes = vec![iso.clone()];
+        assert!(detail_model(&iso, &manifest).isolated);
+
+        let plain = make_node("N02", NodeKind::Question, NodeFields::Question);
+        manifest.nodes = vec![plain.clone()];
+        assert!(!detail_model(&plain, &manifest).isolated);
+    }
+
+    /// A child of an isolated root inherits the isolated placement; a child
+    /// of a non-isolated root does not.
+    #[test]
+    fn isolated_inherited_from_subtree_root() {
+        let mut root = make_node("N01", NodeKind::Question, NodeFields::Question);
+        root.isolated = true;
+        let child = make_node(
+            "N02",
+            NodeKind::Experiment,
+            NodeFields::Experiment { result: None },
+        );
+        let grandchild = make_node(
+            "N03",
+            NodeKind::Experiment,
+            NodeFields::Experiment { result: None },
+        );
+        let mut manifest = bare_manifest();
+        manifest.nodes = vec![root.clone(), child.clone(), grandchild.clone()];
+        manifest.links = vec![
+            Link {
+                from: NodeId::new("N01"),
+                to: NodeId::new("N02"),
+                kind: LinkKind::Child,
+            },
+            Link {
+                from: NodeId::new("N02"),
+                to: NodeId::new("N03"),
+                kind: LinkKind::Child,
+            },
+        ];
+
+        assert!(detail_model(&child, &manifest).isolated);
+        assert!(detail_model(&grandchild, &manifest).isolated);
+
+        // Same shape with a non-isolated root → nothing isolated.
+        root.isolated = false;
+        manifest.nodes = vec![root, child.clone(), grandchild.clone()];
+        assert!(!detail_model(&child, &manifest).isolated);
+    }
+
+    /// A Child cycle cannot infinite-loop the root walk; treated as
+    /// non-isolated.
+    #[test]
+    fn isolated_child_cycle_guard() {
+        let node = make_node("N01", NodeKind::Question, NodeFields::Question);
+        let mut manifest = bare_manifest();
+        manifest.nodes = vec![node.clone()];
+        manifest.links = vec![Link {
+            from: NodeId::new("N01"),
+            to: NodeId::new("N01"),
+            kind: LinkKind::Child,
+        }];
+        assert!(!detail_model(&node, &manifest).isolated);
+    }
+
+    /// A node with TWO incoming `Child` links (a hand-edited manifest can
+    /// reach the viewer without ara-core's single-parent validation): the
+    /// upward walk takes the FIRST matching Child link in `manifest.links`
+    /// order — "first parent wins". Pinned so the order-dependence of the
+    /// isolated pill on such manifests is an explicit contract.
+    #[test]
+    fn isolated_multi_parent_first_child_link_wins() {
+        let mut iso_root = make_node("N01", NodeKind::Question, NodeFields::Question);
+        iso_root.isolated = true;
+        let plain_root = make_node("N02", NodeKind::Question, NodeFields::Question);
+        let child = make_node("N03", NodeKind::Question, NodeFields::Question);
+        let iso_link = Link {
+            from: NodeId::new("N01"),
+            to: NodeId::new("N03"),
+            kind: LinkKind::Child,
+        };
+        let plain_link = Link {
+            from: NodeId::new("N02"),
+            to: NodeId::new("N03"),
+            kind: LinkKind::Child,
+        };
+        let mut manifest = bare_manifest();
+        manifest.nodes = vec![iso_root, plain_root, child.clone()];
+
+        // Isolated parent first → isolated.
+        manifest.links = vec![iso_link.clone(), plain_link.clone()];
+        assert!(
+            detail_model(&child, &manifest).isolated,
+            "first Child link (isolated root) wins"
+        );
+
+        // Reversed → non-isolated.
+        manifest.links = vec![plain_link, iso_link];
+        assert!(
+            !detail_model(&child, &manifest).isolated,
+            "first Child link (plain root) wins"
+        );
+    }
+
+    // ── #57: depends-on linkage ─────────────────────────────────────────────
+
+    /// Outgoing and incoming DependsOn links resolve to id + label (`label ??
+    /// id` of the other node), in link order; Child links are ignored.
+    #[test]
+    fn depends_on_resolves_both_directions() {
+        let node = make_node("N02", NodeKind::Question, NodeFields::Question);
+        let mut a = make_node("N01", NodeKind::Question, NodeFields::Question);
+        a.label = Some("Root question".to_string());
+        let c = make_node("N03", NodeKind::Question, NodeFields::Question);
+        let mut manifest = bare_manifest();
+        manifest.nodes = vec![a, node.clone(), c];
+        manifest.links = vec![
+            // Child link to the same node — must NOT appear in the deps block.
+            Link {
+                from: NodeId::new("N01"),
+                to: NodeId::new("N02"),
+                kind: LinkKind::Child,
+            },
+            // Outgoing: N02 depends on N01 (labelled) and N99 (unknown).
+            Link {
+                from: NodeId::new("N02"),
+                to: NodeId::new("N01"),
+                kind: LinkKind::DependsOn,
+            },
+            Link {
+                from: NodeId::new("N02"),
+                to: NodeId::new("N99"),
+                kind: LinkKind::DependsOn,
+            },
+            // Incoming: N03 depends on N02.
+            Link {
+                from: NodeId::new("N03"),
+                to: NodeId::new("N02"),
+                kind: LinkKind::DependsOn,
+            },
+        ];
+
+        let m = detail_model(&node, &manifest);
+
+        assert_eq!(m.depends_on.len(), 2);
+        assert_eq!(m.depends_on[0].id, NodeId::new("N01"));
+        assert_eq!(m.depends_on[0].label, "Root question");
+        assert!(m.depends_on[0].known);
+        // Unknown target: raw id as label, non-clickable.
+        assert_eq!(m.depends_on[1].id, NodeId::new("N99"));
+        assert_eq!(m.depends_on[1].label, "N99");
+        assert!(!m.depends_on[1].known);
+
+        assert_eq!(m.depended_on_by.len(), 1);
+        assert_eq!(m.depended_on_by[0].id, NodeId::new("N03"));
+        assert_eq!(m.depended_on_by[0].label, "N03"); // no label → id fallback
+        assert!(m.depended_on_by[0].known);
+    }
+
+    /// No DependsOn links → both vecs empty (block omitted).
+    #[test]
+    fn no_depends_on_yields_empty_vecs() {
+        let node = make_node("N01", NodeKind::Question, NodeFields::Question);
+        let m = detail_model(&node, &bare_manifest());
+        assert!(m.depends_on.is_empty());
+        assert!(m.depended_on_by.is_empty());
+    }
+
+    /// Duplicate `DependsOn` links between the same pair (normally stripped
+    /// by `ara-core`'s `dedupe_links` at compile time, but the viewer
+    /// deserializes manifests directly) are preserved as-is: one chip per
+    /// link, no dedup in `detail_model`. Pinned as intentional — the viewer
+    /// renders the manifest faithfully rather than silently editing it.
+    #[test]
+    fn duplicate_depends_on_links_rendered_as_is() {
+        let node = make_node("N01", NodeKind::Question, NodeFields::Question);
+        let target = make_node("N02", NodeKind::Question, NodeFields::Question);
+        let mut manifest = bare_manifest();
+        manifest.nodes = vec![node.clone(), target];
+        let link = Link {
+            from: NodeId::new("N01"),
+            to: NodeId::new("N02"),
+            kind: LinkKind::DependsOn,
+        };
+        manifest.links = vec![link.clone(), link];
+
+        let m = detail_model(&node, &manifest);
+        assert_eq!(m.depends_on.len(), 2, "duplicate links are not deduped");
+        assert_eq!(m.depends_on[0], m.depends_on[1]);
     }
 }

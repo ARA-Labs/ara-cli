@@ -687,13 +687,13 @@ fn built_on_and_result_blocks_render_after_evidence() {
 
     // Both new blocks are present.
     let built_on = container
-        .query_selector("div.built-on-block")
+        .query_selector(".built-on-block")
         .unwrap()
         .expect("built-on-block must render")
         .dyn_into::<HtmlElement>()
         .unwrap();
     let result = container
-        .query_selector("div.result-block")
+        .query_selector(".result-block")
         .unwrap()
         .expect("result-block must render")
         .dyn_into::<HtmlElement>()
@@ -746,16 +746,13 @@ fn node_without_linkage_renders_neither_block() {
 
     assert!(
         container
-            .query_selector("div.built-on-block")
+            .query_selector(".built-on-block")
             .unwrap()
             .is_none(),
         "node with no built_on must NOT render a built-on-block"
     );
     assert!(
-        container
-            .query_selector("div.result-block")
-            .unwrap()
-            .is_none(),
+        container.query_selector(".result-block").unwrap().is_none(),
         "node with no exhibits must NOT render a result-block"
     );
 }
@@ -864,10 +861,7 @@ fn empty_exhibit_body_renders_no_body_container() {
 
     // The result-block (with its chip) renders...
     assert!(
-        container
-            .query_selector("div.result-block")
-            .unwrap()
-            .is_some(),
+        container.query_selector(".result-block").unwrap().is_some(),
         "result-block must render for a node with an exhibit"
     );
     // ...but the empty body produces no body container.
@@ -877,6 +871,78 @@ fn empty_exhibit_body_renders_no_body_container() {
             .unwrap()
             .is_none(),
         "an empty exhibit body must NOT render a .exhibit-body div"
+    );
+}
+
+// ── Collapse-reset fixture: two nodes, each with an evidence note ─────────────
+const COLLAPSE_FIXTURE_JSON: &str = r#"{
+  "nodes": [
+    {
+      "id": "N01",
+      "kind": "experiment",
+      "label": "First experiment",
+      "source_refs": [],
+      "evidence_notes": ["note one"],
+      "fields": { "experiment": {} },
+      "pos": { "x": 100.0, "y": 100.0 }
+    },
+    {
+      "id": "N02",
+      "kind": "experiment",
+      "label": "Second experiment",
+      "source_refs": [],
+      "evidence_notes": ["note two"],
+      "fields": { "experiment": {} },
+      "pos": { "x": 300.0, "y": 100.0 }
+    }
+  ],
+  "links": [],
+  "bindings": [],
+  "claims": [],
+  "bounds": { "x": 0.0, "y": 0.0, "width": 500.0, "height": 500.0 }
+}"#;
+
+// ── Test: a user-collapsed block re-opens on node switch ──────────────────────
+
+/// Collapsing a block is native `<details>` state, not reactive. Since Leptos
+/// patches the pane in place across selections (same view shape), the `open`
+/// attribute must be re-applied reactively off `selected` — otherwise a block
+/// the user collapsed stays collapsed for the next node. Collapse EVIDENCE on
+/// N01, switch to N02, assert the block is open again.
+#[wasm_bindgen_test]
+async fn collapsible_block_reopens_on_node_switch() {
+    let doc = web_sys::window().unwrap().document().unwrap();
+    let container = body_div(&doc);
+
+    let manifest = parse_manifest(COLLAPSE_FIXTURE_JSON).expect("collapse fixture must parse");
+    let selected: RwSignal<Option<ara_core::NodeId>> =
+        RwSignal::new(Some(ara_core::NodeId::new("N01")));
+    let (load_state, _) = signal(LoadState::Loaded(manifest));
+
+    let _handle = leptos::mount::mount_to(container.clone(), move || {
+        view! { <DetailPane load_state=load_state selected=selected /> }
+    });
+
+    let details = container
+        .query_selector("details.evidence-block")
+        .unwrap()
+        .expect("evidence block must render for N01");
+    assert!(details.get_attribute("open").is_some(), "block starts open");
+
+    // Simulate the user collapsing the block (native <details> toggle).
+    details.remove_attribute("open").unwrap();
+
+    // Switch node: the pane patches in place, so `open` must be re-applied.
+    selected.set(Some(ara_core::NodeId::new("N02")));
+    leptos::task::tick().await;
+
+    let details = container
+        .query_selector("details.evidence-block")
+        .unwrap()
+        .expect("evidence block must render for N02");
+    assert!(
+        details.get_attribute("open").is_some(),
+        "collapsed state must not leak across node selection"
     );
 }
 

@@ -157,9 +157,19 @@ pub fn install_arrow_key_listener(
                 && let Some(el) = target.dyn_ref::<leptos::web_sys::Element>()
             {
                 let tag = el.tag_name();
-                if tag == "INPUT" || tag == "SELECT" {
+                if tag == "INPUT" || tag == "SELECT" || tag == "TEXTAREA" {
                     return;
                 }
+            }
+            // #59: skip while a modal panel is open so arrows don't step the
+            // replay behind the dialog (`.modal-scrim` is only in the DOM
+            // while a modal is open — see `modal.rs`).
+            let modal_open = leptos::web_sys::window()
+                .and_then(|w| w.document())
+                .and_then(|d| d.query_selector(".modal-scrim").ok().flatten())
+                .is_some();
+            if modal_open {
+                return;
             }
             let dir = match ev.key().as_str() {
                 "ArrowLeft" => Some(Step::Prev),
