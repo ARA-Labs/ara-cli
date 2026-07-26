@@ -64,14 +64,39 @@ pub struct ExhibitView {
 }
 
 /// A node referenced by a `DependsOn` link (DEPENDS ON block, #57).
+///
+/// Fields are private: construct via [`DepView::resolved`] /
+/// [`DepView::unresolved`] so `known` can never drift out of sync with
+/// `label` (a resolved target always carries the resolved label; an
+/// unresolved one always carries the raw id and is non-clickable).
 #[derive(Debug, Clone, PartialEq)]
 pub struct DepView {
     /// Target node id.
-    pub id: NodeId,
+    id: NodeId,
     /// Display text: target `label ?? id` when known, else the raw id.
-    pub label: String,
+    label: String,
     /// False when the target id has no matching node — renders non-clickable.
-    pub known: bool,
+    known: bool,
+}
+
+impl DepView {
+    /// A target that resolved to a real node: clickable chip, resolved label.
+    fn resolved(id: &NodeId, label: String) -> Self {
+        Self {
+            id: id.clone(),
+            label,
+            known: true,
+        }
+    }
+
+    /// A target id with no matching node: raw id as label, non-clickable.
+    fn unresolved(id: &NodeId) -> Self {
+        Self {
+            id: id.clone(),
+            label: id.as_str().to_string(),
+            known: false,
+        }
+    }
 }
 
 /// A single typed field entry in the per-kind section.
@@ -90,7 +115,7 @@ pub struct TypedField {
 #[derive(Debug, Clone, PartialEq)]
 pub struct DetailModel {
     /// Node id (e.g. `N03`), shown in the header meta row (#56).
-    pub id: String,
+    pub id: NodeId,
     /// `label ?? id` — always present.
     pub title: String,
     /// True when the node is the root of, or belongs to, an isolated subtree
@@ -226,15 +251,12 @@ pub fn detail_model(node: &Node, manifest: &Manifest) -> DetailModel {
     // ── DEPENDS ON: outgoing + incoming DependsOn links, link order ────────
     // Labels resolve against `manifest.nodes` (`label ?? id`); an unknown
     // target keeps the raw id and renders non-clickable (never panics).
-    let dep_view = |id: &NodeId| {
-        let target = manifest.nodes.iter().find(|n| &n.id == id);
-        DepView {
-            id: id.clone(),
-            label: target
-                .map(|n| n.label.clone().unwrap_or_else(|| n.id.as_str().to_string()))
-                .unwrap_or_else(|| id.as_str().to_string()),
-            known: target.is_some(),
-        }
+    let dep_view = |id: &NodeId| match manifest.nodes.iter().find(|n| &n.id == id) {
+        Some(n) => DepView::resolved(
+            id,
+            n.label.clone().unwrap_or_else(|| n.id.as_str().to_string()),
+        ),
+        None => DepView::unresolved(id),
     };
     let depends_on: Vec<DepView> = manifest
         .links
@@ -250,7 +272,7 @@ pub fn detail_model(node: &Node, manifest: &Manifest) -> DetailModel {
         .collect();
 
     DetailModel {
-        id: node.id.as_str().to_string(),
+        id: node.id.clone(),
         title,
         isolated: is_in_isolated_subtree(node, manifest),
         kind_badge: meta.badge,
@@ -450,8 +472,9 @@ fn typed_fields_for(node: &Node) -> Vec<TypedField> {
 
 // ── Leptos component ──────────────────────────────────────────────────────────
 // Like the rest of the viewer (scene.rs, main.rs), this component is compiled
-// on both native and wasm32 targets.  No browser-only APIs are used here;
-// the Leptos proc-macros and signal types work on native too.
+// on both native and wasm32 targets. The only DOM-facing call (`set_open` on
+// a `NodeRef` element) is a no-op off-wasm because the ref is only populated
+// in the browser.
 
 /// Renders the detail pane for the currently selected node.
 ///
@@ -500,15 +523,30 @@ pub fn DetailPane(
 /// per-block count tags. Used for the EVIDENCE / BUILT ON / DEPENDS ON /
 /// RESULT / SOURCES blocks; the description and typed-field blocks stay
 /// always-open.
+///
+/// Collapse state must not leak across node selection: Leptos patches the
+/// `<details>` in place when `selected` changes (same view shape) and skips
+/// attribute writes whose value didn't change, so a user-collapsed block
+/// would silently stay collapsed for the next node. The effect below watches
+/// `selected` and forcibly re-applies `open` on the live element.
 #[component]
 fn CollapsibleBlock(
     label: &'static str,
     count: usize,
     class: &'static str,
+    selected: RwSignal<Option<NodeId>>,
     children: Children,
 ) -> impl IntoView {
+    let details = NodeRef::<leptos::html::Details>::new();
+    Effect::new(move |_| {
+        selected.track();
+        // `None` off-wasm (no DOM); the open attribute already covers mount.
+        if let Some(el) = details.get() {
+            el.set_open(true);
+        }
+    });
     view! {
-        <details class=format!("block {class}") open=true>
+        <details node_ref=details class=format!("block {class}") open=true>
             <summary class="block-summary">
                 <span class="block-label">{label}</span>
                 <span class="block-count">{count}</span>
@@ -534,7 +572,7 @@ fn render_detail(m: DetailModel, selected: RwSignal<Option<NodeId>>) -> impl Int
                 <h2 class="detail-title">{m.title.clone()}</h2>
                 <div class="detail-meta">
                     // Node id (#56): mono, muted, first in the meta row.
-                    <span class="node-id detail-node-id">{m.id.clone()}</span>
+                    <span class="node-id detail-node-id">{m.id.to_string()}</span>
                     // Kind chip: glyph + badge text.  dead_end gets warn colour.
                     <span class=format!("kind-chip-wrap {}", dead_end_class)>
                         <span class=format!("kind-chip {}", dead_end_class)>
@@ -601,7 +639,7 @@ fn render_detail(m: DetailModel, selected: RwSignal<Option<NodeId>>) -> impl Int
             {if !m.evidence_notes.is_empty() || !m.claims.is_empty() {
                 let count = m.evidence_notes.len() + m.claims.len();
                 Some(view! {
-                    <CollapsibleBlock label="evidence" count=count class="evidence-block">
+                    <CollapsibleBlock label="evidence" count=count class="evidence-block" selected=selected>
                         // Evidence notes list
                         {if !m.evidence_notes.is_empty() {
                             Some(view! {
@@ -642,7 +680,7 @@ fn render_detail(m: DetailModel, selected: RwSignal<Option<NodeId>>) -> impl Int
             // the hub. Chips carry the RW id + cite.
             {if !m.built_on.is_empty() {
                 Some(view! {
-                    <CollapsibleBlock label="built on" count=m.built_on.len() class="built-on-block">
+                    <CollapsibleBlock label="built on" count=m.built_on.len() class="built-on-block" selected=selected>
                         <div class="chip-row">
                             {m.built_on.iter().map(|bo| {
                                 let text = if bo.cite.is_empty() {
@@ -686,7 +724,7 @@ fn render_detail(m: DetailModel, selected: RwSignal<Option<NodeId>>) -> impl Int
                     }
                 };
                 Some(view! {
-                    <CollapsibleBlock label="depends on" count=count class="deps-block">
+                    <CollapsibleBlock label="depends on" count=count class="deps-block" selected=selected>
                         {if !m.depends_on.is_empty() {
                             Some(view! {
                                 <div class="chip-row">
@@ -719,7 +757,7 @@ fn render_detail(m: DetailModel, selected: RwSignal<Option<NodeId>>) -> impl Int
             // `.exhibit-body` scroll container (issue #32, see `markdown.rs`).
             {if !m.result_exhibits.is_empty() {
                 Some(view! {
-                    <CollapsibleBlock label="result" count=m.result_exhibits.len() class="result-block">
+                    <CollapsibleBlock label="result" count=m.result_exhibits.len() class="result-block" selected=selected>
                         <div class="chip-row">
                             {m.result_exhibits.iter().map(|ex| {
                                 let text = format!("{} · {}", ex.id, ex.kind);
@@ -749,7 +787,7 @@ fn render_detail(m: DetailModel, selected: RwSignal<Option<NodeId>>) -> impl Int
             // ── 7. Provenance ─────────────────────────────────────────────
             {if !m.source_refs.is_empty() {
                 Some(view! {
-                    <CollapsibleBlock label="sources" count=m.source_refs.len() class="provenance-block">
+                    <CollapsibleBlock label="sources" count=m.source_refs.len() class="provenance-block" selected=selected>
                         <div class="chip-row">
                             {m.source_refs.iter().map(|r| view! {
                                 <span class="chip">{r.clone()}</span>
@@ -1480,7 +1518,7 @@ mod tests {
     fn id_always_populated() {
         let node = make_node("N07", NodeKind::Question, NodeFields::Question);
         let m = detail_model(&node, &bare_manifest());
-        assert_eq!(m.id, "N07");
+        assert_eq!(m.id, NodeId::new("N07"));
     }
 
     /// A root carrying `isolated: true` → isolated model; a plain root → not.
@@ -1552,6 +1590,45 @@ mod tests {
         assert!(!detail_model(&node, &manifest).isolated);
     }
 
+    /// A node with TWO incoming `Child` links (a hand-edited manifest can
+    /// reach the viewer without ara-core's single-parent validation): the
+    /// upward walk takes the FIRST matching Child link in `manifest.links`
+    /// order — "first parent wins". Pinned so the order-dependence of the
+    /// isolated pill on such manifests is an explicit contract.
+    #[test]
+    fn isolated_multi_parent_first_child_link_wins() {
+        let mut iso_root = make_node("N01", NodeKind::Question, NodeFields::Question);
+        iso_root.isolated = true;
+        let plain_root = make_node("N02", NodeKind::Question, NodeFields::Question);
+        let child = make_node("N03", NodeKind::Question, NodeFields::Question);
+        let iso_link = Link {
+            from: NodeId::new("N01"),
+            to: NodeId::new("N03"),
+            kind: LinkKind::Child,
+        };
+        let plain_link = Link {
+            from: NodeId::new("N02"),
+            to: NodeId::new("N03"),
+            kind: LinkKind::Child,
+        };
+        let mut manifest = bare_manifest();
+        manifest.nodes = vec![iso_root, plain_root, child.clone()];
+
+        // Isolated parent first → isolated.
+        manifest.links = vec![iso_link.clone(), plain_link.clone()];
+        assert!(
+            detail_model(&child, &manifest).isolated,
+            "first Child link (isolated root) wins"
+        );
+
+        // Reversed → non-isolated.
+        manifest.links = vec![plain_link, iso_link];
+        assert!(
+            !detail_model(&child, &manifest).isolated,
+            "first Child link (plain root) wins"
+        );
+    }
+
     // ── #57: depends-on linkage ─────────────────────────────────────────────
 
     /// Outgoing and incoming DependsOn links resolve to id + label (`label ??
@@ -1614,5 +1691,28 @@ mod tests {
         let m = detail_model(&node, &bare_manifest());
         assert!(m.depends_on.is_empty());
         assert!(m.depended_on_by.is_empty());
+    }
+
+    /// Duplicate `DependsOn` links between the same pair (normally stripped
+    /// by `ara-core`'s `dedupe_links` at compile time, but the viewer
+    /// deserializes manifests directly) are preserved as-is: one chip per
+    /// link, no dedup in `detail_model`. Pinned as intentional — the viewer
+    /// renders the manifest faithfully rather than silently editing it.
+    #[test]
+    fn duplicate_depends_on_links_rendered_as_is() {
+        let node = make_node("N01", NodeKind::Question, NodeFields::Question);
+        let target = make_node("N02", NodeKind::Question, NodeFields::Question);
+        let mut manifest = bare_manifest();
+        manifest.nodes = vec![node.clone(), target];
+        let link = Link {
+            from: NodeId::new("N01"),
+            to: NodeId::new("N02"),
+            kind: LinkKind::DependsOn,
+        };
+        manifest.links = vec![link.clone(), link];
+
+        let m = detail_model(&node, &manifest);
+        assert_eq!(m.depends_on.len(), 2, "duplicate links are not deduped");
+        assert_eq!(m.depends_on[0], m.depends_on[1]);
     }
 }
