@@ -4,7 +4,7 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/), and the project adheres to
 [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.1.12] - 2026-07-25
 
 ### Added
 - Viewer: exhibit captions (`Exhibit.description`) now render above the
