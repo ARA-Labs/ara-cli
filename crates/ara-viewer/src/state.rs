@@ -93,11 +93,12 @@ pub fn safe_viewbox(bounds: Option<&Rect>) -> (f64, f64, f64, f64) {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum LayoutMode {
     /// Map on top (full viewport width), detail below — `grid-template-rows`.
-    /// The default: matches the naturally wide-and-short exploration DAG shape.
-    #[default]
+    /// Opt-in: suits a naturally wide-and-short exploration DAG.
     Stack,
-    /// Map left, detail right — `grid-template-columns`. The pre-issue-#9
-    /// behaviour, kept as an opt-in mode.
+    /// Map left, detail right — `grid-template-columns`. The default: the
+    /// trajectory reads top-to-bottom on the left while the selected step's
+    /// detail stays beside it.
+    #[default]
     Split,
 }
 
@@ -119,11 +120,11 @@ impl LayoutMode {
     }
 
     /// Parse a token back to a mode. Unknown input falls back to the default
-    /// (`Stack`) so a stale/garbage value can never wedge the layout.
+    /// (`Split`) so a stale/garbage value can never wedge the layout.
     pub fn from_token(s: &str) -> Self {
         match s {
-            "split" => LayoutMode::Split,
-            _ => LayoutMode::Stack,
+            "stack" => LayoutMode::Stack,
+            _ => LayoutMode::Split,
         }
     }
 }
@@ -136,10 +137,11 @@ impl LayoutMode {
 /// `Copy` enum so it can live in a Leptos signal and be unit-tested on native.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum DisplayMode {
-    /// Today's interactive SVG DAG (pan/zoom). The default.
-    #[default]
+    /// The interactive SVG DAG (pan/zoom). Opt-in via the toolbar.
     Graph,
-    /// The published DOM indented tree-list.
+    /// The published DOM indented tree-list. The default: the full trajectory
+    /// scrolls vertically inside the map pane's own scroll range.
+    #[default]
     Tree,
 }
 
@@ -162,11 +164,11 @@ impl DisplayMode {
     }
 
     /// Parse a token back to a mode. Unknown input falls back to the default
-    /// (`Graph`) so a stale/garbage value can never wedge the display.
+    /// (`Tree`) so a stale/garbage value can never wedge the display.
     pub fn from_token(s: &str) -> Self {
         match s {
-            "tree" => DisplayMode::Tree,
-            _ => DisplayMode::Graph,
+            "graph" => DisplayMode::Graph,
+            _ => DisplayMode::Tree,
         }
     }
 }
@@ -345,8 +347,8 @@ mod tests {
     // ── LayoutMode ────────────────────────────────────────────────────────────
 
     #[test]
-    fn layout_mode_default_is_stack() {
-        assert_eq!(LayoutMode::default(), LayoutMode::Stack);
+    fn layout_mode_default_is_split() {
+        assert_eq!(LayoutMode::default(), LayoutMode::Split);
     }
 
     #[test]
@@ -363,16 +365,16 @@ mod tests {
     }
 
     #[test]
-    fn layout_mode_from_unknown_token_falls_back_to_stack() {
-        assert_eq!(LayoutMode::from_token(""), LayoutMode::Stack);
-        assert_eq!(LayoutMode::from_token("garbage"), LayoutMode::Stack);
+    fn layout_mode_from_unknown_token_falls_back_to_split() {
+        assert_eq!(LayoutMode::from_token(""), LayoutMode::Split);
+        assert_eq!(LayoutMode::from_token("garbage"), LayoutMode::Split);
     }
 
     // ── DisplayMode ───────────────────────────────────────────────────────────
 
     #[test]
-    fn display_mode_default_is_graph() {
-        assert_eq!(DisplayMode::default(), DisplayMode::Graph);
+    fn display_mode_default_is_tree() {
+        assert_eq!(DisplayMode::default(), DisplayMode::Tree);
     }
 
     #[test]
@@ -389,9 +391,9 @@ mod tests {
     }
 
     #[test]
-    fn display_mode_from_unknown_token_falls_back_to_graph() {
-        assert_eq!(DisplayMode::from_token(""), DisplayMode::Graph);
-        assert_eq!(DisplayMode::from_token("garbage"), DisplayMode::Graph);
+    fn display_mode_from_unknown_token_falls_back_to_tree() {
+        assert_eq!(DisplayMode::from_token(""), DisplayMode::Tree);
+        assert_eq!(DisplayMode::from_token("garbage"), DisplayMode::Tree);
     }
 
     // ── apply_manifest ────────────────────────────────────────────────────────

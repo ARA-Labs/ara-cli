@@ -76,8 +76,8 @@ pub fn App() -> impl IntoView {
     let filter: RwSignal<FilterState> = RwSignal::new(FilterState::default());
 
     // ── Layout mode (stack vs. split; survives manifest swaps) ────────────────
-    // Stack (map on top, detail below) is the default — it matches the wide DAG
-    // shape and uses the full viewport width. Split is the opt-in side-by-side.
+    // Split (map left, detail right) is the default — the trajectory reads
+    // top-to-bottom beside the step detail. Stack is the opt-in full-width mode.
     let layout: RwSignal<LayoutMode> = RwSignal::new(LayoutMode::default());
 
     // Per-mode split fractions (map fraction of the main axis). In-memory only;
@@ -95,7 +95,7 @@ pub fn App() -> impl IntoView {
     };
 
     // ── Display mode (graph vs. tree; survives manifest swaps) ────────────────
-    // Graph (SVG DAG) is the default; Tree is the published DOM tree-list.
+    // Tree (the published DOM tree-list) is the default; Graph is the SVG DAG.
     let display: RwSignal<DisplayMode> = RwSignal::new(DisplayMode::default());
 
     // ── Shared derived state (lifted into App — the single owner) ─────────────
