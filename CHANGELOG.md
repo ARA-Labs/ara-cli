@@ -4,6 +4,20 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/), and the project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [0.1.13] - 2026-07-29
+
+### Changed
+- Viewer: the app frame is now viewport-bounded (`body` uses a fixed
+  `100vh`/`100dvh` height instead of `min-height`), so a long tree-mode node
+  list scrolls inside its own map pane instead of growing the whole page —
+  previously a 100+-node artifact in tree mode stretched the page to several
+  thousand pixels and scrolled the header away.
+- Viewer: the default layout is now `split` (map left, detail right) and the
+  default display is now `tree`, so the exploration trajectory reads
+  top-to-bottom in a fixed, independently scrollable left pane on first load.
+  `stack` and `graph` remain available from the toolbar; unknown mode tokens
+  now fall back to the new defaults.
+
 ## [0.1.12] - 2026-07-25
 
 ### Added
