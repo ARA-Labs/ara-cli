@@ -50,7 +50,7 @@ pub fn mount() {
 /// Renders a fixed header with title and toolbar area, and a CSS grid main
 /// section containing the `#map` and `#detail` panels. The panes are arranged
 /// per the user-selected [`LayoutMode`]: `Stack` (map on top, detail below —
-/// the default) or `Split` (map left, detail right).
+/// opt-in) or `Split` (map left, detail right — the default).
 #[component]
 pub fn App() -> impl IntoView {
     // ── Manifest load state ──────────────────────────────────────────────────
