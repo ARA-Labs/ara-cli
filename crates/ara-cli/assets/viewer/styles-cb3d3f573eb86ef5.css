@@ -249,7 +249,7 @@ code, kbd, samp, pre,
   overflow: hidden;
 }
 
-/* Stack (default): map on top at full width, detail below. Matches the wide,
+/* Stack (opt-in): map on top at full width, detail below. Matches the wide,
    short exploration DAG shape. The gutter track separates map and detail.
    Runtime var(--split) sets the ratio; map row floors at 180px, detail at 180px. */
 .app-main.layout-stack {
