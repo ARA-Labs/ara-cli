@@ -58,12 +58,13 @@ stack. A two-pane `<main>` grid holds `#map` (exploration tree) and `#detail`
 The map and detail panes arrange in one of two user-selectable modes, chosen
 with a segmented **stack | split** toggle in the header toolbar:
 
-- **Stack** (default) — map on top at full viewport width, detail below
+- **Stack** — map on top at full viewport width, detail below
   (`grid-template-rows: 2fr minmax(180px, 1fr)`). Matches the naturally
   wide-and-short exploration DAG so the graph uses the full width instead of
-  being squeezed into a narrow column (issue #9).
-- **Split** — map left, detail right (`grid-template-columns: minmax(320px, 38%)
-  1fr`); the pre-#9 side-by-side behaviour, kept as an opt-in.
+  being squeezed into a narrow column (issue #9); retained as an opt-in.
+- **Split** (default) — map left, detail right
+  (`grid-template-columns: minmax(320px, 38%) 1fr`), so the trajectory reads
+  top-to-bottom beside the selected step's detail.
 
 The choice is a `LayoutMode` signal in `App` (session-only, survives manifest
 swaps like the other view-state signals) applied as a `.layout-stack` /
@@ -128,9 +129,9 @@ The `#map` pane renders the exploration graph in one of two user-selectable
 modes, chosen with a segmented **graph | tree** toggle in the header toolbar
 (a `DisplayMode` signal in `App`, session-only like `LayoutMode`):
 
-- **Graph** (default) — the interactive SVG DAG with pan/zoom (issue #7 keeps
-  this as the default; see [`stage-3-svg-spike.md`](stage-3-svg-spike.md)).
-- **Tree** — the published `research-visualizer` **DOM indented tree-list**, an
+- **Graph** — the interactive SVG DAG with pan/zoom; retained as an opt-in (see
+  [`stage-3-svg-spike.md`](stage-3-svg-spike.md)).
+- **Tree** (default) — the published `research-visualizer` **DOM indented tree-list**, an
   exact reproduction of the static `trajectory.html` scaffold. Rows show a kind
   glyph, the node id, an optional `⇠ id` dependency marker, and the node title;
   children nest in indented `.kid` containers with a spine. A dead-end row is
@@ -267,6 +268,13 @@ Two layers, split by the eng review:
   search→dimming sync, the per-kind detail hierarchy, bound-claim rendering, and
   degradation. Run in CI by the `viewer-web-test` job (`wasm-pack test --headless
   --chrome`).
+
+The toggle browser tests treat the `LayoutMode` and `DisplayMode` defaults as a
+cross-layer invariant: they assert the initial `is-active`/`aria-pressed` DOM
+state and then select the alternate segment. When the defaults changed to
+`Split` + `Tree` in PR #67, leaving these assertions at `Stack` + `Graph` made
+the otherwise-correct `viewer-web-test` CI job fail. Keeping the native enum
+tests and browser initial-state tests aligned prevents that regression.
 
 **Build gates.** A `[profile.wasm-release]` (`opt-level="z"`, `lto="fat"`,
 `codegen-units=1`, `panic="abort"`, `strip`) is selected only for release/CI via

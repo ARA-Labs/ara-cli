@@ -132,7 +132,7 @@ pub fn seg_toggle<M: SegMode>(signal: RwSignal<M>, group_label: &'static str) ->
 ///
 /// A thin caller of [`seg_toggle`]. `layout` is owned by [`crate::App`]; clicking
 /// a segment sets it, which flips the reactive modifier class on `.app-main`.
-/// The active segment carries `is-active` + `aria-pressed="true"`. `Stack` is
+/// The active segment carries `is-active` + `aria-pressed="true"`. `Split` is
 /// the default.
 #[component]
 pub fn LayoutToggle(layout: RwSignal<LayoutMode>) -> impl IntoView {
@@ -145,7 +145,7 @@ pub fn LayoutToggle(layout: RwSignal<LayoutMode>) -> impl IntoView {
 ///
 /// A thin caller of [`seg_toggle`]. `display` is owned by [`crate::App`];
 /// clicking a segment swaps the rendered map surface (SVG graph ⇄ DOM tree).
-/// `Graph` is the default.
+/// `Tree` is the default.
 #[component]
 pub fn DisplayToggle(display: RwSignal<DisplayMode>) -> impl IntoView {
     seg_toggle(display, "Display")

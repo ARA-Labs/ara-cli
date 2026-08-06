@@ -950,9 +950,9 @@ async fn collapsible_block_reopens_on_node_switch() {
 
 /// Mounts `LayoutToggle` bound to a `layout` signal. Asserts:
 ///  - two segment buttons render (stack, split);
-///  - "stack" is active initially (the default), "split" is not;
-///  - clicking "split" flips the signal to `Split`, moving `is-active` +
-///    `aria-pressed="true"` onto the split button.
+///  - "split" is active initially (the default), "stack" is not;
+///  - clicking "stack" flips the signal to `Stack`, moving `is-active` +
+///    `aria-pressed="true"` onto the stack button.
 #[wasm_bindgen_test]
 async fn layout_toggle_flips_active_segment() {
     let doc = web_sys::window().unwrap().document().unwrap();
@@ -977,54 +977,54 @@ async fn layout_toggle_flips_active_segment() {
         .dyn_into::<HtmlElement>()
         .unwrap();
 
-    // Initial state: stack active, split not.
-    assert!(
-        stack_btn
-            .get_attribute("class")
-            .unwrap_or_default()
-            .contains("is-active"),
-        "stack must be the initially active segment"
-    );
-    assert_eq!(
-        stack_btn.get_attribute("aria-pressed").as_deref(),
-        Some("true"),
-        "stack must be aria-pressed initially"
-    );
-    assert!(
-        !split_btn
-            .get_attribute("class")
-            .unwrap_or_default()
-            .contains("is-active"),
-        "split must not be active initially"
-    );
-
-    // Click "split" — it's an HtmlElement so .click() is available.
-    split_btn.click();
-    leptos::task::tick().await;
-
-    assert_eq!(
-        layout.get_untracked(),
-        LayoutMode::Split,
-        "signal must flip to Split"
-    );
+    // Initial state: split active, stack not.
     assert!(
         split_btn
             .get_attribute("class")
             .unwrap_or_default()
             .contains("is-active"),
-        "split must become active after click"
+        "split must be the initially active segment"
     );
     assert_eq!(
         split_btn.get_attribute("aria-pressed").as_deref(),
         Some("true"),
-        "split must be aria-pressed after click"
+        "split must be aria-pressed initially"
     );
     assert!(
         !stack_btn
             .get_attribute("class")
             .unwrap_or_default()
             .contains("is-active"),
-        "stack must no longer be active after selecting split"
+        "stack must not be active initially"
+    );
+
+    // Click "stack" — it's an HtmlElement so .click() is available.
+    stack_btn.click();
+    leptos::task::tick().await;
+
+    assert_eq!(
+        layout.get_untracked(),
+        LayoutMode::Stack,
+        "signal must flip to Stack"
+    );
+    assert!(
+        stack_btn
+            .get_attribute("class")
+            .unwrap_or_default()
+            .contains("is-active"),
+        "stack must become active after click"
+    );
+    assert_eq!(
+        stack_btn.get_attribute("aria-pressed").as_deref(),
+        Some("true"),
+        "stack must be aria-pressed after click"
+    );
+    assert!(
+        !split_btn
+            .get_attribute("class")
+            .unwrap_or_default()
+            .contains("is-active"),
+        "split must no longer be active after selecting stack"
     );
 }
 
@@ -1541,54 +1541,54 @@ async fn display_toggle_flips_active_segment() {
         .dyn_into::<HtmlElement>()
         .unwrap();
 
-    // Initial: graph active, tree not.
-    assert!(
-        graph_btn
-            .get_attribute("class")
-            .unwrap_or_default()
-            .contains("is-active"),
-        "graph must be the initially active segment"
-    );
-    assert_eq!(
-        graph_btn.get_attribute("aria-pressed").as_deref(),
-        Some("true"),
-        "graph must be aria-pressed initially"
-    );
-    assert!(
-        !tree_btn
-            .get_attribute("class")
-            .unwrap_or_default()
-            .contains("is-active"),
-        "tree must not be active initially"
-    );
-
-    // Click "tree".
-    tree_btn.click();
-    leptos::task::tick().await;
-
-    assert_eq!(
-        display.get_untracked(),
-        DisplayMode::Tree,
-        "signal must flip to Tree"
-    );
+    // Initial: tree active, graph not.
     assert!(
         tree_btn
             .get_attribute("class")
             .unwrap_or_default()
             .contains("is-active"),
-        "tree must become active after click"
+        "tree must be the initially active segment"
     );
     assert_eq!(
         tree_btn.get_attribute("aria-pressed").as_deref(),
         Some("true"),
-        "tree must be aria-pressed after click"
+        "tree must be aria-pressed initially"
     );
     assert!(
         !graph_btn
             .get_attribute("class")
             .unwrap_or_default()
             .contains("is-active"),
-        "graph must no longer be active after selecting tree"
+        "graph must not be active initially"
+    );
+
+    // Click "graph".
+    graph_btn.click();
+    leptos::task::tick().await;
+
+    assert_eq!(
+        display.get_untracked(),
+        DisplayMode::Graph,
+        "signal must flip to Graph"
+    );
+    assert!(
+        graph_btn
+            .get_attribute("class")
+            .unwrap_or_default()
+            .contains("is-active"),
+        "graph must become active after click"
+    );
+    assert_eq!(
+        graph_btn.get_attribute("aria-pressed").as_deref(),
+        Some("true"),
+        "graph must be aria-pressed after click"
+    );
+    assert!(
+        !tree_btn
+            .get_attribute("class")
+            .unwrap_or_default()
+            .contains("is-active"),
+        "tree must no longer be active after selecting graph"
     );
 }
 
