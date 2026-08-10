@@ -18,18 +18,22 @@
 //!
 //! # Guards
 //!
-//! The re-parse uses the crate's public [`parse_sources`]: the applier only ever
-//! edits `exploration_tree.yaml` / `claims.md`, and the extra `parse_dir` layers
-//! (logic sections, evidence) read *other* files these edits never touch, so
-//! comparing `parse_sources` output is sufficient to prove the edit's effect.
+//! Guards re-parse the base and candidate with [`parse_sources_detailed`], which
+//! retains normalized manifests even when semantic errors remain. Fatal syntax
+//! or top-level-shape outcomes are always rejected. The common invariant for
+//! value recovery is: the candidate introduces no new error occurrences, and
+//! the manifest delta is exactly the recovery targeted by the rule.
 //!
-//! - **ARA001** (structural, semantic no-op): accept only if the manifest is
-//!   *unchanged* (`mc == mb`). This is what protects the re-indent.
-//! - **ARA002 / ARA003** (alias rename, value-recovering): accept only if exactly
-//!   one node's target field goes `None → Some` and nothing else differs.
-//! - **ARA004** (claim-header rewrite, value-recovering): accept only if exactly
-//!   one claim appears (with the header's title), additively, and no node/link
-//!   changes.
+//! - **ARA001** (structural, semantic no-op): accept only clean normalized
+//!   outcomes with an *unchanged* manifest (`mc == mb`). This protects the
+//!   re-indent and deliberately remains stricter than the recovering guards.
+//! - **ARA002 / ARA003** (alias rename, value-recovering): after diagnostic
+//!   containment, accept only if one node's target field goes `None → Some` and
+//!   clearing that field reproduces the base manifest exactly.
+//! - **ARA004** (claim-header rewrite, value-recovering): after diagnostic
+//!   containment, accept only if one header-matching claim appears, nodes and
+//!   links remain identical, and removing that claim plus its bindings
+//!   reproduces the base claim and binding sets exactly.
 //!
 //! When a guard is ambiguous for an edge case the applier prefers the **safe**
 //! choice — discard and report the drift as detected-but-not-applied.
@@ -39,9 +43,9 @@ use std::path::Path;
 use serde::Serialize;
 
 use crate::lint::{FixCandidate, LintDiagnostic, LintFile, LintReport, LintRuleId, check_sources};
-use crate::manifest::{Claim, Manifest, Node, NodeFields, is_canonical_id};
-use crate::parse::parse_sources;
-use crate::report::{Diagnostic, ParseReport};
+use crate::manifest::{Node, NodeFields, is_canonical_id};
+use crate::parse::{ParseOutcome, parse_sources_detailed};
+use crate::report::Diagnostic;
 
 /// Safety backstop on the fixpoint loop. Each iteration applies or discards
 /// exactly one candidate; applies only ever *reduce* the remaining drift, so a
@@ -165,8 +169,6 @@ pub fn fix_dir(dir: &Path) -> FixOutcome {
     }
 }
 
-/// The result shape [`parse_sources`] returns; aliased for the guard helpers.
-type ParseResult = Result<(Manifest, ParseReport), ParseReport>;
 
 /// Which recovering alias field a targeted guard is validating.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -226,7 +228,7 @@ impl Applier {
 
     /// Attempts one candidate. Returns `true` iff it was applied.
     fn step(&mut self, diag: &LintDiagnostic) -> bool {
-        let base = parse_sources(&self.tree, self.claims.as_deref());
+        let base = parse_sources_detailed(&self.tree, self.claims.as_deref());
         let Some((new_tree, new_claims)) = self.render_candidate(diag) else {
             self.fail(
                 diag,
@@ -234,14 +236,14 @@ impl Applier {
             );
             return false;
         };
-        let cand = parse_sources(&new_tree, new_claims.as_deref());
+        let cand = parse_sources_detailed(&new_tree, new_claims.as_deref());
 
         let accept = match diag.rule {
             LintRuleId::RootDialect => guard_ara001(&base, &cand),
             LintRuleId::DeadEndReasonAlias => guard_alias(&base, &cand, AliasField::WhyFailed),
             LintRuleId::DecisionRationaleAlias => guard_alias(&base, &cand, AliasField::Rationale),
             LintRuleId::ClaimHeaderStyle => {
-                self.guard_ara004(diag, &base, &cand, new_claims.as_deref(), &new_tree)
+                self.guard_ara004(diag, &base, &cand, new_claims.as_deref())
             }
         };
         if !accept {
@@ -285,68 +287,60 @@ impl Applier {
         }
     }
 
-    /// ARA004 targeted guard. See the module docs for the invariant it relies on:
-    /// the edit only changes one `## C\d+` header separator, so the parsed claim
-    /// set can only *grow* by that one claim (body boundaries are unchanged), the
-    /// tree is untouched (nodes/links identical), and bindings can only gain
-    /// edges to the recovered claim.
+    /// ARA004 targeted guard: no new error occurrence may appear, and removing
+    /// the one recovered header-matching claim plus every binding to it must
+    /// reproduce the base claims and bindings exactly. Nodes and links cannot
+    /// change.
     fn guard_ara004(
         &self,
         diag: &LintDiagnostic,
-        base: &ParseResult,
-        cand: &ParseResult,
+        base: &ParseOutcome,
+        cand: &ParseOutcome,
         new_claims: Option<&str>,
-        new_tree: &str,
     ) -> bool {
-        // The edited artifact must be fully valid.
-        let Ok((mc, _)) = cand else {
+        let (
+            ParseOutcome::Normalized(mb, _),
+            ParseOutcome::Normalized(mc, _),
+        ) = (base, cand)
+        else {
             return false;
         };
-        // No new errors: fixing a separator may only resolve a dangling reference.
-        // (cand is Ok here, so this is trivially satisfied, but assert it anyway.)
         if !errors_subset(cand, base) {
             return false;
         }
 
-        // The pre-fix claim set, isolated from the tree so a dangling reference in
-        // the full base parse (the main ARA004 case) can't hide it.
-        let Some(base_claims) = claims_only(self.claims.as_deref()) else {
-            return false;
-        };
-        // The recovered id/title, read from the rewritten header line.
         let Some((rec_id, rec_title)) = header_at(new_claims, diag_line(diag)) else {
             return false;
         };
 
-        // Genuine recovery: absent before, present after with the header's title.
-        if base_claims.iter().any(|c| c.id.as_str() == rec_id) {
+        // Genuine targeted recovery: the header id was absent before and occurs
+        // after the edit with exactly the title rendered on that header.
+        if mb.claims.iter().any(|claim| claim.id.as_str() == rec_id) {
             return false;
         }
-        let Some(rc) = mc.claims.iter().find(|c| c.id.as_str() == rec_id) else {
-            return false;
-        };
-        if rc.title != rec_title {
-            return false;
-        }
-
-        // Additive: dropping the recovered claim reproduces the base set exactly
-        // (same order, nothing else changed).
-        let mc_minus: Vec<Claim> = mc
+        let Some(recovered_index) = mc
             .claims
             .iter()
-            .filter(|c| c.id.as_str() != rec_id)
-            .cloned()
-            .collect();
-        if mc_minus != base_claims {
+            .position(|claim| claim.id.as_str() == rec_id)
+        else {
+            return false;
+        };
+        if mc.claims[recovered_index].title != rec_title {
             return false;
         }
 
-        // Nodes/links cannot change (the tree text is untouched); assert it
-        // against a claims-independent parse of the same tree.
-        let Ok((tb, _)) = parse_sources(new_tree, None) else {
+        let mut claims_without_recovered = mc.claims.clone();
+        claims_without_recovered.remove(recovered_index);
+        if claims_without_recovered != mb.claims {
             return false;
-        };
-        mc.nodes == tb.nodes && mc.links == tb.links
+        }
+        if mc.nodes != mb.nodes || mc.links != mb.links {
+            return false;
+        }
+
+        let mut bindings_without_recovered = mc.bindings.clone();
+        bindings_without_recovered.retain(|binding| binding.claim.as_str() != rec_id);
+        bindings_without_recovered == mb.bindings
     }
 
     /// True if `diag`'s candidate was already rejected in the current pass.
@@ -377,20 +371,31 @@ impl Applier {
 
 // ---- guards ---------------------------------------------------------------
 
-/// ARA001 structural guard: the root→tree rewrite must be a semantic no-op.
-fn guard_ara001(base: &ParseResult, cand: &ParseResult) -> bool {
+/// ARA001 structural guard: both parses must be clean normalized outcomes and
+/// the root→tree rewrite must be a semantic no-op.
+fn guard_ara001(base: &ParseOutcome, cand: &ParseOutcome) -> bool {
     match (base, cand) {
-        (Ok((mb, _)), Ok((mc, _))) => mc == mb,
+        (
+            ParseOutcome::Normalized(mb, rb),
+            ParseOutcome::Normalized(mc, rc),
+        ) => rb.is_ok() && rc.is_ok() && mc == mb,
         _ => false,
     }
 }
 
-/// ARA002/ARA003 targeted guard: exactly one node's target field goes
-/// `None → Some`, and nothing else differs.
-fn guard_alias(base: &ParseResult, cand: &ParseResult, field: AliasField) -> bool {
-    let (Ok((mb, _)), Ok((mc, _))) = (base, cand) else {
+/// ARA002/ARA003 targeted guard: after proving no new error occurrence appears,
+/// exactly one node's target field goes `None → Some`, and nothing else differs.
+fn guard_alias(base: &ParseOutcome, cand: &ParseOutcome, field: AliasField) -> bool {
+    let (
+        ParseOutcome::Normalized(mb, _),
+        ParseOutcome::Normalized(mc, _),
+    ) = (base, cand)
+    else {
         return false;
     };
+    if !errors_subset(cand, base) {
+        return false;
+    }
     if mc.nodes.len() != mb.nodes.len() {
         return false;
     }
@@ -413,7 +418,7 @@ fn guard_alias(base: &ParseResult, cand: &ParseResult, field: AliasField) -> boo
 
     // Resetting that one recovered field to `None` must reproduce base exactly —
     // proof that nothing else moved and the value landed in the right place.
-    let mut mc2 = (*mc).clone();
+    let mut mc2 = mc.clone();
     clear_field(&mut mc2.nodes[i], field);
     mc2 == *mb
 }
@@ -436,9 +441,9 @@ fn clear_field(node: &mut Node, field: AliasField) {
     }
 }
 
-/// True iff every distinct error occurs no more often in `cand` than in `base`
-/// (renames/recoveries may only resolve errors, never introduce one).
-fn errors_subset(cand: &ParseResult, base: &ParseResult) -> bool {
+/// True iff every distinct error occurs no more often in `cand` than in `base`.
+/// Each repeated candidate occurrence must have a matching base occurrence.
+fn errors_subset(cand: &ParseOutcome, base: &ParseOutcome) -> bool {
     let candidate_errors = errors_of(cand);
     let base_errors = errors_of(base);
 
@@ -463,22 +468,10 @@ fn errors_subset(cand: &ParseResult, base: &ParseResult) -> bool {
     true
 }
 
-/// The error diagnostics of a parse result (present on both `Ok` and `Err`).
-fn errors_of(result: &ParseResult) -> &[Diagnostic] {
+/// Error diagnostics retained by either a normalized or fatal parse outcome.
+fn errors_of(result: &ParseOutcome) -> &[Diagnostic] {
     match result {
-        Ok((_, report)) => report.errors(),
-        Err(report) => report.errors(),
-    }
-}
-
-/// Parses `claims` isolated from any tree (`tree: []`), returning just the claim
-/// set. This yields the claims even when the real artifact's tree references a
-/// not-yet-recovered claim (which would make the full parse error). `None` when
-/// the claims themselves fail to parse (e.g. a claim→claim dependency error).
-fn claims_only(claims: Option<&str>) -> Option<Vec<Claim>> {
-    match parse_sources("tree: []\n", claims) {
-        Ok((m, _)) => Some(m.claims),
-        Err(_) => None,
+        ParseOutcome::Normalized(_, report) | ParseOutcome::Fatal(report) => report.errors(),
     }
 }
 
@@ -633,6 +626,8 @@ fn guard_reason(rule: LintRuleId) -> String {
 mod tests {
     use super::*;
     use crate::manifest::NodeId;
+    use crate::parse::parse_sources;
+    use crate::report::ParseReport;
 
     /// Builds a temp ARA artifact with the given tree YAML and optional claims.
     fn artifact(tree_yaml: &str, claims_md: Option<&str>) -> tempfile::TempDir {
@@ -654,12 +649,12 @@ mod tests {
         std::fs::read_to_string(dir.path().join("logic/claims.md")).unwrap()
     }
 
-    fn parse_errors(errors: &[(&str, &str)]) -> ParseResult {
+    fn parse_errors(errors: &[(&str, &str)]) -> ParseOutcome {
         let mut report = ParseReport::default();
         for &(path, message) in errors {
             report.error(path, message);
         }
-        Err(report)
+        ParseOutcome::Fatal(report)
     }
 
     #[test]
@@ -757,9 +752,9 @@ root:
     fn ara001_guard_discards_when_manifest_would_differ() {
         // Directly exercise the load-bearing guard: two DIFFERENT valid manifests
         // must be rejected, an identical one accepted.
-        let base = parse_sources("tree:\n  - id: N01\n    type: question\n", None);
-        let different = parse_sources("tree:\n  - id: N99\n    type: question\n", None);
-        let same = parse_sources("tree:\n  - id: N01\n    type: question\n", None);
+        let base = parse_sources_detailed("tree:\n  - id: N01\n    type: question\n", None);
+        let different = parse_sources_detailed("tree:\n  - id: N99\n    type: question\n", None);
+        let same = parse_sources_detailed("tree:\n  - id: N01\n    type: question\n", None);
         assert!(!guard_ara001(&base, &different));
         assert!(guard_ara001(&base, &same));
     }
@@ -814,21 +809,66 @@ tree:
     }
 
     #[test]
+    fn alias_fixes_apply_with_unrelated_duplicate_id_error() {
+        let yaml = "\
+tree:
+  - id: N01
+    type: dead_end
+    reason: diverged
+  - id: N02
+    type: decision
+    justification: cheaper
+  - id: N03
+    type: question
+  - id: N03
+    type: insight
+";
+        let before = parse_sources(yaml, None).expect_err("duplicate id must remain an error");
+        let before_errors = before.errors().to_vec();
+        let dir = artifact(yaml, None);
+
+        let outcome = fix_dir(dir.path());
+
+        assert_eq!(outcome.applied.len(), 2);
+        assert_eq!(
+            outcome
+                .applied
+                .iter()
+                .map(|fix| fix.rule)
+                .collect::<Vec<_>>(),
+            vec![
+                LintRuleId::DeadEndReasonAlias,
+                LintRuleId::DecisionRationaleAlias,
+            ]
+        );
+        assert_eq!(outcome.changed_files, vec![LintFile::Tree]);
+        let fixed = read_tree(&dir);
+        assert!(fixed.contains("why_failed: diverged"));
+        assert!(fixed.contains("rationale: cheaper"));
+        assert!(!fixed.contains("\n    reason:"));
+        assert!(!fixed.contains("\n    justification:"));
+
+        let after = parse_sources(&fixed, None).expect_err("duplicate id must remain an error");
+        assert_eq!(after.errors(), before_errors);
+    }
+
+    #[test]
     fn alias_guard_discards_multi_node_change() {
         // Two nodes' fields change → not "exactly one recovered field" → discard.
-        let base = parse_sources(
+        let base = parse_sources_detailed(
             "tree:\n  - id: N01\n    type: dead_end\n  - id: N02\n    type: dead_end\n",
             None,
         );
-        let cand = parse_sources(
+        let cand = parse_sources_detailed(
             "tree:\n  - id: N01\n    type: dead_end\n    why_failed: a\n  - id: N02\n    type: dead_end\n    why_failed: b\n",
             None,
         );
         assert!(!guard_alias(&base, &cand, AliasField::WhyFailed));
 
         // A single recovered field is accepted.
-        let base1 = parse_sources("tree:\n  - id: N01\n    type: dead_end\n", None);
-        let cand1 = parse_sources(
+        let base1 =
+            parse_sources_detailed("tree:\n  - id: N01\n    type: dead_end\n", None);
+        let cand1 = parse_sources_detailed(
             "tree:\n  - id: N01\n    type: dead_end\n    why_failed: a\n",
             None,
         );
@@ -890,6 +930,152 @@ tree:
         assert_eq!(m.bindings[0].claim, crate::manifest::ClaimId::new("C01"));
     }
 
+    #[test]
+    fn ara004_guard_requires_exact_recovered_binding_delta() {
+        let yaml = "\
+tree:
+  - id: N01
+    type: experiment
+    evidence: [C01, C02]
+";
+        let claims = "\
+## C01 — Recovered
+- **Statement**: one
+
+## C02: Existing
+- **Statement**: two
+";
+        let lint = check_sources(yaml, Some(claims));
+        let diag = lint
+            .diagnostics()
+            .iter()
+            .find(|diag| diag.rule == LintRuleId::ClaimHeaderStyle)
+            .expect("ARA004 candidate");
+        let fixed_claims = apply_fix_to_text(claims, diag.fix.as_ref().unwrap()).unwrap();
+        let base = parse_sources_detailed(yaml, Some(claims));
+        let candidate = parse_sources_detailed(yaml, Some(&fixed_claims));
+        let applier = Applier::new(yaml.to_string(), Some(claims.to_string()));
+
+        assert!(applier.guard_ara004(diag, &base, &candidate, Some(&fixed_claims)));
+        let (
+            ParseOutcome::Normalized(base_manifest, _),
+            ParseOutcome::Normalized(candidate_manifest, _),
+        ) = (&base, &candidate)
+        else {
+            panic!("both artifacts must normalize");
+        };
+        let mut bindings_without_recovered = candidate_manifest.bindings.clone();
+        bindings_without_recovered.retain(|binding| binding.claim.as_str() != "C01");
+        assert_eq!(bindings_without_recovered, base_manifest.bindings);
+
+        let mut perturbed_manifest = candidate_manifest.clone();
+        perturbed_manifest
+            .bindings
+            .push(base_manifest.bindings[0].clone());
+        let perturbed = match candidate {
+            ParseOutcome::Normalized(_, report) => {
+                ParseOutcome::Normalized(perturbed_manifest, report)
+            }
+            ParseOutcome::Fatal(_) => unreachable!(),
+        };
+        assert!(!applier.guard_ara004(diag, &base, &perturbed, Some(&fixed_claims)));
+    }
+
+    #[test]
+    fn speedrun_claim_headers_fix_on_erroring_artifact() {
+        let yaml = include_str!(
+            "../tests/fixtures/corpus/speedrun/nanogpt-speedrun/trace/exploration_tree.yaml"
+        );
+        let claims = include_str!(
+            "../tests/fixtures/corpus/speedrun/nanogpt-speedrun/logic/claims.md"
+        );
+        let pre_fix =
+            parse_sources(yaml, Some(claims)).expect_err("referenced claims must be absent");
+        assert!(
+            pre_fix
+                .errors()
+                .iter()
+                .any(|error| error.message.contains("evidence references unknown claim")),
+            "expected absent referenced-claim errors, got: {pre_fix}"
+        );
+        let ParseOutcome::Normalized(base, _) = parse_sources_detailed(yaml, Some(claims)) else {
+            panic!("speedrun fixture must normalize despite semantic errors");
+        };
+        assert!(base.claims.is_empty());
+        let dir = artifact(yaml, Some(claims));
+
+        let first = fix_dir(dir.path());
+
+        assert_eq!(first.applied.len(), 10);
+        assert!(
+            first
+                .applied
+                .iter()
+                .all(|fix| fix.rule == LintRuleId::ClaimHeaderStyle)
+        );
+        assert_eq!(first.changed_files, vec![LintFile::Claims]);
+        let fixed_tree = read_tree(&dir);
+        let fixed_claims = read_claims(&dir);
+        let (manifest, report) =
+            parse_sources(&fixed_tree, Some(&fixed_claims)).expect("fixed fixture must parse");
+        assert!(report.is_ok());
+        assert_eq!(
+            manifest
+                .claims
+                .iter()
+                .map(|claim| claim.id.as_str())
+                .collect::<Vec<_>>(),
+            (1..=10)
+                .map(|number| format!("C{number:02}"))
+                .collect::<Vec<_>>()
+        );
+        for claim in &manifest.claims {
+            assert!(
+                fixed_claims.contains(&format!("## {}: {}", claim.id, claim.title)),
+                "missing canonical header for {}",
+                claim.id
+            );
+        }
+        assert_eq!(
+            manifest.claims[0].title,
+            "16× Training Speedup Through Incremental Optimization"
+        );
+        assert_eq!(
+            manifest.claims[0].statement.as_deref(),
+            Some(
+                "Human-authored optimizations compress GPT-2 124M training (val_loss ≤ 3.28) from 49.5 min to 3.1 min across 21 records, achieving a 16.1× wall-clock speedup on 8×H100."
+            )
+        );
+        assert_eq!(manifest.nodes, base.nodes);
+        assert_eq!(manifest.links, base.links);
+        assert!(
+            manifest
+                .bindings
+                .iter()
+                .all(|binding| manifest.claims.iter().any(|claim| claim.id == binding.claim))
+        );
+        assert_eq!(
+            manifest
+                .bindings
+                .iter()
+                .filter(|binding| {
+                    !manifest
+                        .claims
+                        .iter()
+                        .any(|claim| claim.id == binding.claim)
+                })
+                .collect::<Vec<_>>(),
+            base.bindings.iter().collect::<Vec<_>>()
+        );
+
+        let second = fix_dir(dir.path());
+        assert!(second.applied.is_empty());
+        assert!(second.changed_files.is_empty());
+        assert_eq!(read_tree(&dir), fixed_tree);
+        assert_eq!(read_claims(&dir), fixed_claims);
+    }
+
+
     // ---- idempotence / safety --------------------------------------------
 
     #[test]
@@ -934,19 +1120,85 @@ root:
     }
 
     #[test]
-    fn discarded_fix_leaves_file_unchanged_and_parseable() {
-        // A duplicate node id makes the base parse error, so the ARA002 alias
-        // guard (which requires a clean baseline) discards the rename. The file
-        // must be left byte-identical — no partial/corrupt write.
+    fn ara001_rejects_error_bearing_normalized_artifact_byte_identically() {
+        let yaml = "\
+root:
+  id: N01
+  type: question
+  children:
+    - id: N01
+      type: insight
+";
+        assert!(matches!(
+            parse_sources_detailed(yaml, None),
+            ParseOutcome::Normalized(_, ref report) if !report.is_ok()
+        ));
+        let dir = artifact(yaml, None);
+
+        let outcome = fix_dir(dir.path());
+
+        assert!(outcome.applied.is_empty());
+        assert!(outcome.changed_files.is_empty());
+        assert_eq!(outcome.skipped.len(), 1);
+        assert_eq!(outcome.skipped[0].rule, LintRuleId::RootDialect);
+        assert_eq!(read_tree(&dir), yaml);
+    }
+
+    #[test]
+    fn alias_fixes_reject_when_canonical_and_alias_fields_coexist_byte_identically() {
+        let cases = [
+            (
+                "\
+tree:
+  - id: N01
+    type: dead_end
+    why_failed: canonical
+    reason: alias
+",
+                LintRuleId::DeadEndReasonAlias,
+            ),
+            (
+                "\
+tree:
+  - id: N01
+    type: decision
+    rationale: canonical
+    justification: alias
+",
+                LintRuleId::DecisionRationaleAlias,
+            ),
+        ];
+
+        for (yaml, rule) in cases {
+            let dir = artifact(yaml, None);
+            let outcome = fix_dir(dir.path());
+
+            assert!(outcome.applied.is_empty(), "{rule:?}");
+            assert!(outcome.changed_files.is_empty(), "{rule:?}");
+            assert!(
+                outcome.skipped.iter().any(|skipped| skipped.rule == rule),
+                "{rule:?}: {:?}",
+                outcome.skipped
+            );
+            assert_eq!(read_tree(&dir), yaml, "{rule:?}");
+        }
+    }
+
+    #[test]
+    fn fatal_alias_artifact_is_rejected_byte_identically() {
         let yaml = "\
 tree:
   - id: N01
     type: dead_end
-    reason: x
-  - id: N01
-    type: insight
+    reason: diverged
+  - broken: [
 ";
+        assert!(matches!(
+            parse_sources_detailed(yaml, None),
+            ParseOutcome::Fatal(_)
+        ));
         let dir = artifact(yaml, None);
+
         let outcome = fix_dir(dir.path());
 
         assert!(outcome.applied.is_empty());
@@ -955,11 +1207,57 @@ tree:
             outcome
                 .skipped
                 .iter()
-                .any(|s| s.rule == LintRuleId::DeadEndReasonAlias)
+                .any(|skipped| skipped.rule == LintRuleId::DeadEndReasonAlias)
         );
-        assert_eq!(read_tree(&dir), yaml, "file must be untouched");
-        // Still valid text (the pre-existing duplicate-id error is unrelated).
-        assert_eq!(read_tree(&dir).lines().count(), yaml.lines().count());
+        assert_eq!(read_tree(&dir), yaml);
+    }
+
+    #[test]
+    fn ara004_rejects_new_unknown_dependency_byte_identically() {
+        let yaml = "tree:\n  - id: N01\n    type: question\n";
+        let claims = "\
+## C01 — Recovered claim
+- **Statement**: value
+- **Dependencies**: [C99]
+";
+        let dir = artifact(yaml, Some(claims));
+
+        let outcome = fix_dir(dir.path());
+
+        assert!(outcome.applied.is_empty());
+        assert!(outcome.changed_files.is_empty());
+        assert!(
+            outcome
+                .skipped
+                .iter()
+                .any(|skipped| skipped.rule == LintRuleId::ClaimHeaderStyle)
+        );
+        assert_eq!(read_tree(&dir), yaml);
+        assert_eq!(read_claims(&dir), claims);
+    }
+
+    #[test]
+    fn ara004_rejects_fatal_tree_byte_identically() {
+        let yaml = "tree: [\n";
+        let claims = "## C01 — Recovered claim\n- **Statement**: value\n";
+        assert!(matches!(
+            parse_sources_detailed(yaml, Some(claims)),
+            ParseOutcome::Fatal(_)
+        ));
+        let dir = artifact(yaml, Some(claims));
+
+        let outcome = fix_dir(dir.path());
+
+        assert!(outcome.applied.is_empty());
+        assert!(outcome.changed_files.is_empty());
+        assert!(
+            outcome
+                .skipped
+                .iter()
+                .any(|skipped| skipped.rule == LintRuleId::ClaimHeaderStyle)
+        );
+        assert_eq!(read_tree(&dir), yaml);
+        assert_eq!(read_claims(&dir), claims);
     }
 
     #[test]
