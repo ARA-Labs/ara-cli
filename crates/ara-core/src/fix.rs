@@ -436,11 +436,31 @@ fn clear_field(node: &mut Node, field: AliasField) {
     }
 }
 
-/// True iff every error in `cand` also appears in `base` (renames/recoveries may
-/// only resolve errors, never introduce one).
+/// True iff every distinct error occurs no more often in `cand` than in `base`
+/// (renames/recoveries may only resolve errors, never introduce one).
 fn errors_subset(cand: &ParseResult, base: &ParseResult) -> bool {
-    let be = errors_of(base);
-    errors_of(cand).iter().all(|e| be.contains(e))
+    let candidate_errors = errors_of(cand);
+    let base_errors = errors_of(base);
+
+    for (index, error) in candidate_errors.iter().enumerate() {
+        if candidate_errors[..index].contains(error) {
+            continue;
+        }
+
+        let candidate_count = candidate_errors[index..]
+            .iter()
+            .filter(|other| *other == error)
+            .count();
+        let base_count = base_errors
+            .iter()
+            .filter(|other| *other == error)
+            .count();
+        if candidate_count > base_count {
+            return false;
+        }
+    }
+
+    true
 }
 
 /// The error diagnostics of a parse result (present on both `Ok` and `Err`).
@@ -632,6 +652,60 @@ mod tests {
 
     fn read_claims(dir: &tempfile::TempDir) -> String {
         std::fs::read_to_string(dir.path().join("logic/claims.md")).unwrap()
+    }
+
+    fn parse_errors(errors: &[(&str, &str)]) -> ParseResult {
+        let mut report = ParseReport::default();
+        for &(path, message) in errors {
+            report.error(path, message);
+        }
+        Err(report)
+    }
+
+    #[test]
+    fn errors_subset_accepts_equal_multisets() {
+        let base = parse_errors(&[
+            ("nodes[N01]", "duplicate node id"),
+            ("links[0].target", "unknown node N99"),
+        ]);
+        let cand = parse_errors(&[
+            ("nodes[N01]", "duplicate node id"),
+            ("links[0].target", "unknown node N99"),
+        ]);
+
+        assert!(errors_subset(&cand, &base));
+    }
+
+    #[test]
+    fn errors_subset_accepts_removed_errors() {
+        let base = parse_errors(&[
+            ("nodes[N01]", "duplicate node id"),
+            ("links[0].target", "unknown node N99"),
+        ]);
+        let cand = parse_errors(&[("links[0].target", "unknown node N99")]);
+
+        assert!(errors_subset(&cand, &base));
+    }
+
+    #[test]
+    fn errors_subset_rejects_same_size_with_different_identity() {
+        let base = parse_errors(&[("nodes[N01]", "duplicate node id")]);
+        let different_path = parse_errors(&[("nodes[N02]", "duplicate node id")]);
+        let different_message = parse_errors(&[("nodes[N01]", "unknown node id")]);
+
+        assert!(!errors_subset(&different_path, &base));
+        assert!(!errors_subset(&different_message, &base));
+    }
+
+    #[test]
+    fn errors_subset_rejects_duplicate_candidate_occurrence() {
+        let base = parse_errors(&[("nodes[N01]", "duplicate node id")]);
+        let cand = parse_errors(&[
+            ("nodes[N01]", "duplicate node id"),
+            ("nodes[N01]", "duplicate node id"),
+        ]);
+
+        assert!(!errors_subset(&cand, &base));
     }
 
     // ---- ARA001 -----------------------------------------------------------
