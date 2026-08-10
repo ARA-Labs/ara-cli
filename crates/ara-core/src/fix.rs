@@ -246,7 +246,7 @@ impl Applier {
             }
         };
         if !accept {
-            self.fail(diag, guard_reason(diag.rule));
+            self.fail(diag, guard_rejection_reason(diag.rule, &base, &cand));
             return false;
         }
 
@@ -594,6 +594,33 @@ fn applied_desc(rule: LintRuleId) -> String {
     }
 }
 
+/// Specific reason for a guard rejection when the candidate regresses parse
+/// errors; otherwise the rule's semantic-delta reason.
+fn guard_rejection_reason(rule: LintRuleId, base: &ParseOutcome, cand: &ParseOutcome) -> String {
+    let normalized = matches!(
+        (base, cand),
+        (
+            ParseOutcome::Normalized(_, _),
+            ParseOutcome::Normalized(_, _)
+        )
+    );
+    if normalized && !errors_subset(cand, base) {
+        return match rule {
+            LintRuleId::DeadEndReasonAlias | LintRuleId::DecisionRationaleAlias => {
+                "alias rename would introduce a new parse error occurrence; left unchanged"
+                    .to_string()
+            }
+            LintRuleId::ClaimHeaderStyle => {
+                "claim-header rewrite would introduce a new parse error occurrence; left unchanged"
+                    .to_string()
+            }
+            LintRuleId::RootDialect => guard_reason(rule),
+        };
+    }
+
+    guard_reason(rule)
+}
+
 /// Generic reason recorded when a rule's guard rejects a candidate.
 fn guard_reason(rule: LintRuleId) -> String {
     match rule {
@@ -841,6 +868,57 @@ tree:
     }
 
     #[test]
+    fn alias_fix_applies_on_kept_duplicate_id_occurrence() {
+        let yaml = "\
+tree:
+  - id: N01
+    type: dead_end
+    reason: diverged
+  - id: N01
+    type: question
+";
+        let before = parse_sources(yaml, None).expect_err("duplicate id must remain an error");
+        let before_errors = before.errors().to_vec();
+        let dir = artifact(yaml, None);
+
+        let outcome = fix_dir(dir.path());
+
+        assert_eq!(outcome.applied.len(), 1);
+        assert_eq!(outcome.applied[0].rule, LintRuleId::DeadEndReasonAlias);
+        assert_eq!(outcome.changed_files, vec![LintFile::Tree]);
+        let fixed = read_tree(&dir);
+        assert!(fixed.contains("why_failed: diverged"));
+        assert!(!fixed.contains("\n    reason:"));
+        let after = parse_sources(&fixed, None).expect_err("duplicate id must remain an error");
+        assert_eq!(after.errors(), before_errors);
+    }
+
+    #[test]
+    fn alias_fix_rejects_dropped_duplicate_id_occurrence_byte_identically() {
+        let yaml = "\
+tree:
+  - id: N01
+    type: question
+  - id: N01
+    type: dead_end
+    reason: diverged
+";
+        assert!(
+            parse_sources(yaml, None).is_err(),
+            "duplicate id must remain an error"
+        );
+        let dir = artifact(yaml, None);
+
+        let outcome = fix_dir(dir.path());
+
+        assert!(outcome.applied.is_empty());
+        assert!(outcome.changed_files.is_empty());
+        assert_eq!(outcome.skipped.len(), 1);
+        assert_eq!(outcome.skipped[0].rule, LintRuleId::DeadEndReasonAlias);
+        assert_eq!(read_tree(&dir), yaml);
+    }
+
+    #[test]
     fn alias_guard_discards_multi_node_change() {
         // Two nodes' fields change → not "exactly one recovered field" → discard.
         let base = parse_sources_detailed(
@@ -915,6 +993,62 @@ tree:
         assert_eq!(m.claims.len(), 1);
         assert_eq!(m.bindings.len(), 1);
         assert_eq!(m.bindings[0].claim, crate::manifest::ClaimId::new("C01"));
+    }
+
+    #[test]
+    fn mixed_recovering_rules_apply_with_persisting_duplicate_id_error() {
+        let yaml = "\
+tree:
+  - id: N01
+    type: dead_end
+    reason: diverged
+    evidence: [C01]
+  - id: N02
+    type: question
+  - id: N02
+    type: insight
+";
+        let claims = "## C01 — Recovered claim\n- **Statement**: supported\n";
+        let before =
+            parse_sources(yaml, Some(claims)).expect_err("both semantic errors must be present");
+        let duplicate_errors = before
+            .errors()
+            .iter()
+            .filter(|error| error.message == "duplicate node id")
+            .cloned()
+            .collect::<Vec<_>>();
+        assert_eq!(duplicate_errors.len(), 1);
+        assert!(
+            before
+                .errors()
+                .iter()
+                .any(|error| error.message == "evidence references unknown claim `C01`")
+        );
+        let dir = artifact(yaml, Some(claims));
+
+        let outcome = fix_dir(dir.path());
+
+        assert_eq!(
+            outcome
+                .applied
+                .iter()
+                .map(|fix| fix.rule)
+                .collect::<Vec<_>>(),
+            vec![LintRuleId::DeadEndReasonAlias, LintRuleId::ClaimHeaderStyle,]
+        );
+        assert_eq!(
+            outcome.changed_files,
+            vec![LintFile::Tree, LintFile::Claims]
+        );
+        assert!(outcome.skipped.is_empty());
+        assert!(outcome.remaining.is_empty());
+        let fixed_tree = read_tree(&dir);
+        let fixed_claims = read_claims(&dir);
+        assert!(fixed_tree.contains("why_failed: diverged"));
+        assert!(fixed_claims.starts_with("## C01: Recovered claim\n"));
+        let after = parse_sources(&fixed_tree, Some(&fixed_claims))
+            .expect_err("duplicate id must remain an error");
+        assert_eq!(after.errors(), duplicate_errors);
     }
 
     #[test]
@@ -1216,6 +1350,10 @@ tree:
                 .skipped
                 .iter()
                 .any(|skipped| skipped.rule == LintRuleId::ClaimHeaderStyle)
+        );
+        assert_eq!(
+            outcome.skipped[0].reason,
+            "claim-header rewrite would introduce a new parse error occurrence; left unchanged"
         );
         assert_eq!(read_tree(&dir), yaml);
         assert_eq!(read_claims(&dir), claims);
