@@ -17,6 +17,10 @@ use crate::manifest::{
 use crate::report::ParseReport;
 use crate::schema::{RawNode, parse_doc};
 
+#[allow(
+    clippy::large_enum_variant,
+    reason = "boxing Manifest would add a heap allocation to every successful parse"
+)]
 pub(crate) enum ParseOutcome {
     Normalized(Manifest, ParseReport),
     Fatal(ParseReport),
@@ -40,10 +44,7 @@ pub fn parse_sources(
     }
 }
 
-pub(crate) fn parse_sources_detailed(
-    tree_yaml: &str,
-    claims_md: Option<&str>,
-) -> ParseOutcome {
+pub(crate) fn parse_sources_detailed(tree_yaml: &str, claims_md: Option<&str>) -> ParseOutcome {
     let mut report = ParseReport::default();
 
     let doc = match parse_doc(tree_yaml) {

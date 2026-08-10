@@ -169,7 +169,6 @@ pub fn fix_dir(dir: &Path) -> FixOutcome {
     }
 }
 
-
 /// Which recovering alias field a targeted guard is validating.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum AliasField {
@@ -298,10 +297,7 @@ impl Applier {
         cand: &ParseOutcome,
         new_claims: Option<&str>,
     ) -> bool {
-        let (
-            ParseOutcome::Normalized(mb, _),
-            ParseOutcome::Normalized(mc, _),
-        ) = (base, cand)
+        let (ParseOutcome::Normalized(mb, _), ParseOutcome::Normalized(mc, _)) = (base, cand)
         else {
             return false;
         };
@@ -375,10 +371,9 @@ impl Applier {
 /// the root→tree rewrite must be a semantic no-op.
 fn guard_ara001(base: &ParseOutcome, cand: &ParseOutcome) -> bool {
     match (base, cand) {
-        (
-            ParseOutcome::Normalized(mb, rb),
-            ParseOutcome::Normalized(mc, rc),
-        ) => rb.is_ok() && rc.is_ok() && mc == mb,
+        (ParseOutcome::Normalized(mb, rb), ParseOutcome::Normalized(mc, rc)) => {
+            rb.is_ok() && rc.is_ok() && mc == mb
+        }
         _ => false,
     }
 }
@@ -386,11 +381,7 @@ fn guard_ara001(base: &ParseOutcome, cand: &ParseOutcome) -> bool {
 /// ARA002/ARA003 targeted guard: after proving no new error occurrence appears,
 /// exactly one node's target field goes `None → Some`, and nothing else differs.
 fn guard_alias(base: &ParseOutcome, cand: &ParseOutcome, field: AliasField) -> bool {
-    let (
-        ParseOutcome::Normalized(mb, _),
-        ParseOutcome::Normalized(mc, _),
-    ) = (base, cand)
-    else {
+    let (ParseOutcome::Normalized(mb, _), ParseOutcome::Normalized(mc, _)) = (base, cand) else {
         return false;
     };
     if !errors_subset(cand, base) {
@@ -456,10 +447,7 @@ fn errors_subset(cand: &ParseOutcome, base: &ParseOutcome) -> bool {
             .iter()
             .filter(|other| *other == error)
             .count();
-        let base_count = base_errors
-            .iter()
-            .filter(|other| *other == error)
-            .count();
+        let base_count = base_errors.iter().filter(|other| *other == error).count();
         if candidate_count > base_count {
             return false;
         }
@@ -866,8 +854,7 @@ tree:
         assert!(!guard_alias(&base, &cand, AliasField::WhyFailed));
 
         // A single recovered field is accepted.
-        let base1 =
-            parse_sources_detailed("tree:\n  - id: N01\n    type: dead_end\n", None);
+        let base1 = parse_sources_detailed("tree:\n  - id: N01\n    type: dead_end\n", None);
         let cand1 = parse_sources_detailed(
             "tree:\n  - id: N01\n    type: dead_end\n    why_failed: a\n",
             None,
@@ -986,9 +973,8 @@ tree:
         let yaml = include_str!(
             "../tests/fixtures/corpus/speedrun/nanogpt-speedrun/trace/exploration_tree.yaml"
         );
-        let claims = include_str!(
-            "../tests/fixtures/corpus/speedrun/nanogpt-speedrun/logic/claims.md"
-        );
+        let claims =
+            include_str!("../tests/fixtures/corpus/speedrun/nanogpt-speedrun/logic/claims.md");
         let pre_fix =
             parse_sources(yaml, Some(claims)).expect_err("referenced claims must be absent");
         assert!(
@@ -1048,12 +1034,12 @@ tree:
         );
         assert_eq!(manifest.nodes, base.nodes);
         assert_eq!(manifest.links, base.links);
-        assert!(
+        assert!(manifest.bindings.iter().all(|binding| {
             manifest
-                .bindings
+                .claims
                 .iter()
-                .all(|binding| manifest.claims.iter().any(|claim| claim.id == binding.claim))
-        );
+                .any(|claim| claim.id == binding.claim)
+        }));
         assert_eq!(
             manifest
                 .bindings
@@ -1074,7 +1060,6 @@ tree:
         assert_eq!(read_tree(&dir), fixed_tree);
         assert_eq!(read_claims(&dir), fixed_claims);
     }
-
 
     // ---- idempotence / safety --------------------------------------------
 

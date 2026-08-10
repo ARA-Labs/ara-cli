@@ -368,9 +368,7 @@ tree:
     assert_eq!(fixed_tree, original_tree);
     assert_eq!(
         first_stdout
-            .matches(
-                "fixed ARA004 in logic/claims.md: rewrote dash claim-header separator to `: `"
-            )
+            .matches("fixed ARA004 in logic/claims.md: rewrote dash claim-header separator to `: `")
             .count(),
         2,
         "got: {first_stdout}"
