@@ -102,25 +102,29 @@ comments, key order, and author style are left untouched.
 
 ## The fix-safety guard (load-bearing correctness)
 
-Every `--fix` edit is computed in memory and written only after a guard passes,
-so a source file is never left corrupted. The guard differs by rule kind:
+Every `--fix` edit is computed in memory and written only after a guard passes.
+The guards evaluate normalized parse outcomes:
 
-- **`ARA001` (structural) — semantic no-op.** The re-indent is applied only if
-  re-parsing the edited text yields a `Manifest` **byte-identical** to the one
-  before the edit. A `root:` block that can't be rewritten to a semantically
-  identical `tree:` has its edit discarded, and `check` reports it as
-  detected-but-not-auto-fixed rather than risking a corrupt file. This protects
-  the re-indent from silently changing structure.
+- **`ARA001` (structural) — clean semantic no-op.** Both the base and candidate
+  parses must be clean normalized manifests, and the manifests must be
+  identical. An error-bearing or fatal outcome rejects the edit.
 
-- **`ARA002` / `ARA003` / `ARA004` (value-recovering) — targeted guard.** These
-  intentionally change the manifest (they recover a dropped value/claim), so a
-  byte-identical check would reject them. Instead the edit is kept only if all of
-  the following hold: re-parse introduces **no new errors**; the specific
-  drop/warning is **resolved**; the recovered value/claim lands **exactly** where
-  intended with nothing else perturbed; and re-running `--fix` is idempotent.
-  Otherwise the edit is discarded and reported as detected-but-not-auto-fixed.
+- **`ARA002` / `ARA003` / `ARA004` (value-recovering) — targeted recovery.**
+  These rules may operate on normalized error-bearing artifacts only when the
+  complete candidate error multiset is a subset of the base error multiset.
+  Error identity includes severity, logical path, and message, and containment
+  preserves occurrence counts. A fatal base or candidate outcome rejects the
+  edit without writing.
 
-`--fix` is idempotent by construction — running it twice makes no second change.
+The normalized semantic delta must also be exact. `ARA002` and `ARA003` change
+only the target alias field from `None` to `Some`. `ARA004` adds exactly one
+intended claim, leaves nodes and links unchanged, and adds only bindings to that
+recovered claim. Any rejected candidate leaves the source byte-identical;
+accepted fixes retain the re-detection and idempotence backstop, so a second
+`--fix` is a no-op.
+
+These fixes rewrite source files only. They do not modify or regenerate Hub
+output, static `trajectory.html`, or viewer assets.
 
 ## Exit codes
 

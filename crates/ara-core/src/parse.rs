@@ -17,6 +17,15 @@ use crate::manifest::{
 use crate::report::ParseReport;
 use crate::schema::{RawNode, parse_doc};
 
+#[allow(
+    clippy::large_enum_variant,
+    reason = "boxing Manifest would add a heap allocation to every successful parse"
+)]
+pub(crate) enum ParseOutcome {
+    Normalized(Manifest, ParseReport),
+    Fatal(ParseReport),
+}
+
 /// Parses in-memory sources into a [`Manifest`]. Pure and wasm-safe.
 ///
 /// `claims_md = None` means claim references cannot be resolved: each `C##`
@@ -29,13 +38,20 @@ pub fn parse_sources(
     tree_yaml: &str,
     claims_md: Option<&str>,
 ) -> Result<(Manifest, ParseReport), ParseReport> {
+    match parse_sources_detailed(tree_yaml, claims_md) {
+        ParseOutcome::Normalized(manifest, report) if report.is_ok() => Ok((manifest, report)),
+        ParseOutcome::Normalized(_, report) | ParseOutcome::Fatal(report) => Err(report),
+    }
+}
+
+pub(crate) fn parse_sources_detailed(tree_yaml: &str, claims_md: Option<&str>) -> ParseOutcome {
     let mut report = ParseReport::default();
 
     let doc = match parse_doc(tree_yaml) {
         Ok(doc) => doc,
         Err(msg) => {
             report.error("document", msg);
-            return Err(report);
+            return ParseOutcome::Fatal(report);
         }
     };
 
@@ -49,11 +65,11 @@ pub fn parse_sources(
                 "document",
                 "both `tree:` and `root:` are present; exactly one is allowed",
             );
-            return Err(report);
+            return ParseOutcome::Fatal(report);
         }
         (None, None) => {
             report.error("document", "neither `tree:` nor `root:` is present");
-            return Err(report);
+            return ParseOutcome::Fatal(report);
         }
         (Some(tree), None) => {
             if tree.is_empty() {
@@ -170,11 +186,7 @@ pub fn parse_sources(
         node_exhibits: Vec::new(),
     };
 
-    if norm.report.is_ok() {
-        Ok((manifest, norm.report))
-    } else {
-        Err(norm.report)
-    }
+    ParseOutcome::Normalized(manifest, norm.report)
 }
 
 /// Reads `trace/exploration_tree.yaml` (required) and `logic/claims.md`
@@ -593,6 +605,79 @@ tree:
         evidence: [C01, \"Table 2\"]
 ";
     const CLAIMS: &str = "## C01: A claim\n- **Statement**: yes\n";
+
+    #[test]
+    fn detailed_outcome_classifies_parser_trust_boundary() {
+        #[derive(Debug, PartialEq)]
+        enum ExpectedOutcome {
+            Normalized,
+            Fatal,
+        }
+
+        let cases = [
+            (
+                "clean",
+                "tree:\n  - id: N01\n    type: question\n",
+                ExpectedOutcome::Normalized,
+                true,
+                Some(1),
+            ),
+            (
+                "semantic duplicate id",
+                "tree:\n  - id: N01\n    type: question\n  - id: N01\n    type: insight\n",
+                ExpectedOutcome::Normalized,
+                false,
+                Some(1),
+            ),
+            (
+                "malformed yaml",
+                "tree: not-a-list\n",
+                ExpectedOutcome::Fatal,
+                false,
+                None,
+            ),
+            (
+                "both tree and root",
+                "tree: []\nroot:\n  id: N01\n",
+                ExpectedOutcome::Fatal,
+                false,
+                None,
+            ),
+            (
+                "neither root",
+                "meta: hi\n",
+                ExpectedOutcome::Fatal,
+                false,
+                None,
+            ),
+        ];
+
+        for (name, yaml, expected_outcome, expected_public_ok, expected_node_count) in cases {
+            let (actual_outcome, detailed_report, node_count) =
+                match parse_sources_detailed(yaml, None) {
+                    ParseOutcome::Normalized(manifest, report) => (
+                        ExpectedOutcome::Normalized,
+                        report,
+                        Some(manifest.nodes.len()),
+                    ),
+                    ParseOutcome::Fatal(report) => (ExpectedOutcome::Fatal, report, None),
+                };
+            assert_eq!(actual_outcome, expected_outcome, "{name}");
+            assert_eq!(node_count, expected_node_count, "{name}");
+
+            match (parse_sources(yaml, None), expected_public_ok) {
+                (Ok((_, public_report)), true) => {
+                    assert_eq!(public_report, detailed_report, "{name}");
+                }
+                (Err(public_report), false) => {
+                    assert_eq!(public_report, detailed_report, "{name}");
+                }
+                (actual, expected_ok) => {
+                    panic!("{name}: expected public ok={expected_ok}, got {actual:?}");
+                }
+            }
+        }
+    }
 
     #[test]
     fn resolves_bindings_and_splits_evidence() {
