@@ -4,6 +4,14 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/), and the project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+- `ara check --fix` now safely applies ARA002, ARA003, and ARA004 value
+  recovery to normalized error-bearing artifacts when the candidate introduces
+  no new error occurrences and has the exact rule-specific semantic delta;
+  fatal parse outcomes still reject without writing (#42).
+
 ## [0.1.13] - 2026-07-29
 
 ### Changed
