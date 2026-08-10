@@ -76,6 +76,49 @@ fn json_output_is_valid_json() {
 }
 
 #[test]
+fn validate_broken_json_output_is_byte_stable() {
+    let dir = artifact(
+        "tree:\n  - id: N02\n    type: experiment\n    evidence: [C02, C01]\n  - id: N02\n    type: insight\n",
+        None,
+    );
+
+    let output = ara()
+        .arg("validate")
+        .arg(dir.path())
+        .arg("--json")
+        .assert()
+        .code(1)
+        .get_output()
+        .stdout
+        .clone();
+
+    let expected = concat!(
+        "{\n",
+        "  \"errors\": [\n",
+        "    {\n",
+        "      \"severity\": \"error\",\n",
+        "      \"path\": \"nodes[N02]\",\n",
+        "      \"message\": \"duplicate node id\"\n",
+        "    }\n",
+        "  ],\n",
+        "  \"warnings\": [\n",
+        "    {\n",
+        "      \"severity\": \"warning\",\n",
+        "      \"path\": \"nodes[N02].evidence[0]\",\n",
+        "      \"message\": \"claim reference `C02` unresolved (no claims.md provided)\"\n",
+        "    },\n",
+        "    {\n",
+        "      \"severity\": \"warning\",\n",
+        "      \"path\": \"nodes[N02].evidence[1]\",\n",
+        "      \"message\": \"claim reference `C01` unresolved (no claims.md provided)\"\n",
+        "    }\n",
+        "  ]\n",
+        "}\n",
+    );
+    assert_eq!(output, expected.as_bytes());
+}
+
+#[test]
 fn strict_promotes_warnings_to_failure() {
     // Unknown field -> warning, no error. Exit 0 normally, non-zero with --strict.
     let dir = artifact(
@@ -269,6 +312,181 @@ fn check_fix_is_idempotent() {
         .assert()
         .success()
         .stdout(predicate::str::contains("applied 0 fix(es)"));
+}
+
+#[test]
+fn check_fix_recovers_multiple_claims_to_clean_exit() {
+    let tree = "\
+tree:
+  - id: N01
+    type: experiment
+    evidence: [C01]
+  - id: N02
+    type: experiment
+    evidence: [C02]
+";
+    let claims = "\
+## C01 - First recovered claim
+- **Statement**: first
+
+## C02 — Second recovered claim
+- **Statement**: second
+";
+    let dir = artifact(tree, Some(claims));
+    let tree_path = dir.path().join("trace/exploration_tree.yaml");
+    let claims_path = dir.path().join("logic/claims.md");
+    let original_tree = std::fs::read(&tree_path).unwrap();
+
+    let before_output = ara()
+        .arg("check")
+        .arg(dir.path())
+        .assert()
+        .code(1)
+        .get_output()
+        .stdout
+        .clone();
+    let before_stdout = String::from_utf8(before_output).unwrap();
+    assert_eq!(
+        before_stdout
+            .matches("evidence references unknown claim")
+            .count(),
+        2,
+        "got: {before_stdout}"
+    );
+
+    let first_output = ara()
+        .arg("check")
+        .arg(dir.path())
+        .arg("--fix")
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let first_stdout = String::from_utf8(first_output).unwrap();
+    let fixed_tree = std::fs::read(&tree_path).unwrap();
+    assert_eq!(fixed_tree, original_tree);
+    assert_eq!(
+        first_stdout
+            .matches(
+                "fixed ARA004 in logic/claims.md: rewrote dash claim-header separator to `: `"
+            )
+            .count(),
+        2,
+        "got: {first_stdout}"
+    );
+    assert!(
+        first_stdout.contains(
+            "PASS — applied 2 fix(es); 0 error(s), 0 warning(s), 0 fixable issue(s) remaining"
+        ),
+        "got: {first_stdout}"
+    );
+    assert!(
+        !first_stdout.contains("unknown claim"),
+        "post-fix diagnostics still contain a caused error: {first_stdout}"
+    );
+
+    let fixed_claims = std::fs::read(&claims_path).unwrap();
+    assert_eq!(
+        fixed_claims,
+        b"## C01: First recovered claim\n- **Statement**: first\n\n## C02: Second recovered claim\n- **Statement**: second\n"
+    );
+
+    let second_output = ara()
+        .arg("check")
+        .arg(dir.path())
+        .arg("--fix")
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let second_stdout = String::from_utf8(second_output).unwrap();
+    assert!(
+        second_stdout.contains(
+            "PASS — applied 0 fix(es); 0 error(s), 0 warning(s), 0 fixable issue(s) remaining"
+        ),
+        "got: {second_stdout}"
+    );
+    assert!(
+        !second_stdout.contains("fixed ARA004"),
+        "second run reported another fix: {second_stdout}"
+    );
+    assert_eq!(std::fs::read(&tree_path).unwrap(), fixed_tree);
+    assert_eq!(std::fs::read(&claims_path).unwrap(), fixed_claims);
+}
+
+#[test]
+fn check_fix_applies_alias_while_unrelated_error_remains() {
+    let tree = "\
+tree:
+  - id: N01
+    type: dead_end
+    reason: it diverged
+  - id: N01
+    type: question
+";
+    let dir = artifact(tree, None);
+    let tree_path = dir.path().join("trace/exploration_tree.yaml");
+
+    let first_output = ara()
+        .arg("check")
+        .arg(dir.path())
+        .arg("--fix")
+        .assert()
+        .code(1)
+        .get_output()
+        .stdout
+        .clone();
+    let first_stdout = String::from_utf8(first_output).unwrap();
+    assert!(
+        first_stdout.contains(
+            "fixed ARA002 in trace/exploration_tree.yaml: renamed `reason:` to `why_failed:` on a dead_end node"
+        ),
+        "got: {first_stdout}"
+    );
+    assert!(
+        first_stdout.contains("error: nodes[N01]: duplicate node id"),
+        "got: {first_stdout}"
+    );
+    assert!(
+        first_stdout.contains(
+            "FAIL — applied 1 fix(es); 1 error(s), 0 warning(s), 0 fixable issue(s) remaining"
+        ),
+        "got: {first_stdout}"
+    );
+
+    let fixed_tree = std::fs::read(&tree_path).unwrap();
+    assert_eq!(
+        fixed_tree,
+        b"tree:\n  - id: N01\n    type: dead_end\n    why_failed: it diverged\n  - id: N01\n    type: question\n"
+    );
+
+    let second_output = ara()
+        .arg("check")
+        .arg(dir.path())
+        .arg("--fix")
+        .assert()
+        .code(1)
+        .get_output()
+        .stdout
+        .clone();
+    let second_stdout = String::from_utf8(second_output).unwrap();
+    assert!(
+        second_stdout.contains("error: nodes[N01]: duplicate node id"),
+        "got: {second_stdout}"
+    );
+    assert!(
+        second_stdout.contains(
+            "FAIL — applied 0 fix(es); 1 error(s), 0 warning(s), 0 fixable issue(s) remaining"
+        ),
+        "got: {second_stdout}"
+    );
+    assert!(
+        !second_stdout.contains("fixed ARA002"),
+        "second run reported another fix: {second_stdout}"
+    );
+    assert_eq!(std::fs::read(&tree_path).unwrap(), fixed_tree);
 }
 
 /// A real validate error (duplicate node id) exits 1 and surfaces the error.
