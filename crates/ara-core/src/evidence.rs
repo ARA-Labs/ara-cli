@@ -775,10 +775,7 @@ mod tests {
     /// Builds a temp artifact with an `evidence/` layer. `files` are
     /// `(subdir, name, body)`; `readme` is the optional index.
     #[cfg(feature = "native")]
-    fn evidence_artifact(
-        files: &[(&str, &str, &str)],
-        readme: Option<&str>,
-    ) -> tempfile::TempDir {
+    fn evidence_artifact(files: &[(&str, &str, &str)], readme: Option<&str>) -> tempfile::TempDir {
         let dir = tempfile::TempDir::new().unwrap();
         let evidence = dir.path().join("evidence");
         for (subdir, name, body) in files {
@@ -832,10 +829,12 @@ mod tests {
         assert_eq!(exhibits[0].body, "fig one");
         assert_eq!(exhibits[7].body, "table two");
         // No index README → one "no index row" warning per body, no duplicates.
-        assert!(report
-            .warnings()
-            .iter()
-            .all(|w| !w.message.contains("duplicate")));
+        assert!(
+            report
+                .warnings()
+                .iter()
+                .all(|w| !w.message.contains("duplicate"))
+        );
     }
 
     #[cfg(feature = "native")]
@@ -922,10 +921,12 @@ mod tests {
         let mut report = crate::report::ParseReport::default();
         let exhibits = read_evidence(dir.path(), &mut report);
         assert_eq!(exhibits.len(), 2);
-        assert!(report
-            .warnings()
-            .iter()
-            .all(|w| !w.message.contains("duplicate")));
+        assert!(
+            report
+                .warnings()
+                .iter()
+                .all(|w| !w.message.contains("duplicate"))
+        );
     }
 
     // ── test helpers ─────────────────────────────────────────────────────────

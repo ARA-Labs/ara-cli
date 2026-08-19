@@ -429,9 +429,12 @@ fn field_is_some(node: &Node, field: AliasField) -> bool {
     match (field, &node.fields) {
         (AliasField::WhyFailed, NodeFields::DeadEnd { why_failed, .. }) => why_failed.is_some(),
         (AliasField::Rationale, NodeFields::Decision { rationale, .. }) => rationale.is_some(),
-        (AliasField::PriorDirection, NodeFields::Pivot { prior_direction, .. }) => {
-            prior_direction.is_some()
-        }
+        (
+            AliasField::PriorDirection,
+            NodeFields::Pivot {
+                prior_direction, ..
+            },
+        ) => prior_direction.is_some(),
         (AliasField::NewDirection, NodeFields::Pivot { new_direction, .. }) => {
             new_direction.is_some()
         }
@@ -445,9 +448,12 @@ fn clear_field(node: &mut Node, field: AliasField) {
     match (field, &mut node.fields) {
         (AliasField::WhyFailed, NodeFields::DeadEnd { why_failed, .. }) => *why_failed = None,
         (AliasField::Rationale, NodeFields::Decision { rationale, .. }) => *rationale = None,
-        (AliasField::PriorDirection, NodeFields::Pivot { prior_direction, .. }) => {
-            *prior_direction = None
-        }
+        (
+            AliasField::PriorDirection,
+            NodeFields::Pivot {
+                prior_direction, ..
+            },
+        ) => *prior_direction = None,
         (AliasField::NewDirection, NodeFields::Pivot { new_direction, .. }) => {
             *new_direction = None
         }
@@ -618,9 +624,7 @@ fn applied_desc(rule: LintRuleId) -> String {
         LintRuleId::PivotFromAlias => {
             "renamed `from:` to `prior_direction:` on a pivot node".to_string()
         }
-        LintRuleId::PivotToAlias => {
-            "renamed `to:` to `new_direction:` on a pivot node".to_string()
-        }
+        LintRuleId::PivotToAlias => "renamed `to:` to `new_direction:` on a pivot node".to_string(),
         LintRuleId::PivotTriggerAlias => {
             "renamed `trigger:` to `reason:` on a pivot node".to_string()
         }
@@ -1005,7 +1009,9 @@ tree:
             "unknown-field warning must be gone, got: {report}"
         );
         match &m.nodes[0].fields {
-            NodeFields::Pivot { prior_direction, .. } => {
+            NodeFields::Pivot {
+                prior_direction, ..
+            } => {
                 assert_eq!(prior_direction.as_deref(), Some("dense retrieval"));
             }
             other => panic!("expected Pivot fields, got {other:?}"),
@@ -1429,10 +1435,7 @@ tree:
                 .count(),
             2
         );
-        assert_eq!(
-            first.changed_files,
-            vec![LintFile::Tree, LintFile::Claims]
-        );
+        assert_eq!(first.changed_files, vec![LintFile::Tree, LintFile::Claims]);
         let fixed_tree = read_tree(&dir);
         let fixed_claims = read_claims(&dir);
         let (manifest, report) =

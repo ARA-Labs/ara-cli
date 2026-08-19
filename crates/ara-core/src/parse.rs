@@ -1176,9 +1176,10 @@ tree:
             let drops: Vec<_> = report
                 .warnings()
                 .iter()
-                .filter(|d| d
-                    .message
-                    .contains(&format!("`{field}` dropped for type `{kind}`")))
+                .filter(|d| {
+                    d.message
+                        .contains(&format!("`{field}` dropped for type `{kind}`"))
+                })
                 .collect();
             assert_eq!(
                 drops.len(),

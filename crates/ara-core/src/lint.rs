@@ -449,12 +449,7 @@ fn lint_tree(text: &str) -> Vec<LintDiagnostic> {
                     "from",
                     "prior_direction",
                 ),
-                (
-                    &f.to_hits,
-                    LintRuleId::PivotToAlias,
-                    "to",
-                    "new_direction",
-                ),
+                (&f.to_hits, LintRuleId::PivotToAlias, "to", "new_direction"),
                 (
                     &f.trigger_hits,
                     LintRuleId::PivotTriggerAlias,
