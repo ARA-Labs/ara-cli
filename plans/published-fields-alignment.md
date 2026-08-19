@@ -150,6 +150,80 @@ No generic allowlist. A sibling fixture with a genuinely unknown key
 - **D3 — `ExhibitKind` growth.** Add `Result`/`Proof` variants (typed, additive)
   vs mapping both to `Other` (no wire change, less info). Recommend variants.
 
+## Evaluation
+
+How we will judge whether this change achieves the contract, with a baseline
+measured on current `main` (0.1.11, 2026-08-19) against a fresh clone of
+`ARA-Labs/Agent-Native-Research-Artifact@main`.
+
+### Baseline (measured)
+
+`cargo run -- check examples/the-ara-of-ara` today:
+
+```
+PASS — 0 error(s), 246 warning(s), 0 fixable issue(s)
+```
+
+Warning composition:
+
+| warning | count | covered by this issue? |
+|---|---|---|
+| unknown field `timestamp` | 116 | yes |
+| unknown field `provenance` | 116 | yes |
+| unknown field `status` / `reason` / `prior_direction` / `new_direction` / `exploration` / `outcome` | 2 each (12) | yes |
+| redundant `also_depends_on` on ancestor | 1 | no (pre-existing, unrelated) |
+| evidence index row with no body file | 1 | no (pre-existing, unrelated) |
+
+### Success metrics
+
+1. **Primary: unknown-field elimination on the canonical artifact.** Re-run
+   `ara check` on the same clone after the change. Target: **244 → 0**
+   unknown-field warnings; total warnings **246 → 2** (only the two
+   pre-existing unrelated warnings remain). This is the headline number for the
+   PR description.
+2. **Preservation, not just acceptance.** Inspect the emitted
+   `manifest.json` for the canonical artifact: all 116 nodes carry
+   `provenance` + `timestamp`; pivot nodes carry `prior_direction` /
+   `new_direction` / `reason` / `lesson`; N95/N96 carry `exploration` /
+   `outcome` / `status`. This catches silent drops — today `lesson` on a pivot
+   node is *not* warned but *is* discarded by `project_kind`, so warnings-only
+   evaluation would miss it.
+3. **Real-corpus delta (scope control).** Run the vendored
+   `ara-paperbench` subset (`crates/ara-core/tests/corpus`) before/after and
+   diff warning counts by field name. Expected: `provenance` / `status` /
+   `timestamp` warnings disappear; `thinking` / `method` / `justification` /
+   `failure_mode`-family warnings **remain** (T-REAL-CORPUS, out of scope). A
+   change that accidentally silences those means we added an allowlist — a
+   fail-closed violation.
+4. **Fail-closed check.** The `published-fields-unknown/` sibling fixture (one
+   `bogus_field` key) must still warn non-strict and error under `--strict`.
+5. **Idempotency.** `ara check --strict --fix` twice on the
+   `published-fields/` canonical fixture → byte-identical tree YAML and an
+   unchanged second-run diff. Include one aliased node
+   (`from`/`to`/`trigger`) to prove alias canonicalization fires once and
+   stabilizes.
+6. **Cross-target parity.** Regenerated native≡wasm goldens match byte-for-
+   byte; the wasm viewer renders the new fields (browser test asserts on the
+   detail pane for a node with metadata + narrative).
+
+### Acceptance-criteria mapping (issue #75)
+
+| #75 criterion | evaluated by |
+|---|---|
+| Representative published-field fixture parses without unknown-field diagnostics | metric 1 + fixture test (step 6) |
+| Native parse, normalized JSON, JSON/WASM, strict/fix, evidence, browser tests cover accepted fields | steps 1–5, 8; metrics 2, 6 |
+| Canonical published input byte-identical after two `--strict --fix` runs | metric 5 |
+| Sibling unknown-field fixture fails in strict mode | metric 4 |
+| `cargo test --workspace`, fmt, clippy, WASM, browser tests pass | step 11 in CI |
+| Contract documented, released under immutable version | step 9–10; tag `v0.1.12` after merge |
+
+### Downstream smoke check
+
+LARA's gate is non-strict `ara check` with zero errors (issue #75, Downstream
+Policy). After merge, run the released binary against `EYH0602/lara`'s ARA
+directory and confirm: exit 0, zero errors, and no unknown-field warnings for
+any published field. Report the before/after warning count in the PR.
+
 ## Verification
 
 - `cargo test --workspace`, `cargo clippy --all-targets`, `cargo fmt --check`
