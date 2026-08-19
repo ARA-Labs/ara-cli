@@ -1,0 +1,61 @@
+# Wrong-kind matrix (see ../SOURCE.md): every scoped body field placed on a node
+# kind that does NOT project it. Each node must produce exactly one parse
+# warning of the form "field `<field>` dropped for type `<kind>`".
+tree:
+  - id: N01
+    type: decision
+    title: "exploration on decision"
+    exploration: belongs to experiment
+  - id: N02
+    type: question
+    title: "status on question"
+    status: belongs to experiment
+  - id: N03
+    type: dead_end
+    title: "prior_direction on dead_end"
+    prior_direction: belongs to pivot
+  - id: N04
+    type: experiment
+    title: "choice on experiment"
+    choice: belongs to decision
+  - id: N05
+    type: question
+    title: "outcome on question"
+    outcome: belongs to experiment
+  - id: N06
+    type: decision
+    title: "result on decision"
+    result: belongs to experiment
+  - id: N07
+    type: experiment
+    title: "alternatives on experiment"
+    alternatives:
+      - belongs to decision
+  - id: N08
+    type: question
+    title: "rationale on question"
+    rationale: belongs to decision
+  - id: N09
+    type: decision
+    title: "hypothesis on decision"
+    hypothesis: belongs to dead_end
+  - id: N10
+    type: insight
+    title: "failure_mode on insight"
+    failure_mode: belongs to dead_end
+  - id: N11
+    type: decision
+    title: "why_failed on decision"
+    why_failed: belongs to dead_end
+  - id: N12
+    type: insight
+    title: "lesson on insight"
+    lesson: belongs to dead_end or pivot
+  - id: N13
+    type: experiment
+    title: "new_direction on experiment"
+    new_direction: belongs to pivot
+  - id: N14
+    type: decision
+    title: "reason on decision"
+    reason: belongs to pivot

@@ -1,0 +1,10 @@
+# Legacy-alias slice (see ../SOURCE.md): one pivot node on the pre-canonical
+# from/to/trigger keys. ARA005/006/007 must fire; `check --fix` recovers the
+# values into prior_direction/new_direction/reason.
+tree:
+  - id: N01
+    type: pivot
+    title: "Custom 20-paper canonical corpus replaced by PaperBench 23 papers"
+    from: "A curated 20-paper corpus of canonical AI papers as the eval set"
+    to: "PaperBench's 23 papers, extended to 7 RE-Bench tasks"
+    trigger: "PaperBench provides expert-authored rubrics; the custom corpus had none"

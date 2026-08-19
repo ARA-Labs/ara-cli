@@ -1,14 +1,14 @@
 # Synthetic fixture for the widened node model. Not from the official corpus;
-# exercises a `pivot` root (from/to/trigger) with a `dead_end` child carrying
-# hypothesis/failure_mode/lesson. These six fields must project cleanly with
-# ZERO unknown-field warnings.
+# exercises a `pivot` root (prior_direction/new_direction/reason) with a
+# `dead_end` child carrying hypothesis/failure_mode/lesson. These six fields
+# must project cleanly with ZERO unknown-field warnings.
 tree:
   - id: N01
     type: pivot
     title: "Curation strategy pivot"
-    from: "Full manual curation"
-    to: "Semi-automated pipeline with multi-pass LLM extraction + execution validation"
-    trigger: >
+    prior_direction: "Full manual curation"
+    new_direction: "Semi-automated pipeline with multi-pass LLM extraction + execution validation"
+    reason: >
       Manual curation infeasible at scale; needed automated extraction with a
       validation loop.
     children:
