@@ -53,7 +53,8 @@ pub struct ExhibitView {
     pub id: String,
     /// Source file, relative to the artifact root.
     pub file: String,
-    /// Short kind label: `"figure"` | `"table"` | `"other"`.
+    /// Short kind label: `"figure"` | `"table"` | `"result"` | `"proof"` |
+    /// `"other"`.
     pub kind: String,
     /// Origin of the exhibit, when stated.
     pub source: Option<String>,
@@ -130,6 +131,12 @@ pub struct DetailModel {
     pub kind_glyph: char,
     /// `explicit` | `inferred` when present.
     pub support_level: Option<String>,
+    /// Free-form provenance tag (`user`, `ai-suggested`, ...) when present.
+    /// Rendered as a header pill, like `support_level`.
+    pub provenance: Option<String>,
+    /// ISO date string, carried verbatim (never parsed) when present.
+    /// Rendered as a header pill, like `support_level`.
+    pub timestamp: Option<String>,
     /// Prose description. `None` → omit the block.
     pub description: Option<String>,
     /// Per-kind fields in the kind-specific canonical order.
@@ -279,6 +286,8 @@ pub fn detail_model(node: &Node, manifest: &Manifest) -> DetailModel {
         kind_css_class: meta.css_class.to_string(),
         kind_glyph: meta.glyph,
         support_level: node.support_level.clone(),
+        provenance: node.provenance.clone(),
+        timestamp: node.timestamp.clone(),
         description: node.description.clone(),
         typed_fields,
         evidence_notes: node.evidence_notes.clone(),
@@ -331,6 +340,8 @@ fn exhibit_kind_label(kind: &ExhibitKind) -> &'static str {
     match kind {
         ExhibitKind::Figure => "figure",
         ExhibitKind::Table => "table",
+        ExhibitKind::Result => "result",
+        ExhibitKind::Proof => "proof",
         ExhibitKind::Other => "other",
     }
 }
@@ -339,8 +350,9 @@ fn exhibit_kind_label(kind: &ExhibitKind) -> &'static str {
 ///
 /// Order requirements (from plan):
 /// - `Question`  → none
-/// - `Experiment { result }` → `[("what it did", result)]` if Some; mark
-///   primary (the experiment result is the node's WHAT IT DID block)
+/// - `Experiment { result, exploration, outcome, status }` →
+///   `("what it did", result)` [primary], `("exploration", exploration)`,
+///   `("outcome", outcome)`, `("status", status)`; omit None
 /// - `Decision { choice, rationale, alternatives }` →
 ///   `("choice", choice?)`, `("rationale", rationale?)` [primary],
 ///   `("alternatives", alternatives)` if non-empty; omit None/empty
@@ -350,14 +362,21 @@ fn exhibit_kind_label(kind: &ExhibitKind) -> &'static str {
 ///   `failure_mode` is absent — the legacy field is promoted so there is still
 ///   an accented block]; omit None
 /// - `Insight`   → none
-/// - `Pivot { from, to, trigger }` → `("from", from?)`, `("to", to?)`,
-///   `("trigger", trigger?)` [primary]; omit None
+/// - `Pivot { prior_direction, new_direction, reason, lesson }` →
+///   `("prior direction", prior_direction?)`,
+///   `("new direction", new_direction?)`, `("reason", reason?)` [primary],
+///   `("lesson", lesson?)`; omit None
 /// - `Other`     → none
 fn typed_fields_for(node: &Node) -> Vec<TypedField> {
     match &node.fields {
         NodeFields::Question | NodeFields::Insight | NodeFields::Other => vec![],
 
-        NodeFields::Experiment { result } => {
+        NodeFields::Experiment {
+            result,
+            exploration,
+            outcome,
+            status,
+        } => {
             let mut fields = Vec::new();
             if let Some(r) = result {
                 // Relabelled to "what it did" per the corrected hub order (the
@@ -366,6 +385,27 @@ fn typed_fields_for(node: &Node) -> Vec<TypedField> {
                     label: "what it did",
                     value: FieldValue::Text(r.clone()),
                     is_primary: true,
+                });
+            }
+            if let Some(e) = exploration {
+                fields.push(TypedField {
+                    label: "exploration",
+                    value: FieldValue::Text(e.clone()),
+                    is_primary: false,
+                });
+            }
+            if let Some(o) = outcome {
+                fields.push(TypedField {
+                    label: "outcome",
+                    value: FieldValue::Text(o.clone()),
+                    is_primary: false,
+                });
+            }
+            if let Some(s) = status {
+                fields.push(TypedField {
+                    label: "status",
+                    value: FieldValue::Text(s.clone()),
+                    is_primary: false,
                 });
             }
             fields
@@ -442,27 +482,39 @@ fn typed_fields_for(node: &Node) -> Vec<TypedField> {
             fields
         }
 
-        NodeFields::Pivot { from, to, trigger } => {
+        NodeFields::Pivot {
+            prior_direction,
+            new_direction,
+            reason,
+            lesson,
+        } => {
             let mut fields = Vec::new();
-            if let Some(f) = from {
+            if let Some(p) = prior_direction {
                 fields.push(TypedField {
-                    label: "from",
-                    value: FieldValue::Text(f.clone()),
+                    label: "prior direction",
+                    value: FieldValue::Text(p.clone()),
                     is_primary: false,
                 });
             }
-            if let Some(t) = to {
+            if let Some(n) = new_direction {
                 fields.push(TypedField {
-                    label: "to",
-                    value: FieldValue::Text(t.clone()),
+                    label: "new direction",
+                    value: FieldValue::Text(n.clone()),
                     is_primary: false,
                 });
             }
-            if let Some(t) = trigger {
+            if let Some(r) = reason {
                 fields.push(TypedField {
-                    label: "trigger",
-                    value: FieldValue::Text(t.clone()),
+                    label: "reason",
+                    value: FieldValue::Text(r.clone()),
                     is_primary: true,
+                });
+            }
+            if let Some(l) = lesson {
+                fields.push(TypedField {
+                    label: "lesson",
+                    value: FieldValue::Text(l.clone()),
+                    is_primary: false,
                 });
             }
             fields
@@ -584,6 +636,14 @@ fn render_detail(m: DetailModel, selected: RwSignal<Option<NodeId>>) -> impl Int
                     {m.support_level.clone().map(|sl| view! {
                         <span class="pill support">{sl}</span>
                     })}
+                    // Provenance tag (user / ai-suggested / …) when present.
+                    {m.provenance.clone().map(|p| view! {
+                        <span class="pill provenance">{p}</span>
+                    })}
+                    // Timestamp (ISO date string, carried verbatim) when present.
+                    {m.timestamp.clone().map(|t| view! {
+                        <span class="pill timestamp">{t}</span>
+                    })}
                     // Isolated-subtree pill (#56) when the node is in one.
                     {m.isolated.then(|| view! {
                         <span class="pill iso">"isolated"</span>
@@ -605,8 +665,9 @@ fn render_detail(m: DetailModel, selected: RwSignal<Option<NodeId>>) -> impl Int
             // hub order. No visible UI until then.
 
             // ── 3. WHAT IT DID + other typed fields (per-kind order) ───────
-            // For an Experiment the sole typed field is `result`, relabelled
-            // "what it did" in `typed_fields_for` (the WHAT IT DID block).
+            // For an Experiment the first typed field is `result`, relabelled
+            // "what it did" in `typed_fields_for` (the WHAT IT DID block),
+            // followed by the exploration/outcome/status narrative fields.
             {m.typed_fields.iter().map(|tf| {
                 let block_class = if tf.is_primary {
                     "block reason"
@@ -784,7 +845,7 @@ fn render_detail(m: DetailModel, selected: RwSignal<Option<NodeId>>) -> impl Int
                 None
             }}
 
-            // ── 7. Provenance ─────────────────────────────────────────────
+            // ── 7. Sources ────────────────────────────────────────────────
             {if !m.source_refs.is_empty() {
                 Some(view! {
                     <CollapsibleBlock label="sources" count=m.source_refs.len() class="provenance-block" selected=selected>
@@ -876,6 +937,8 @@ mod tests {
             support_level: None,
             source_refs: vec![],
             description: None,
+            provenance: None,
+            timestamp: None,
             fields,
             evidence_notes: vec![],
             isolated: false,
@@ -989,28 +1052,63 @@ mod tests {
         assert!(!m.typed_fields[2].is_primary, "lesson is NOT primary");
     }
 
-    /// A `Pivot` node with from/to/trigger → typed_fields labels are exactly
-    /// ["from", "to", "trigger"] in that order; trigger is_primary.
+    /// A `Pivot` node with prior_direction/new_direction/reason/lesson →
+    /// typed_fields labels are exactly
+    /// ["prior direction", "new direction", "reason", "lesson"] in that order;
+    /// reason is_primary.
     #[test]
-    fn pivot_from_to_trigger_order() {
+    fn pivot_narrative_order() {
         let node = Node {
             fields: NodeFields::Pivot {
-                from: Some("Full manual curation".to_string()),
-                to: Some("Semi-automated pipeline".to_string()),
-                trigger: Some("Manual curation infeasible at scale.".to_string()),
+                prior_direction: Some("Full manual curation".to_string()),
+                new_direction: Some("Semi-automated pipeline".to_string()),
+                reason: Some("Manual curation infeasible at scale.".to_string()),
+                lesson: Some("Automate the bottleneck first.".to_string()),
             },
             ..make_node("N01", NodeKind::Pivot, NodeFields::Other)
         };
         let m = detail_model(&node, &bare_manifest());
         let labels: Vec<&str> = m.typed_fields.iter().map(|f| f.label).collect();
-        assert_eq!(labels, ["from", "to", "trigger"]);
-        assert!(!m.typed_fields[0].is_primary, "from is NOT primary");
-        assert!(!m.typed_fields[1].is_primary, "to is NOT primary");
-        assert!(m.typed_fields[2].is_primary, "trigger IS primary");
+        assert_eq!(
+            labels,
+            ["prior direction", "new direction", "reason", "lesson"]
+        );
+        assert!(
+            !m.typed_fields[0].is_primary,
+            "prior direction is NOT primary"
+        );
+        assert!(
+            !m.typed_fields[1].is_primary,
+            "new direction is NOT primary"
+        );
+        assert!(m.typed_fields[2].is_primary, "reason IS primary");
+        assert!(!m.typed_fields[3].is_primary, "lesson is NOT primary");
         assert_eq!(
             m.typed_fields[2].value,
             FieldValue::Text("Manual curation infeasible at scale.".to_string())
         );
+        assert_eq!(
+            m.typed_fields[3].value,
+            FieldValue::Text("Automate the bottleneck first.".to_string())
+        );
+    }
+
+    /// A `Pivot` node with only `reason` → the single typed field, primary.
+    #[test]
+    fn pivot_reason_only() {
+        let node = Node {
+            fields: NodeFields::Pivot {
+                prior_direction: None,
+                new_direction: None,
+                reason: Some("The old path stopped scaling.".to_string()),
+                lesson: None,
+            },
+            ..make_node("N01", NodeKind::Pivot, NodeFields::Other)
+        };
+        let m = detail_model(&node, &bare_manifest());
+        assert_eq!(m.typed_fields.len(), 1);
+        assert_eq!(m.typed_fields[0].label, "reason");
+        assert!(m.typed_fields[0].is_primary);
     }
 
     /// A `Pivot` node with all fields `None` → no typed fields.
@@ -1018,9 +1116,10 @@ mod tests {
     fn pivot_all_none_no_typed_fields() {
         let node = Node {
             fields: NodeFields::Pivot {
-                from: None,
-                to: None,
-                trigger: None,
+                prior_direction: None,
+                new_direction: None,
+                reason: None,
+                lesson: None,
             },
             ..make_node("N01", NodeKind::Pivot, NodeFields::Other)
         };
@@ -1037,6 +1136,9 @@ mod tests {
         let node = Node {
             fields: NodeFields::Experiment {
                 result: Some("28.4 BLEU".to_string()),
+                exploration: None,
+                outcome: None,
+                status: None,
             },
             ..make_node("N03", NodeKind::Experiment, NodeFields::Other)
         };
@@ -1050,15 +1152,134 @@ mod tests {
         );
     }
 
-    /// `Experiment { result: None }` → no typed fields.
+    /// `Experiment { result: None, .. }` with no narrative fields → no typed
+    /// fields.
     #[test]
     fn experiment_result_none_no_typed_fields() {
         let node = Node {
-            fields: NodeFields::Experiment { result: None },
+            fields: NodeFields::Experiment {
+                result: None,
+                exploration: None,
+                outcome: None,
+                status: None,
+            },
             ..make_node("N03", NodeKind::Experiment, NodeFields::Other)
         };
         let m = detail_model(&node, &bare_manifest());
         assert!(m.typed_fields.is_empty());
+    }
+
+    /// A full experiment narrative → typed_fields labels are exactly
+    /// ["what it did", "exploration", "outcome", "status"] in that order;
+    /// only "what it did" is primary.
+    #[test]
+    fn experiment_narrative_order() {
+        let node = Node {
+            fields: NodeFields::Experiment {
+                result: Some("Swept 3 learning rates.".to_string()),
+                exploration: Some("Grid over lr ∈ {1e-4, 3e-4, 1e-3}.".to_string()),
+                outcome: Some("3e-4 wins by 0.4 BLEU.".to_string()),
+                status: Some("succeeded".to_string()),
+            },
+            ..make_node("N03", NodeKind::Experiment, NodeFields::Other)
+        };
+        let m = detail_model(&node, &bare_manifest());
+        let labels: Vec<&str> = m.typed_fields.iter().map(|f| f.label).collect();
+        assert_eq!(labels, ["what it did", "exploration", "outcome", "status"]);
+        assert!(m.typed_fields[0].is_primary, "what it did IS primary");
+        assert!(!m.typed_fields[1].is_primary, "exploration is NOT primary");
+        assert!(!m.typed_fields[2].is_primary, "outcome is NOT primary");
+        assert!(!m.typed_fields[3].is_primary, "status is NOT primary");
+        assert_eq!(
+            m.typed_fields[1].value,
+            FieldValue::Text("Grid over lr ∈ {1e-4, 3e-4, 1e-3}.".to_string())
+        );
+        assert_eq!(
+            m.typed_fields[2].value,
+            FieldValue::Text("3e-4 wins by 0.4 BLEU.".to_string())
+        );
+        assert_eq!(
+            m.typed_fields[3].value,
+            FieldValue::Text("succeeded".to_string())
+        );
+    }
+
+    /// Narrative fields without `result` still render (in exploration →
+    /// outcome → status order); absent fields are omitted.
+    #[test]
+    fn experiment_narrative_without_result() {
+        let node = Node {
+            fields: NodeFields::Experiment {
+                result: None,
+                exploration: Some("Probing transfer.".to_string()),
+                outcome: None,
+                status: Some("running".to_string()),
+            },
+            ..make_node("N03", NodeKind::Experiment, NodeFields::Other)
+        };
+        let m = detail_model(&node, &bare_manifest());
+        let labels: Vec<&str> = m.typed_fields.iter().map(|f| f.label).collect();
+        assert_eq!(labels, ["exploration", "status"]);
+        assert!(!m.typed_fields.iter().any(|f| f.is_primary));
+    }
+
+    // ── Provenance + timestamp metadata ─────────────────────────────────────
+
+    /// `provenance` / `timestamp` propagate to the model when present.
+    #[test]
+    fn provenance_and_timestamp_propagated() {
+        let node = Node {
+            provenance: Some("ai-executed".to_string()),
+            timestamp: Some("2026-08-19".to_string()),
+            ..make_node("N01", NodeKind::Question, NodeFields::Question)
+        };
+        let m = detail_model(&node, &bare_manifest());
+        assert_eq!(m.provenance, Some("ai-executed".to_string()));
+        assert_eq!(m.timestamp, Some("2026-08-19".to_string()));
+    }
+
+    /// Absent provenance/timestamp stay `None` (pills omitted at render) and
+    /// do not affect emptiness — they are header metadata, not body content.
+    #[test]
+    fn provenance_and_timestamp_absent_stay_none() {
+        let node = make_node("N01", NodeKind::Question, NodeFields::Question);
+        let m = detail_model(&node, &bare_manifest());
+        assert_eq!(m.provenance, None);
+        assert_eq!(m.timestamp, None);
+        assert!(m.is_empty(), "header metadata alone does not fill the pane");
+    }
+
+    // ── Exhibit kind labels (result / proof) ────────────────────────────────
+
+    /// `ExhibitKind::Result` / `ExhibitKind::Proof` resolve to the lowercase
+    /// labels "result" / "proof" in the RESULT block chips.
+    #[test]
+    fn exhibit_kind_labels_result_and_proof() {
+        assert_eq!(exhibit_kind_label(&ExhibitKind::Figure), "figure");
+        assert_eq!(exhibit_kind_label(&ExhibitKind::Table), "table");
+        assert_eq!(exhibit_kind_label(&ExhibitKind::Result), "result");
+        assert_eq!(exhibit_kind_label(&ExhibitKind::Proof), "proof");
+        assert_eq!(exhibit_kind_label(&ExhibitKind::Other), "other");
+
+        // And through the model: a linked Result exhibit carries "result".
+        let node = make_node("N01", NodeKind::Question, NodeFields::Question);
+        let mut manifest = bare_manifest();
+        manifest.exhibits = vec![Exhibit {
+            id: "R01".to_string(),
+            file: "evidence/results/main.md".to_string(),
+            kind: ExhibitKind::Result,
+            source: None,
+            description: None,
+            claims: vec![],
+            body: String::new(),
+        }];
+        manifest.node_exhibits = vec![NodeExhibit {
+            node: NodeId::new("N01"),
+            exhibit: "R01".to_string(),
+        }];
+        let m = detail_model(&node, &manifest);
+        assert_eq!(m.result_exhibits.len(), 1);
+        assert_eq!(m.result_exhibits[0].kind, "result");
     }
 
     // ── Claim resolution ──────────────────────────────────────────────────────
@@ -1072,7 +1293,12 @@ mod tests {
         let node = make_node(
             "N01",
             NodeKind::Experiment,
-            NodeFields::Experiment { result: None },
+            NodeFields::Experiment {
+                result: None,
+                exploration: None,
+                outcome: None,
+                status: None,
+            },
         );
 
         let mut manifest = bare_manifest();
@@ -1235,7 +1461,12 @@ mod tests {
             ..make_node(
                 "N01",
                 NodeKind::Experiment,
-                NodeFields::Experiment { result: None },
+                NodeFields::Experiment {
+                    result: None,
+                    exploration: None,
+                    outcome: None,
+                    status: None,
+                },
             )
         };
         let m = detail_model(&node, &bare_manifest());
@@ -1273,7 +1504,12 @@ mod tests {
         let node = make_node(
             "N01",
             NodeKind::Experiment,
-            NodeFields::Experiment { result: None },
+            NodeFields::Experiment {
+                result: None,
+                exploration: None,
+                outcome: None,
+                status: None,
+            },
         );
 
         let mut manifest = bare_manifest();
@@ -1544,12 +1780,22 @@ mod tests {
         let child = make_node(
             "N02",
             NodeKind::Experiment,
-            NodeFields::Experiment { result: None },
+            NodeFields::Experiment {
+                result: None,
+                exploration: None,
+                outcome: None,
+                status: None,
+            },
         );
         let grandchild = make_node(
             "N03",
             NodeKind::Experiment,
-            NodeFields::Experiment { result: None },
+            NodeFields::Experiment {
+                result: None,
+                exploration: None,
+                outcome: None,
+                status: None,
+            },
         );
         let mut manifest = bare_manifest();
         manifest.nodes = vec![root.clone(), child.clone(), grandchild.clone()];

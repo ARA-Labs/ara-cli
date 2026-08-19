@@ -367,6 +367,8 @@ mod tests {
             support_level: None,
             source_refs: vec![],
             description: None,
+            provenance: None,
+            timestamp: None,
             fields: NodeFields::Question,
             evidence_notes: vec![],
             isolated: false,

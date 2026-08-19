@@ -972,6 +972,19 @@ body.is-resizing.resizing-row { cursor: row-resize; }
   border: 1px solid var(--line);
 }
 
+/* Provenance + timestamp pills (node metadata, same pill idiom as support). */
+.pill.provenance,
+.pill.timestamp {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.1rem 0.45rem;
+  border-radius: 9999px;
+  font-size: 0.7rem;
+  background-color: var(--chip);
+  color: var(--muted);
+  border: 1px solid var(--line);
+}
+
 /* Node id in the detail meta row (#56). */
 .detail-node-id {
   font-size: 0.75rem;
