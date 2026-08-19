@@ -95,6 +95,21 @@ The **logical** model (`nodes`, `links`, `bindings`, `claims`, `NodeKind`,
 - Extra fields via the existing `extra` capture at the raw layer.
 - Future `schema_version` field for dialect negotiation.
 
+Additive extension is the only *compatible* logical change. Renaming an
+existing wire key is a **logical breaking change** — not a geometry one: the
+pivot body keys were renamed in `0.1.15` (`from` → `prior_direction`, `to` →
+`new_direction`, `trigger` → `reason`). An old manifest that still carries the
+old keys no longer projects them; they fall into `extra` and surface as
+unknown-field warnings. `ara check` provides the migration path: ARA005–ARA007
+rename the keys in place and recover the values. The frozen-geometry contract
+above is unaffected.
+
+One deliberate name collision: `reason:` is the **canonical** key on a `pivot`
+node (ARA007 renames `trigger:` to it) but an **alias** of `why_failed:` on a
+`dead_end` node (ARA002 renames it away). The lint rules are kind-scoped — a
+key is only flagged when it sits directly on a node of the matching kind — so
+the same spelling is treated correctly per node type.
+
 Only a **geometry** change (new fields on `Point`, `Rect`, or the semantics of
 `pos`/`bounds`) requires a coordinated `ara-core` + client version bump.
 

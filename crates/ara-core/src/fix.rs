@@ -27,9 +27,10 @@
 //! - **ARA001** (structural, semantic no-op): accept only clean normalized
 //!   outcomes with an *unchanged* manifest (`mc == mb`). This protects the
 //!   re-indent and deliberately remains stricter than the recovering guards.
-//! - **ARA002 / ARA003** (alias rename, value-recovering): after diagnostic
-//!   containment, accept only if one node's target field goes `None → Some` and
-//!   clearing that field reproduces the base manifest exactly.
+//! - **ARA002 / ARA003 / ARA005–ARA007** (alias rename, value-recovering):
+//!   after diagnostic containment, accept only if one node's target field goes
+//!   `None → Some` and clearing that field reproduces the base manifest
+//!   exactly.
 //! - **ARA004** (claim-header rewrite, value-recovering): after diagnostic
 //!   containment, accept only if one header-matching claim appears, nodes and
 //!   links remain identical, and removing that claim plus its bindings

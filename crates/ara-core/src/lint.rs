@@ -3,9 +3,11 @@
 //!
 //! This is deliberately **separate** from [`crate::parse`]: `parse_sources` /
 //! `parse_dir` normalize an artifact into a [`crate::Manifest`] and are tolerant
-//! by design — unrecognized keys like `reason:` / `justification:` don't error;
-//! they are **not** `serde` aliases of `why_failed:` / `rationale:` but fall into
-//! `extra`, surface as `unknown field` warnings, and their values are **dropped**.
+//! by design — drifted keys like `reason:` (on a `dead_end`), `justification:`,
+//! or the pivot `from:` / `to:` / `trigger:` don't error; they are **not**
+//! `serde` aliases of the canonical keys, so each surfaces as a warning
+//! (`unknown field` for the unmodeled spellings, `field dropped for type` for
+//! `reason:`, which names the pivot-canonical key) and its value is **dropped**.
 //! This module instead works on the *unparsed* text so it can point at the exact
 //! line/byte span a later applier rewrites to **recover** those dropped values,
 //! and it is **not** wired into parsing — `ara validate` behavior is unchanged.
@@ -96,7 +98,8 @@ impl LintFile {
 pub enum FixCandidate {
     /// Replace the byte range `[start_col, end_col)` on 0-based line `line` with
     /// `replacement`. Columns are byte offsets within that line. Used for the
-    /// line-level renames (ARA002/ARA003) and the claim-header rewrite (ARA004).
+    /// line-level renames (ARA002/ARA003, ARA005–ARA007) and the claim-header
+    /// rewrite (ARA004).
     ReplaceInLine {
         /// 0-based line index.
         line: usize,

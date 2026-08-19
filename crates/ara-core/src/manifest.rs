@@ -208,7 +208,8 @@ pub struct Recipe {
     pub body: String,
 }
 
-/// The kind of an exhibit. `Other` preserves anything not a figure or table.
+/// The kind of an exhibit. `Other` preserves anything not a figure, proof,
+/// result, or table.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ExhibitKind {
@@ -219,14 +220,15 @@ pub enum ExhibitKind {
     Other,
 }
 
-/// One figure or table, parsed from `evidence/`. Populated by a later task.
+/// One evidence exhibit — a figure, proof, result, or table body file plus
+/// its index metadata, parsed from `evidence/`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Exhibit {
     /// Exhibit id.
     pub id: String,
     /// Source file, relative to the artifact root.
     pub file: String,
-    /// Figure / table / other.
+    /// Figure / proof / result / table / other.
     pub kind: ExhibitKind,
     /// Origin of the exhibit, when stated.
     pub source: Option<String>,

@@ -82,6 +82,14 @@ cold. Remove an item when it lands.
   proves the parser never unwind-panics on real data and always produces a
   `ParseReport`. That is *not* this task: it does not parse real artifacts
   cleanly, it only guards robustness. Keep the two distinct.
+- **Status (2026-08-19, 0.1.15 / #75):** the published subset landed — the
+  `pivot` kind (`prior_direction`/`new_direction`/`reason`/`lesson`, with
+  ARA005–ARA007 renaming the corpus's `from`/`to`/`trigger` spellings in
+  place), `dead_end` `hypothesis`/`failure_mode`/`lesson`, `experiment`
+  `exploration`/`outcome`/`status`, universal `provenance`/`timestamp`, and
+  `evidence/results/` + `evidence/proofs/` discovery. The corpus-only fields
+  `thinking`/`method`/`justification` and the `ara-2.0` streams document
+  format remain deferred; keep this item open for them.
 - **Depends on:** none (can start any time); overlaps with T-ARA-SCHEMA if the
   maintainer publishes a schema first.
 

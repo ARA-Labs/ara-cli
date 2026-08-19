@@ -51,13 +51,17 @@ a published schema later (`T-ARA-SCHEMA`) without changing the viewer:
 - **`evidence/README.md`** — one or more index tables mapping each figure/table
   file to its paper `Source` and `Claims`; **8 header variants** exist across the
   corpus, **4 with no `Claims` column**.
-- **`evidence/{figures,tables}/*.md`** — caption / axes / markdown data tables.
+- **`evidence/{figures,proofs,results,tables}/*.md`** — caption / axes /
+  markdown data tables.
 
 ## Data model (`ara-core`)
 
 `NodeKind` gains `Pivot`; `NodeFields::DeadEnd` gains
 `hypothesis`/`failure_mode`/`lesson` (keeping `why_failed`); `NodeFields::Pivot`
-carries `from`/`to`/`trigger`. `Manifest` gains eight sections:
+carries `prior_direction`/`new_direction`/`reason`/`lesson` (the corpus's
+`from`/`to`/`trigger` spellings are not modeled — they fall into `extra` as
+unknown fields, and `ara check` renames them in place via ARA005–ARA007).
+`Manifest` gains eight sections:
 
 | Field | Source | Notes |
 |---|---|---|
@@ -66,7 +70,7 @@ carries `from`/`to`/`trigger`. `Manifest` gains eight sections:
 | `concepts: Vec<Concept>` | `logic/concepts.md` | term + notation/definition/boundary + related |
 | `related_work: Vec<RelatedWork>` | `logic/related_work.md` | id, cite, kind, delta, adopted, `claims_affected` |
 | `recipes: Vec<Recipe>` | `logic/solution/*.md` | one per file (name, title, raw body) |
-| `exhibits: Vec<Exhibit>` | `evidence/**` | id, file, kind, source, description, claims, **raw markdown body** |
+| `exhibits: Vec<Exhibit>` | `evidence/**` | id, file, kind (`figure`/`proof`/`result`/`table`/`other`), source, description, claims, **raw markdown body**; a basename duplicated across categories keeps both bodies and warns once |
 | `built_on: Vec<BuiltOn>` | resolution | node → related-work id |
 | `node_exhibits: Vec<NodeExhibit>` | resolution | node → exhibit id |
 
@@ -84,7 +88,10 @@ skipped silently**; a **malformed present file warns**, never fatal, never
 panics. The `evidence/README.md` index parser matches columns by **header name,
 not position** (`file` / `claim`|`key ref`|`used by`), normalizes file cells
 across markdown-link / backtick / `(png/md)` forms, and falls back to an inline
-`Supports: C##` body line when a table has no claims column.
+`Supports: C##` body line when a table has no claims column. Body files are
+enumerated from `evidence/figures/`, `evidence/proofs/`, `evidence/results/`,
+then `evidence/tables/` — a fixed category order, each sorted — so exhibit order
+is deterministic.
 
 ### Resolution passes (deterministic, source-order)
 

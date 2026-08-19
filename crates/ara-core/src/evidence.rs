@@ -2,7 +2,10 @@
 //! resolution.
 //!
 //! The evidence layer is an index (`evidence/README.md`) plus body files under
-//! `evidence/figures/*.md` and `evidence/tables/*.md`. The corpus index tables
+//! `evidence/figures/*.md`, `evidence/proofs/*.md`, `evidence/results/*.md`,
+//! and `evidence/tables/*.md` (enumerated in that fixed order, each sorted; a
+//! basename duplicated across categories keeps both bodies and warns once).
+//! The corpus index tables
 //! drift heavily — eight distinct header shapes across the 34 real artifacts,
 //! some with no claims column, one reordering columns, others using `Key refs`
 //! or `Used by` in place of `Claims`. So [`parse_index`] is **column-name
