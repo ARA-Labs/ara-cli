@@ -6,6 +6,11 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.1.15] - 2026-08-19
+
+First published release since v0.1.12 — also ships the changes merged as
+0.1.13 and 0.1.14, which were never tagged.
+
 ### Added
 - Core: published node metadata contract — every node now carries provenance
   and timestamp metadata, pivot nodes model
@@ -27,16 +32,6 @@ All notable changes to this project are documented here. The format follows
   `prior_direction`/`new_direction`/`reason`, with a new `lesson` field; the
   parser tolerates the legacy keys, and `ara check --fix` migrates them via
   ARA005–ARA007 (#75).
-
-### Fixed
-- `ara check --fix` now safely applies ARA002, ARA003, and ARA004 value
-  recovery to normalized error-bearing artifacts when the candidate introduces
-  no new error occurrences and has the exact rule-specific semantic delta;
-  fatal parse outcomes still reject without writing (#42).
-
-## [0.1.13] - 2026-07-29
-
-### Changed
 - Viewer: the app frame is now viewport-bounded (`body` uses a fixed
   `100vh`/`100dvh` height instead of `min-height`), so a long tree-mode node
   list scrolls inside its own map pane instead of growing the whole page —
@@ -47,6 +42,12 @@ All notable changes to this project are documented here. The format follows
   top-to-bottom in a fixed, independently scrollable left pane on first load.
   `stack` and `graph` remain available from the toolbar; unknown mode tokens
   now fall back to the new defaults.
+
+### Fixed
+- `ara check --fix` now safely applies ARA002, ARA003, and ARA004 value
+  recovery to normalized error-bearing artifacts when the candidate introduces
+  no new error occurrences and has the exact rule-specific semantic delta;
+  fatal parse outcomes still reject without writing (#42).
 
 ## [0.1.12] - 2026-07-25
 
