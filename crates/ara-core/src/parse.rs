@@ -371,6 +371,8 @@ impl Normalizer {
             support_level: raw.support_level.clone(),
             source_refs: raw.source_refs.clone(),
             description: raw.description.clone(),
+            provenance: raw.provenance.clone(),
+            timestamp: raw.timestamp.clone(),
             fields,
             evidence_notes,
             isolated: raw.isolated,
@@ -393,6 +395,9 @@ impl Normalizer {
                 NodeKind::Experiment,
                 NodeFields::Experiment {
                     result: raw.result.clone(),
+                    exploration: raw.exploration.clone(),
+                    outcome: raw.outcome.clone(),
+                    status: raw.status.clone(),
                 },
             ),
             Some("decision") => (
@@ -416,9 +421,10 @@ impl Normalizer {
             Some("pivot") => (
                 NodeKind::Pivot,
                 NodeFields::Pivot {
-                    from: raw.from.clone(),
-                    to: raw.to.clone(),
-                    trigger: raw.trigger.clone(),
+                    prior_direction: raw.prior_direction.clone(),
+                    new_direction: raw.new_direction.clone(),
+                    reason: raw.reason.clone(),
+                    lesson: raw.lesson.clone(),
                 },
             ),
             Some("") | None => {
@@ -481,6 +487,15 @@ fn body_field_names(raw: &RawNode) -> Vec<&'static str> {
     if raw.result.is_some() {
         names.push("result");
     }
+    if raw.status.is_some() {
+        names.push("status");
+    }
+    if raw.exploration.is_some() {
+        names.push("exploration");
+    }
+    if raw.outcome.is_some() {
+        names.push("outcome");
+    }
     if raw.why_failed.is_some() {
         names.push("why_failed");
     }
@@ -493,14 +508,14 @@ fn body_field_names(raw: &RawNode) -> Vec<&'static str> {
     if raw.lesson.is_some() {
         names.push("lesson");
     }
-    if raw.from.is_some() {
-        names.push("from");
+    if raw.prior_direction.is_some() {
+        names.push("prior_direction");
     }
-    if raw.to.is_some() {
-        names.push("to");
+    if raw.new_direction.is_some() {
+        names.push("new_direction");
     }
-    if raw.trigger.is_some() {
-        names.push("trigger");
+    if raw.reason.is_some() {
+        names.push("reason");
     }
     if raw.choice.is_some() {
         names.push("choice");
@@ -1011,25 +1026,64 @@ tree:
     }
 
     #[test]
+    fn unknown_type_dropped_new_body_fields_warn() {
+        // The published pivot/experiment body fields are canonical too: an
+        // unknown-typed node carrying them must warn per field, so nothing is
+        // lost silently.
+        let yaml = "\
+tree:
+  - id: N01
+    type: hypothesis
+    prior_direction: dense
+    new_direction: sparse
+    reason: latency
+    status: running
+    exploration: grid
+    outcome: wins
+";
+        let (m, report) = parse_sources(yaml, None).expect("ok");
+        assert_eq!(m.nodes[0].kind, NodeKind::Other("hypothesis".into()));
+        for field in [
+            "prior_direction",
+            "new_direction",
+            "reason",
+            "status",
+            "exploration",
+            "outcome",
+        ] {
+            assert!(
+                report.warnings().iter().any(|d| d
+                    .message
+                    .contains(&format!("`{field}` dropped for unknown type `hypothesis`"))),
+                "expected dropped-field warning for `{field}`, got: {report}"
+            );
+        }
+    }
+
+    #[test]
     fn pivot_projects_kind_and_fields_no_warning() {
         // A `pivot` node projects to NodeKind::Pivot + NodeFields::Pivot with
-        // from/to/trigger populated, and carries no unknown-field warning.
+        // prior_direction/new_direction/reason/lesson populated, and carries no
+        // unknown-field warning. `lesson` is shared with `dead_end` at the raw
+        // layer and must project for pivot too (regression pin).
         let yaml = "\
 tree:
   - id: N01
     type: pivot
-    from: manual
-    to: automated
-    trigger: infeasible at scale
+    prior_direction: manual
+    new_direction: automated
+    reason: infeasible at scale
+    lesson: profile before committing
 ";
         let (m, report) = parse_sources(yaml, None).expect("ok");
         assert_eq!(m.nodes[0].kind, NodeKind::Pivot);
         assert_eq!(
             m.nodes[0].fields,
             NodeFields::Pivot {
-                from: Some("manual".to_string()),
-                to: Some("automated".to_string()),
-                trigger: Some("infeasible at scale".to_string()),
+                prior_direction: Some("manual".to_string()),
+                new_direction: Some("automated".to_string()),
+                reason: Some("infeasible at scale".to_string()),
+                lesson: Some("profile before committing".to_string()),
             }
         );
         assert!(
