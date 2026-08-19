@@ -309,11 +309,15 @@ fn non_empty(s: &str) -> Option<String> {
 
 /// Reads the `evidence/` layer of `dir` into exhibits, appending warnings.
 ///
-/// Enumerates `evidence/figures/*.md` then `evidence/tables/*.md` (each sorted),
-/// building one [`Exhibit`] per body file. Index rows enrich the matching body
-/// by basename id (index wins over body for source/description). An index row
-/// with no matching body, or a body with no index row, warns but never errors.
-/// An absent `evidence/` dir or absent `README.md` is a silent skip.
+/// Enumerates `evidence/figures/*.md`, `evidence/proofs/*.md`,
+/// `evidence/results/*.md`, then `evidence/tables/*.md` (fixed order, each
+/// sorted), building one [`Exhibit`] per body file. Index rows enrich the
+/// matching body by basename id (index wins over body for source/description).
+/// An index row with no matching body, or a body with no index row, warns but
+/// never errors. The same basename appearing in two categories also warns —
+/// exhibit identity is basename-based, so both exhibits keep their bodies but
+/// share index enrichment. An absent `evidence/` dir or absent `README.md` is
+/// a silent skip.
 #[cfg(feature = "native")]
 pub(crate) fn read_evidence(
     dir: &std::path::Path,
@@ -340,9 +344,14 @@ pub(crate) fn read_evidence(
 
     let mut exhibits = Vec::new();
     let mut consumed: BTreeSet<String> = BTreeSet::new();
+    // First category each basename was read from, for the duplicate-id warning.
+    let mut first_seen: std::collections::BTreeMap<String, &'static str> =
+        std::collections::BTreeMap::new();
 
     for (subdir, kind) in [
         ("figures", ExhibitKind::Figure),
+        ("proofs", ExhibitKind::Proof),
+        ("results", ExhibitKind::Result),
         ("tables", ExhibitKind::Table),
     ] {
         for path in sorted_md_files(&evidence_dir.join(subdir)) {
@@ -359,6 +368,27 @@ pub(crate) fn read_evidence(
                     .map(|s| s.to_string_lossy())
                     .unwrap_or_default()
             );
+
+            // Duplicate basename across categories: identity stays
+            // basename-based and both bodies are kept, but the collision must
+            // not be silent.
+            match first_seen.entry(id.clone()) {
+                std::collections::btree_map::Entry::Vacant(v) => {
+                    v.insert(subdir);
+                }
+                std::collections::btree_map::Entry::Occupied(o) => {
+                    if *o.get() != subdir {
+                        report.warn(
+                            format!("evidence/{subdir}/{id}"),
+                            format!(
+                                "duplicate exhibit basename: already read from evidence/{}/{id}; \
+                                 both bodies kept, index enrichment is shared",
+                                o.get()
+                            ),
+                        );
+                    }
+                }
+            }
 
             let row = index_by_id.get(&id);
             if let Some(row) = row {
@@ -738,6 +768,164 @@ mod tests {
         let bindings = vec![binding("N01", "C99")];
         let exhibits = vec![exhibit("figA", &["C01"])];
         assert!(resolve_node_exhibits(&nodes, &bindings, &exhibits).is_empty());
+    }
+
+    // ── read_evidence (native, filesystem) ──────────────────────────────────
+
+    /// Builds a temp artifact with an `evidence/` layer. `files` are
+    /// `(subdir, name, body)`; `readme` is the optional index.
+    #[cfg(feature = "native")]
+    fn evidence_artifact(
+        files: &[(&str, &str, &str)],
+        readme: Option<&str>,
+    ) -> tempfile::TempDir {
+        let dir = tempfile::TempDir::new().unwrap();
+        let evidence = dir.path().join("evidence");
+        for (subdir, name, body) in files {
+            let d = evidence.join(subdir);
+            std::fs::create_dir_all(&d).unwrap();
+            std::fs::write(d.join(name), body).unwrap();
+        }
+        if let Some(md) = readme {
+            std::fs::create_dir_all(&evidence).unwrap();
+            std::fs::write(evidence.join("README.md"), md).unwrap();
+        }
+        dir
+    }
+
+    #[cfg(feature = "native")]
+    #[test]
+    fn read_evidence_enumerates_four_categories_in_fixed_order() {
+        let dir = evidence_artifact(
+            &[
+                ("tables", "t2.md", "table two"),
+                ("results", "r2.md", "result two"),
+                ("figures", "f2.md", "fig two"),
+                ("proofs", "p2.md", "proof two"),
+                ("tables", "t1.md", "table one"),
+                ("figures", "f1.md", "fig one"),
+                ("proofs", "p1.md", "proof one"),
+                ("results", "r1.md", "result one"),
+            ],
+            None,
+        );
+        let mut report = crate::report::ParseReport::default();
+        let exhibits = read_evidence(dir.path(), &mut report);
+        let order: Vec<(ExhibitKind, &str)> = exhibits
+            .iter()
+            .map(|e| (e.kind.clone(), e.id.as_str()))
+            .collect();
+        assert_eq!(
+            order,
+            vec![
+                (ExhibitKind::Figure, "f1"),
+                (ExhibitKind::Figure, "f2"),
+                (ExhibitKind::Proof, "p1"),
+                (ExhibitKind::Proof, "p2"),
+                (ExhibitKind::Result, "r1"),
+                (ExhibitKind::Result, "r2"),
+                (ExhibitKind::Table, "t1"),
+                (ExhibitKind::Table, "t2"),
+            ]
+        );
+        // Bodies are verbatim.
+        assert_eq!(exhibits[0].body, "fig one");
+        assert_eq!(exhibits[7].body, "table two");
+        // No index README → one "no index row" warning per body, no duplicates.
+        assert!(report
+            .warnings()
+            .iter()
+            .all(|w| !w.message.contains("duplicate")));
+    }
+
+    #[cfg(feature = "native")]
+    #[test]
+    fn read_evidence_results_and_proofs_enriched_from_index() {
+        // Reordered-columns header — the tolerant parse resolves `Claims` by
+        // name, not position, for results/proofs rows the same as figures.
+        let readme = "\
+| File | Description | Source | Claims |
+|------|-------------|--------|--------|
+| [results/main_result.md](results/main_result.md) | the number | run 42 | C01, C02 |
+| [proofs/lemma1.md](proofs/lemma1.md) | lemma one | appendix A | C03 |
+";
+        let dir = evidence_artifact(
+            &[
+                ("results", "main_result.md", "result body"),
+                ("proofs", "lemma1.md", "proof body"),
+            ],
+            Some(readme),
+        );
+        let mut report = crate::report::ParseReport::default();
+        let exhibits = read_evidence(dir.path(), &mut report);
+        assert_eq!(exhibits.len(), 2);
+        // Fixed order: proofs before results.
+        let proof = &exhibits[0];
+        assert_eq!(proof.kind, ExhibitKind::Proof);
+        assert_eq!(proof.id, "lemma1");
+        assert_eq!(proof.file, "evidence/proofs/lemma1.md");
+        assert_eq!(proof.source.as_deref(), Some("appendix A"));
+        assert_eq!(proof.description.as_deref(), Some("lemma one"));
+        assert_eq!(proof.claims, claims(&["C03"]));
+        assert_eq!(proof.body, "proof body");
+        let result = &exhibits[1];
+        assert_eq!(result.kind, ExhibitKind::Result);
+        assert_eq!(result.id, "main_result");
+        assert_eq!(result.source.as_deref(), Some("run 42"));
+        assert_eq!(result.description.as_deref(), Some("the number"));
+        assert_eq!(result.claims, claims(&["C01", "C02"]));
+        // Both bodies matched index rows → no warnings at all.
+        assert!(report.warnings().is_empty());
+    }
+
+    #[cfg(feature = "native")]
+    #[test]
+    fn read_evidence_duplicate_basename_across_categories_warns_once() {
+        let dir = evidence_artifact(
+            &[
+                ("figures", "shared.md", "figure body"),
+                ("results", "shared.md", "result body"),
+                ("tables", "solo.md", "table body"),
+            ],
+            None,
+        );
+        let mut report = crate::report::ParseReport::default();
+        let exhibits = read_evidence(dir.path(), &mut report);
+
+        // Both bodies survive, in fixed category order.
+        let shared: Vec<&Exhibit> = exhibits.iter().filter(|e| e.id == "shared").collect();
+        assert_eq!(shared.len(), 2);
+        assert_eq!(shared[0].kind, ExhibitKind::Figure);
+        assert_eq!(shared[0].body, "figure body");
+        assert_eq!(shared[0].file, "evidence/figures/shared.md");
+        assert_eq!(shared[1].kind, ExhibitKind::Result);
+        assert_eq!(shared[1].body, "result body");
+        assert_eq!(shared[1].file, "evidence/results/shared.md");
+
+        // Exactly one duplicate warning, on the later file.
+        let dup: Vec<_> = report
+            .warnings()
+            .iter()
+            .filter(|w| w.message.contains("duplicate"))
+            .collect();
+        assert_eq!(dup.len(), 1);
+        assert_eq!(dup[0].path, "evidence/results/shared");
+    }
+
+    #[cfg(feature = "native")]
+    #[test]
+    fn read_evidence_single_category_files_no_duplicate_warning() {
+        let dir = evidence_artifact(
+            &[("figures", "a.md", "alpha"), ("figures", "b.md", "beta")],
+            None,
+        );
+        let mut report = crate::report::ParseReport::default();
+        let exhibits = read_evidence(dir.path(), &mut report);
+        assert_eq!(exhibits.len(), 2);
+        assert!(report
+            .warnings()
+            .iter()
+            .all(|w| !w.message.contains("duplicate")));
     }
 
     // ── test helpers ─────────────────────────────────────────────────────────
