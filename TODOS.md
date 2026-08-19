@@ -3,6 +3,22 @@
 Deferred work captured during reviews. Each item has enough context to pick up
 cold. Remove an item when it lands.
 
+## Deferred from published-fields eng review (2026-08-19)
+
+### T-EXHIBIT-QUALIFIED-IDS — category-qualified exhibit ids if collisions prove real
+- **What:** Namespace `Exhibit.id` by category (`results/foo` vs `figures/foo`)
+  so cross-category basename duplicates resolve unambiguously.
+- **Why:** Issue #75 adds `evidence/results/` + `evidence/proofs/` discovery on
+  top of `figures/`/`tables/`. Exhibit identity is basename-only
+  (`evidence.rs`): the index map, the consumed set, and `NodeExhibit` dedup all
+  collide when two categories contain the same filename. The #75 PR ships a
+  duplicate-id *warning* as the minimal fail-closed move; this TODO is the
+  designed escalation if that warning ever fires on a real artifact.
+- **Context:** Qualified ids are wire-visible: `Exhibit.id` semantics change and
+  `NodeExhibit` references must carry the same qualification. Too big to justify
+  before a single real collision exists — the warning is the tripwire.
+- **Depends on:** a real artifact triggering the duplicate-exhibit-id warning.
+
 ## Deferred from Stage 0 eng review (2026-07-08)
 
 ### T-MSRV — MSRV verification job at the 0.1.0 release cut
@@ -66,6 +82,14 @@ cold. Remove an item when it lands.
   proves the parser never unwind-panics on real data and always produces a
   `ParseReport`. That is *not* this task: it does not parse real artifacts
   cleanly, it only guards robustness. Keep the two distinct.
+- **Status (2026-08-19, 0.1.15 / #75):** the published subset landed — the
+  `pivot` kind (`prior_direction`/`new_direction`/`reason`/`lesson`, with
+  ARA005–ARA007 renaming the corpus's `from`/`to`/`trigger` spellings in
+  place), `dead_end` `hypothesis`/`failure_mode`/`lesson`, `experiment`
+  `exploration`/`outcome`/`status`, universal `provenance`/`timestamp`, and
+  `evidence/results/` + `evidence/proofs/` discovery. The corpus-only fields
+  `thinking`/`method`/`justification` and the `ara-2.0` streams document
+  format remain deferred; keep this item open for them.
 - **Depends on:** none (can start any time); overlaps with T-ARA-SCHEMA if the
   maintainer publishes a schema first.
 

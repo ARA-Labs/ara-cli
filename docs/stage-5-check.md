@@ -28,9 +28,10 @@ different ways — none of which hands the author a fixable signal (see
 - **`root:` vs `tree:`** (item 2) — silently normalized. Both dialects parse
   (`root:` becomes a one-element list), so `validate` emits no diagnostic at all.
 - **dead-end `reason:` / decision `justification:`** (items 5, 4) — not
-  recognized as aliases. They fall into `extra`, surface as an `unknown field`
-  **warning**, and the value is **dropped** (the canonical keys are `why_failed:`
-  / `rationale:`).
+  recognized as aliases. `justification:` falls into `extra` and surfaces as an
+  `unknown field` **warning**; `reason:` names the pivot-canonical key, so on a
+  `dead_end` it surfaces as a `field dropped for type` warning — either way the
+  value is **dropped** (the canonical keys are `why_failed:` / `rationale:`).
 - **em-dash / hyphen claim headers** (item 7) — `parse_header` requires a `:`
   separator, so `## C01 — Title` makes the **entire claim silently disappear**;
   it only surfaces indirectly as an "unknown claim" error if some node still
@@ -70,19 +71,23 @@ ara check <dir> [--fix] [--strict] [--json]
    are reported **not fixable**.
 2. **Format-lint layer (new):** a small, closed set of rules (`check_dir`) that
    detect the *canonicalizable* drift and know how to rewrite it. These carry a
-   rule id (`ARA001`..`ARA004`) and the `[fixable]` marker, and are the only
+   rule id (`ARA001`..`ARA007`) and the `[fixable]` marker, and are the only
    thing `--fix` touches.
 
-`ARA002` and `ARA003` correspond to drift `validate` already warns about (the
-`unknown field` warnings) — `check` upgrades those specific warnings to
-`[fixable]`, and the fix stops the value being dropped. `ARA001` and `ARA004`
-cover drift `validate` is currently silent about, so the lint layer is what first
-makes them visible.
+`ARA002`, `ARA003`, and `ARA005`–`ARA007` correspond to drift `validate`
+already warns about: the unmodeled spellings (`justification:`, `from:`,
+`to:`, `trigger:`) fall into `extra` and surface as `unknown field` warnings,
+while `reason:` on a `dead_end` names the pivot-canonical key and surfaces as
+a `field dropped for type` warning — either way the value is dropped. `check`
+upgrades that drift to `[fixable]`, and the fix stops the value being dropped.
+`ARA001` and `ARA004` cover drift `validate` is currently silent
+about, so the lint layer is what first makes them visible.
 
-## The four fixable rules
+## The fixable rules
 
 Each rule canonicalizes one documented drift from
-[`ara-format-feedback.md`](ara-format-feedback.md).
+[`ara-format-feedback.md`](ara-format-feedback.md). `ARA005`–`ARA007` were
+added in `0.1.15` with the published-fields widening (issue #75).
 
 | id       | detects | fix | drift doc |
 | -------- | ------- | --- | --------- |
@@ -90,11 +95,17 @@ Each rule canonicalizes one documented drift from
 | `ARA002` dead-end-reason-alias | `reason:` on a `dead_end` node | rename the key to `why_failed:` **and recover the value** validate drops | item 5 (`why_failed` vs `reason`) |
 | `ARA003` decision-rationale-alias | `justification:` on a `decision` node | rename the key to `rationale:` (recovering the dropped value) | item 4 (type-specific body fields) |
 | `ARA004` claim-header-style | `## C01 — Title` / `## C01 - Title` in `logic/claims.md` | rewrite the separator to `## C01: Title` (recovering the otherwise-dropped claim) | item 7 (claims in Markdown) |
+| `ARA005` pivot-from-alias | `from:` on a `pivot` node | rename the key to `prior_direction:` (recovering the dropped value) | item 13 (`from`/`to`/`trigger` on pivots) |
+| `ARA006` pivot-to-alias | `to:` on a `pivot` node | rename the key to `new_direction:` (recovering the dropped value) | item 13 |
+| `ARA007` pivot-trigger-alias | `trigger:` on a `pivot` node | rename the key to `reason:` (recovering the dropped value) | item 13 |
 
 The rules split by kind: `ARA001` is **structural** (it re-indents a YAML block);
-`ARA002`/`ARA003`/`ARA004` are **value-recovering** (they intentionally change
+`ARA002`–`ARA007` are **value-recovering** (they intentionally change
 the manifest because they resurrect a value or claim validate currently drops).
-That split drives the fix-safety guard below.
+That split drives the fix-safety guard below. The alias rules are kind-scoped:
+`reason:` is canonical on a `pivot` (ARA007's rename target) but an alias of
+`why_failed:` on a `dead_end` (ARA002), and a key is only flagged when it sits
+directly on a node of the matching kind.
 
 Fixes are surgical text edits only. `ara check --fix` is **not** a canonical
 re-serializer: it never re-emits the YAML/Markdown from the parsed model, so
@@ -109,19 +120,22 @@ The guards evaluate normalized parse outcomes:
   parses must be clean normalized manifests, and the manifests must be
   identical. An error-bearing or fatal outcome rejects the edit.
 
-- **`ARA002` / `ARA003` / `ARA004` (value-recovering) — targeted recovery.**
+- **`ARA002`–`ARA007` (value-recovering) — targeted recovery.**
   These rules may operate on normalized error-bearing artifacts only when the
   complete candidate error multiset is a subset of the base error multiset.
   Error identity includes severity, logical path, and message, and containment
   preserves occurrence counts. A fatal base or candidate outcome rejects the
   edit without writing.
 
-The normalized semantic delta must also be exact. `ARA002` and `ARA003` change
-only the target alias field from `None` to `Some`. `ARA004` adds exactly one
+The normalized semantic delta must also be exact. The alias rules (`ARA002`,
+`ARA003`, `ARA005`–`ARA007`) change only the target alias field from `None` to
+`Some`. `ARA004` adds exactly one
 intended claim, leaves nodes and links unchanged, and adds only bindings to that
-recovered claim. Any rejected candidate leaves the source byte-identical;
-accepted fixes retain the re-detection and idempotence backstop, so a second
-`--fix` is a no-op.
+recovered claim. When the canonical key is already present alongside the alias,
+the rename would change more than the recovered field, so the candidate is
+skipped (reported as a skipped fix, never written). Any rejected candidate
+leaves the source byte-identical; accepted fixes retain the re-detection and
+idempotence backstop, so a second `--fix` is a no-op.
 
 These fixes rewrite source files only. They do not modify or regenerate Hub
 output, static `trajectory.html`, or viewer assets.

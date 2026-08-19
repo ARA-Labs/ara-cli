@@ -227,6 +227,20 @@ versioned schema + `schema_version`) — the published examples under-specify wh
 real artifacts contain, so a canonical-only consumer cannot parse the real
 corpus cleanly. `bara` tracks the widening as follow-up `T-REAL-CORPUS`.
 
+**Status (2026-08-19, `ara` 0.1.15):** the published subset of this widening is
+now modeled (issue [#75](https://github.com/ARA-Labs/ara-cli/issues/75)).
+`pivot` is a first-class node kind carrying `prior_direction` /
+`new_direction` / `reason` / `lesson`, and `ara check` canonicalizes the
+observed `from` / `to` / `trigger` spellings in place (ARA005–ARA007,
+value-recovering). `dead_end` projects `hypothesis` / `failure_mode` /
+`lesson`; `experiment` projects `exploration` / `outcome` / `status`; every
+node carries optional `provenance` / `timestamp`; and evidence discovery covers
+`results/` and `proofs/` alongside `figures/` and `tables/`. Still deferred:
+the corpus-only `thinking` / `method` / `justification` fields and the
+`ara-2.0` streams document shape — and the standing ask (items 1, 4) for a
+published schema with `schema_version` that would let consumers pin the dialect
+instead of trailing it.
+
 ---
 
 ## Summary of asks (priority order)

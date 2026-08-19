@@ -616,6 +616,185 @@ fn insight_node_shows_description_no_typed_fields() {
     );
 }
 
+// ── Published-fields fixture: node metadata + pivot/experiment narrative ─────
+//
+// N01 (Experiment) carries provenance + timestamp header metadata and the full
+// experiment narrative (result/exploration/outcome/status). N02 (Pivot)
+// carries the pivot narrative (prior_direction/new_direction/reason/lesson).
+const METADATA_FIXTURE_JSON: &str = r#"{
+  "nodes": [
+    {
+      "id": "N01",
+      "kind": "experiment",
+      "label": "Learning-rate sweep",
+      "provenance": "ai-executed",
+      "timestamp": "2026-08-19",
+      "source_refs": [],
+      "evidence_notes": [],
+      "fields": {
+        "experiment": {
+          "result": "Swept 3 learning rates.",
+          "exploration": "Grid over lr candidates.",
+          "outcome": "3e-4 wins by 0.4 BLEU.",
+          "status": "succeeded"
+        }
+      },
+      "pos": { "x": 100.0, "y": 100.0 }
+    },
+    {
+      "id": "N02",
+      "kind": "pivot",
+      "label": "Switch to sparse retrieval",
+      "provenance": "user",
+      "timestamp": "2026-08-18",
+      "source_refs": [],
+      "evidence_notes": [],
+      "fields": {
+        "pivot": {
+          "prior_direction": "dense retrieval",
+          "new_direction": "sparse retrieval",
+          "reason": "latency budget",
+          "lesson": "profile first"
+        }
+      },
+      "pos": { "x": 300.0, "y": 100.0 }
+    }
+  ],
+  "links": [],
+  "bindings": [],
+  "claims": [],
+  "bounds": { "x": 0.0, "y": 0.0, "width": 500.0, "height": 500.0 }
+}"#;
+
+/// Mount the detail pane for `node_id` in `fixture` and return the container.
+fn mount_detail(fixture: &str, node_id: &str) -> web_sys::HtmlElement {
+    let doc = web_sys::window().unwrap().document().unwrap();
+    let container = body_div(&doc);
+    let manifest = parse_manifest(fixture).expect("fixture must parse");
+    let selected: RwSignal<Option<ara_core::NodeId>> =
+        RwSignal::new(Some(ara_core::NodeId::new(node_id)));
+    let (load_state, _) = signal(LoadState::Loaded(manifest));
+    let _handle = leptos::mount::mount_to(container.clone(), move || {
+        view! { <DetailPane load_state=load_state selected=selected /> }
+    });
+    // Leak the handle: the mounted view must outlive the test body. Other
+    // tests in this file hold `_handle` in scope; here the container keeps
+    // the DOM alive for the assertions and the harness tears the page down
+    // between tests.
+    std::mem::forget(_handle);
+    container
+}
+
+// ── Test: node metadata pills (provenance + timestamp) render in the header ──
+
+/// N01 carries `provenance: "ai-executed"` and `timestamp: "2026-08-19"`. The
+/// detail header must render a `.pill.provenance` and a `.pill.timestamp`
+/// carrying those values.
+#[wasm_bindgen_test]
+fn detail_renders_provenance_and_timestamp_pills() {
+    let container = mount_detail(METADATA_FIXTURE_JSON, "N01");
+
+    for (sel, want) in [
+        ("span.pill.provenance", "ai-executed"),
+        ("span.pill.timestamp", "2026-08-19"),
+    ] {
+        let pill = container
+            .query_selector(sel)
+            .unwrap()
+            .unwrap_or_else(|| panic!("{sel} must render"));
+        let text = pill.dyn_ref::<web_sys::HtmlElement>().unwrap().inner_text();
+        assert!(
+            text.contains(want),
+            "{sel} must contain {want:?}, got: {text:?}"
+        );
+    }
+}
+
+// ── Test: metadata-free node renders no provenance/timestamp pills ───────────
+
+/// A node without `provenance`/`timestamp` must omit both pills at render
+/// (DOM-level absence, matching the `div.reason` `is_none()` idiom above).
+#[wasm_bindgen_test]
+fn detail_omits_provenance_and_timestamp_pills_when_absent() {
+    let container = mount_detail(FIXTURE_JSON, "N01");
+
+    for sel in ["span.pill.provenance", "span.pill.timestamp"] {
+        assert!(
+            container.query_selector(sel).unwrap().is_none(),
+            "{sel} must NOT render for a metadata-free node"
+        );
+    }
+}
+
+// ── Test: experiment narrative renders in typed-field order ──────────────────
+
+/// N01's experiment narrative must render block-labels in order:
+/// "what it did" < "exploration" < "outcome" < "status", with values present.
+#[wasm_bindgen_test]
+fn experiment_narrative_renders_in_order() {
+    let container = mount_detail(METADATA_FIXTURE_JSON, "N01");
+    let text = container.inner_text();
+
+    let labels = ["what it did", "exploration", "outcome", "status"];
+    let mut prev = 0;
+    for label in labels {
+        let pos = text
+            .find(label)
+            .unwrap_or_else(|| panic!("{label:?} block-label must appear, got: {text:?}"));
+        assert!(
+            pos >= prev,
+            "{label:?} must appear after the previous label"
+        );
+        prev = pos;
+    }
+    for value in [
+        "Swept 3 learning rates.",
+        "Grid over lr candidates.",
+        "3e-4 wins by 0.4 BLEU.",
+        "succeeded",
+    ] {
+        assert!(text.contains(value), "value {value:?} must render");
+    }
+}
+
+// ── Test: pivot narrative renders in typed-field order ───────────────────────
+
+/// N02's pivot narrative must render block-labels in order:
+/// "prior direction" < "new direction" < "reason" < "lesson", with "reason"
+/// carrying the primary accent (.block.reason).
+#[wasm_bindgen_test]
+fn pivot_narrative_renders_reason_as_primary() {
+    let container = mount_detail(METADATA_FIXTURE_JSON, "N02");
+    let text = container.inner_text();
+
+    let labels = ["prior direction", "new direction", "reason", "lesson"];
+    let mut prev = 0;
+    for label in labels {
+        let pos = text
+            .find(label)
+            .unwrap_or_else(|| panic!("{label:?} block-label must appear, got: {text:?}"));
+        assert!(
+            pos >= prev,
+            "{label:?} must appear after the previous label"
+        );
+        prev = pos;
+    }
+
+    let reason_block = container
+        .query_selector("div.reason")
+        .unwrap()
+        .expect("pivot detail must have a primary .reason block");
+    let block_text = reason_block
+        .dyn_ref::<web_sys::HtmlElement>()
+        .unwrap()
+        .inner_text();
+    assert!(
+        block_text.contains("reason"),
+        "primary block must be the pivot reason, got: {block_text:?}"
+    );
+    assert!(block_text.contains("latency budget"));
+}
+
 // ── Built-on / Result linkage fixture ─────────────────────────────────────────
 //
 // N01 (Experiment) carries an evidence note + a built_on edge (→ RW01) + a

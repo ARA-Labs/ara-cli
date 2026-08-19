@@ -49,9 +49,20 @@ pub(crate) struct RawNode {
     /// Marks the root of an isolated subtree. Defaults to `false`.
     #[serde(default)]
     pub isolated: bool,
+    // universal metadata
+    #[serde(default)]
+    pub provenance: Option<String>,
+    #[serde(default)]
+    pub timestamp: Option<String>,
     // experiment
     #[serde(default)]
     pub result: Option<String>,
+    #[serde(default)]
+    pub status: Option<String>,
+    #[serde(default)]
+    pub exploration: Option<String>,
+    #[serde(default)]
+    pub outcome: Option<String>,
     // dead_end
     #[serde(default)]
     pub why_failed: Option<String>,
@@ -63,11 +74,11 @@ pub(crate) struct RawNode {
     pub lesson: Option<String>,
     // pivot
     #[serde(default)]
-    pub from: Option<String>,
+    pub prior_direction: Option<String>,
     #[serde(default)]
-    pub to: Option<String>,
+    pub new_direction: Option<String>,
     #[serde(default)]
-    pub trigger: Option<String>,
+    pub reason: Option<String>,
     // decision
     #[serde(default)]
     pub choice: Option<String>,
@@ -174,6 +185,67 @@ tree:
             doc.tree.unwrap()[0].extra.keys().collect::<Vec<_>>(),
             vec!["bogus"]
         );
+    }
+
+    #[test]
+    fn published_fields_parse_with_empty_extra() {
+        let y = "\
+tree:
+  - id: N01
+    type: pivot
+    title: Change of plan
+    provenance: user
+    timestamp: 2026-08-19
+    prior_direction: dense retrieval
+    new_direction: sparse retrieval
+    reason: latency budget
+    lesson: profile first
+    children:
+      - id: N02
+        type: experiment
+        result: p95 42ms
+        status: completed
+        exploration: grid over k
+        outcome: sparse wins
+";
+        let doc = parse_doc(y).expect("parses");
+        let tree = doc.tree.expect("tree present");
+        let n1 = &tree[0];
+        assert!(n1.extra.is_empty());
+        assert_eq!(n1.provenance.as_deref(), Some("user"));
+        assert_eq!(n1.timestamp.as_deref(), Some("2026-08-19"));
+        assert_eq!(n1.prior_direction.as_deref(), Some("dense retrieval"));
+        assert_eq!(n1.new_direction.as_deref(), Some("sparse retrieval"));
+        assert_eq!(n1.reason.as_deref(), Some("latency budget"));
+        assert_eq!(n1.lesson.as_deref(), Some("profile first"));
+
+        let n2 = &n1.children[0];
+        assert!(n2.extra.is_empty());
+        assert_eq!(n2.result.as_deref(), Some("p95 42ms"));
+        assert_eq!(n2.status.as_deref(), Some("completed"));
+        assert_eq!(n2.exploration.as_deref(), Some("grid over k"));
+        assert_eq!(n2.outcome.as_deref(), Some("sparse wins"));
+    }
+
+    #[test]
+    fn legacy_pivot_keys_land_in_extra() {
+        let y = "\
+tree:
+  - id: N01
+    type: pivot
+    from: dense retrieval
+    to: sparse retrieval
+    trigger: latency budget
+";
+        let doc = parse_doc(y).expect("parses");
+        let n1 = &doc.tree.expect("tree present")[0];
+        assert_eq!(
+            n1.extra.keys().collect::<Vec<_>>(),
+            vec!["from", "to", "trigger"]
+        );
+        assert!(n1.prior_direction.is_none());
+        assert!(n1.new_direction.is_none());
+        assert!(n1.reason.is_none());
     }
 
     #[test]

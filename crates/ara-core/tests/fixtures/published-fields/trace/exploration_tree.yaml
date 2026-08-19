@@ -1,0 +1,57 @@
+# Reduced slice of upstream `examples/the-ara-of-ara` (see ../SOURCE.md).
+# Exercises every published field: provenance/timestamp on all nodes,
+# exploration/outcome/status/result on experiment, and
+# prior_direction/new_direction/reason/lesson on pivot.
+tree:
+  - id: N01
+    type: question
+    title: "What should ground ARA's evaluation corpus?"
+    description: >
+      Authored root for the reduced slice; the upstream nodes this fixture
+      reduces (N88 pivot, N95 experiment) hang off it.
+    provenance: user
+    timestamp: "2026-03-12"
+    children:
+
+      - id: N02
+        type: experiment
+        title: "Deep dive: ARA as a ready-to-use RL training environment"
+        provenance: user
+        timestamp: "2026-04-08"
+        status: completed
+        exploration: >
+          Developed an extended framing of ARA's Physical Layer as a structured
+          RL training environment: every ARA contains a task
+          (logic/experiments.md), a reward (verifiable outcomes from evidence/),
+          and a policy initialization point (src/ kernel).
+        outcome: >
+          The RL environment framing was kept in the paper as a paragraph in
+          the Physical Layer description: each artifact contains a task and a
+          reward, making every ARA a ready-to-use training environment.
+        result: >
+          Framing landed in the protocol description; upstream git commit
+          8eda63fa (2026-04-08).
+        evidence: [C01]
+
+      - id: N03
+        type: pivot
+        title: "Custom 20-paper canonical corpus replaced by PaperBench 23 papers"
+        provenance: user
+        timestamp: "2026-03-12"
+        prior_direction: >
+          A curated 20-paper corpus of canonical AI papers (Transformer, GPT-2,
+          DPO) spanning 13 subfields and 2014-2023 was the planned primary
+          evaluation corpus.
+        new_direction: >
+          Replaced the custom corpus entirely with PaperBench's 23 papers as
+          the eval set, extended to 7 RE-Bench tasks as the second benchmark.
+        reason: >
+          PaperBench provides expert-authored hierarchical rubrics that serve
+          as ground truth for coverage analysis and reproduction scoring; the
+          custom corpus had no rubrics, and building them from scratch would
+          have introduced author bias.
+        lesson: >
+          Reuse existing rigorous benchmark infrastructure rather than building
+          ground truth from scratch, even at the cost of some control over
+          paper selection.
+        evidence: [C02]

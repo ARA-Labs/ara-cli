@@ -371,6 +371,8 @@ impl Normalizer {
             support_level: raw.support_level.clone(),
             source_refs: raw.source_refs.clone(),
             description: raw.description.clone(),
+            provenance: raw.provenance.clone(),
+            timestamp: raw.timestamp.clone(),
             fields,
             evidence_notes,
             isolated: raw.isolated,
@@ -385,57 +387,88 @@ impl Normalizer {
 
     /// Projects `type:` + body fields into a typed [`NodeKind`]/[`NodeFields`].
     /// Unknown/missing types become [`NodeKind::Other`]; any canonical body
-    /// fields carried by an unknown type are warned so nothing is lost silently.
+    /// fields carried by a type that does not project them (unknown or known)
+    /// are warned so nothing is lost silently.
     fn project_kind(&mut self, raw: &RawNode, id: &NodeId) -> (NodeKind, NodeFields) {
-        match raw.ty.as_deref().map(str::trim) {
-            Some("question") => (NodeKind::Question, NodeFields::Question),
-            Some("experiment") => (
-                NodeKind::Experiment,
-                NodeFields::Experiment {
-                    result: raw.result.clone(),
-                },
-            ),
-            Some("decision") => (
-                NodeKind::Decision,
-                NodeFields::Decision {
-                    choice: raw.choice.clone(),
-                    alternatives: raw.alternatives.clone(),
-                    rationale: raw.rationale.clone(),
-                },
-            ),
-            Some("dead_end") => (
-                NodeKind::DeadEnd,
-                NodeFields::DeadEnd {
-                    hypothesis: raw.hypothesis.clone(),
-                    failure_mode: raw.failure_mode.clone(),
-                    lesson: raw.lesson.clone(),
-                    why_failed: raw.why_failed.clone(),
-                },
-            ),
-            Some("insight") => (NodeKind::Insight, NodeFields::Insight),
-            Some("pivot") => (
-                NodeKind::Pivot,
-                NodeFields::Pivot {
-                    from: raw.from.clone(),
-                    to: raw.to.clone(),
-                    trigger: raw.trigger.clone(),
-                },
-            ),
-            Some("") | None => {
-                self.report
-                    .warn(format!("nodes[{id}]"), "node is missing a `type`");
-                (NodeKind::Other(String::new()), NodeFields::Other)
-            }
-            Some(other) => {
-                for field in body_field_names(raw) {
-                    self.report.warn(
-                        format!("nodes[{id}]"),
-                        format!("field `{field}` dropped for unknown type `{other}`"),
-                    );
+        // `projected` lists the canonical body fields the kind keeps; any other
+        // body field present on the node is dropped with a warning below.
+        let (kind, fields, ty, projected): (NodeKind, NodeFields, &str, &[&str]) =
+            match raw.ty.as_deref().map(str::trim) {
+                Some("question") => (NodeKind::Question, NodeFields::Question, "question", &[]),
+                Some("experiment") => (
+                    NodeKind::Experiment,
+                    NodeFields::Experiment {
+                        result: raw.result.clone(),
+                        exploration: raw.exploration.clone(),
+                        outcome: raw.outcome.clone(),
+                        status: raw.status.clone(),
+                    },
+                    "experiment",
+                    &["result", "exploration", "outcome", "status"],
+                ),
+                Some("decision") => (
+                    NodeKind::Decision,
+                    NodeFields::Decision {
+                        choice: raw.choice.clone(),
+                        alternatives: raw.alternatives.clone(),
+                        rationale: raw.rationale.clone(),
+                    },
+                    "decision",
+                    &["choice", "alternatives", "rationale"],
+                ),
+                Some("dead_end") => (
+                    NodeKind::DeadEnd,
+                    NodeFields::DeadEnd {
+                        hypothesis: raw.hypothesis.clone(),
+                        failure_mode: raw.failure_mode.clone(),
+                        lesson: raw.lesson.clone(),
+                        why_failed: raw.why_failed.clone(),
+                    },
+                    "dead_end",
+                    &["hypothesis", "failure_mode", "lesson", "why_failed"],
+                ),
+                Some("insight") => (NodeKind::Insight, NodeFields::Insight, "insight", &[]),
+                Some("pivot") => (
+                    NodeKind::Pivot,
+                    NodeFields::Pivot {
+                        prior_direction: raw.prior_direction.clone(),
+                        new_direction: raw.new_direction.clone(),
+                        reason: raw.reason.clone(),
+                        lesson: raw.lesson.clone(),
+                    },
+                    "pivot",
+                    &["prior_direction", "new_direction", "reason", "lesson"],
+                ),
+                Some("") | None => {
+                    self.report
+                        .warn(format!("nodes[{id}]"), "node is missing a `type`");
+                    for field in body_field_names(raw) {
+                        self.report.warn(
+                            format!("nodes[{id}]"),
+                            format!("field `{field}` dropped for missing type"),
+                        );
+                    }
+                    return (NodeKind::Other(String::new()), NodeFields::Other);
                 }
-                (NodeKind::Other(other.to_string()), NodeFields::Other)
+                Some(other) => {
+                    for field in body_field_names(raw) {
+                        self.report.warn(
+                            format!("nodes[{id}]"),
+                            format!("field `{field}` dropped for unknown type `{other}`"),
+                        );
+                    }
+                    return (NodeKind::Other(other.to_string()), NodeFields::Other);
+                }
+            };
+        for field in body_field_names(raw) {
+            if !projected.contains(&field) {
+                self.report.warn(
+                    format!("nodes[{id}]"),
+                    format!("field `{field}` dropped for type `{ty}`"),
+                );
             }
         }
+        (kind, fields)
     }
 
     /// Splits `evidence:` into `C##` bindings (node→claim) and prose notes.
@@ -474,12 +507,21 @@ impl Normalizer {
     }
 }
 
-/// Names of canonical body fields present on `raw` (used only to warn when an
-/// unknown-typed node carries them).
+/// Names of canonical body fields present on `raw` (used to warn when a node
+/// carries a field its type does not project, so nothing is dropped silently).
 fn body_field_names(raw: &RawNode) -> Vec<&'static str> {
     let mut names = Vec::new();
     if raw.result.is_some() {
         names.push("result");
+    }
+    if raw.status.is_some() {
+        names.push("status");
+    }
+    if raw.exploration.is_some() {
+        names.push("exploration");
+    }
+    if raw.outcome.is_some() {
+        names.push("outcome");
     }
     if raw.why_failed.is_some() {
         names.push("why_failed");
@@ -493,14 +535,14 @@ fn body_field_names(raw: &RawNode) -> Vec<&'static str> {
     if raw.lesson.is_some() {
         names.push("lesson");
     }
-    if raw.from.is_some() {
-        names.push("from");
+    if raw.prior_direction.is_some() {
+        names.push("prior_direction");
     }
-    if raw.to.is_some() {
-        names.push("to");
+    if raw.new_direction.is_some() {
+        names.push("new_direction");
     }
-    if raw.trigger.is_some() {
-        names.push("trigger");
+    if raw.reason.is_some() {
+        names.push("reason");
     }
     if raw.choice.is_some() {
         names.push("choice");
@@ -996,6 +1038,30 @@ tree:
     }
 
     #[test]
+    fn missing_type_dropped_body_fields_warn() {
+        // A missing-`type:` node carrying canonical body fields must warn per
+        // field in addition to the missing-type warning, matching the
+        // unknown-type arm — nothing is lost silently.
+        let yaml = "tree:\n  - id: N01\n    title: q\n    status: running\n";
+        let (m, report) = parse_sources(yaml, None).expect("ok");
+        assert_eq!(m.nodes[0].kind, NodeKind::Other(String::new()));
+        assert!(
+            report
+                .warnings()
+                .iter()
+                .any(|d| d.message.contains("missing a `type`")),
+            "expected missing-type warning, got: {report}"
+        );
+        assert!(
+            report
+                .warnings()
+                .iter()
+                .any(|d| d.message.contains("`status` dropped for missing type")),
+            "expected dropped-field warning for `status`, got: {report}"
+        );
+    }
+
+    #[test]
     fn unknown_type_dropped_body_field_warns() {
         // An unknown-typed node carrying a canonical body field warns that the
         // field is dropped, so nothing is lost silently.
@@ -1011,25 +1077,64 @@ tree:
     }
 
     #[test]
+    fn unknown_type_dropped_new_body_fields_warn() {
+        // The published pivot/experiment body fields are canonical too: an
+        // unknown-typed node carrying them must warn per field, so nothing is
+        // lost silently.
+        let yaml = "\
+tree:
+  - id: N01
+    type: hypothesis
+    prior_direction: dense
+    new_direction: sparse
+    reason: latency
+    status: running
+    exploration: grid
+    outcome: wins
+";
+        let (m, report) = parse_sources(yaml, None).expect("ok");
+        assert_eq!(m.nodes[0].kind, NodeKind::Other("hypothesis".into()));
+        for field in [
+            "prior_direction",
+            "new_direction",
+            "reason",
+            "status",
+            "exploration",
+            "outcome",
+        ] {
+            assert!(
+                report.warnings().iter().any(|d| d
+                    .message
+                    .contains(&format!("`{field}` dropped for unknown type `hypothesis`"))),
+                "expected dropped-field warning for `{field}`, got: {report}"
+            );
+        }
+    }
+
+    #[test]
     fn pivot_projects_kind_and_fields_no_warning() {
         // A `pivot` node projects to NodeKind::Pivot + NodeFields::Pivot with
-        // from/to/trigger populated, and carries no unknown-field warning.
+        // prior_direction/new_direction/reason/lesson populated, and carries no
+        // unknown-field warning. `lesson` is shared with `dead_end` at the raw
+        // layer and must project for pivot too (regression pin).
         let yaml = "\
 tree:
   - id: N01
     type: pivot
-    from: manual
-    to: automated
-    trigger: infeasible at scale
+    prior_direction: manual
+    new_direction: automated
+    reason: infeasible at scale
+    lesson: profile before committing
 ";
         let (m, report) = parse_sources(yaml, None).expect("ok");
         assert_eq!(m.nodes[0].kind, NodeKind::Pivot);
         assert_eq!(
             m.nodes[0].fields,
             NodeFields::Pivot {
-                from: Some("manual".to_string()),
-                to: Some("automated".to_string()),
-                trigger: Some("infeasible at scale".to_string()),
+                prior_direction: Some("manual".to_string()),
+                new_direction: Some("automated".to_string()),
+                reason: Some("infeasible at scale".to_string()),
+                lesson: Some("profile before committing".to_string()),
             }
         );
         assert!(
@@ -1065,6 +1170,85 @@ tree:
         assert!(
             report.warnings().is_empty(),
             "dead_end fields must not warn, got: {report}"
+        );
+    }
+
+    #[test]
+    fn wrong_kind_body_field_warns_per_field() {
+        // Every modeled body field present on a known kind that does not
+        // project it is dropped with exactly one warning naming the field and
+        // the kind, so nothing is lost silently. (The unknown-type path is
+        // pinned separately by unknown_type_dropped_*.)
+        let cases: &[(&str, &str, &str)] = &[
+            // (field, yaml entry, a kind that does not project it)
+            ("result", "result: r", "question"),
+            ("status", "status: running", "question"),
+            ("status", "status: running", "decision"),
+            ("status", "status: running", "dead_end"),
+            ("status", "status: running", "pivot"),
+            ("exploration", "exploration: grid", "decision"),
+            ("outcome", "outcome: wins", "pivot"),
+            ("why_failed", "why_failed: wf", "experiment"),
+            ("hypothesis", "hypothesis: h", "experiment"),
+            ("failure_mode", "failure_mode: fm", "question"),
+            ("lesson", "lesson: l", "question"),
+            ("lesson", "lesson: l", "insight"),
+            ("prior_direction", "prior_direction: dense", "dead_end"),
+            ("new_direction", "new_direction: sparse", "experiment"),
+            ("reason", "reason: latency", "decision"),
+            ("choice", "choice: c", "experiment"),
+            ("alternatives", "alternatives: [a, b]", "pivot"),
+            ("rationale", "rationale: rat", "dead_end"),
+        ];
+        for (field, entry, kind) in cases {
+            let yaml = format!("tree:\n  - id: N01\n    type: {kind}\n    {entry}\n");
+            let (_m, report) = parse_sources(&yaml, None).expect("ok");
+            let drops: Vec<_> = report
+                .warnings()
+                .iter()
+                .filter(|d| {
+                    d.message
+                        .contains(&format!("`{field}` dropped for type `{kind}`"))
+                })
+                .collect();
+            assert_eq!(
+                drops.len(),
+                1,
+                "expected exactly one drop warning for `{field}` on `{kind}`, got: {report}"
+            );
+            assert_eq!(
+                report.warnings().len(),
+                1,
+                "no other warnings expected for `{field}` on `{kind}`, got: {report}"
+            );
+        }
+    }
+
+    #[test]
+    fn right_kind_body_fields_no_drop_warnings() {
+        // Each scoped body field on a kind that projects it is kept silently:
+        // experiment keeps result/exploration/outcome/status, decision keeps
+        // choice/alternatives/rationale. (dead_end/pivot — including `lesson`,
+        // shared by both — are pinned by dead_end_widened_fields_no_warning
+        // and pivot_projects_kind_and_fields_no_warning.)
+        let yaml = "\
+tree:
+  - id: N01
+    type: experiment
+    result: r
+    exploration: e
+    outcome: o
+    status: s
+  - id: N02
+    type: decision
+    choice: c
+    alternatives: [a, b]
+    rationale: rat
+";
+        let (_m, report) = parse_sources(yaml, None).expect("ok");
+        assert!(
+            report.warnings().is_empty(),
+            "right-kind fields must not warn, got: {report}"
         );
     }
 

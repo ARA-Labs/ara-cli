@@ -594,3 +594,167 @@ fn check_json_validate_error_exits_one_with_valid_json() {
 fn check_missing_dir_exits_two() {
     ara().arg("check").arg("/no/such/ara/dir").assert().code(2);
 }
+
+// ── Published-fields fixtures (T6) ─────────────────────────────────────────
+
+fn published_fixture(name: &str) -> PathBuf {
+    // ara-cli/tests -> ara-cli -> crates, then into the ara-core fixture root.
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../ara-core/tests/fixtures")
+        .join(name)
+}
+
+/// Recursively copies a fixture directory into a temp dir: `check --fix`
+/// mutates in place, and the fixture source must never change.
+fn copied_fixture(name: &str) -> TempDir {
+    fn copy_dir(src: &Path, dst: &Path) {
+        std::fs::create_dir_all(dst).unwrap();
+        for entry in std::fs::read_dir(src).unwrap() {
+            let entry = entry.unwrap();
+            let target = dst.join(entry.file_name());
+            if entry.file_type().unwrap().is_dir() {
+                copy_dir(&entry.path(), &target);
+            } else {
+                std::fs::copy(entry.path(), &target).unwrap();
+            }
+        }
+    }
+    let dir = TempDir::new().unwrap();
+    copy_dir(&published_fixture(name), dir.path());
+    dir
+}
+
+fn tree_path(dir: &TempDir) -> PathBuf {
+    dir.path().join("trace/exploration_tree.yaml")
+}
+
+/// Canonical fixture: two `check --strict --fix` runs both exit 0 and the tree
+/// YAML is byte-identical across them (and to the pristine fixture source —
+/// a canonical artifact needs no fixes).
+#[test]
+fn check_published_fields_strict_fix_twice_byte_identical() {
+    let dir = copied_fixture("published-fields");
+
+    ara()
+        .arg("check")
+        .arg(dir.path())
+        .arg("--strict")
+        .arg("--fix")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("PASS"));
+    let first = std::fs::read(tree_path(&dir)).unwrap();
+
+    ara()
+        .arg("check")
+        .arg(dir.path())
+        .arg("--strict")
+        .arg("--fix")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("applied 0 fix(es)"));
+    let second = std::fs::read(tree_path(&dir)).unwrap();
+
+    assert_eq!(first, second, "fix runs must be byte-identical");
+    let original =
+        std::fs::read(published_fixture("published-fields").join("trace/exploration_tree.yaml"))
+            .unwrap();
+    assert_eq!(first, original, "canonical fixture must not be rewritten");
+}
+
+/// Aliased fixture: without `--fix` the ARA005-007 aliases fail the run; the
+/// first `--strict --fix` rewrites the aliases into the canonical keys and
+/// exits 0; the second run applies nothing and the tree is byte-identical
+/// between the two post-fix outputs.
+#[test]
+fn check_aliased_fixture_fix_recovers_then_byte_identical() {
+    let dir = copied_fixture("published-fields-aliased");
+
+    ara()
+        .arg("check")
+        .arg(dir.path())
+        .assert()
+        .failure()
+        .stdout(predicate::str::contains("ARA005"))
+        .stdout(predicate::str::contains("ARA006"))
+        .stdout(predicate::str::contains("ARA007"));
+
+    ara()
+        .arg("check")
+        .arg(dir.path())
+        .arg("--strict")
+        .arg("--fix")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("fixed ARA005"))
+        .stdout(predicate::str::contains("fixed ARA006"))
+        .stdout(predicate::str::contains("fixed ARA007"));
+    let first = std::fs::read(tree_path(&dir)).unwrap();
+    let text = String::from_utf8(first.clone()).unwrap();
+    assert!(text.contains("prior_direction:"), "fixed tree: {text}");
+    assert!(text.contains("new_direction:"), "fixed tree: {text}");
+    assert!(text.contains("reason:"), "fixed tree: {text}");
+
+    ara()
+        .arg("check")
+        .arg(dir.path())
+        .arg("--strict")
+        .arg("--fix")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("applied 0 fix(es)"));
+    let second = std::fs::read(tree_path(&dir)).unwrap();
+
+    assert_eq!(first, second, "post-fix outputs must be byte-identical");
+}
+
+/// Fail-closed: the `bogus_field` sibling warns under a plain `check` (exit 0)
+/// and fails under `--strict`.
+#[test]
+fn check_unknown_field_warns_nonstrict_fails_strict() {
+    let dir = published_fixture("published-fields-unknown");
+
+    ara()
+        .arg("check")
+        .arg(&dir)
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("unknown field `bogus_field`"));
+
+    ara()
+        .arg("check")
+        .arg(&dir)
+        .arg("--strict")
+        .assert()
+        .failure()
+        .stdout(predicate::str::contains("unknown field `bogus_field`"))
+        .stdout(predicate::str::contains("FAIL"));
+}
+
+/// Wrong-kind matrix: every drop warning is reported; a plain `check` still
+/// passes (warnings only, no fixable lint), and `--strict` fails.
+#[test]
+fn check_wrong_kind_matrix_warns_and_fails_strict() {
+    let dir = published_fixture("published-fields-wrong-kind");
+
+    ara()
+        .arg("check")
+        .arg(&dir)
+        .assert()
+        .success()
+        .stdout(predicate::str::contains(
+            "field `exploration` dropped for type `decision`",
+        ))
+        .stdout(predicate::str::contains(
+            "field `prior_direction` dropped for type `dead_end`",
+        ))
+        .stdout(predicate::str::contains("14 warning(s)"));
+
+    ara()
+        .arg("check")
+        .arg(&dir)
+        .arg("--strict")
+        .assert()
+        .failure()
+        .stdout(predicate::str::contains("14 warning(s)"));
+}

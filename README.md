@@ -123,9 +123,9 @@ Any directory under `corpus-external/ara-paperbench/artifacts/` (e.g.
 
 `ara check` is a fixable linter for the ARA format — think `ruff` for an ARA
 directory. It composes the `validate` diagnostics with a small set of
-auto-fixable format rules (`ARA001`..`ARA004`) that canonicalize the common
+auto-fixable format rules (`ARA001`..`ARA007`) that canonicalize the common
 drift in [`docs/ara-format-feedback.md`](docs/ara-format-feedback.md) (root
-dialect, dead-end/decision key aliases, claim-header style):
+dialect, dead-end/decision/pivot key aliases, claim-header style):
 
 ```bash
 ara check ./my-ara          # report; exits non-zero on errors or fixable issues

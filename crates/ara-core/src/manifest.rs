@@ -208,23 +208,27 @@ pub struct Recipe {
     pub body: String,
 }
 
-/// The kind of an exhibit. `Other` preserves anything not a figure or table.
+/// The kind of an exhibit. `Other` preserves anything not a figure, proof,
+/// result, or table.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ExhibitKind {
     Figure,
     Table,
+    Result,
+    Proof,
     Other,
 }
 
-/// One figure or table, parsed from `evidence/`. Populated by a later task.
+/// One evidence exhibit — a figure, proof, result, or table body file plus
+/// its index metadata, parsed from `evidence/`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Exhibit {
     /// Exhibit id.
     pub id: String,
     /// Source file, relative to the artifact root.
     pub file: String,
-    /// Figure / table / other.
+    /// Figure / proof / result / table / other.
     pub kind: ExhibitKind,
     /// Origin of the exhibit, when stated.
     pub source: Option<String>,
@@ -265,6 +269,13 @@ pub struct Node {
     pub source_refs: Vec<String>,
     /// Prose description.
     pub description: Option<String>,
+    /// Free-form provenance tag (`user`, `ai-suggested`, ...). No vocabulary
+    /// validation.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub provenance: Option<String>,
+    /// ISO date string; carried verbatim, never parsed.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub timestamp: Option<String>,
     /// Typed per-kind body.
     pub fields: NodeFields,
     /// Free-text evidence entries (the non-`C##` part of `evidence:`).
@@ -301,6 +312,10 @@ pub enum NodeFields {
     Question,
     Experiment {
         result: Option<String>,
+        exploration: Option<String>,
+        outcome: Option<String>,
+        /// Experiment-scoped lifecycle status (`planned`, `running`, ...).
+        status: Option<String>,
     },
     Decision {
         choice: Option<String>,
@@ -315,9 +330,10 @@ pub enum NodeFields {
     },
     Insight,
     Pivot {
-        from: Option<String>,
-        to: Option<String>,
-        trigger: Option<String>,
+        prior_direction: Option<String>,
+        new_direction: Option<String>,
+        reason: Option<String>,
+        lesson: Option<String>,
     },
     /// Unknown kind: body fields are captured (as warnings) at the raw layer.
     Other,
@@ -398,5 +414,86 @@ mod tests {
         assert!(n.is_canonical());
         assert!(!NodeId::new("nope").is_canonical());
         assert!(ClaimId::new("C02").is_canonical());
+    }
+
+    #[test]
+    fn experiment_fields_round_trip() {
+        let f = NodeFields::Experiment {
+            result: Some("28.4 BLEU".into()),
+            exploration: Some("grid over k".into()),
+            outcome: Some("sparse wins".into()),
+            status: Some("completed".into()),
+        };
+        let json = serde_json::to_string(&f).unwrap();
+        assert_eq!(
+            json,
+            r#"{"experiment":{"result":"28.4 BLEU","exploration":"grid over k","outcome":"sparse wins","status":"completed"}}"#
+        );
+        let back: NodeFields = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, f);
+    }
+
+    #[test]
+    fn pivot_fields_round_trip() {
+        let f = NodeFields::Pivot {
+            prior_direction: Some("dense retrieval".into()),
+            new_direction: Some("sparse retrieval".into()),
+            reason: Some("latency budget".into()),
+            lesson: Some("profile first".into()),
+        };
+        let json = serde_json::to_string(&f).unwrap();
+        assert_eq!(
+            json,
+            r#"{"pivot":{"prior_direction":"dense retrieval","new_direction":"sparse retrieval","reason":"latency budget","lesson":"profile first"}}"#
+        );
+        let back: NodeFields = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, f);
+    }
+
+    #[test]
+    fn node_provenance_timestamp_round_trip_and_skip() {
+        let mut node = Node {
+            id: NodeId::new("N01"),
+            kind: NodeKind::Question,
+            label: None,
+            support_level: None,
+            source_refs: vec![],
+            description: None,
+            provenance: Some("user".into()),
+            timestamp: Some("2026-08-19".into()),
+            fields: NodeFields::Question,
+            evidence_notes: vec![],
+            isolated: false,
+            pos: None,
+        };
+        let json = serde_json::to_string(&node).unwrap();
+        let back: Node = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, node);
+        assert!(json.contains(r#""provenance":"user""#));
+        assert!(json.contains(r#""timestamp":"2026-08-19""#));
+
+        node.provenance = None;
+        node.timestamp = None;
+        let json = serde_json::to_string(&node).unwrap();
+        assert!(!json.contains("provenance"));
+        assert!(!json.contains("timestamp"));
+        let back: Node = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, node);
+    }
+
+    #[test]
+    fn exhibit_kind_new_variants_round_trip() {
+        for (kind, wire) in [
+            (ExhibitKind::Figure, "figure"),
+            (ExhibitKind::Table, "table"),
+            (ExhibitKind::Result, "result"),
+            (ExhibitKind::Proof, "proof"),
+            (ExhibitKind::Other, "other"),
+        ] {
+            let json = serde_json::to_string(&kind).unwrap();
+            assert_eq!(json, format!("\"{wire}\""));
+            let back: ExhibitKind = serde_json::from_str(&json).unwrap();
+            assert_eq!(back, kind);
+        }
     }
 }
