@@ -176,6 +176,12 @@ enum AliasField {
     WhyFailed,
     /// ARA003: `decision.rationale`.
     Rationale,
+    /// ARA005: `pivot.prior_direction` (alias `from:`).
+    PriorDirection,
+    /// ARA006: `pivot.new_direction` (alias `to:`).
+    NewDirection,
+    /// ARA007: `pivot.reason` (alias `trigger:`).
+    PivotReason,
 }
 
 /// In-memory applier state driving the fixpoint loop.
@@ -241,6 +247,9 @@ impl Applier {
             LintRuleId::RootDialect => guard_ara001(&base, &cand),
             LintRuleId::DeadEndReasonAlias => guard_alias(&base, &cand, AliasField::WhyFailed),
             LintRuleId::DecisionRationaleAlias => guard_alias(&base, &cand, AliasField::Rationale),
+            LintRuleId::PivotFromAlias => guard_alias(&base, &cand, AliasField::PriorDirection),
+            LintRuleId::PivotToAlias => guard_alias(&base, &cand, AliasField::NewDirection),
+            LintRuleId::PivotTriggerAlias => guard_alias(&base, &cand, AliasField::PivotReason),
             LintRuleId::ClaimHeaderStyle => {
                 self.guard_ara004(diag, &base, &cand, new_claims.as_deref())
             }
@@ -378,8 +387,9 @@ fn guard_ara001(base: &ParseOutcome, cand: &ParseOutcome) -> bool {
     }
 }
 
-/// ARA002/ARA003 targeted guard: after proving no new error occurrence appears,
-/// exactly one node's target field goes `None → Some`, and nothing else differs.
+/// ARA002/ARA003/ARA005–ARA007 targeted guard: after proving no new error
+/// occurrence appears, exactly one node's target field goes `None → Some`, and
+/// nothing else differs.
 fn guard_alias(base: &ParseOutcome, cand: &ParseOutcome, field: AliasField) -> bool {
     let (ParseOutcome::Normalized(mb, _), ParseOutcome::Normalized(mc, _)) = (base, cand) else {
         return false;
@@ -419,6 +429,13 @@ fn field_is_some(node: &Node, field: AliasField) -> bool {
     match (field, &node.fields) {
         (AliasField::WhyFailed, NodeFields::DeadEnd { why_failed, .. }) => why_failed.is_some(),
         (AliasField::Rationale, NodeFields::Decision { rationale, .. }) => rationale.is_some(),
+        (AliasField::PriorDirection, NodeFields::Pivot { prior_direction, .. }) => {
+            prior_direction.is_some()
+        }
+        (AliasField::NewDirection, NodeFields::Pivot { new_direction, .. }) => {
+            new_direction.is_some()
+        }
+        (AliasField::PivotReason, NodeFields::Pivot { reason, .. }) => reason.is_some(),
         _ => false,
     }
 }
@@ -428,6 +445,13 @@ fn clear_field(node: &mut Node, field: AliasField) {
     match (field, &mut node.fields) {
         (AliasField::WhyFailed, NodeFields::DeadEnd { why_failed, .. }) => *why_failed = None,
         (AliasField::Rationale, NodeFields::Decision { rationale, .. }) => *rationale = None,
+        (AliasField::PriorDirection, NodeFields::Pivot { prior_direction, .. }) => {
+            *prior_direction = None
+        }
+        (AliasField::NewDirection, NodeFields::Pivot { new_direction, .. }) => {
+            *new_direction = None
+        }
+        (AliasField::PivotReason, NodeFields::Pivot { reason, .. }) => *reason = None,
         _ => {}
     }
 }
@@ -591,6 +615,15 @@ fn applied_desc(rule: LintRuleId) -> String {
             "renamed `justification:` to `rationale:` on a decision node".to_string()
         }
         LintRuleId::ClaimHeaderStyle => "rewrote dash claim-header separator to `: `".to_string(),
+        LintRuleId::PivotFromAlias => {
+            "renamed `from:` to `prior_direction:` on a pivot node".to_string()
+        }
+        LintRuleId::PivotToAlias => {
+            "renamed `to:` to `new_direction:` on a pivot node".to_string()
+        }
+        LintRuleId::PivotTriggerAlias => {
+            "renamed `trigger:` to `reason:` on a pivot node".to_string()
+        }
     }
 }
 
@@ -606,7 +639,11 @@ fn guard_rejection_reason(rule: LintRuleId, base: &ParseOutcome, cand: &ParseOut
     );
     if normalized && !errors_subset(cand, base) {
         return match rule {
-            LintRuleId::DeadEndReasonAlias | LintRuleId::DecisionRationaleAlias => {
+            LintRuleId::DeadEndReasonAlias
+            | LintRuleId::DecisionRationaleAlias
+            | LintRuleId::PivotFromAlias
+            | LintRuleId::PivotToAlias
+            | LintRuleId::PivotTriggerAlias => {
                 "alias rename would introduce a new parse error occurrence; left unchanged"
                     .to_string()
             }
@@ -627,7 +664,11 @@ fn guard_reason(rule: LintRuleId) -> String {
         LintRuleId::RootDialect => {
             "root→tree rewrite would change the parsed manifest; left unchanged".to_string()
         }
-        LintRuleId::DeadEndReasonAlias | LintRuleId::DecisionRationaleAlias => {
+        LintRuleId::DeadEndReasonAlias
+        | LintRuleId::DecisionRationaleAlias
+        | LintRuleId::PivotFromAlias
+        | LintRuleId::PivotToAlias
+        | LintRuleId::PivotTriggerAlias => {
             "alias rename would change more than the recovered field; left unchanged".to_string()
         }
         LintRuleId::ClaimHeaderStyle => {
@@ -940,6 +981,249 @@ tree:
         assert!(guard_alias(&base1, &cand1, AliasField::WhyFailed));
     }
 
+    // ---- ARA005 / ARA006 / ARA007 (pivot aliases) -------------------------
+
+    #[test]
+    fn ara005_from_recovered_as_prior_direction() {
+        let yaml = "\
+tree:
+  - id: N01
+    type: pivot
+    from: dense retrieval
+";
+        let dir = artifact(yaml, None);
+        let outcome = fix_dir(dir.path());
+
+        assert_eq!(outcome.applied.len(), 1);
+        assert_eq!(outcome.applied[0].rule, LintRuleId::PivotFromAlias);
+        assert!(outcome.skipped.is_empty());
+        assert!(read_tree(&dir).contains("prior_direction: dense retrieval"));
+
+        let (m, report) = parse_sources(&read_tree(&dir), None).expect("ok");
+        assert!(
+            report.warnings().is_empty(),
+            "unknown-field warning must be gone, got: {report}"
+        );
+        match &m.nodes[0].fields {
+            NodeFields::Pivot { prior_direction, .. } => {
+                assert_eq!(prior_direction.as_deref(), Some("dense retrieval"));
+            }
+            other => panic!("expected Pivot fields, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn ara006_to_recovered_as_new_direction() {
+        let yaml = "\
+tree:
+  - id: N01
+    type: pivot
+    to: sparse retrieval
+";
+        let dir = artifact(yaml, None);
+        let outcome = fix_dir(dir.path());
+
+        assert_eq!(outcome.applied.len(), 1);
+        assert_eq!(outcome.applied[0].rule, LintRuleId::PivotToAlias);
+        assert!(read_tree(&dir).contains("new_direction: sparse retrieval"));
+
+        let (m, report) = parse_sources(&read_tree(&dir), None).expect("ok");
+        assert!(
+            report.warnings().is_empty(),
+            "unknown-field warning must be gone, got: {report}"
+        );
+        match &m.nodes[0].fields {
+            NodeFields::Pivot { new_direction, .. } => {
+                assert_eq!(new_direction.as_deref(), Some("sparse retrieval"));
+            }
+            other => panic!("expected Pivot fields, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn ara007_trigger_recovered_as_reason() {
+        let yaml = "\
+tree:
+  - id: N01
+    type: pivot
+    trigger: latency budget
+";
+        let dir = artifact(yaml, None);
+        let outcome = fix_dir(dir.path());
+
+        assert_eq!(outcome.applied.len(), 1);
+        assert_eq!(outcome.applied[0].rule, LintRuleId::PivotTriggerAlias);
+        assert!(read_tree(&dir).contains("reason: latency budget"));
+
+        let (m, report) = parse_sources(&read_tree(&dir), None).expect("ok");
+        assert!(
+            report.warnings().is_empty(),
+            "unknown-field warning must be gone, got: {report}"
+        );
+        match &m.nodes[0].fields {
+            NodeFields::Pivot { reason, .. } => {
+                assert_eq!(reason.as_deref(), Some("latency budget"));
+            }
+            other => panic!("expected Pivot fields, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn pivot_alias_rejects_when_canonical_and_alias_coexist_byte_identically() {
+        // A node carrying BOTH the alias and its canonical key is auto-rejected:
+        // the rename would duplicate the canonical key, so the guard records a
+        // SkippedFix with a precise reason and never writes.
+        let cases = [
+            (
+                "\
+tree:
+  - id: N01
+    type: pivot
+    prior_direction: canonical
+    from: alias
+",
+                LintRuleId::PivotFromAlias,
+            ),
+            (
+                "\
+tree:
+  - id: N01
+    type: pivot
+    new_direction: canonical
+    to: alias
+",
+                LintRuleId::PivotToAlias,
+            ),
+            (
+                "\
+tree:
+  - id: N01
+    type: pivot
+    reason: canonical
+    trigger: alias
+",
+                LintRuleId::PivotTriggerAlias,
+            ),
+        ];
+
+        for (yaml, rule) in cases {
+            let dir = artifact(yaml, None);
+            let outcome = fix_dir(dir.path());
+
+            assert!(outcome.applied.is_empty(), "{rule:?}");
+            assert!(outcome.changed_files.is_empty(), "{rule:?}");
+            let skipped = outcome
+                .skipped
+                .iter()
+                .find(|skipped| skipped.rule == rule)
+                .unwrap_or_else(|| panic!("{rule:?}: {:?}", outcome.skipped));
+            assert_eq!(
+                skipped.reason,
+                "alias rename would change more than the recovered field; left unchanged",
+                "{rule:?}"
+            );
+            assert_eq!(read_tree(&dir), yaml, "{rule:?}");
+        }
+    }
+
+    #[test]
+    fn pivot_multi_alias_fixpoint_recovers_all_fields() {
+        // from+to+trigger on one pivot all rename in a single fix run.
+        let yaml = "\
+tree:
+  - id: N01
+    type: pivot
+    from: dense retrieval
+    to: sparse retrieval
+    trigger: latency budget
+";
+        let dir = artifact(yaml, None);
+        let outcome = fix_dir(dir.path());
+
+        assert_eq!(outcome.applied.len(), 3);
+        let rules: Vec<LintRuleId> = outcome.applied.iter().map(|fix| fix.rule).collect();
+        for rule in [
+            LintRuleId::PivotFromAlias,
+            LintRuleId::PivotToAlias,
+            LintRuleId::PivotTriggerAlias,
+        ] {
+            assert!(rules.contains(&rule), "missing {rule}, got: {rules:?}");
+        }
+        assert!(outcome.skipped.is_empty());
+
+        let fixed = read_tree(&dir);
+        assert!(fixed.contains("prior_direction: dense retrieval"));
+        assert!(fixed.contains("new_direction: sparse retrieval"));
+        assert!(fixed.contains("reason: latency budget"));
+        assert!(!fixed.contains("\n    from:"));
+        assert!(!fixed.contains("\n    to:"));
+        assert!(!fixed.contains("\n    trigger:"));
+
+        let (m, report) = parse_sources(&fixed, None).expect("ok");
+        assert!(report.warnings().is_empty(), "got: {report}");
+        assert_eq!(
+            m.nodes[0].fields,
+            NodeFields::Pivot {
+                prior_direction: Some("dense retrieval".to_string()),
+                new_direction: Some("sparse retrieval".to_string()),
+                reason: Some("latency budget".to_string()),
+                lesson: None,
+            }
+        );
+    }
+
+    #[test]
+    fn pivot_alias_fix_second_run_is_noop() {
+        let yaml = "\
+tree:
+  - id: N01
+    type: pivot
+    from: dense retrieval
+    to: sparse retrieval
+    trigger: latency budget
+";
+        let dir = artifact(yaml, None);
+
+        let first = fix_dir(dir.path());
+        assert_eq!(first.applied.len(), 3);
+        let tree_after_first = read_tree(&dir);
+
+        let second = fix_dir(dir.path());
+        assert!(
+            second.applied.is_empty(),
+            "second run must apply nothing, got: {:?}",
+            second.applied
+        );
+        assert!(second.changed_files.is_empty());
+        assert_eq!(
+            read_tree(&dir),
+            tree_after_first,
+            "tree must be byte-identical"
+        );
+    }
+
+    #[test]
+    fn pivot_alias_guard_validates_single_recovery() {
+        // A single recovered pivot field is accepted...
+        let base = parse_sources_detailed("tree:\n  - id: N01\n    type: pivot\n", None);
+        let cand = parse_sources_detailed(
+            "tree:\n  - id: N01\n    type: pivot\n    prior_direction: a\n",
+            None,
+        );
+        assert!(guard_alias(&base, &cand, AliasField::PriorDirection));
+
+        // ...but not when the field was already populated in base...
+        let cand2 = parse_sources_detailed(
+            "tree:\n  - id: N01\n    type: pivot\n    prior_direction: b\n",
+            None,
+        );
+        assert!(!guard_alias(&cand, &cand2, AliasField::PriorDirection));
+
+        // ...and a recovery lands in the right field only.
+        assert!(!guard_alias(&base, &cand, AliasField::NewDirection));
+        assert!(!guard_alias(&base, &cand, AliasField::PivotReason));
+    }
+
     // ---- ARA004 -----------------------------------------------------------
 
     #[test]
@@ -1126,14 +1410,29 @@ tree:
 
         let first = fix_dir(dir.path());
 
-        assert_eq!(first.applied.len(), 10);
-        assert!(
+        // 10 claim-header rewrites plus 2 pivot `trigger:`→`reason:` recoveries
+        // (ARA007): the fixture's two pivot nodes carry the pre-canonical alias.
+        assert_eq!(first.applied.len(), 12);
+        assert_eq!(
             first
                 .applied
                 .iter()
-                .all(|fix| fix.rule == LintRuleId::ClaimHeaderStyle)
+                .filter(|fix| fix.rule == LintRuleId::ClaimHeaderStyle)
+                .count(),
+            10
         );
-        assert_eq!(first.changed_files, vec![LintFile::Claims]);
+        assert_eq!(
+            first
+                .applied
+                .iter()
+                .filter(|fix| fix.rule == LintRuleId::PivotTriggerAlias)
+                .count(),
+            2
+        );
+        assert_eq!(
+            first.changed_files,
+            vec![LintFile::Tree, LintFile::Claims]
+        );
         let fixed_tree = read_tree(&dir);
         let fixed_claims = read_claims(&dir);
         let (manifest, report) =
@@ -1166,7 +1465,29 @@ tree:
                 "Human-authored optimizations compress GPT-2 124M training (val_loss ≤ 3.28) from 49.5 min to 3.1 min across 21 records, achieving a 16.1× wall-clock speedup on 8×H100."
             )
         );
-        assert_eq!(manifest.nodes, base.nodes);
+        // The two pivot `trigger:` aliases were recovered into `reason:`; clearing
+        // exactly those recovered fields must reproduce the base nodes.
+        let recovered: Vec<&Node> = manifest
+            .nodes
+            .iter()
+            .filter(|node| {
+                matches!(
+                    &node.fields,
+                    NodeFields::Pivot {
+                        reason: Some(_),
+                        ..
+                    }
+                )
+            })
+            .collect();
+        assert_eq!(recovered.len(), 2, "got: {recovered:?}");
+        let mut without_recovered = manifest.nodes.clone();
+        for node in &mut without_recovered {
+            if let NodeFields::Pivot { reason, .. } = &mut node.fields {
+                *reason = None;
+            }
+        }
+        assert_eq!(without_recovered, base.nodes);
         assert_eq!(manifest.links, base.links);
         assert!(manifest.bindings.iter().all(|binding| {
             manifest

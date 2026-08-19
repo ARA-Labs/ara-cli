@@ -38,6 +38,15 @@ pub enum LintRuleId {
     /// `ARA004`: claim header with a dash separator instead of a colon.
     #[serde(rename = "ARA004")]
     ClaimHeaderStyle,
+    /// `ARA005`: `from:` key on a `pivot` node (canonical `prior_direction:`).
+    #[serde(rename = "ARA005")]
+    PivotFromAlias,
+    /// `ARA006`: `to:` key on a `pivot` node (canonical `new_direction:`).
+    #[serde(rename = "ARA006")]
+    PivotToAlias,
+    /// `ARA007`: `trigger:` key on a `pivot` node (canonical `reason:`).
+    #[serde(rename = "ARA007")]
+    PivotTriggerAlias,
 }
 
 impl LintRuleId {
@@ -48,6 +57,9 @@ impl LintRuleId {
             LintRuleId::DeadEndReasonAlias => "ARA002",
             LintRuleId::DecisionRationaleAlias => "ARA003",
             LintRuleId::ClaimHeaderStyle => "ARA004",
+            LintRuleId::PivotFromAlias => "ARA005",
+            LintRuleId::PivotToAlias => "ARA006",
+            LintRuleId::PivotTriggerAlias => "ARA007",
         }
     }
 }
@@ -194,7 +206,8 @@ struct KeyLine {
     key_col: usize,
 }
 
-/// A recorded occurrence of a context-scoped key (`reason:` / `justification:`).
+/// A recorded occurrence of a context-scoped key (`reason:` / `justification:` /
+/// `from:` / `to:` / `trigger:`).
 #[cfg(feature = "native")]
 struct KeyHit {
     line: usize,
@@ -213,6 +226,12 @@ struct NodeFrame {
     reason_hits: Vec<KeyHit>,
     /// `justification:` keys directly on this node.
     justification_hits: Vec<KeyHit>,
+    /// `from:` keys directly on this node.
+    from_hits: Vec<KeyHit>,
+    /// `to:` keys directly on this node.
+    to_hits: Vec<KeyHit>,
+    /// `trigger:` keys directly on this node.
+    trigger_hits: Vec<KeyHit>,
 }
 
 /// Counts leading ASCII spaces (YAML indentation is spaces, never tabs).
@@ -283,11 +302,13 @@ fn root_block_end(lines: &[&str], root_line: usize) -> usize {
     j
 }
 
-/// Runs the tree-file rules (ARA001/ARA002/ARA003) over raw YAML text.
+/// Runs the tree-file rules (ARA001/ARA002/ARA003/ARA005/ARA006/ARA007) over raw
+/// YAML text.
 ///
-/// ARA002/ARA003 are context-scoped: a `reason:`/`justification:` key is only
-/// flagged when it sits directly on a `dead_end`/`decision` node. A stack of
-/// node frames (keyed by their direct-key column) tracks which node owns each
+/// ARA002/ARA003 and ARA005–ARA007 are context-scoped: a
+/// `reason:`/`justification:`/`from:`/`to:`/`trigger:` key is only flagged when
+/// it sits directly on a `dead_end`/`decision`/`pivot` node. A stack of node
+/// frames (keyed by their direct-key column) tracks which node owns each
 /// key line; frames are retained so a `type:` declared after the aliased key is
 /// still resolved. Node maps are recognized by their `- ` list items, matching
 /// the `tree:`/`children:` list dialect.
@@ -344,6 +365,9 @@ fn lint_tree(text: &str) -> Vec<LintDiagnostic> {
                 ty: None,
                 reason_hits: Vec::new(),
                 justification_hits: Vec::new(),
+                from_hits: Vec::new(),
+                to_hits: Vec::new(),
+                trigger_hits: Vec::new(),
             });
             stack.push(idx);
         }
@@ -359,6 +383,18 @@ fn lint_tree(text: &str) -> Vec<LintDiagnostic> {
                     col: kl.key_col,
                 }),
                 "justification" => frames[top].justification_hits.push(KeyHit {
+                    line: i,
+                    col: kl.key_col,
+                }),
+                "from" => frames[top].from_hits.push(KeyHit {
+                    line: i,
+                    col: kl.key_col,
+                }),
+                "to" => frames[top].to_hits.push(KeyHit {
+                    line: i,
+                    col: kl.key_col,
+                }),
+                "trigger" => frames[top].trigger_hits.push(KeyHit {
                     line: i,
                     col: kl.key_col,
                 }),
@@ -403,6 +439,46 @@ fn lint_tree(text: &str) -> Vec<LintDiagnostic> {
                         replacement: "rationale".to_string(),
                     }),
                 });
+            }
+        }
+        if f.ty.as_deref() == Some("pivot") {
+            for (hits, rule, alias, canonical) in [
+                (
+                    &f.from_hits,
+                    LintRuleId::PivotFromAlias,
+                    "from",
+                    "prior_direction",
+                ),
+                (
+                    &f.to_hits,
+                    LintRuleId::PivotToAlias,
+                    "to",
+                    "new_direction",
+                ),
+                (
+                    &f.trigger_hits,
+                    LintRuleId::PivotTriggerAlias,
+                    "trigger",
+                    "reason",
+                ),
+            ] {
+                for hit in hits {
+                    diags.push(LintDiagnostic {
+                        rule,
+                        message: format!(
+                            "`{alias}:` on a pivot node is an alias; canonical key is \
+                             `{canonical}:`"
+                        ),
+                        file: LintFile::Tree,
+                        fixable: true,
+                        fix: Some(FixCandidate::ReplaceInLine {
+                            line: hit.line,
+                            start_col: hit.col,
+                            end_col: hit.col + alias.len(),
+                            replacement: canonical.to_string(),
+                        }),
+                    });
+                }
             }
         }
     }
@@ -695,6 +771,209 @@ tree:
                 .iter()
                 .all(|d| d.rule != LintRuleId::DecisionRationaleAlias)
         );
+    }
+
+    // ---- ARA005 / ARA006 / ARA007 -----------------------------------------
+
+    #[test]
+    fn ara005_from_on_pivot_is_detected_and_fixable() {
+        let yaml = "\
+tree:
+  - id: N01
+    type: pivot
+    from: dense retrieval
+";
+        let d = only(lint_tree(yaml), LintRuleId::PivotFromAlias);
+        assert!(d.fixable);
+        assert_eq!(d.file, LintFile::Tree);
+        match &d.fix {
+            Some(FixCandidate::ReplaceInLine {
+                line,
+                start_col,
+                end_col,
+                replacement,
+            }) => {
+                assert_eq!(*line, 3); // 0-based: the `from:` line
+                assert_eq!(*start_col, 4); // key column under a 2-space list item
+                assert_eq!(*end_col, 4 + "from".len());
+                assert_eq!(replacement, "prior_direction");
+            }
+            other => panic!("expected ReplaceInLine, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn ara006_to_on_pivot_is_detected_and_fixable() {
+        let yaml = "\
+tree:
+  - id: N01
+    type: pivot
+    to: sparse retrieval
+";
+        let d = only(lint_tree(yaml), LintRuleId::PivotToAlias);
+        assert!(d.fixable);
+        match &d.fix {
+            Some(FixCandidate::ReplaceInLine {
+                line,
+                start_col,
+                end_col,
+                replacement,
+            }) => {
+                assert_eq!(*line, 3);
+                assert_eq!(*start_col, 4);
+                assert_eq!(*end_col, 4 + "to".len());
+                assert_eq!(replacement, "new_direction");
+            }
+            other => panic!("expected ReplaceInLine, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn ara007_trigger_on_pivot_is_detected_and_fixable() {
+        let yaml = "\
+tree:
+  - id: N01
+    type: pivot
+    trigger: latency budget
+";
+        let d = only(lint_tree(yaml), LintRuleId::PivotTriggerAlias);
+        assert!(d.fixable);
+        match &d.fix {
+            Some(FixCandidate::ReplaceInLine {
+                line,
+                start_col,
+                end_col,
+                replacement,
+            }) => {
+                assert_eq!(*line, 3);
+                assert_eq!(*start_col, 4);
+                assert_eq!(*end_col, 4 + "trigger".len());
+                assert_eq!(replacement, "reason");
+            }
+            other => panic!("expected ReplaceInLine, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn pivot_aliases_on_non_pivot_kinds_not_flagged() {
+        // Kind-scoping is what makes short keys like `to:` safe: the same keys
+        // on other node kinds (or as prose-like entries) must not fire.
+        let yaml = "\
+tree:
+  - id: N01
+    type: experiment
+    from: baseline
+    to: candidate
+    trigger: schedule
+  - id: N02
+    type: dead_end
+    from: a
+    to: b
+    trigger: c
+  - id: N03
+    type: decision
+    trigger: d
+";
+        let diags = lint_tree(yaml);
+        assert!(
+            diags.iter().all(|d| !matches!(
+                d.rule,
+                LintRuleId::PivotFromAlias
+                    | LintRuleId::PivotToAlias
+                    | LintRuleId::PivotTriggerAlias
+            )),
+            "no pivot-alias rule may fire on non-pivot kinds, got: {diags:?}"
+        );
+    }
+
+    #[test]
+    fn pivot_alias_type_after_key_still_resolves() {
+        // `type:` declared *after* the aliased key must still be attributed.
+        let yaml = "\
+tree:
+  - id: N01
+    from: dense retrieval
+    to: sparse retrieval
+    trigger: latency budget
+    type: pivot
+";
+        let diags = lint_tree(yaml);
+        for rule in [
+            LintRuleId::PivotFromAlias,
+            LintRuleId::PivotToAlias,
+            LintRuleId::PivotTriggerAlias,
+        ] {
+            let d = only(diags.clone(), rule);
+            match &d.fix {
+                Some(FixCandidate::ReplaceInLine { line, .. }) => {
+                    assert!((2..=4).contains(line), "{rule} at line {line}");
+                }
+                other => panic!("expected ReplaceInLine, got {other:?}"),
+            }
+        }
+    }
+
+    #[test]
+    fn pivot_alias_on_nested_child_is_detected() {
+        let yaml = "\
+tree:
+  - id: N01
+    type: question
+    children:
+      - id: N02
+        type: pivot
+        trigger: nested
+";
+        let d = only(lint_tree(yaml), LintRuleId::PivotTriggerAlias);
+        match &d.fix {
+            Some(FixCandidate::ReplaceInLine {
+                line, start_col, ..
+            }) => {
+                assert_eq!(*line, 6);
+                assert_eq!(*start_col, 8); // deeper nesting → deeper key column
+            }
+            other => panic!("expected ReplaceInLine, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn canonical_pivot_keys_not_flagged() {
+        let yaml = "\
+tree:
+  - id: N01
+    type: pivot
+    prior_direction: dense retrieval
+    new_direction: sparse retrieval
+    reason: latency budget
+";
+        assert!(lint_tree(yaml).is_empty());
+    }
+
+    #[test]
+    fn ara002_dead_end_reason_and_ara007_pivot_trigger_do_not_collide() {
+        // `reason` is canonical on pivot and aliased on dead_end; `trigger` is
+        // the pivot alias of `reason`. Kind-scoping keeps them unambiguous.
+        let yaml = "\
+tree:
+  - id: N01
+    type: dead_end
+    reason: diverged
+  - id: N02
+    type: pivot
+    reason: canonical
+    trigger: aliased
+";
+        let diags = lint_tree(yaml);
+        let dead_end = only(diags.clone(), LintRuleId::DeadEndReasonAlias);
+        match &dead_end.fix {
+            Some(FixCandidate::ReplaceInLine { line, .. }) => assert_eq!(*line, 3),
+            other => panic!("expected ReplaceInLine, got {other:?}"),
+        }
+        let pivot = only(diags, LintRuleId::PivotTriggerAlias);
+        match &pivot.fix {
+            Some(FixCandidate::ReplaceInLine { line, .. }) => assert_eq!(*line, 7),
+            other => panic!("expected ReplaceInLine, got {other:?}"),
+        }
     }
 
     // ---- ARA004 -----------------------------------------------------------
