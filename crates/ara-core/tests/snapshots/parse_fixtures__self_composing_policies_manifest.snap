@@ -1,6 +1,6 @@
 ---
 source: crates/ara-core/tests/parse_fixtures.rs
-assertion_line: 210
+assertion_line: 226
 expression: manifest
 ---
 {
@@ -24,7 +24,10 @@ expression: manifest
       "description": null,
       "fields": {
         "experiment": {
-          "result": "Lateral connections between hidden layers of all previous columns and the new column cause quadratic parameter growth O(n^2). At 100 tasks, memory and inference time become prohibitive.\n"
+          "result": "Lateral connections between hidden layers of all previous columns and the new column cause quadratic parameter growth O(n^2). At 100 tasks, memory and inference time become prohibitive.\n",
+          "exploration": null,
+          "outcome": null,
+          "status": null
         }
       },
       "evidence_notes": [
@@ -60,7 +63,10 @@ expression: manifest
       "description": null,
       "fields": {
         "experiment": {
-          "result": "Joint training of composer and composed modules is non-stationary: the composing strategy depends on optimizing the modules, and vice versa. Training is unstable.\n"
+          "result": "Joint training of composer and composed modules is non-stationary: the composing strategy depends on optimizing the modules, and vice versa. Training is unstable.\n",
+          "exploration": null,
+          "outcome": null,
+          "status": null
         }
       },
       "evidence_notes": [
@@ -117,7 +123,10 @@ expression: manifest
       "description": null,
       "fields": {
         "experiment": {
-          "result": "Each self-composing module has exactly 6 linear transformations and a feed-forward block with sizes depending only on fixed d_enc, d_model, |A|. Total parameters grow as O(m*n) where m is constant per module.\n"
+          "result": "Each self-composing module has exactly 6 linear transformations and a feed-forward block with sizes depending only on fixed d_enc, d_model, |A|. Total parameters grow as O(m*n) where m is constant per module.\n",
+          "exploration": null,
+          "outcome": null,
+          "status": null
         }
       },
       "evidence_notes": [
@@ -135,7 +144,10 @@ expression: manifest
       "description": null,
       "fields": {
         "experiment": {
-          "result": "Despite O(n^2) theoretical complexity, CompoNet's empirical inference time grows substantially slower than ProgressiveNet up to 300 tasks due to parallel attention computation within each module.\n"
+          "result": "Despite O(n^2) theoretical complexity, CompoNet's empirical inference time grows substantially slower than ProgressiveNet up to 300 tasks due to parallel attention computation within each module.\n",
+          "exploration": null,
+          "outcome": null,
+          "status": null
         }
       },
       "evidence_notes": [
@@ -153,7 +165,10 @@ expression: manifest
       "description": null,
       "fields": {
         "experiment": {
-          "result": "(i) When an informative prior module exists, OutputAttentionHead rapidly assigns attention~1.0 to it; InternalPolicy converges to mimic its output. (iii) When all priors are non-informative, InternalPolicy dominates and CompoNet matches baseline performance with no interference.\n"
+          "result": "(i) When an informative prior module exists, OutputAttentionHead rapidly assigns attention~1.0 to it; InternalPolicy converges to mimic its output. (iii) When all priors are non-informative, InternalPolicy dominates and CompoNet matches baseline performance with no interference.\n",
+          "exploration": null,
+          "outcome": null,
+          "status": null
         }
       },
       "evidence_notes": [
@@ -170,7 +185,10 @@ expression: manifest
       "description": null,
       "fields": {
         "experiment": {
-          "result": "Removing Output Attention Head causes significant performance degradation on Freeway (sparse reward: policy reuse critical) but minimal impact on SpaceInvaders (denser reward: internal policy sufficient).\n"
+          "result": "Removing Output Attention Head causes significant performance degradation on Freeway (sparse reward: policy reuse critical) but minimal impact on SpaceInvaders (denser reward: internal policy sufficient).\n",
+          "exploration": null,
+          "outcome": null,
+          "status": null
         }
       },
       "evidence_notes": [
@@ -187,7 +205,10 @@ expression: manifest
       "description": null,
       "fields": {
         "experiment": {
-          "result": "Without the Input Attention Head, CompoNet cannot extract useful signal from a shifted informative module (direct imitation blocked); performance matches baseline. Original CompoNet significantly outperforms.\n"
+          "result": "Without the Input Attention Head, CompoNet cannot extract useful signal from a shifted informative module (direct imitation blocked); performance matches baseline. Original CompoNet significantly outperforms.\n",
+          "exploration": null,
+          "outcome": null,
+          "status": null
         }
       },
       "evidence_notes": [
@@ -204,7 +225,10 @@ expression: manifest
       "description": null,
       "fields": {
         "experiment": {
-          "result": "CompoNet achieves superior or equal performance and forward transfer on all three sequences (Meta-World, SpaceInvaders, Freeway). CompoNet is the only method with non-negative FTr on Meta-World and exceeds RT on all sequences.\n"
+          "result": "CompoNet achieves superior or equal performance and forward transfer on all three sequences (Meta-World, SpaceInvaders, Freeway). CompoNet is the only method with non-negative FTr on Meta-World and exceeds RT on all sequences.\n",
+          "exploration": null,
+          "outcome": null,
+          "status": null
         }
       },
       "evidence_notes": [

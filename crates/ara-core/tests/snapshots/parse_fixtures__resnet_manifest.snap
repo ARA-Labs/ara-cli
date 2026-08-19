@@ -29,7 +29,10 @@ expression: manifest
       "description": "Train plain CNNs of depth {20, 32, 44, 56, 110} on CIFAR-10 with BN + MSRA init. Observe whether deeper plain nets improve.",
       "fields": {
         "experiment": {
-          "result": "Deeper plain nets degrade. Plain-110 fails badly (>60% error, not displayed in Fig. 6). Plain-56 is worse than plain-20."
+          "result": "Deeper plain nets degrade. Plain-110 fails badly (>60% error, not displayed in Fig. 6). Plain-56 is worse than plain-20.",
+          "exploration": null,
+          "outcome": null,
+          "status": null
         }
       },
       "evidence_notes": []
@@ -46,7 +49,10 @@ expression: manifest
       "description": "Train plain-{18, 34} on ImageNet with the standard recipe (§3.4).",
       "fields": {
         "experiment": {
-          "result": "plain-34 = 28.54% top-1, plain-18 = 27.94% top-1 → degradation confirmed on a large dataset, not specific to CIFAR."
+          "result": "plain-34 = 28.54% top-1, plain-18 = 27.94% top-1 → degradation confirmed on a large dataset, not specific to CIFAR.",
+          "exploration": null,
+          "outcome": null,
+          "status": null
         }
       },
       "evidence_notes": []
@@ -133,7 +139,10 @@ expression: manifest
       "description": "Train ResNet-{18, 34} (option A shortcuts) under the same recipe as plain-{18, 34}.",
       "fields": {
         "experiment": {
-          "result": "ResNet-34 = 25.03% top-1 (3.51 pts better than plain-34, 2.85 pts better than ResNet-18). Degradation is removed."
+          "result": "ResNet-34 = 25.03% top-1 (3.51 pts better than plain-34, 2.85 pts better than ResNet-18). Degradation is removed.",
+          "exploration": null,
+          "outcome": null,
+          "status": null
         }
       },
       "evidence_notes": []
@@ -150,7 +159,10 @@ expression: manifest
       "description": "Ablation comparing parameter-free identity (A), projection on dimension changes only (B), and projection on every shortcut (C).",
       "fields": {
         "experiment": {
-          "result": "A = 25.03, B = 24.52, C = 24.19 top-1. Differences are small; option C is rejected as not worth the parameter / memory cost."
+          "result": "A = 25.03, B = 24.52, C = 24.19 top-1. Differences are small; option C is rejected as not worth the parameter / memory cost.",
+          "exploration": null,
+          "outcome": null,
+          "status": null
         }
       },
       "evidence_notes": []
@@ -206,7 +218,10 @@ expression: manifest
       "description": "Train ResNet-50 / 101 / 152 with option B shortcuts under the same ImageNet recipe.",
       "fields": {
         "experiment": {
-          "result": "Top-1 error drops monotonically (22.85 → 21.75 → 21.43); 6-model ensemble achieves 3.57% top-5 on the test set, winning ILSVRC 2015."
+          "result": "Top-1 error drops monotonically (22.85 → 21.75 → 21.43); 6-model ensemble achieves 3.57% top-5 on the test set, winning ILSVRC 2015.",
+          "exploration": null,
+          "outcome": null,
+          "status": null
         }
       },
       "evidence_notes": []
@@ -224,7 +239,10 @@ expression: manifest
       "description": "Train ResNet-{20, 32, 44, 56, 110, 1202} on CIFAR-10. ResNet-110 uses LR warmup (LR 0.01 for ~400 iters until train err <80%, then restore LR 0.1).",
       "fields": {
         "experiment": {
-          "result": "Test error decreases through depth 110 (6.43% mean, best 6.61 ± 0.16). ResNet-1202 trains successfully (training error <0.1%) but overfits to 7.93% test error."
+          "result": "Test error decreases through depth 110 (6.43% mean, best 6.61 ± 0.16). ResNet-1202 trains successfully (training error <0.1%) but overfits to 7.93% test error.",
+          "exploration": null,
+          "outcome": null,
+          "status": null
         }
       },
       "evidence_notes": []
@@ -261,7 +279,10 @@ expression: manifest
       "description": "Swap VGG-16 for ResNet-101 in baseline Faster R-CNN; fine-tune on PASCAL VOC and COCO.",
       "fields": {
         "experiment": {
-          "result": "PASCAL VOC07 mAP: 73.2 → 76.4. COCO mAP@.5: 41.5 → 48.4. COCO mAP@[.5, .95]: 21.2 → 27.2 (28% relative improvement)."
+          "result": "PASCAL VOC07 mAP: 73.2 → 76.4. COCO mAP@.5: 41.5 → 48.4. COCO mAP@[.5, .95]: 21.2 → 27.2 (28% relative improvement).",
+          "exploration": null,
+          "outcome": null,
+          "status": null
         }
       },
       "evidence_notes": []

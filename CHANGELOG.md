@@ -6,6 +6,28 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- Core: published node metadata contract — every node now carries provenance
+  and timestamp metadata, pivot nodes model
+  `prior_direction`/`new_direction`/`reason`/`lesson`, and experiment nodes
+  model `exploration`/`outcome`/`status` (#75).
+- Core: ARA005–ARA007 lint rules flag legacy pivot aliases
+  (`from`/`to`/`trigger`) and `ara check --fix` recovers their values into the
+  canonical pivot keys (#75).
+- Core: `ara check` now warns when a node's kind drops modeled body fields it
+  cannot represent (#75).
+- Core: `proofs/` and `results/` are recognized evidence categories, with a
+  warning for duplicate basenames across categories (#75).
+- Viewer: the detail pane renders the new published fields — provenance,
+  timestamps, pivot narrative, and experiment exploration/outcome/status (#75).
+
+### Changed
+- BREAKING for manifest JSON consumers (pre-crates.io): `NodeFields::Pivot`
+  serialized keys are renamed `from`/`to`/`trigger` →
+  `prior_direction`/`new_direction`/`reason`, with a new `lesson` field; the
+  parser tolerates the legacy keys, and `ara check --fix` migrates them via
+  ARA005–ARA007 (#75).
+
 ### Fixed
 - `ara check --fix` now safely applies ARA002, ARA003, and ARA004 value
   recovery to normalized error-bearing artifacts when the candidate introduces

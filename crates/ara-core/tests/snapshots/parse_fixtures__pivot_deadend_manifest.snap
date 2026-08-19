@@ -13,9 +13,10 @@ expression: manifest
       "description": null,
       "fields": {
         "pivot": {
-          "from": "Full manual curation",
-          "to": "Semi-automated pipeline with multi-pass LLM extraction + execution validation",
-          "trigger": "Manual curation infeasible at scale; needed automated extraction with a validation loop.\n"
+          "prior_direction": "Full manual curation",
+          "new_direction": "Semi-automated pipeline with multi-pass LLM extraction + execution validation",
+          "reason": "Manual curation infeasible at scale; needed automated extraction with a validation loop.\n",
+          "lesson": null
         }
       },
       "evidence_notes": []

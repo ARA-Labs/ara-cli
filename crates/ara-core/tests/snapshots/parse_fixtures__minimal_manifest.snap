@@ -23,7 +23,10 @@ expression: manifest
       "description": null,
       "fields": {
         "experiment": {
-          "result": "28.4 BLEU on EN-DE, surpassing all previous single models including ensembles.\n"
+          "result": "28.4 BLEU on EN-DE, surpassing all previous single models including ensembles.\n",
+          "exploration": null,
+          "outcome": null,
+          "status": null
         }
       },
       "evidence_notes": [
