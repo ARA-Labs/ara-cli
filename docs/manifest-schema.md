@@ -98,11 +98,18 @@ The **logical** model (`nodes`, `links`, `bindings`, `claims`, `NodeKind`,
 Additive extension is the only *compatible* logical change. Renaming an
 existing wire key is a **logical breaking change** — not a geometry one: the
 pivot body keys were renamed in `0.1.15` (`from` → `prior_direction`, `to` →
-`new_direction`, `trigger` → `reason`). An old manifest that still carries the
-old keys no longer projects them; they fall into `extra` and surface as
-unknown-field warnings. `ara check` provides the migration path: ARA005–ARA007
-rename the keys in place and recover the values. The frozen-geometry contract
-above is unaffected.
+`new_direction`, `trigger` → `reason`). The migration path differs by layer:
+
+- **YAML trees**: the old keys fall into the raw layer's `extra` capture and
+  surface as unknown-field warnings. `ara check` migrates in place — ARA005–
+  ARA007 rename the keys and recover the values.
+- **JSON manifests**: the normalized model has no `extra` capture, so an old
+  serialized manifest carrying the legacy keys deserializes with them silently
+  ignored (`prior_direction`/`new_direction`/`reason` come out as `null`) and
+  no warning fires. Regenerate the manifest with `ara layout` from the fixed
+  YAML source instead.
+
+The frozen-geometry contract above is unaffected.
 
 One deliberate name collision: `reason:` is the **canonical** key on a `pivot`
 node (ARA007 renames `trigger:` to it) but an **alias** of `why_failed:` on a

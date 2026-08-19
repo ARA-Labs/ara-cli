@@ -442,6 +442,12 @@ impl Normalizer {
                 Some("") | None => {
                     self.report
                         .warn(format!("nodes[{id}]"), "node is missing a `type`");
+                    for field in body_field_names(raw) {
+                        self.report.warn(
+                            format!("nodes[{id}]"),
+                            format!("field `{field}` dropped for missing type"),
+                        );
+                    }
                     return (NodeKind::Other(String::new()), NodeFields::Other);
                 }
                 Some(other) => {
@@ -1028,6 +1034,30 @@ tree:
                 .iter()
                 .any(|d| d.message.contains("missing a `type`")),
             "expected missing-type warning, got: {report}"
+        );
+    }
+
+    #[test]
+    fn missing_type_dropped_body_fields_warn() {
+        // A missing-`type:` node carrying canonical body fields must warn per
+        // field in addition to the missing-type warning, matching the
+        // unknown-type arm — nothing is lost silently.
+        let yaml = "tree:\n  - id: N01\n    title: q\n    status: running\n";
+        let (m, report) = parse_sources(yaml, None).expect("ok");
+        assert_eq!(m.nodes[0].kind, NodeKind::Other(String::new()));
+        assert!(
+            report
+                .warnings()
+                .iter()
+                .any(|d| d.message.contains("missing a `type`")),
+            "expected missing-type warning, got: {report}"
+        );
+        assert!(
+            report
+                .warnings()
+                .iter()
+                .any(|d| d.message.contains("`status` dropped for missing type")),
+            "expected dropped-field warning for `status`, got: {report}"
         );
     }
 

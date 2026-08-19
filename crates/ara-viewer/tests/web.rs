@@ -710,6 +710,22 @@ fn detail_renders_provenance_and_timestamp_pills() {
     }
 }
 
+// ── Test: metadata-free node renders no provenance/timestamp pills ───────────
+
+/// A node without `provenance`/`timestamp` must omit both pills at render
+/// (DOM-level absence, matching the `div.reason` `is_none()` idiom above).
+#[wasm_bindgen_test]
+fn detail_omits_provenance_and_timestamp_pills_when_absent() {
+    let container = mount_detail(FIXTURE_JSON, "N01");
+
+    for sel in ["span.pill.provenance", "span.pill.timestamp"] {
+        assert!(
+            container.query_selector(sel).unwrap().is_none(),
+            "{sel} must NOT render for a metadata-free node"
+        );
+    }
+}
+
 // ── Test: experiment narrative renders in typed-field order ──────────────────
 
 /// N01's experiment narrative must render block-labels in order:

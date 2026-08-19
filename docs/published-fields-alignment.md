@@ -123,8 +123,12 @@ No generic allowlist. Three independent guards:
 - a legacy pivot alias (`from:`) → unknown-field warning plus a fixable
   ARA005–007 diagnostic; the value is recovered only by `--fix`.
 
-Published canonical input is a no-op under `ara check --strict --fix`:
-byte-identical across runs, zero warnings.
+The in-repo `published-fields` fixture is a no-op under `ara check --strict
+--fix`: byte-identical across runs, zero warnings. The upstream canonical tree
+is not: per the T-A disclosure above it currently emits 4 wrong-kind drop
+warnings (`status: resolved` on decision nodes N122/N123, `lesson` on
+experiment nodes N95/N96), which become errors under `--strict`, pending the
+upstream spec decision on widening `status` / `lesson`.
 
 ## What is deferred
 

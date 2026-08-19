@@ -479,19 +479,22 @@ fn published_fields_fixture_is_clean() {
     assert!(report.is_ok(), "errors: {report}");
     assert!(report.warnings().is_empty(), "warnings: {report}");
 
-    // provenance + timestamp on every node.
+    // provenance + timestamp on every node, pinned by value (not just
+    // presence) so a projection swap in the Normalizer is caught.
     assert_eq!(manifest.nodes.len(), 3);
-    for node in &manifest.nodes {
-        assert!(
-            node.provenance.is_some(),
-            "{} misses provenance",
-            node.id.as_str()
-        );
-        assert!(
-            node.timestamp.is_some(),
-            "{} misses timestamp",
-            node.id.as_str()
-        );
+    let expected = [
+        ("N01", "2026-03-12"),
+        ("N02", "2026-04-08"),
+        ("N03", "2026-03-12"),
+    ];
+    for (id, timestamp) in expected {
+        let node = manifest
+            .nodes
+            .iter()
+            .find(|n| n.id.as_str() == id)
+            .unwrap_or_else(|| panic!("missing node {id}"));
+        assert_eq!(node.provenance.as_deref(), Some("user"), "{id} provenance");
+        assert_eq!(node.timestamp.as_deref(), Some(timestamp), "{id} timestamp");
     }
 
     // experiment: exploration/outcome/status/result.
