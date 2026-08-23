@@ -144,16 +144,25 @@ that closes a loop) remain fatal.
   Concept/recipe LaTeX renders as
   inert monospace (`$…$` kept verbatim, never interpreted — D3).
 
+## Shipped since this design
+
+- **RESULT table/markdown rendering** (D4) — no longer deferred. Exhibit bodies
+  are rendered client-side with `pulldown-cmark` and mounted in a
+  `.exhibit-body` scroll container
+  ([#32](https://github.com/ARA-Labs/ara-cli/issues/32), released in `0.1.11`).
+  Design record:
+  [`exhibit-markdown-rendering.md`](exhibit-markdown-rendering.md). Styling
+  beyond tables remains open
+  ([#46](https://github.com/ARA-Labs/ara-cli/issues/46)).
+
 ## Deferred (tracked, not in this design)
 
-- **RESULT table/markdown rendering** (D4) — exhibits carry raw markdown bodies
-  in the manifest; client-side rendering is gated on a wasm bundle-size check and
-  tracked in [ARA-Labs/ara-cli#32](https://github.com/ARA-Labs/ara-cli/issues/32).
 - **KaTeX / real math** (D3, `T-MATH-RENDER`) — inert monospace for now.
 - **REASONING** (D1) — inert slot, pending a stored `reasoning:` field.
 - **Figure-image serving** (`T-HUB-FIGURES`) — the corpus is overwhelmingly
-  markdown tables (the sampled artifact has zero image files) and no v1 surface
-  renders exhibit bodies, so there is no consumer yet.
+  markdown tables (the sampled artifact has zero image files), so inline images
+  in the now-rendered exhibit bodies are still open, tracked in
+  [ARA-Labs/ara-cli#60](https://github.com/ARA-Labs/ara-cli/issues/60).
 - **ARTIFACT code-pointer** — code linkage is not modelled.
 - **The "recipe" unit** (E8) — resolved per
   [ARA-Labs/ara-cli#35](https://github.com/ARA-Labs/ara-cli/issues/35): rather
