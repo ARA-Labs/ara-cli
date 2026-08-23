@@ -87,6 +87,9 @@ ara validate path/to/ara-dir   # parse + validate an artifact directory
 ara serve    path/to/ara-dir   # serve the live-reloading web viewer
 ```
 
+How the binaries and the Homebrew formula are produced is documented in
+[`docs/release-distribution.md`](docs/release-distribution.md).
+
 ## Run locally
 
 From a clone of this repo, run the CLI through Cargo. The workspace has two
