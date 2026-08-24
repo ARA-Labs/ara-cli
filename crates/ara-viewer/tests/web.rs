@@ -1288,9 +1288,9 @@ fn assert_non_table_exhibit_markdown(rem: f64) {
         computed_style(&rule)
             .get_property_value("border-top-color")
             .unwrap(),
-        "rgb(230, 221, 204)"
+        "rgb(114, 103, 81)"
     );
-    assert!(computed_px(&table, "margin-top") > 0.0);
+    assert_px_close(&table, "margin-top", rem * 0.75);
     let table_only_container = mount_detail(EXHIBIT_BODY_FIXTURE_JSON, "N01");
     let first_table = table_only_container
         .query_selector(".exhibit-body > table")
@@ -1312,6 +1312,12 @@ fn assert_non_table_exhibit_markdown(rem: f64) {
             .get_property_value("overflow-x")
             .unwrap(),
         "auto"
+    );
+    assert_eq!(
+        computed_style(&body)
+            .get_property_value("max-width")
+            .unwrap(),
+        "100%"
     );
 }
 
