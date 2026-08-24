@@ -1288,7 +1288,7 @@ fn assert_non_table_exhibit_markdown(rem: f64) {
         computed_style(&rule)
             .get_property_value("border-top-color")
             .unwrap(),
-        "rgb(114, 103, 81)"
+        "rgb(230, 221, 204)"
     );
     assert_px_close(&table, "margin-top", rem * 0.75);
     let table_only_container = mount_detail(EXHIBIT_BODY_FIXTURE_JSON, "N01");

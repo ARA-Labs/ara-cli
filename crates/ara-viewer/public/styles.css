@@ -1388,7 +1388,7 @@ figure.detail-figure figcaption {
 
 .exhibit-body hr {
   border: 0;
-  border-top: 1px solid var(--muted);
+  border-top: 1px solid var(--line);
 }
 
 /* Markdown-sourced data table: the reserved `table.md` slot and the tables
