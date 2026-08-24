@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.1.16] - 2026-08-23
+
 ### Added
 - Viewer: exhibit bodies now style CommonMark headings, lists, blockquotes,
   inline and fenced code, links, and horizontal rules with the existing detail
