@@ -90,11 +90,21 @@ keeps a future renderer or font from silently eating the headroom.
 - `ExhibitView` carries `body`, populated from `ex.body` in `detail_model`.
 - Each exhibit chip is followed by its rendered body in a
   `<div class="exhibit-body">`; blank bodies are skipped.
-- `.exhibit-body { overflow-x: auto; max-width: 100% }` makes a wide table
-  scroll **inside its own block** rather than pushing the page into a horizontal
-  scroll at narrow viewports.
-- The table look is shared with the reserved `table.md` slot: `.exhibit-body
-  table` / `th` / `td` get collapsed borders, cell padding, and a shaded header.
+- The `.exhibit-body { overflow-x: auto; max-width: 100% }` overflow contract
+  is unchanged: a wide table scrolls **inside its own block** rather than
+  pushing the page into a horizontal scroll at narrow viewports.
+- Existing table visual declarations are unchanged and remain shared with the
+  reserved `table.md` slot: `.exhibit-body table` / `th` / `td` use collapsed
+  borders, cell padding, and a shaded header.
+- Non-table CommonMark styling covers headings, paragraphs, lists,
+  blockquotes, inline and fenced code, links, and horizontal rules. These
+  styles reuse the detail pane's `--ink`, `--muted`, `--panel2`, `--line`,
+  `--font-mono`, `--accent-text`, and `--accent` tokens rather than adding
+  exhibit-only tokens.
+- The mixed-flow selector `.exhibit-body > :not(table) + table` adds `0.75rem`
+  before a table only when top-level non-table content immediately precedes
+  it. A first-child table and consecutive tables retain their existing
+  boundary.
 
 ## Testing
 
@@ -106,16 +116,23 @@ keeps a future renderer or font from silently eating the headroom.
 - Headless wasm test `exhibit_body_renders_table_in_scroll_container`
   (`crates/ara-viewer/tests/web.rs`) asserts the detail pane renders a real
   `<table>` with the expected cell text inside the `.exhibit-body` container.
+- Headless wasm test `non_table_exhibit_markdown_uses_viewer_styles` mounts the
+  mixed CommonMark fixture with the real viewer stylesheet and checks computed
+  heading hierarchy, nested-flow spacing, list, blockquote, code, link, and
+  rule styles. It also checks the unchanged table skin and `.exhibit-body`
+  overflow contract, including the `0.75rem` mixed-flow table boundary and
+  zero margin for a first-child table.
+- Source-viewer browser verification checked the actual detail-pane surface at
+  1280×800, 799×700, and 375×667. Computed-style and geometry audits passed,
+  and screenshot inspection found no clipped markers, pane-level horizontal
+  overflow, nested code boxes, changed table appearance, overlap, or hierarchy
+  inversion.
 - `scripts/embed-viewer.sh` was re-run so the committed bundle in
   `crates/ara-cli/assets/viewer/` matches the viewer source; the
   `viewer-embed-fresh` CI job enforces this.
 
 ## Known gaps (tracked)
 
-- **Only tables are styled.** pulldown-cmark parses all of CommonMark, so a body
-  can legitimately render headings, lists, blockquotes, code blocks, and rules —
-  which currently fall back to browser defaults inside the pane
-  ([#46](https://github.com/ARA-Labs/ara-cli/issues/46)).
 - **Figure images are not rendered** as inline images
   ([#60](https://github.com/ARA-Labs/ara-cli/issues/60), the `T-HUB-FIGURES`
   follow-on). The sampled corpus is overwhelmingly markdown tables.

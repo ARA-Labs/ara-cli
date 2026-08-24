@@ -6,6 +6,11 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- Viewer: exhibit bodies now style CommonMark headings, lists, blockquotes,
+  inline and fenced code, links, and horizontal rules with the existing detail
+  pane design tokens (#46).
+
 ## [0.1.15] - 2026-08-19
 
 First published release since v0.1.12 — also ships the changes merged as

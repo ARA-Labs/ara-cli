@@ -1261,6 +1261,136 @@ figure.detail-figure figcaption {
   max-width: 100%;
 }
 
+.exhibit-body > h1,
+.exhibit-body > h2,
+.exhibit-body > h3,
+.exhibit-body > h4,
+.exhibit-body > h5,
+.exhibit-body > h6,
+.exhibit-body > p,
+.exhibit-body > blockquote,
+.exhibit-body > ul,
+.exhibit-body > ol,
+.exhibit-body > pre,
+.exhibit-body > hr {
+  margin-top: 0.75rem;
+}
+
+.exhibit-body > :first-child {
+  margin-top: 0;
+}
+
+.exhibit-body :where(blockquote, li)
+  > :where(p, ul, ol, blockquote, pre, h1, h2, h3, h4, h5, h6, hr)
+  + :where(p, ul, ol, blockquote, pre, h1, h2, h3, h4, h5, h6, hr) {
+  margin-top: 0.5rem;
+}
+
+.exhibit-body > :not(table) + table {
+  margin-top: 0.75rem;
+}
+
+.exhibit-body h1,
+.exhibit-body h2,
+.exhibit-body h3,
+.exhibit-body h4,
+.exhibit-body h5,
+.exhibit-body h6 {
+  color: var(--ink);
+  font-weight: 600;
+  line-height: 1.3;
+  word-break: break-word;
+}
+
+.exhibit-body p,
+.exhibit-body li,
+.exhibit-body blockquote,
+.exhibit-body a,
+.exhibit-body :not(pre) > code {
+  overflow-wrap: anywhere;
+}
+
+.exhibit-body h1,
+.exhibit-body h2 { font-size: 0.95rem; }
+.exhibit-body h3,
+.exhibit-body h4,
+.exhibit-body h5,
+.exhibit-body h6 { font-size: 0.9rem; }
+
+.exhibit-body ul,
+.exhibit-body ol {
+  padding-left: 1.25rem;
+}
+
+.exhibit-body li + li {
+  margin-top: 0.2rem;
+}
+
+.exhibit-body li > ul,
+.exhibit-body li > ol {
+  margin-top: 0.25rem;
+}
+
+.exhibit-body blockquote {
+  border-left: 3px solid var(--line);
+  padding-left: 0.75rem;
+  color: var(--muted);
+}
+
+.exhibit-body :not(pre) > code {
+  padding: 0.05rem 0.25rem;
+  background-color: var(--panel2);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  font-size: 0.9em;
+}
+
+.exhibit-body pre {
+  padding: 0.5rem 0.75rem;
+  overflow-x: auto;
+  background-color: var(--panel2);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  line-height: 1.5;
+  white-space: pre;
+}
+
+.exhibit-body pre code {
+  padding: 0;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  font: inherit;
+}
+
+.exhibit-body a {
+  color: var(--accent-text);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+}
+
+.exhibit-body a:visited {
+  color: var(--muted);
+}
+
+.exhibit-body a:hover {
+  text-decoration-color: var(--accent);
+  text-decoration-thickness: 2px;
+}
+
+.exhibit-body a:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.exhibit-body hr {
+  border: 0;
+  border-top: 1px solid var(--line);
+}
+
 /* Markdown-sourced data table: the reserved `table.md` slot and the tables
    rendered from exhibit bodies share one look. */
 table.md,
