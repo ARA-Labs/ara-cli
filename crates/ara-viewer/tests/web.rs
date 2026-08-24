@@ -969,6 +969,80 @@ const EXHIBIT_BODY_FIXTURE_JSON: &str = r#"{
   "bounds": { "x": 0.0, "y": 0.0, "width": 500.0, "height": 500.0 }
 }"#;
 
+const MIXED_EXHIBIT_BODY_FIXTURE_JSON: &str = r##"{
+  "nodes": [
+    {
+      "id": "N01",
+      "kind": "experiment",
+      "label": "Train the transformer",
+      "description": "Ran the training experiment.",
+      "source_refs": [],
+      "evidence_notes": [],
+      "fields": { "experiment": { "result": "28.4 BLEU" } },
+      "pos": { "x": 100.0, "y": 100.0 }
+    }
+  ],
+  "links": [],
+  "bindings": [],
+  "claims": [],
+  "related_work": [],
+  "exhibits": [
+    { "id": "E01", "file": "evidence/tables/tab1.md", "kind": "table",
+      "source": "Tab. 1", "description": null, "claims": [],
+      "body": "# Experiment result\n\n## Findings\n\n1. Train the baseline.\n\n   Record the seed and environment before continuing.\n\n   - Capture the logs.\n     - Archive the raw output.\n2. Compare the residual model.\n\n> Residual learning converged reliably.\n>\n> Confirm the dataset and seed.\n>\n> #### Promotion gate\n>\n> Recheck `learning_rate` before promotion.\n>\n> ---\n\nUse `learning_rate = 0.1` for this run.\n\nThe result is **reliable** and *repeatable*.\n\n### Metrics\n\n```text\nbaseline = 27.1\nresidual = 28.4\n```\n\n##### Detailed notes\n\nRetain every checkpoint.\n\n###### References\n\n[https://example.com/experiments/residual-learning/notes](https://example.com/experiments/residual-learning/notes)\n\n---\n\n| method | bleu |\n|---|---|\n| baseline | 27.1 |\n| ours | 28.4 |\n" }
+  ],
+  "built_on": [],
+  "node_exhibits": [
+    { "node": "N01", "exhibit": "E01" }
+  ],
+  "bounds": { "x": 0.0, "y": 0.0, "width": 500.0, "height": 500.0 }
+}"##;
+
+fn install_viewer_styles(doc: &Document) -> web_sys::Element {
+    let style = doc.create_element("style").unwrap();
+    style.set_text_content(Some(include_str!("../public/styles.css")));
+    doc.head().unwrap().append_child(&style).unwrap();
+    style
+}
+
+#[wasm_bindgen::prelude::wasm_bindgen(inline_js = r#"
+export function with_viewer_styles_cleanup(stylesheet, test) {
+    try {
+        test();
+    } finally {
+        stylesheet.remove();
+    }
+}
+"#)]
+extern "C" {
+    fn with_viewer_styles_cleanup(stylesheet: &web_sys::Element, test: &mut dyn FnMut());
+}
+
+fn computed_style(element: &web_sys::Element) -> web_sys::CssStyleDeclaration {
+    web_sys::window()
+        .unwrap()
+        .get_computed_style(element)
+        .unwrap()
+        .expect("element must have computed style")
+}
+
+fn computed_px(element: &web_sys::Element, property: &str) -> f64 {
+    computed_style(element)
+        .get_property_value(property)
+        .unwrap()
+        .trim_end_matches("px")
+        .parse()
+        .expect("computed property must use px")
+}
+
+fn assert_px_close(element: &web_sys::Element, property: &str, expected: f64) {
+    let actual = computed_px(element, property);
+    assert!(
+        (actual - expected).abs() <= 0.05,
+        "{property}: expected {expected}px, got {actual}px"
+    );
+}
+
 // ── Test: exhibit body renders as a real table inside the scroll container ─────
 
 /// E01's GFM-table body must render as a real `<table>` (with `<th>`/`<td>` and
@@ -1016,6 +1090,234 @@ fn exhibit_body_renders_table_in_scroll_container() {
     assert!(
         text.contains("baseline") && text.contains("28.4"),
         "rendered table must contain the source cell text, got: {text:?}"
+    );
+}
+
+#[wasm_bindgen_test]
+fn non_table_exhibit_markdown_uses_viewer_styles() {
+    let doc = web_sys::window().unwrap().document().unwrap();
+    let root = doc.document_element().expect("document root must exist");
+    let rem = computed_px(&root, "font-size");
+    let stylesheet = install_viewer_styles(&doc);
+    with_viewer_styles_cleanup(&stylesheet, &mut || {
+        assert_non_table_exhibit_markdown(rem);
+    });
+}
+
+fn assert_non_table_exhibit_markdown(rem: f64) {
+    let container = mount_detail(MIXED_EXHIBIT_BODY_FIXTURE_JSON, "N01");
+
+    let body = container
+        .query_selector(".exhibit-body")
+        .unwrap()
+        .expect("mixed exhibit body must render");
+    let detail_title = container
+        .query_selector(".detail-title")
+        .unwrap()
+        .expect("detail title must render");
+    let headings = ["h1", "h2", "h3", "h4", "h5", "h6"].map(|selector| {
+        body.query_selector(selector)
+            .unwrap()
+            .unwrap_or_else(|| panic!("{selector} must render"))
+    });
+    let h1 = headings[0].clone();
+    let h3 = headings[2].clone();
+    let list = body
+        .query_selector("ol")
+        .unwrap()
+        .expect("list must render");
+    let second_item = body
+        .query_selector("ol > li + li")
+        .unwrap()
+        .expect("second list item must render");
+    let nested_paragraph = body
+        .query_selector("ol > li > p + p")
+        .unwrap()
+        .expect("multi-paragraph list item must render");
+    let nested_list = body
+        .query_selector("ol > li > ul")
+        .unwrap()
+        .expect("nested list must render");
+    let prose = body
+        .query_selector("p")
+        .unwrap()
+        .expect("paragraph must render");
+    let quote = body
+        .query_selector("blockquote")
+        .unwrap()
+        .expect("blockquote must render");
+    let quote_second_paragraph = quote
+        .query_selector("p + p")
+        .unwrap()
+        .expect("multi-paragraph quote must render");
+    let nested_heading = quote
+        .query_selector("p + h4")
+        .unwrap()
+        .expect("nested heading must render");
+    let nested_rule = quote
+        .query_selector("p + hr")
+        .unwrap()
+        .expect("nested rule must render");
+    let inline_code = body
+        .query_selector("p code")
+        .unwrap()
+        .expect("inline code must render");
+    let pre = body
+        .query_selector("pre")
+        .unwrap()
+        .expect("code block must render");
+    let pre_code = pre
+        .query_selector("code")
+        .unwrap()
+        .expect("pre code must render");
+    let link = body.query_selector("a").unwrap().expect("link must render");
+    let rule = body
+        .query_selector(":scope > hr")
+        .unwrap()
+        .expect("top-level rule must render");
+    let table = body
+        .query_selector("table")
+        .unwrap()
+        .expect("table must render");
+    let th = table
+        .query_selector("th")
+        .unwrap()
+        .expect("header cell must render");
+    let td = table
+        .query_selector("td")
+        .unwrap()
+        .expect("data cell must render");
+
+    for heading in &headings {
+        let style = computed_style(heading);
+        assert_eq!(style.get_property_value("font-weight").unwrap(), "600");
+        assert_eq!(
+            style.get_property_value("color").unwrap(),
+            "rgb(47, 42, 35)"
+        );
+        assert_eq!(
+            style.get_property_value("word-break").unwrap(),
+            "break-word"
+        );
+        let ratio = computed_px(heading, "line-height") / computed_px(heading, "font-size");
+        assert!(
+            (ratio - 1.3).abs() <= 0.02,
+            "heading line-height ratio: {ratio}"
+        );
+    }
+    let upper_size = computed_px(&headings[0], "font-size");
+    for heading in &headings[..2] {
+        assert_px_close(heading, "font-size", upper_size);
+    }
+    let lower_size = computed_px(&headings[2], "font-size");
+    for heading in &headings[2..] {
+        assert_px_close(heading, "font-size", lower_size);
+    }
+    assert!(upper_size < computed_px(&detail_title, "font-size"));
+    assert!(upper_size > lower_size);
+    assert_eq!(computed_px(&h1, "margin-top"), 0.0);
+    assert_px_close(&h3, "margin-top", rem * 0.75);
+    assert!(computed_px(&list, "padding-left") > 0.0);
+    assert_px_close(&second_item, "margin-top", rem * 0.2);
+    assert_px_close(&nested_paragraph, "margin-top", rem * 0.5);
+    assert_px_close(&nested_list, "margin-top", rem * 0.25);
+    assert!(computed_px(&quote, "border-left-width") > 0.0);
+    assert_px_close(&quote_second_paragraph, "margin-top", rem * 0.5);
+    assert_px_close(&nested_heading, "margin-top", rem * 0.5);
+    assert_px_close(&nested_rule, "margin-top", rem * 0.5);
+    assert_eq!(
+        computed_style(&quote).get_property_value("color").unwrap(),
+        "rgb(114, 103, 81)"
+    );
+    assert_ne!(
+        computed_style(&inline_code)
+            .get_property_value("background-color")
+            .unwrap(),
+        computed_style(&body)
+            .get_property_value("background-color")
+            .unwrap()
+    );
+    assert_eq!(
+        computed_style(&inline_code)
+            .get_property_value("font-family")
+            .unwrap(),
+        computed_style(&pre)
+            .get_property_value("font-family")
+            .unwrap()
+    );
+    assert_eq!(
+        computed_style(&prose)
+            .get_property_value("overflow-wrap")
+            .unwrap(),
+        "anywhere"
+    );
+    assert_eq!(
+        computed_style(&inline_code)
+            .get_property_value("overflow-wrap")
+            .unwrap(),
+        "anywhere"
+    );
+    assert_eq!(
+        computed_style(&pre)
+            .get_property_value("overflow-x")
+            .unwrap(),
+        "auto"
+    );
+    assert_eq!(computed_px(&pre_code, "padding-left"), 0.0);
+    assert_eq!(computed_px(&pre_code, "border-top-width"), 0.0);
+    assert_ne!(
+        computed_style(&pre_code)
+            .get_property_value("background-color")
+            .unwrap(),
+        computed_style(&inline_code)
+            .get_property_value("background-color")
+            .unwrap()
+    );
+    assert_eq!(
+        computed_style(&link).get_property_value("color").unwrap(),
+        "rgb(140, 68, 20)"
+    );
+    assert_eq!(
+        computed_style(&link)
+            .get_property_value("overflow-wrap")
+            .unwrap(),
+        "anywhere"
+    );
+    assert_eq!(computed_px(&rule, "border-top-width"), 1.0);
+    assert_eq!(
+        computed_style(&rule)
+            .get_property_value("border-top-color")
+            .unwrap(),
+        "rgb(230, 221, 204)"
+    );
+    assert_px_close(&table, "margin-top", rem * 0.75);
+    let table_only_container = mount_detail(EXHIBIT_BODY_FIXTURE_JSON, "N01");
+    let first_table = table_only_container
+        .query_selector(".exhibit-body > table")
+        .unwrap()
+        .expect("table-only exhibit must render its table first");
+    assert_eq!(computed_px(&first_table, "margin-top"), 0.0);
+    assert_eq!(
+        computed_style(&th)
+            .get_property_value("background-color")
+            .unwrap(),
+        computed_style(&pre)
+            .get_property_value("background-color")
+            .unwrap()
+    );
+    assert_eq!(computed_px(&td, "border-top-width"), 1.0);
+    assert_px_close(&td, "padding-left", rem * 0.5);
+    assert_eq!(
+        computed_style(&body)
+            .get_property_value("overflow-x")
+            .unwrap(),
+        "auto"
+    );
+    assert_eq!(
+        computed_style(&body)
+            .get_property_value("max-width")
+            .unwrap(),
+        "100%"
     );
 }
 
