@@ -6,6 +6,9 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+- Core: bump serde-saphyr to 1.3.0 (#90).
+
 ## [0.1.16] - 2026-08-23
 
 ### Added
