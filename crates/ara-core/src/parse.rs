@@ -15,6 +15,7 @@ use crate::manifest::{
     is_canonical_id,
 };
 use crate::report::ParseReport;
+use crate::rules::RuleCode;
 use crate::schema::{RawNode, parse_doc};
 
 #[allow(
@@ -50,30 +51,43 @@ pub(crate) fn parse_sources_detailed(tree_yaml: &str, claims_md: Option<&str>) -
     let doc = match parse_doc(tree_yaml) {
         Ok(doc) => doc,
         Err(msg) => {
-            report.error("document", msg);
+            report.error(RuleCode::MalformedTree, "document", msg);
             return ParseOutcome::Fatal(report);
         }
     };
 
     for key in doc.extra.keys() {
-        report.warn("document", format!("unknown field `{key}`"));
+        report.warn(
+            RuleCode::UnknownDocumentField,
+            "document",
+            format!("unknown field `{key}`"),
+        );
     }
 
     let roots: Vec<RawNode> = match (doc.tree, doc.root) {
         (Some(_), Some(_)) => {
             report.error(
+                RuleCode::TreeAndRoot,
                 "document",
                 "both `tree:` and `root:` are present; exactly one is allowed",
             );
             return ParseOutcome::Fatal(report);
         }
         (None, None) => {
-            report.error("document", "neither `tree:` nor `root:` is present");
+            report.error(
+                RuleCode::MissingTree,
+                "document",
+                "neither `tree:` nor `root:` is present",
+            );
             return ParseOutcome::Fatal(report);
         }
         (Some(tree), None) => {
             if tree.is_empty() {
-                report.warn("document", "empty manifest (`tree: []`)");
+                report.warn(
+                    RuleCode::EmptyTree,
+                    "document",
+                    "empty manifest (`tree: []`)",
+                );
             }
             tree
         }
@@ -91,7 +105,11 @@ pub(crate) fn parse_sources_detailed(tree_yaml: &str, claims_md: Option<&str>) -
     };
     let claim_ids: BTreeSet<ClaimId> = claims.iter().map(|c| c.id.clone()).collect();
     for id in duplicate_claim_ids {
-        report.error(format!("claims[{id}]"), "duplicate claim id");
+        report.error(
+            RuleCode::DuplicateClaimId,
+            format!("claims[{id}]"),
+            "duplicate claim id",
+        );
     }
 
     let mut norm = Normalizer {
@@ -130,6 +148,7 @@ pub(crate) fn parse_sources_detailed(tree_yaml: &str, claims_md: Option<&str>) -
             let to = NodeId::new(t);
             if !norm.node_ids.contains(&to) {
                 norm.report.error(
+                    RuleCode::UnknownDependencyNode,
                     format!("nodes[{from}].also_depends_on[{i}]"),
                     format!("`also_depends_on` references unknown node `{t}`"),
                 );
@@ -137,6 +156,7 @@ pub(crate) fn parse_sources_detailed(tree_yaml: &str, claims_md: Option<&str>) -
             }
             if is_ancestor(&to, from, &parent_of) {
                 norm.report.warn(
+                    RuleCode::RedundantAncestorDependency,
                     format!("nodes[{from}].also_depends_on[{i}]"),
                     format!(
                         "redundant `also_depends_on` on ancestor `{t}` (already nested under it)"
@@ -163,6 +183,7 @@ pub(crate) fn parse_sources_detailed(tree_yaml: &str, claims_md: Option<&str>) -
         for (i, dep) in claim.deps.iter().enumerate() {
             if !norm.claim_ids.contains(dep) {
                 norm.report.error(
+                    RuleCode::UnknownClaimDependency,
                     format!("claims[{}].dependencies[{i}]", claim.id),
                     format!("dependency references unknown claim `{dep}`"),
                 );
@@ -203,6 +224,7 @@ pub fn parse_dir(dir: &std::path::Path) -> Result<(Manifest, ParseReport), Parse
         Err(e) => {
             let mut report = ParseReport::default();
             report.error(
+                RuleCode::UnreadableTree,
                 "document",
                 format!("cannot read {}: {e}", tree_path.display()),
             );
@@ -247,7 +269,7 @@ fn read_logic_layer(dir: &std::path::Path, manifest: &mut Manifest, report: &mut
         let (paper, warnings) = parse_paper(&md);
         manifest.paper = paper;
         for w in warnings {
-            report.warn("PAPER.md", w);
+            report.warn(RuleCode::MalformedPaperFrontmatter, "PAPER.md", w);
         }
     }
 
@@ -259,7 +281,11 @@ fn read_logic_layer(dir: &std::path::Path, manifest: &mut Manifest, report: &mut
         let concepts = parse_concepts(&md);
         for c in &concepts {
             if c.definition.is_none() {
-                report.warn(format!("concepts[{}]", c.term), "concept has no definition");
+                report.warn(
+                    RuleCode::ConceptMissingDefinition,
+                    format!("concepts[{}]", c.term),
+                    "concept has no definition",
+                );
             }
         }
         manifest.concepts = concepts;
@@ -269,7 +295,11 @@ fn read_logic_layer(dir: &std::path::Path, manifest: &mut Manifest, report: &mut
         let related_work = parse_related_work(&md);
         for r in &related_work {
             if r.doi.is_none() {
-                report.warn(format!("related_work[{}]", r.id), "related work has no DOI");
+                report.warn(
+                    RuleCode::RelatedWorkMissingDoi,
+                    format!("related_work[{}]", r.id),
+                    "related work has no DOI",
+                );
             }
         }
         manifest.related_work = related_work;
@@ -336,14 +366,20 @@ impl Normalizer {
         let id_str = raw.id.as_deref().map(str::trim).filter(|s| !s.is_empty());
         let Some(id_str) = id_str else {
             let label = raw.title.as_deref().unwrap_or("<no id>");
-            self.report
-                .error(format!("nodes[{label}]"), "node is missing an `id`");
+            self.report.error(
+                RuleCode::MissingNodeId,
+                format!("nodes[{label}]"),
+                "node is missing an `id`",
+            );
             return;
         };
         let id = NodeId::new(id_str);
         if self.node_ids.contains(&id) {
-            self.report
-                .error(format!("nodes[{id}]"), "duplicate node id");
+            self.report.error(
+                RuleCode::DuplicateNodeId,
+                format!("nodes[{id}]"),
+                "duplicate node id",
+            );
             return;
         }
         self.node_ids.insert(id.clone());
@@ -360,8 +396,11 @@ impl Normalizer {
         let evidence_notes = self.split_evidence(raw, &id);
 
         for key in raw.extra.keys() {
-            self.report
-                .warn(format!("nodes[{id}]"), format!("unknown field `{key}`"));
+            self.report.warn(
+                RuleCode::UnknownNodeField,
+                format!("nodes[{id}]"),
+                format!("unknown field `{key}`"),
+            );
         }
 
         self.nodes.push(Node {
@@ -440,10 +479,14 @@ impl Normalizer {
                     &["prior_direction", "new_direction", "reason", "lesson"],
                 ),
                 Some("") | None => {
-                    self.report
-                        .warn(format!("nodes[{id}]"), "node is missing a `type`");
+                    self.report.warn(
+                        RuleCode::MissingNodeType,
+                        format!("nodes[{id}]"),
+                        "node is missing a `type`",
+                    );
                     for field in body_field_names(raw) {
                         self.report.warn(
+                            RuleCode::FieldDroppedMissingType,
                             format!("nodes[{id}]"),
                             format!("field `{field}` dropped for missing type"),
                         );
@@ -453,6 +496,7 @@ impl Normalizer {
                 Some(other) => {
                     for field in body_field_names(raw) {
                         self.report.warn(
+                            RuleCode::FieldDroppedUnknownType,
                             format!("nodes[{id}]"),
                             format!("field `{field}` dropped for unknown type `{other}`"),
                         );
@@ -463,6 +507,7 @@ impl Normalizer {
         for field in body_field_names(raw) {
             if !projected.contains(&field) {
                 self.report.warn(
+                    RuleCode::FieldDroppedForType,
                     format!("nodes[{id}]"),
                     format!("field `{field}` dropped for type `{ty}`"),
                 );
@@ -484,6 +529,7 @@ impl Normalizer {
                 let path = format!("nodes[{id}].evidence[{i}]");
                 if !self.claims_present {
                     self.report.warn(
+                        RuleCode::UnresolvedClaimReference,
                         path,
                         format!("claim reference `{trimmed}` unresolved (no claims.md provided)"),
                     );
@@ -495,6 +541,7 @@ impl Normalizer {
                     });
                 } else {
                     self.report.error(
+                        RuleCode::UnknownEvidenceClaim,
                         path,
                         format!("evidence references unknown claim `{trimmed}`"),
                     );
@@ -581,6 +628,7 @@ fn dedupe_links(links: Vec<Link>, report: &mut ParseReport) -> Vec<Link> {
         let key = (link.from.clone(), link.to.clone(), link.kind);
         if seen.contains(&key) {
             report.warn(
+                RuleCode::DuplicateLink,
                 format!("nodes[{}]", link.from),
                 format!("duplicate {:?} link to `{}`", link.kind, link.to),
             );
@@ -621,6 +669,7 @@ fn visit<'a>(
             match color.get(v).copied().unwrap_or(0) {
                 0 => visit(v, adj, color, report),
                 1 => report.error(
+                    RuleCode::DependencyCycle,
                     format!("nodes[{u}]"),
                     format!("cycle detected: edge to `{v}` closes a cycle"),
                 ),

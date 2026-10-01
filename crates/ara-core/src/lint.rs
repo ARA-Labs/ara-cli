@@ -21,6 +21,8 @@
 
 use serde::Serialize;
 
+use crate::rules::RuleCode;
+
 #[cfg(feature = "native")]
 use crate::manifest::is_canonical_id;
 
@@ -52,17 +54,28 @@ pub enum LintRuleId {
 }
 
 impl LintRuleId {
+    /// The rule's entry in the [`RuleCode`] registry.
+    pub fn code(&self) -> RuleCode {
+        match self {
+            LintRuleId::RootDialect => RuleCode::RootDialect,
+            LintRuleId::DeadEndReasonAlias => RuleCode::DeadEndReasonAlias,
+            LintRuleId::DecisionRationaleAlias => RuleCode::DecisionRationaleAlias,
+            LintRuleId::ClaimHeaderStyle => RuleCode::ClaimHeaderStyle,
+            LintRuleId::PivotFromAlias => RuleCode::PivotFromAlias,
+            LintRuleId::PivotToAlias => RuleCode::PivotToAlias,
+            LintRuleId::PivotTriggerAlias => RuleCode::PivotTriggerAlias,
+        }
+    }
+
     /// The stable `ARA0NN` code string.
     pub fn as_str(&self) -> &'static str {
-        match self {
-            LintRuleId::RootDialect => "ARA001",
-            LintRuleId::DeadEndReasonAlias => "ARA002",
-            LintRuleId::DecisionRationaleAlias => "ARA003",
-            LintRuleId::ClaimHeaderStyle => "ARA004",
-            LintRuleId::PivotFromAlias => "ARA005",
-            LintRuleId::PivotToAlias => "ARA006",
-            LintRuleId::PivotTriggerAlias => "ARA007",
-        }
+        self.code().as_str()
+    }
+}
+
+impl From<LintRuleId> for RuleCode {
+    fn from(rule: LintRuleId) -> Self {
+        rule.code()
     }
 }
 

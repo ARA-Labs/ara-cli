@@ -3,8 +3,15 @@
 //! A [`Diagnostic`] carries a **logical** path (e.g. `nodes[N07].evidence[0]`),
 //! not a source `line:column` — `serde-saphyr` does not expose reliable spans
 //! through serde, so line numbers are intentionally not promised.
+//!
+//! Every diagnostic also carries the [`RuleCode`] of the check that produced it.
+//! The code is deliberately **not** part of the `Display` text or the serde
+//! output, so `ara validate`'s human and `--json` output stay byte-stable; only
+//! `ara check` renders it.
 
 use serde::Serialize;
+
+use crate::rules::RuleCode;
 
 /// Severity of a diagnostic.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -23,9 +30,13 @@ impl std::fmt::Display for Severity {
     }
 }
 
-/// A single diagnostic: severity, logical path, and message.
+/// A single diagnostic: rule code, severity, logical path, and message.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Diagnostic {
+    /// The rule that produced this diagnostic. Not serialized and not shown by
+    /// `Display` (see the module docs); `ara check` renders it explicitly.
+    #[serde(skip)]
+    pub code: RuleCode,
     pub severity: Severity,
     pub path: String,
     pub message: String,
@@ -48,18 +59,32 @@ pub struct ParseReport {
 }
 
 impl ParseReport {
-    /// Records an error.
-    pub(crate) fn error(&mut self, path: impl Into<String>, message: impl Into<String>) {
+    /// Records an error produced by rule `code`.
+    pub(crate) fn error(
+        &mut self,
+        code: RuleCode,
+        path: impl Into<String>,
+        message: impl Into<String>,
+    ) {
+        debug_assert_eq!(code.default_severity(), Severity::Error, "{code}");
         self.errors.push(Diagnostic {
+            code,
             severity: Severity::Error,
             path: path.into(),
             message: message.into(),
         });
     }
 
-    /// Records a warning.
-    pub(crate) fn warn(&mut self, path: impl Into<String>, message: impl Into<String>) {
+    /// Records a warning produced by rule `code`.
+    pub(crate) fn warn(
+        &mut self,
+        code: RuleCode,
+        path: impl Into<String>,
+        message: impl Into<String>,
+    ) {
+        debug_assert_eq!(code.default_severity(), Severity::Warning, "{code}");
         self.warnings.push(Diagnostic {
+            code,
             severity: Severity::Warning,
             path: path.into(),
             message: message.into(),
@@ -107,10 +132,10 @@ mod tests {
     fn ok_and_accessors() {
         let mut r = ParseReport::default();
         assert!(r.is_ok());
-        r.warn("document", "empty");
+        r.warn(RuleCode::EmptyTree, "document", "empty");
         assert!(r.is_ok()); // warnings don't block
         assert_eq!(r.warnings().len(), 1);
-        r.error("nodes[N01]", "duplicate node id");
+        r.error(RuleCode::DuplicateNodeId, "nodes[N01]", "duplicate node id");
         assert!(!r.is_ok());
         assert_eq!(r.errors().len(), 1);
     }
@@ -118,6 +143,7 @@ mod tests {
     #[test]
     fn diagnostic_display() {
         let d = Diagnostic {
+            code: RuleCode::UnknownEvidenceClaim,
             severity: Severity::Error,
             path: "nodes[N07].evidence[0]".into(),
             message: "unknown claim".into(),
@@ -126,5 +152,17 @@ mod tests {
             d.to_string(),
             "error: nodes[N07].evidence[0]: unknown claim"
         );
+    }
+
+    #[test]
+    fn code_is_not_serialized() {
+        let mut r = ParseReport::default();
+        r.error(RuleCode::DuplicateNodeId, "nodes[N01]", "duplicate node id");
+        let json = serde_json::to_string(&r).unwrap();
+        assert_eq!(
+            json,
+            r#"{"errors":[{"severity":"error","path":"nodes[N01]","message":"duplicate node id"}],"warnings":[]}"#
+        );
+        assert_eq!(r.errors()[0].code, RuleCode::DuplicateNodeId);
     }
 }

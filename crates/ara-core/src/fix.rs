@@ -713,7 +713,7 @@ mod tests {
     fn parse_errors(errors: &[(&str, &str)]) -> ParseOutcome {
         let mut report = ParseReport::default();
         for &(path, message) in errors {
-            report.error(path, message);
+            report.error(crate::rules::RuleCode::MalformedTree, path, message);
         }
         ParseOutcome::Fatal(report)
     }
