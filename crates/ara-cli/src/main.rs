@@ -6,6 +6,7 @@
 //! linter/format-checker with an optional `--fix`.
 
 mod check;
+mod check_config;
 mod serve;
 
 use std::path::PathBuf;
