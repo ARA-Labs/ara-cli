@@ -6,8 +6,18 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- Core: `RuleCode` registry (`ara_core::rules`) giving every `ara check`
+  finding a stable code — `ARA0xx` format rules, `ARA1xx` structural/reference
+  errors, `ARA2xx` field/schema warnings — with name, layer, default severity,
+  and fixability. Each validate-layer `Diagnostic` now records its code (#43).
+
 ### Changed
 - Core: bump serde-saphyr to 1.3.0 (#90).
+- `ara check`: validate-layer findings are now prefixed with their rule code
+  (`ARA105 error: nodes[N01]: duplicate node id`), and each `--json`
+  `validate.errors`/`validate.warnings` entry gains a `rule` field. `ara
+  validate` output is unchanged (#43).
 
 ## [0.1.16] - 2026-08-23
 
