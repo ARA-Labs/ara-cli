@@ -13,13 +13,19 @@ The parent covers format changes, a new CLI interface, merge semantics, skill co
 
 ## Constraints
 
-PR numbers below are local rollout identifiers, not GitHub numbers or release versions. Read each numbered plan before implementation. Dependencies mean merged prerequisites unless a row names a protocol approval; document drafting and fixture review can happen earlier. Protocol proposals, output choices, and conditional extensions remain proposals until reviewed.
+PR numbers below are local rollout identifiers, not GitHub numbers or release versions. Read each numbered plan before implementation. For ara-cli PRs, dependencies mean prerequisites squash-merged into `feat/agent-cli-interface`; upstream dependencies must merge in their owning repositories. Protocol approvals remain required where named. Document drafting and fixture review can happen earlier. Protocol proposals, output choices, and conditional extensions remain proposals until reviewed.
 
-No current code, version, lockfile, changelog, or installed skill changes are part of this planning task. No commits or remote PRs are authorized. The parent remains the scope and motivation document; completed PR plans become design records rather than leaving duplicate permanent planning text.
+No code, version, lockfile, changelog, or installed skill changes are part of the docs-only plan PR. The parent remains the scope and motivation document; completed PR plans become design records rather than leaving duplicate permanent planning text.
 
 ## Proposed approach
 
 Use the table as the implementation queue. Each linked file contains its own background, file-level changes, implementation steps, failure behavior, verification, and review gates.
+
+### Which branches receive the PRs
+
+After the docs-only plan PR [#97](https://github.com/ARA-Labs/ara-cli/pull/97) merges into `main`, create `feat/agent-cli-interface` from the updated `main`. All ara-cli implementation PRs in the table target that integration branch and are squash-merged into it. Protocol and external-harness PRs remain in their owning repositories and follow their merge rules.
+
+Once the required rollout is complete and verified, prepare the release on the integration branch and open one final PR from `feat/agent-cli-interface` to `main`. Merge that PR with a merge commit, preserving the implementation squash commits. Do not squash or rebase the final integration PR. Conditional PRs 16 and 17 need not be implemented when their evidence gates do not fire.
 
 | PR | Target repo | Deliverable | Prerequisites |
 |---|---|---|---|
@@ -97,6 +103,8 @@ More PR boundaries require maintaining a shared output and operation contract. T
 
 For each functional ara-cli PR, bump the then-current workspace patch once and add a Keep a Changelog entry under Unreleased. Refresh `Cargo.lock` with a non-locked `cargo check --workspace` immediately after the bump, before final locked gates. The four local package versions currently needing refresh are ara-cli, ara-core, ara-viewer, and ara-wasm; review dependency changes against that PR's actual scope. This sequencing follows `memory://root` guidance and is supported by the current shared workspace version and crate manifests; never reserve fixed future versions in these plans.
 
+Patch versions on `feat/agent-cli-interface` are integration bookkeeping, not separate releases. At final release preparation, bump the then-current minor version and reset patch to zero. If compatibility review finds breaking public-interface changes, bump major and reset minor/patch to zero instead. Choose the exact version at that time. Refresh `Cargo.lock`, collect all rollout changes under the chosen version's CHANGELOG heading, and run the final verification before merging the integration PR. Tag only the merged `main` commit; cargo-dist uses that version's changelog section for release notes.
+
 Update `docs/agent-cli.md` incrementally as commands ship and `docs/manifest-schema.md` when wire fields change. After a PR is implemented and verified, fold its decisions and actual behavior into the design record and retire its plan. Keep the parent and index until all required rollout work has an owning design record; conditional slots can close without implementation when their gates do not fire. Protocol and external-harness PRs follow their own repository release rules, not ara-cli version bumps.
 
 ## Verification and acceptance
@@ -121,4 +129,4 @@ For this planning change, acceptance is 18 numbered plans, a valid dependency gr
 
 ## Next Steps
 
-Start PR 01 and PR 12 (reader rows first), and open the PR 00 protocol proposal. Implement each PR when its listed dependencies have merged and its protocol decisions are accepted.
+Merge plan PR #97, then create `feat/agent-cli-interface` from the updated `main`. Start PR 01 and PR 12 (reader rows first), and open the PR 00 protocol proposal. Implement each PR when its listed dependencies have merged and its protocol decisions are accepted. Squash-merge ara-cli PRs into the integration branch; complete release preparation before its final merge-commit PR to `main`.

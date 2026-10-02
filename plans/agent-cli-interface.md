@@ -137,11 +137,30 @@ follows the same guard `--fix` uses:
 the-ara-of-ara, including process start, and in under 1 s on a synthetic ARA
 with 10,000 nodes. Tests enforce both numbers.
 
-**Versioning.** Each functional ara-cli PR bumps the then-current patch version,
-refreshes `Cargo.lock`, and adds a CHANGELOG entry, per the repository rules.
-This docs-only decomposition needs no bump. Protocol and harness PRs follow
-their own repository rules. Completed PR plans become design records in
-`docs/agent-cli.md`; conditional plans may close without implementation.
+**Branch and merge workflow.** After the docs-only plan PR [#97](https://github.com/ARA-Labs/ara-cli/pull/97)
+merges into `main`, create `feat/agent-cli-interface` from the updated `main`.
+Every ara-cli implementation PR in this rollout targets that branch and is
+squash-merged into it. Dependencies are satisfied when prerequisite PRs have
+merged into the integration branch. Protocol and external-harness PRs stay in
+their owning repositories and follow those repositories' merge rules.
+
+When the required rollout is complete and verified, prepare the release on
+`feat/agent-cli-interface` and open its final PR against `main`. Merge that PR
+with a merge commit, preserving the individual implementation squash commits.
+Do not squash or rebase the final integration PR. Conditional plans 16 and 17
+may close without implementation when their evidence gates do not fire.
+
+**Versioning.** Each functional ara-cli PR still bumps the then-current patch
+version, refreshes `Cargo.lock`, and adds an Unreleased CHANGELOG entry, per
+the repository rules. These integration-branch versions are not separate
+releases. At final release preparation, bump the then-current minor version
+and reset the patch to zero, or bump the major version and reset minor/patch
+to zero if the release breaks public interfaces. Review compatibility before
+choosing; do not reserve a fixed version now. Refresh `Cargo.lock` and collect
+the rollout's unreleased changes under the chosen version's CHANGELOG heading.
+Tag only the merged `main` commit. This docs-only plan PR needs no bump.
+Protocol and harness PRs follow their own release rules. Completed PR plans
+become design records in `docs/agent-cli.md`.
 
 ## Phase 0: format decisions in the protocol repo
 
@@ -503,9 +522,11 @@ commands and the timing tests.
 
 ## Order of work
 
-1. Review this parent and the [PR rollout](agent-cli-interface/README.md).
+1. Merge the docs-only plan PR #97 into `main`, then create
+   `feat/agent-cli-interface` from the updated `main`.
 2. Start PR 00 (protocol decisions), PR 01 (read model), and PR 12 (pinned
-   skill contracts) independently. PR 02 adds all six reads after PR 01.
+   skill contracts) independently. Ara-cli PRs target the integration branch
+   and are squash-merged there. PR 02 adds all six reads after PR 01.
 3. After PR 02, ship PR 10 (keyword search) and PR 13a (CLI reader copy), then
    run the reading-benchmark pilot and the scaling curve (PR 15, E1 and E2).
 4. In parallel, run the PR 03–06 write chain once the required protocol
@@ -520,3 +541,6 @@ commands and the timing tests.
    evidence-gated follow-ups, not prerequisites for the baseline interface.
 7. As each PR ships, rewrite its plan into `docs/agent-cli.md` and retire it.
    Retire this parent once all required rollout work has a design record.
+8. After the required rollout and release verification, prepare the minor
+   (or breaking-change major) release and merge `feat/agent-cli-interface`
+   into `main` with a merge commit. Tag the merged `main` commit.
