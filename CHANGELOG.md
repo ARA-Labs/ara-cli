@@ -7,6 +7,14 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Agent CLI: native discovery, source/full reads, structural queries, keyword
+  search, guarded writes, typed JSONL batches, staging/promotion and complete
+  session/audit history.
+- Merge: complete directory and local Git captures, namespace-aware identity
+  relocation, exact heading selectors, portable replay/conflict records,
+  audited resolution/repair and nonblocking duplicate advice.
+- Core: bounded 10,000-deep trees, complete optional agent layers, native node
+  annotations and exact UTF-8 source spans for lossless edits and grounding.
 - Core: `RuleCode` registry (`ara_core::rules`) giving every `ara check`
   finding a stable code — `ARA0xx` format rules, `ARA1xx` structural/reference
   errors, `ARA2xx` field/schema warnings — with name, layer, default severity,
@@ -36,6 +44,14 @@ All notable changes to this project are documented here. The format follows
   unchanged; untrusted commands and macros are isolated and bounded (#31).
 
 ### Changed
+- `ara check --fix` shares the guarded writer's lock and durable recovery journal.
+- Public Rust node constructors and typed bodies include the native agent fields;
+  JSON additions remain optional. The integration minor/major release decision
+  is pending; version 0.1.22 is the unreleased engineering revision.
+- Native merge ledger captures use canonical padded RFC 4648 base64 strings for
+  revision files, transport bytes and imported-resolution evidence, retaining
+  exact decoded bytes and fingerprints. Native core adds the optional `base64`
+  dependency; public conflict/report byte arrays are unchanged.
 - Core: bump serde-saphyr to 1.3.0 (#90).
 - `ara check`: validate-layer findings are now prefixed with their rule code
   (`ARA105 error: nodes[N01]: duplicate node id`), and each `--json`

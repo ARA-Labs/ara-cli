@@ -8,7 +8,7 @@
 //! turn into an error diagnostic — this module stays free of the `Diagnostic`
 //! type.
 
-use crate::manifest::{Claim, ClaimId, is_canonical_id};
+use crate::manifest::{Claim, ClaimId, SourceField, is_canonical_id};
 use std::collections::BTreeSet;
 
 /// Result of parsing `claims.md`: claims in source order, plus any claim ids
@@ -21,99 +21,76 @@ pub(crate) struct ParsedClaims {
 /// Parses claim content. Never fails: malformed content yields fewer claims,
 /// not an error.
 pub(crate) fn parse_claims(md: &str) -> ParsedClaims {
-    let lines: Vec<&str> = md.lines().collect();
     let mut claims = Vec::new();
     let mut seen: BTreeSet<String> = BTreeSet::new();
     let mut duplicate_ids = Vec::new();
-
-    let mut i = 0;
-    while i < lines.len() {
-        let Some((id, title)) = parse_header(lines[i]) else {
-            i += 1;
+    for section in crate::markdown::sections(md) {
+        let Some((raw_id, raw_title)) = section.heading.split_once(':') else {
             continue;
         };
-
-        // Body runs until the next level-2 header (the next claim or section).
-        let mut j = i + 1;
-        while j < lines.len() && !is_level2_header(lines[j]) {
-            j += 1;
+        let id = raw_id.trim();
+        let title = raw_title.trim();
+        if !is_canonical_id(id, 'C') || title.is_empty() {
+            continue;
         }
-        let body = &lines[i + 1..j];
-
-        let mut statement = None;
-        let mut status = None;
-        let mut proof = Vec::new();
-        let mut deps = Vec::new();
-        for line in body {
-            let Some((key, value)) = parse_bullet(line) else {
-                continue;
-            };
-            match key.to_ascii_lowercase().as_str() {
-                "statement" => statement = non_empty(&value),
-                "status" => status = non_empty(&value),
-                "proof" => proof = extract_ids(&value, 'E'),
+        let mut claim = Claim {
+            id: ClaimId::new(id),
+            title: title.to_string(),
+            statement: None,
+            status: None,
+            proof: Vec::new(),
+            deps: Vec::new(),
+            proof_content: None,
+            provenance: None,
+            falsification: None,
+            conditions: None,
+            sources: None,
+            tags: None,
+            last_revised: None,
+            source_fields: Vec::new(),
+            body: Some(md[section.range.clone()].to_string()),
+        };
+        for field in crate::markdown::fields(md, section.body_range) {
+            let value = crate::markdown::decode_field(&field).into_owned();
+            match field.name.to_ascii_lowercase().as_str() {
+                "statement" => claim.statement = non_empty(&value),
+                "status" => claim.status = non_empty(&value),
+                "proof" => {
+                    claim.proof = extract_ids(&value, 'E');
+                    claim.proof_content = non_empty(&value);
+                }
                 "dependencies" => {
-                    deps = extract_ids(&value, 'C')
+                    claim.deps = extract_ids(&value, 'C')
                         .into_iter()
                         .map(ClaimId::new)
                         .collect()
                 }
+                "provenance" => claim.provenance = non_empty(&value),
+                "falsification" | "falsification criteria" => {
+                    claim.falsification = non_empty(&value)
+                }
+                "conditions" => claim.conditions = non_empty(&value),
+                "sources" => claim.sources = non_empty(&value),
+                "tags" => claim.tags = non_empty(&value),
+                "last revised" => claim.last_revised = non_empty(&value),
                 _ => {}
             }
-        }
-
-        if seen.contains(&id) {
-            duplicate_ids.push(id);
-        } else {
-            seen.insert(id.clone());
-            claims.push(Claim {
-                id: ClaimId::new(id),
-                title,
-                statement,
-                status,
-                proof,
-                deps,
+            claim.source_fields.push(SourceField {
+                name: field.name.to_string(),
+                value,
             });
         }
-        i = j; // re-examine the terminating header on the next iteration
+        if !seen.insert(id.to_string()) {
+            duplicate_ids.push(id.to_string());
+        } else {
+            claims.push(claim);
+        }
     }
 
     ParsedClaims {
         claims,
         duplicate_ids,
     }
-}
-
-/// Matches `## C\d+: title`, returning `(id, title)`. Non-claim `##` headers
-/// and deeper/shallower headers return `None`.
-fn parse_header(line: &str) -> Option<(String, String)> {
-    let rest = line.trim_start().strip_prefix("## ")?;
-    let (raw_id, raw_title) = rest.split_once(':')?;
-    let id = raw_id.trim();
-    if !is_canonical_id(id, 'C') {
-        return None;
-    }
-    let title = raw_title.trim();
-    if title.is_empty() {
-        return None;
-    }
-    Some((id.to_string(), title.to_string()))
-}
-
-/// True for any level-2 header line (`## ...`), which terminates a claim body.
-fn is_level2_header(line: &str) -> bool {
-    line.trim_start().starts_with("## ")
-}
-
-/// Matches `- **Key**: value` (also `* ...`), returning `(key, value)`.
-fn parse_bullet(line: &str) -> Option<(String, String)> {
-    let t = line.trim_start();
-    let rest = t.strip_prefix("- ").or_else(|| t.strip_prefix("* "))?;
-    let rest = rest.trim_start().strip_prefix("**")?;
-    let (key, rest_after) = rest.split_once("**")?;
-    let after = rest_after.trim_start();
-    let value = after.strip_prefix(':').unwrap_or(after).trim();
-    Some((key.trim().to_string(), value.to_string()))
 }
 
 /// Extracts every `^<prefix>\d+$` token, splitting on non-alphanumeric
@@ -128,11 +105,10 @@ fn extract_ids(value: &str, prefix: char) -> Vec<String> {
 
 /// Trims and returns `None` for empty values.
 fn non_empty(s: &str) -> Option<String> {
-    let t = s.trim();
-    if t.is_empty() {
+    if s.is_empty() {
         None
     } else {
-        Some(t.to_string())
+        Some(s.to_string())
     }
 }
 

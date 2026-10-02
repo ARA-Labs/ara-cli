@@ -375,7 +375,7 @@ fn exhibit_kind_label(kind: &ExhibitKind) -> &'static str {
 ///   `("lesson", lesson?)`; omit None
 /// - `Other`     → none
 fn typed_fields_for(node: &Node) -> Vec<TypedField> {
-    match &node.fields {
+    let mut fields = match &node.fields {
         NodeFields::Question | NodeFields::Insight | NodeFields::Other => vec![],
 
         NodeFields::Experiment {
@@ -526,7 +526,15 @@ fn typed_fields_for(node: &Node) -> Vec<TypedField> {
             }
             fields
         }
+    };
+    if let Some(thinking) = &node.thinking {
+        fields.push(TypedField {
+            label: "thinking",
+            value: FieldValue::Text(thinking.clone()),
+            is_primary: false,
+        });
     }
+    fields
 }
 
 // ── Leptos component ──────────────────────────────────────────────────────────
@@ -956,6 +964,11 @@ mod tests {
             exhibits: vec![],
             built_on: vec![],
             node_exhibits: vec![],
+            observations: Vec::new(),
+            sessions: Vec::new(),
+            heuristics: Vec::new(),
+            experiment_plans: Vec::new(),
+            taste_comments: Vec::new(),
         }
     }
 
@@ -967,12 +980,17 @@ mod tests {
             support_level: None,
             source_refs: vec![],
             description: None,
+            thinking: None,
+            status: None,
             provenance: None,
             timestamp: None,
             fields,
             evidence_notes: vec![],
             isolated: false,
             pos: None,
+            same_as: Vec::new(),
+            artifacts: Vec::new(),
+            concepts: Vec::new(),
         }
     }
 
@@ -1345,6 +1363,15 @@ mod tests {
             status: Some("refuted".to_string()),
             proof: vec![],
             deps: vec![],
+            proof_content: None,
+            provenance: None,
+            falsification: None,
+            conditions: None,
+            sources: None,
+            tags: None,
+            last_revised: None,
+            source_fields: Vec::new(),
+            body: None,
         });
 
         let m = detail_model(&node, &manifest);
@@ -1394,6 +1421,15 @@ mod tests {
             status: None,
             proof: vec![],
             deps: vec![],
+            proof_content: None,
+            provenance: None,
+            falsification: None,
+            conditions: None,
+            sources: None,
+            tags: None,
+            last_revised: None,
+            source_fields: Vec::new(),
+            body: None,
         });
 
         let m = detail_model(&node, &manifest);

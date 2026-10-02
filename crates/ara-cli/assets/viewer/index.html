@@ -12,8 +12,8 @@
     
     
 <script type="module">
-import init, * as bindings from '/ara-viewer-8a3dc2c6721e596b.js';
-const wasm = await init({ module_or_path: '/ara-viewer-8a3dc2c6721e596b_bg.wasm' });
+import init, * as bindings from '/ara-viewer-8faf00fcbacdacde.js';
+const wasm = await init({ module_or_path: '/ara-viewer-8faf00fcbacdacde_bg.wasm' });
 
 
 window.wasmBindings = bindings;
@@ -22,6 +22,6 @@ window.wasmBindings = bindings;
 dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
 
 </script>
-  <link rel="modulepreload" href="/ara-viewer-8a3dc2c6721e596b.js" crossorigin="anonymous" integrity="sha384-DbD3d6JjMpvpsUhv4t5oDt5KhZg6BH/lL5ctYYgy9cdTEPKR7qN7fEM2TFvTuwHg"><link rel="preload" href="/ara-viewer-8a3dc2c6721e596b_bg.wasm" crossorigin="anonymous" integrity="sha384-Bl7JLgjvlvwfgoi0xgpowLyu00pBqZjTjDVdfNCovKKzV6EI9fmNgvIkpxqM3UBO" as="fetch" type="application/wasm"></head>
+  <link rel="modulepreload" href="/ara-viewer-8faf00fcbacdacde.js" crossorigin="anonymous" integrity="sha384-qd/1mzQaEueXFW9OnZZQiSDvXDFu7YqdFLDms7dBRaAbbrKbQw21Dh0PoEoN35qt"><link rel="preload" href="/ara-viewer-8faf00fcbacdacde_bg.wasm" crossorigin="anonymous" integrity="sha384-0FrO0VNcPqeE6ZCQq9f/0FpeZE6zJixXON19dRN5axeMVXGZOVxYPUlv6hC1Vjnj" as="fetch" type="application/wasm"></head>
   <body></body>
 </html>

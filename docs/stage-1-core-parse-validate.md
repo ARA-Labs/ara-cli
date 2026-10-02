@@ -150,6 +150,15 @@ compiles for `wasm32-unknown-unknown` in the wasm-safe path. The `Manifest`
 schema is **provisionally frozen** (geometry in Stage 2 is the only planned
 addition; full freeze is end of Stage 2).
 
+## Deep branch extension
+
+The agent CLI read model extends the original depth limits with bounded,
+stack-safe extraction for real 10,000-deep `children:` hierarchies in both
+native and pure builds. See [deep-tree-parsing.md](deep-tree-parsing.md) for
+the exact resource bounds, source-retention behavior, and writer integration
+boundary. This supersedes the original recursive raw-serde path for documents
+whose structural depth exceeds 64.
+
 ## Deferred
 
 DAG layout (Stage 2); HTTP/serve + wasm rendering (Stages 3–4); `notify`

@@ -11,8 +11,8 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use crate::claims::parse_claims;
 use crate::manifest::{
-    Binding, BindingRole, ClaimId, Link, LinkKind, Manifest, Node, NodeFields, NodeId, NodeKind,
-    is_canonical_id,
+    Binding, BindingRole, ClaimId, Link, LinkKind, Manifest, Node, NodeArtifact, NodeFields,
+    NodeId, NodeKind, SourceValue, is_canonical_id,
 };
 use crate::report::ParseReport;
 use crate::rules::RuleCode;
@@ -45,7 +45,27 @@ pub fn parse_sources(
     }
 }
 
+/// Normalize known claim pointers through an explicitly supplied native redirect
+/// ledger. Source prose and stored claim bodies remain unchanged.
+pub fn parse_sources_with_claim_redirects(
+    tree_yaml: &str,
+    claims_md: Option<&str>,
+    redirects: &BTreeMap<String, String>,
+) -> Result<(Manifest, ParseReport), ParseReport> {
+    match parse_sources_detailed_with_claim_redirects(tree_yaml, claims_md, redirects) {
+        ParseOutcome::Normalized(manifest, report) if report.is_ok() => Ok((manifest, report)),
+        ParseOutcome::Normalized(_, report) | ParseOutcome::Fatal(report) => Err(report),
+    }
+}
+
 pub(crate) fn parse_sources_detailed(tree_yaml: &str, claims_md: Option<&str>) -> ParseOutcome {
+    parse_sources_detailed_with_claim_redirects(tree_yaml, claims_md, &BTreeMap::new())
+}
+pub(crate) fn parse_sources_detailed_with_claim_redirects(
+    tree_yaml: &str,
+    claims_md: Option<&str>,
+    redirects: &BTreeMap<String, String>,
+) -> ParseOutcome {
     let mut report = ParseReport::default();
 
     let doc = match parse_doc(tree_yaml) {
@@ -96,7 +116,7 @@ pub(crate) fn parse_sources_detailed(tree_yaml: &str, claims_md: Option<&str>) -
 
     // Claims resolve node→claim and claim→claim references.
     let claims_present = claims_md.is_some();
-    let (claims, duplicate_claim_ids) = match claims_md {
+    let (mut claims, duplicate_claim_ids) = match claims_md {
         Some(md) => {
             let parsed = parse_claims(md);
             (parsed.claims, parsed.duplicate_ids)
@@ -112,19 +132,95 @@ pub(crate) fn parse_sources_detailed(tree_yaml: &str, claims_md: Option<&str>) -
         );
     }
 
+    let mut resolved = BTreeMap::new();
+    for (from, to) in redirects {
+        if !is_canonical_id(from, 'C')
+            || !is_canonical_id(to, 'C')
+            || claim_ids.contains(from.as_str())
+        {
+            report.error(
+                RuleCode::InvalidClaimRedirect,
+                "document.claim_redirects",
+                format!("Invalid or resurrected claim redirect `{from}` → `{to}`"),
+            );
+            return ParseOutcome::Fatal(report);
+        }
+    }
+    for (from, to) in redirects {
+        if resolved.contains_key(from.as_str()) {
+            continue;
+        }
+        let mut current = to.as_str();
+        let mut visited = BTreeSet::from([from.as_str()]);
+        while let Some(next) = redirects.get(current) {
+            if let Some(cached) = resolved.get(current) {
+                current = *cached;
+                break;
+            }
+            if !visited.insert(current) {
+                report.error(
+                    RuleCode::InvalidClaimRedirect,
+                    "document.claim_redirects",
+                    "Claim redirect cycle",
+                );
+                return ParseOutcome::Fatal(report);
+            }
+            current = next;
+        }
+        if !claim_ids.contains(current) {
+            report.error(
+                RuleCode::InvalidClaimRedirect,
+                "document.claim_redirects",
+                format!("Claim redirect `{from}` has no live destination `{current}`"),
+            );
+            return ParseOutcome::Fatal(report);
+        }
+        for origin in visited {
+            resolved.insert(origin, current);
+        }
+    }
+    for claim in &mut claims {
+        for dep in &mut claim.deps {
+            if let Some(target) = resolved.get(dep.as_str()) {
+                dep.redirect(target);
+            }
+        }
+    }
     let mut norm = Normalizer {
         report,
         claims_present,
         claim_ids,
+        claim_redirects: &resolved,
         nodes: Vec::new(),
         node_ids: BTreeSet::new(),
         bindings: Vec::new(),
         child_links: Vec::new(),
         also: Vec::new(),
     };
-    for raw in &roots {
-        norm.dfs(raw, None);
+    let mut pending = roots
+        .iter()
+        .rev()
+        .map(|raw| (raw, None))
+        .collect::<Vec<_>>();
+    while let Some((raw, parent)) = pending.pop() {
+        if norm.emit(raw, parent) {
+            let parent = raw.id.as_deref().map(str::trim);
+            pending.extend(raw.children.iter().rev().map(|child| (child, parent)));
+        }
     }
+    validate_same_as(&norm.nodes, &norm.node_ids, &mut norm.report);
+    norm.child_links.retain(|link| {
+        if !norm.node_ids.contains(&link.from) {
+            norm.report.error(
+                RuleCode::UnknownParentNode,
+                format!("nodes[{}].parent", link.to),
+                format!("`parent` references unknown node `{}`", link.from),
+            );
+            false
+        } else {
+            true
+        }
+    });
 
     // Resolve `also_depends_on` (needs the full node-id set), then combine and
     // dedupe links.
@@ -205,6 +301,11 @@ pub(crate) fn parse_sources_detailed(tree_yaml: &str, claims_md: Option<&str>) -
         exhibits: Vec::new(),
         built_on: Vec::new(),
         node_exhibits: Vec::new(),
+        observations: Vec::new(),
+        sessions: Vec::new(),
+        heuristics: Vec::new(),
+        experiment_plans: Vec::new(),
+        taste_comments: Vec::new(),
     };
 
     ParseOutcome::Normalized(manifest, norm.report)
@@ -218,28 +319,248 @@ pub(crate) fn parse_sources_detailed(tree_yaml: &str, claims_md: Option<&str>) -
 /// warning without failing the parse. Native only.
 #[cfg(feature = "native")]
 pub fn parse_dir(dir: &std::path::Path) -> Result<(Manifest, ParseReport), ParseReport> {
-    let tree_path = dir.join("trace/exploration_tree.yaml");
-    let tree_yaml = match std::fs::read_to_string(&tree_path) {
-        Ok(s) => s,
-        Err(e) => {
-            let mut report = ParseReport::default();
-            report.error(
-                RuleCode::UnreadableTree,
-                "document",
-                format!("cannot read {}: {e}", tree_path.display()),
-            );
-            return Err(report);
+    let load = parse_dir_detailed(dir);
+    match load.manifest {
+        Some(manifest) if load.report.is_ok() => Ok((manifest, load.report)),
+        _ => Err(load.report),
+    }
+}
+
+/// Native load diagnostics distinguish absence from failed reads without
+/// changing the existing validate report's serialized shape.
+#[cfg(feature = "native")]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LoadIssueKind {
+    Missing,
+    Unreadable,
+}
+
+#[cfg(feature = "native")]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+pub struct LoadIssue {
+    pub path: String,
+    pub kind: LoadIssueKind,
+    pub message: String,
+}
+
+#[cfg(feature = "native")]
+#[derive(Debug, Default)]
+pub struct NativeLoad {
+    /// None when the base parse could not retain every node/claim.
+    pub manifest: Option<Manifest>,
+    pub report: ParseReport,
+    pub io_issues: Vec<LoadIssue>,
+    /// Exact UTF-8 source files, keyed by artifact-relative path.
+    pub sources: BTreeMap<String, String>,
+    /// Exact audited native claim origins and their destinations.
+    pub claim_redirects: BTreeMap<String, String>,
+}
+
+#[cfg(feature = "native")]
+impl NativeLoad {
+    pub(crate) fn read_source(
+        &mut self,
+        dir: &std::path::Path,
+        file: &str,
+        required: bool,
+    ) -> Option<String> {
+        if let Some(source) = self.sources.get(file) {
+            return Some(source.clone());
+        }
+        match std::fs::read_to_string(dir.join(file)) {
+            Ok(source) => {
+                self.sources.insert(file.to_string(), source.clone());
+                Some(source)
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound && !required => None,
+            Err(error) => {
+                self.io_error(file, error, required);
+                None
+            }
+        }
+    }
+    pub(crate) fn io_error(&mut self, file: &str, error: std::io::Error, required: bool) {
+        let kind = if error.kind() == std::io::ErrorKind::NotFound {
+            LoadIssueKind::Missing
+        } else {
+            LoadIssueKind::Unreadable
+        };
+        let message = format!("cannot read {file}: {error}");
+        if required {
+            self.report
+                .error(RuleCode::UnreadableTree, "document", &message);
+        } else {
+            self.report
+                .warn(RuleCode::UnreadableOptionalLayer, file, &message);
+        }
+        self.io_issues.push(LoadIssue {
+            path: file.to_string(),
+            kind,
+            message,
+        });
+    }
+    pub(crate) fn list_files(&mut self, dir: &std::path::Path, subdir: &str) -> Vec<String> {
+        let entries = match std::fs::read_dir(dir.join(subdir)) {
+            Ok(entries) => entries,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Vec::new(),
+            Err(e) => {
+                self.io_error(subdir, e, false);
+                return Vec::new();
+            }
+        };
+        let mut paths = Vec::new();
+        for entry in entries {
+            match entry {
+                Ok(entry) => {
+                    paths.push(format!("{subdir}/{}", entry.file_name().to_string_lossy()))
+                }
+                Err(e) => self.io_error(subdir, e, false),
+            }
+        }
+        paths.sort();
+        paths
+    }
+    fn read_remaining_logic(&mut self, dir: &std::path::Path) {
+        let mut directories = vec![String::from("logic")];
+        while let Some(directory) = directories.pop() {
+            for file in self.list_files(dir, &directory) {
+                match std::fs::symlink_metadata(dir.join(&file)) {
+                    Ok(metadata) if metadata.is_dir() => directories.push(file),
+                    Ok(metadata)
+                        if metadata.is_file()
+                            && file.ends_with(".md")
+                            && !self.sources.contains_key(&file) =>
+                    {
+                        self.read_source(dir, &file, false);
+                    }
+                    Ok(_) => {}
+                    Err(e) => self.io_error(&file, e, false),
+                }
+            }
+        }
+    }
+    fn read_knowledge_registry(&mut self, dir: &std::path::Path) {
+        self.read_registered_source(dir, "rubric/requirements.md", false);
+        let paths = match self
+            .sources
+            .get("PAPER.md")
+            .map(|paper| crate::agent_layers::knowledge_paths(paper))
+            .transpose()
+        {
+            Ok(paths) => paths.unwrap_or_default(),
+            Err(e) => {
+                self.report
+                    .warn(RuleCode::MalformedAgentLayer, "PAPER.md.knowledge_paths", e);
+                return;
+            }
+        };
+        for file in paths {
+            self.read_registered_source(dir, &file, true);
+        }
+    }
+    fn read_registered_source(&mut self, dir: &std::path::Path, file: &str, declared: bool) {
+        let mut path = dir.to_path_buf();
+        for part in file.split('/') {
+            path.push(part);
+            match std::fs::symlink_metadata(&path) {
+                Ok(meta) if meta.file_type().is_symlink() => {
+                    self.io_error(
+                        file,
+                        std::io::Error::other("symlink in knowledge path"),
+                        false,
+                    );
+                    return;
+                }
+                Ok(_) => {}
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound && !declared => return,
+                Err(e) => {
+                    self.io_error(file, e, false);
+                    return;
+                }
+            }
+        }
+        if !self.sources.contains_key(file) {
+            self.read_source(dir, file, false);
+        }
+    }
+}
+
+/// Retain a complete logical graph even when reference checks fail, but never
+/// expose a duplicate/missing-id-truncated graph as a complete read result.
+#[cfg(feature = "native")]
+pub fn parse_dir_detailed(dir: &std::path::Path) -> NativeLoad {
+    let mut load = NativeLoad::default();
+    let Some(tree) = load.read_source(dir, "trace/exploration_tree.yaml", true) else {
+        return load;
+    };
+    let claims = load.read_source(dir, "logic/claims.md", false);
+    if load
+        .read_source(dir, "trace/logic_mutations.yaml", false)
+        .is_some()
+    {
+        load.read_source(dir, "trace/merge_log.yaml", false);
+        for path in load
+            .list_files(dir, "trace/sessions")
+            .into_iter()
+            .filter(|path| path.ends_with(".yaml") || path.ends_with(".yml"))
+        {
+            load.read_source(dir, &path, false);
+        }
+        match crate::write::logic::claim_redirects_from_sources(&load.sources) {
+            Ok(redirects) => load.claim_redirects = redirects,
+            Err(error) => {
+                load.report.error(
+                    RuleCode::InvalidClaimRedirect,
+                    "trace/logic_mutations.yaml",
+                    error.to_string(),
+                );
+                return load;
+            }
+        }
+    }
+    let (mut manifest, report) = match parse_sources_detailed_with_claim_redirects(
+        &tree,
+        claims.as_deref(),
+        &load.claim_redirects,
+    ) {
+        ParseOutcome::Normalized(manifest, report) => (manifest, report),
+        ParseOutcome::Fatal(report) => {
+            load.report.append(report);
+            return load;
         }
     };
-    // A missing claims file is not an error — it downgrades bindings to warnings.
-    let claims_path = dir.join("logic/claims.md");
-    let claims_md = std::fs::read_to_string(&claims_path).ok();
-
-    // The base parse owns the Ok/Err contract; an error short-circuits here.
-    let (mut manifest, mut report) = parse_sources(&tree_yaml, claims_md.as_deref())?;
-    read_logic_layer(dir, &mut manifest, &mut report);
-    read_evidence_layer(dir, &mut manifest, &mut report);
-    Ok((manifest, report))
+    load.report.append(report);
+    let complete = !load.report.errors().iter().any(|d| {
+        matches!(
+            d.code,
+            RuleCode::MissingNodeId | RuleCode::DuplicateNodeId | RuleCode::DuplicateClaimId
+        )
+    });
+    read_logic_layer(dir, &mut manifest, &mut load);
+    read_evidence_layer(dir, &mut manifest, &mut load);
+    crate::agent_layers::read_layers(dir, &mut load, &mut manifest);
+    load.read_remaining_logic(dir);
+    load.read_knowledge_registry(dir);
+    let terms: BTreeSet<&str> = manifest.concepts.iter().map(|c| c.term.as_str()).collect();
+    for node in &manifest.nodes {
+        for concept in &node.concepts {
+            let term = concept
+                .strip_prefix("logic/concepts.md#")
+                .unwrap_or(concept);
+            if !terms.contains(term) {
+                load.report.warn(
+                    RuleCode::UnknownNodeConcept,
+                    format!("nodes[{}].concepts", node.id),
+                    format!("unknown concept term `{concept}`"),
+                );
+            }
+        }
+    }
+    if complete {
+        load.manifest = Some(manifest);
+    }
+    load
 }
 
 /// Reads the optional `evidence/` layer into `manifest.exhibits`, then runs the
@@ -247,10 +568,10 @@ pub fn parse_dir(dir: &std::path::Path) -> Result<(Manifest, ParseReport), Parse
 /// assembled manifest. Absent evidence yields empty fields; every defect warns
 /// but never errors. Native only.
 #[cfg(feature = "native")]
-fn read_evidence_layer(dir: &std::path::Path, manifest: &mut Manifest, report: &mut ParseReport) {
-    use crate::evidence::{read_evidence, resolve_built_on, resolve_node_exhibits};
+fn read_evidence_layer(dir: &std::path::Path, manifest: &mut Manifest, load: &mut NativeLoad) {
+    use crate::evidence::{read_evidence_detailed, resolve_built_on, resolve_node_exhibits};
 
-    manifest.exhibits = read_evidence(dir, report);
+    manifest.exhibits = read_evidence_detailed(dir, load);
     manifest.node_exhibits =
         resolve_node_exhibits(&manifest.nodes, &manifest.bindings, &manifest.exhibits);
     manifest.built_on =
@@ -261,27 +582,28 @@ fn read_evidence_layer(dir: &std::path::Path, manifest: &mut Manifest, report: &
 /// warnings to `report`. Absent files are skipped without a warning; a present
 /// file that parses degenerately warns but never errors.
 #[cfg(feature = "native")]
-fn read_logic_layer(dir: &std::path::Path, manifest: &mut Manifest, report: &mut ParseReport) {
+fn read_logic_layer(dir: &std::path::Path, manifest: &mut Manifest, load: &mut NativeLoad) {
     use crate::paper::parse_paper;
     use crate::sections::{parse_concepts, parse_problem, parse_related_work};
 
-    if let Some(md) = read_opt(&dir.join("PAPER.md")) {
+    if let Some(md) = load.read_source(dir, "PAPER.md", false) {
         let (paper, warnings) = parse_paper(&md);
         manifest.paper = paper;
         for w in warnings {
-            report.warn(RuleCode::MalformedPaperFrontmatter, "PAPER.md", w);
+            load.report
+                .warn(RuleCode::MalformedPaperFrontmatter, "PAPER.md", w);
         }
     }
 
-    if let Some(md) = read_opt(&dir.join("logic/problem.md")) {
+    if let Some(md) = load.read_source(dir, "logic/problem.md", false) {
         manifest.problem = Some(parse_problem(&md));
     }
 
-    if let Some(md) = read_opt(&dir.join("logic/concepts.md")) {
+    if let Some(md) = load.read_source(dir, "logic/concepts.md", false) {
         let concepts = parse_concepts(&md);
         for c in &concepts {
             if c.definition.is_none() {
-                report.warn(
+                load.report.warn(
                     RuleCode::ConceptMissingDefinition,
                     format!("concepts[{}]", c.term),
                     "concept has no definition",
@@ -291,11 +613,11 @@ fn read_logic_layer(dir: &std::path::Path, manifest: &mut Manifest, report: &mut
         manifest.concepts = concepts;
     }
 
-    if let Some(md) = read_opt(&dir.join("logic/related_work.md")) {
+    if let Some(md) = load.read_source(dir, "logic/related_work.md", false) {
         let related_work = parse_related_work(&md);
         for r in &related_work {
             if r.doi.is_none() {
-                report.warn(
+                load.report.warn(
                     RuleCode::RelatedWorkMissingDoi,
                     format!("related_work[{}]", r.id),
                     "related work has no DOI",
@@ -305,37 +627,23 @@ fn read_logic_layer(dir: &std::path::Path, manifest: &mut Manifest, report: &mut
         manifest.related_work = related_work;
     }
 
-    manifest.recipes = read_recipes(&dir.join("logic/solution"));
-}
-
-/// Reads a file to a string, mapping any I/O error (including absence) to
-/// `None`. Absent section files are not an error.
-#[cfg(feature = "native")]
-fn read_opt(path: &std::path::Path) -> Option<String> {
-    std::fs::read_to_string(path).ok()
+    manifest.recipes = read_recipes(dir, load);
 }
 
 /// Enumerates `logic/solution/*.md` sorted by path (determinism) and builds one
 /// [`crate::manifest::Recipe`] per file: filename stem, first `# Title`, and the
 /// verbatim body. A missing directory yields no recipes.
 #[cfg(feature = "native")]
-fn read_recipes(solution_dir: &std::path::Path) -> Vec<crate::manifest::Recipe> {
-    let Ok(entries) = std::fs::read_dir(solution_dir) else {
-        return Vec::new();
-    };
-    let mut paths: Vec<std::path::PathBuf> = entries
-        .flatten()
-        .map(|e| e.path())
-        .filter(|p| p.extension().is_some_and(|ext| ext == "md"))
-        .collect();
-    paths.sort();
-
+fn read_recipes(dir: &std::path::Path, load: &mut NativeLoad) -> Vec<crate::manifest::Recipe> {
     let mut recipes = Vec::new();
-    for path in paths {
-        let Ok(body) = std::fs::read_to_string(&path) else {
+    for file in load.list_files(dir, "logic/solution") {
+        if !file.ends_with(".md") {
+            continue;
+        }
+        let Some(body) = load.read_source(dir, &file, false) else {
             continue;
         };
-        let name = path
+        let name = std::path::Path::new(&file)
             .file_stem()
             .map(|s| s.to_string_lossy().into_owned())
             .unwrap_or_default();
@@ -345,11 +653,154 @@ fn read_recipes(solution_dir: &std::path::Path) -> Vec<crate::manifest::Recipe> 
     recipes
 }
 
+fn annotation_strings(
+    value: Option<&SourceValue>,
+    id: &NodeId,
+    field: &str,
+    code: RuleCode,
+    report: &mut ParseReport,
+) -> Vec<String> {
+    let Some(value) = value else {
+        return Vec::new();
+    };
+    let SourceValue::Sequence(items) = value else {
+        report.warn(code, format!("nodes[{id}].{field}"), "expected a sequence");
+        return Vec::new();
+    };
+    let mut seen = BTreeSet::new();
+    items
+        .iter()
+        .filter_map(|value| match value {
+            SourceValue::String(text) => {
+                if !seen.insert(text) {
+                    report.warn(
+                        code,
+                        format!("nodes[{id}].{field}"),
+                        "duplicate annotation (retained)",
+                    );
+                }
+                Some(text.clone())
+            }
+            _ => {
+                report.warn(
+                    code,
+                    format!("nodes[{id}].{field}"),
+                    "annotation must be text",
+                );
+                None
+            }
+        })
+        .collect()
+}
+
+fn annotation_artifacts(
+    value: Option<&SourceValue>,
+    id: &NodeId,
+    report: &mut ParseReport,
+) -> Vec<NodeArtifact> {
+    let Some(value) = value else {
+        return Vec::new();
+    };
+    let SourceValue::Sequence(items) = value else {
+        report.warn(
+            RuleCode::MalformedNodeAnnotation,
+            format!("nodes[{id}].artifacts"),
+            "expected artifact sequence",
+        );
+        return Vec::new();
+    };
+    items
+        .iter()
+        .filter_map(|value| {
+            if let SourceValue::Mapping(map) = value
+                && let (
+                    Some(SourceValue::String(name)),
+                    Some(SourceValue::String(pointer)),
+                    Some(SourceValue::String(what)),
+                ) = (map.get("name"), map.get("pointer"), map.get("what"))
+            {
+                let extra = map
+                    .iter()
+                    .filter(|(key, _)| !matches!(key.as_str(), "name" | "pointer" | "what"))
+                    .map(|(key, value)| (key.clone(), value.clone()))
+                    .collect();
+                return Some(NodeArtifact {
+                    name: name.clone(),
+                    pointer: pointer.clone(),
+                    what: what.clone(),
+                    extra,
+                });
+            }
+            report.warn(
+                RuleCode::MalformedNodeAnnotation,
+                format!("nodes[{id}].artifacts"),
+                "artifact must carry text name, pointer, and what",
+            );
+            None
+        })
+        .collect()
+}
+
+fn validate_same_as(nodes: &[Node], ids: &BTreeSet<NodeId>, report: &mut ParseReport) {
+    if nodes.iter().all(|n| n.same_as.is_empty()) {
+        return;
+    }
+    let mut incoming: BTreeMap<&NodeId, usize> = nodes.iter().map(|n| (&n.id, 0)).collect();
+    let by_id: BTreeMap<&NodeId, &Node> = nodes.iter().map(|n| (&n.id, n)).collect();
+    for node in nodes {
+        for target in &node.same_as {
+            if target == &node.id {
+                report.warn(
+                    RuleCode::SelfSameAs,
+                    format!("nodes[{}].same_as", node.id),
+                    "self same-finding pointer",
+                );
+            } else if !ids.contains(target) {
+                report.warn(
+                    RuleCode::DanglingSameAs,
+                    format!("nodes[{}].same_as", node.id),
+                    format!("unknown same-finding target `{target}`"),
+                );
+            } else if let Some(count) = incoming.get_mut(target) {
+                *count += 1;
+            }
+        }
+    }
+    // Kahn's algorithm over the annotation relation only, never dependency edges.
+    let mut ready: Vec<&NodeId> = incoming
+        .iter()
+        .filter_map(|(id, count)| (*count == 0).then_some(*id))
+        .collect();
+    let mut visited = 0;
+    while let Some(id) = ready.pop() {
+        visited += 1;
+        for target in &by_id[id].same_as {
+            if target == id {
+                continue;
+            }
+            if let Some(count) = incoming.get_mut(target) {
+                *count -= 1;
+                if *count == 0 {
+                    ready.push(target);
+                }
+            }
+        }
+    }
+    if visited != nodes.len() {
+        report.warn(
+            RuleCode::SameAsCycle,
+            "document.same_as",
+            "directional same-finding cycle",
+        );
+    }
+}
+
 /// Mutable accumulators for the normalization DFS.
-struct Normalizer {
+struct Normalizer<'a> {
     report: ParseReport,
     claims_present: bool,
     claim_ids: BTreeSet<ClaimId>,
+    claim_redirects: &'a BTreeMap<&'a str, &'a str>,
     nodes: Vec<Node>,
     node_ids: BTreeSet<NodeId>,
     bindings: Vec<Binding>,
@@ -358,11 +809,11 @@ struct Normalizer {
     also: Vec<(NodeId, Vec<String>)>,
 }
 
-impl Normalizer {
+impl Normalizer<'_> {
     /// Pre-order visit of `raw`, emitting one [`Node`] plus its child link,
     /// bindings, and evidence notes. A missing or duplicate id drops the node
     /// (and its subtree) with an error, rather than corrupting the graph.
-    fn dfs(&mut self, raw: &RawNode, parent: Option<&NodeId>) {
+    fn emit(&mut self, raw: &RawNode, parent: Option<&str>) -> bool {
         let id_str = raw.id.as_deref().map(str::trim).filter(|s| !s.is_empty());
         let Some(id_str) = id_str else {
             let label = raw.title.as_deref().unwrap_or("<no id>");
@@ -371,7 +822,7 @@ impl Normalizer {
                 format!("nodes[{label}]"),
                 "node is missing an `id`",
             );
-            return;
+            return false;
         };
         let id = NodeId::new(id_str);
         if self.node_ids.contains(&id) {
@@ -380,13 +831,23 @@ impl Normalizer {
                 format!("nodes[{id}]"),
                 "duplicate node id",
             );
-            return;
+            return false;
         }
         self.node_ids.insert(id.clone());
 
-        if let Some(parent) = parent {
+        let explicit_parent = raw.parent.as_deref().map(str::trim);
+        if let (Some(nested), Some(explicit)) = (parent, explicit_parent)
+            && nested != explicit
+        {
+            self.report.error(
+                RuleCode::ConflictingParent,
+                format!("nodes[{id}].parent"),
+                format!("nested parent `{nested}` disagrees with explicit parent `{explicit}`"),
+            );
+        }
+        if let Some(parent) = parent.or(explicit_parent) {
             self.child_links.push(Link {
-                from: parent.clone(),
+                from: NodeId::new(parent),
                 to: id.clone(),
                 kind: LinkKind::Child,
             });
@@ -410,18 +871,51 @@ impl Normalizer {
             support_level: raw.support_level.clone(),
             source_refs: raw.source_refs.clone(),
             description: raw.description.clone(),
+            thinking: raw.thinking.clone(),
+            status: if matches!(&fields, NodeFields::Experiment { .. }) {
+                None
+            } else {
+                raw.status.clone()
+            },
             provenance: raw.provenance.clone(),
             timestamp: raw.timestamp.clone(),
             fields,
             evidence_notes,
+            same_as: annotation_strings(
+                raw.same_as.as_ref(),
+                &id,
+                "same_as",
+                RuleCode::MalformedSameAs,
+                &mut self.report,
+            )
+            .into_iter()
+            .filter_map(|target| {
+                if is_canonical_id(&target, 'N') {
+                    Some(NodeId::new(target))
+                } else {
+                    self.report.warn(
+                        RuleCode::MalformedSameAs,
+                        format!("nodes[{id}].same_as"),
+                        format!("noncanonical node id `{target}`"),
+                    );
+                    None
+                }
+            })
+            .collect(),
+            artifacts: annotation_artifacts(raw.artifacts.as_ref(), &id, &mut self.report),
+            concepts: annotation_strings(
+                raw.concepts.as_ref(),
+                &id,
+                "concepts",
+                RuleCode::MalformedNodeAnnotation,
+                &mut self.report,
+            ),
             isolated: raw.isolated,
             pos: None,
         });
         self.also.push((id.clone(), raw.also_depends_on.clone()));
 
-        for child in &raw.children {
-            self.dfs(child, Some(&id));
-        }
+        true
     }
 
     /// Projects `type:` + body fields into a typed [`NodeKind`]/[`NodeFields`].
@@ -431,79 +925,101 @@ impl Normalizer {
     fn project_kind(&mut self, raw: &RawNode, id: &NodeId) -> (NodeKind, NodeFields) {
         // `projected` lists the canonical body fields the kind keeps; any other
         // body field present on the node is dropped with a warning below.
-        let (kind, fields, ty, projected): (NodeKind, NodeFields, &str, &[&str]) =
-            match raw.ty.as_deref().map(str::trim) {
-                Some("question") => (NodeKind::Question, NodeFields::Question, "question", &[]),
-                Some("experiment") => (
-                    NodeKind::Experiment,
-                    NodeFields::Experiment {
-                        result: raw.result.clone(),
-                        exploration: raw.exploration.clone(),
-                        outcome: raw.outcome.clone(),
-                        status: raw.status.clone(),
-                    },
-                    "experiment",
-                    &["result", "exploration", "outcome", "status"],
-                ),
-                Some("decision") => (
-                    NodeKind::Decision,
-                    NodeFields::Decision {
-                        choice: raw.choice.clone(),
-                        alternatives: raw.alternatives.clone(),
-                        rationale: raw.rationale.clone(),
-                    },
-                    "decision",
-                    &["choice", "alternatives", "rationale"],
-                ),
-                Some("dead_end") => (
-                    NodeKind::DeadEnd,
-                    NodeFields::DeadEnd {
-                        hypothesis: raw.hypothesis.clone(),
-                        failure_mode: raw.failure_mode.clone(),
-                        lesson: raw.lesson.clone(),
-                        why_failed: raw.why_failed.clone(),
-                    },
-                    "dead_end",
-                    &["hypothesis", "failure_mode", "lesson", "why_failed"],
-                ),
-                Some("insight") => (NodeKind::Insight, NodeFields::Insight, "insight", &[]),
-                Some("pivot") => (
-                    NodeKind::Pivot,
-                    NodeFields::Pivot {
-                        prior_direction: raw.prior_direction.clone(),
-                        new_direction: raw.new_direction.clone(),
-                        reason: raw.reason.clone(),
-                        lesson: raw.lesson.clone(),
-                    },
-                    "pivot",
-                    &["prior_direction", "new_direction", "reason", "lesson"],
-                ),
-                Some("") | None => {
+        let (kind, fields, ty, projected): (NodeKind, NodeFields, &str, &[&str]) = match raw
+            .ty
+            .as_deref()
+            .map(str::trim)
+        {
+            Some("question") => (NodeKind::Question, NodeFields::Question, "question", &[]),
+            Some("experiment") => (
+                NodeKind::Experiment,
+                NodeFields::Experiment {
+                    result: raw.result.clone(),
+                    exploration: raw.exploration.clone(),
+                    outcome: raw.outcome.clone(),
+                    status: raw.status.clone(),
+                },
+                "experiment",
+                &["result", "exploration", "outcome", "status"],
+            ),
+            Some("decision") => (
+                NodeKind::Decision,
+                NodeFields::Decision {
+                    choice: raw.choice.clone(),
+                    alternatives: raw.alternatives.clone(),
+                    rationale: raw.rationale.clone(),
+                },
+                "decision",
+                &["choice", "alternatives", "rationale"],
+            ),
+            Some("dead_end") => (
+                NodeKind::DeadEnd,
+                NodeFields::DeadEnd {
+                    hypothesis: raw.hypothesis.clone(),
+                    failure_mode: raw.failure_mode.clone(),
+                    lesson: raw.lesson.clone(),
+                    why_failed: raw.why_failed.clone(),
+                },
+                "dead_end",
+                &["hypothesis", "failure_mode", "lesson", "why_failed"],
+            ),
+            Some("insight") => (NodeKind::Insight, NodeFields::Insight, "insight", &[]),
+            Some("pivot") => (
+                NodeKind::Pivot,
+                NodeFields::Pivot {
+                    prior_direction: raw.from.as_ref().or(raw.prior_direction.as_ref()).cloned(),
+                    new_direction: raw.to.as_ref().or(raw.new_direction.as_ref()).cloned(),
+                    reason: raw.trigger.as_ref().or(raw.reason.as_ref()).cloned(),
+                    lesson: raw.lesson.clone(),
+                },
+                "pivot",
+                &[
+                    "from",
+                    "to",
+                    "trigger",
+                    "prior_direction",
+                    "new_direction",
+                    "reason",
+                    "lesson",
+                ],
+            ),
+            Some("") | None => {
+                self.report.warn(
+                    RuleCode::MissingNodeType,
+                    format!("nodes[{id}]"),
+                    "node is missing a `type`",
+                );
+                for field in body_field_names(raw) {
                     self.report.warn(
-                        RuleCode::MissingNodeType,
+                        RuleCode::FieldDroppedMissingType,
                         format!("nodes[{id}]"),
-                        "node is missing a `type`",
+                        format!("field `{field}` dropped for missing type"),
                     );
-                    for field in body_field_names(raw) {
-                        self.report.warn(
-                            RuleCode::FieldDroppedMissingType,
-                            format!("nodes[{id}]"),
-                            format!("field `{field}` dropped for missing type"),
-                        );
-                    }
-                    return (NodeKind::Other(String::new()), NodeFields::Other);
                 }
-                Some(other) => {
-                    for field in body_field_names(raw) {
-                        self.report.warn(
-                            RuleCode::FieldDroppedUnknownType,
-                            format!("nodes[{id}]"),
-                            format!("field `{field}` dropped for unknown type `{other}`"),
-                        );
-                    }
-                    return (NodeKind::Other(other.to_string()), NodeFields::Other);
+                return (NodeKind::Other(String::new()), NodeFields::Other);
+            }
+            Some(other) => {
+                for field in body_field_names(raw) {
+                    self.report.warn(
+                        RuleCode::FieldDroppedUnknownType,
+                        format!("nodes[{id}]"),
+                        format!("field `{field}` dropped for unknown type `{other}`"),
+                    );
                 }
-            };
+                return (NodeKind::Other(other.to_string()), NodeFields::Other);
+            }
+        };
+        if matches!(kind, NodeKind::Pivot) {
+            for (native, legacy, left, right) in [
+                ("from", "prior_direction", &raw.from, &raw.prior_direction),
+                ("to", "new_direction", &raw.to, &raw.new_direction),
+                ("trigger", "reason", &raw.trigger, &raw.reason),
+            ] {
+                if matches!((left,right),(Some(left),Some(right))if left!=right) {
+                    self.report.warn(RuleCode::MalformedAgentLayer,format!("nodes[{id}].{native}"),format!("Conflicting pivot `{native}` and `{legacy}` values; native value projected, both source fields retained"));
+                }
+            }
+        }
         for field in body_field_names(raw) {
             if !projected.contains(&field) {
                 self.report.warn(
@@ -525,7 +1041,11 @@ impl Normalizer {
         for (i, entry) in evidence.entries().iter().enumerate() {
             let trimmed = entry.trim();
             if is_canonical_id(trimmed, 'C') {
-                let claim = ClaimId::new(trimmed);
+                let target = self
+                    .claim_redirects
+                    .get(trimmed)
+                    .copied()
+                    .unwrap_or(trimmed);
                 let path = format!("nodes[{id}].evidence[{i}]");
                 if !self.claims_present {
                     self.report.warn(
@@ -533,10 +1053,10 @@ impl Normalizer {
                         path,
                         format!("claim reference `{trimmed}` unresolved (no claims.md provided)"),
                     );
-                } else if self.claim_ids.contains(&claim) {
+                } else if self.claim_ids.contains(target) {
                     self.bindings.push(Binding {
                         node: id.clone(),
-                        claim,
+                        claim: ClaimId::new(target),
                         role: BindingRole::Evidence,
                     });
                 } else {
@@ -561,9 +1081,6 @@ fn body_field_names(raw: &RawNode) -> Vec<&'static str> {
     if raw.result.is_some() {
         names.push("result");
     }
-    if raw.status.is_some() {
-        names.push("status");
-    }
     if raw.exploration.is_some() {
         names.push("exploration");
     }
@@ -581,6 +1098,15 @@ fn body_field_names(raw: &RawNode) -> Vec<&'static str> {
     }
     if raw.lesson.is_some() {
         names.push("lesson");
+    }
+    if raw.from.is_some() {
+        names.push("from");
+    }
+    if raw.to.is_some() {
+        names.push("to");
+    }
+    if raw.trigger.is_some() {
+        names.push("trigger");
     }
     if raw.prior_direction.is_some() {
         names.push("prior_direction");
@@ -607,10 +1133,13 @@ fn body_field_names(raw: &RawNode) -> Vec<&'static str> {
 /// i.e. reachable by walking parent pointers up from `node`. Used to drop
 /// redundant `also_depends_on` edges that only restate the nesting.
 fn is_ancestor(ancestor: &NodeId, node: &NodeId, parent_of: &BTreeMap<NodeId, NodeId>) -> bool {
-    // `parent_of` is built from `children:` nesting, which is a tree (each node
-    // has at most one parent and no parent cycles), so walking up terminates.
+    // Explicit resumed branches may contain cycles. Bound the walk; the cycle
+    // pass below reports them without an ancestry check hanging first.
     let mut cur = node;
-    while let Some(parent) = parent_of.get(cur) {
+    for _ in 0..=parent_of.len() {
+        let Some(parent) = parent_of.get(cur) else {
+            break;
+        };
         if parent == ancestor {
             return true;
         }
@@ -650,9 +1179,10 @@ fn detect_cycles(nodes: &[Node], links: &[Link], report: &mut ParseReport) {
         adj.entry(&link.from).or_default().push(&link.to);
     }
     let mut color: BTreeMap<&NodeId, u8> = BTreeMap::new(); // 0=white, 1=gray, 2=black
+    let mut stack = Vec::new();
     for node in nodes {
         if color.get(&node.id).copied().unwrap_or(0) == 0 {
-            visit(&node.id, &adj, &mut color, report);
+            visit(&node.id, &adj, &mut color, report, &mut stack);
         }
     }
 }
@@ -662,22 +1192,31 @@ fn visit<'a>(
     adj: &BTreeMap<&'a NodeId, Vec<&'a NodeId>>,
     color: &mut BTreeMap<&'a NodeId, u8>,
     report: &mut ParseReport,
+    stack: &mut Vec<(&'a NodeId, usize)>,
 ) {
     color.insert(u, 1);
-    if let Some(neighbors) = adj.get(u) {
-        for &v in neighbors {
-            match color.get(v).copied().unwrap_or(0) {
-                0 => visit(v, adj, color, report),
+    stack.push((u, 0));
+    while let Some((current, index)) = stack.last_mut() {
+        let neighbors = adj.get(current).map(Vec::as_slice).unwrap_or_default();
+        if let Some(&next) = neighbors.get(*index) {
+            *index += 1;
+            match color.get(next).copied().unwrap_or(0) {
+                0 => {
+                    color.insert(next, 1);
+                    stack.push((next, 0));
+                }
                 1 => report.error(
                     RuleCode::DependencyCycle,
-                    format!("nodes[{u}]"),
-                    format!("cycle detected: edge to `{v}` closes a cycle"),
+                    format!("nodes[{current}]"),
+                    format!("cycle detected: edge to `{next}` closes a cycle"),
                 ),
                 _ => {}
             }
+        } else {
+            let (current, _) = stack.pop().expect("visited frame");
+            color.insert(current, 2);
         }
     }
-    color.insert(u, 2);
 }
 
 #[cfg(test)]
@@ -1091,7 +1630,7 @@ tree:
         // A missing-`type:` node carrying canonical body fields must warn per
         // field in addition to the missing-type warning, matching the
         // unknown-type arm — nothing is lost silently.
-        let yaml = "tree:\n  - id: N01\n    title: q\n    status: running\n";
+        let yaml = "tree:\n  - id: N01\n    title: q\n    result: observed result\n";
         let (m, report) = parse_sources(yaml, None).expect("ok");
         assert_eq!(m.nodes[0].kind, NodeKind::Other(String::new()));
         assert!(
@@ -1105,8 +1644,8 @@ tree:
             report
                 .warnings()
                 .iter()
-                .any(|d| d.message.contains("`status` dropped for missing type")),
-            "expected dropped-field warning for `status`, got: {report}"
+                .any(|d| d.message.contains("`result` dropped for missing type")),
+            "expected dropped-field warning for `result`, got: {report}"
         );
     }
 
@@ -1147,7 +1686,6 @@ tree:
             "prior_direction",
             "new_direction",
             "reason",
-            "status",
             "exploration",
             "outcome",
         ] {
@@ -1231,10 +1769,6 @@ tree:
         let cases: &[(&str, &str, &str)] = &[
             // (field, yaml entry, a kind that does not project it)
             ("result", "result: r", "question"),
-            ("status", "status: running", "question"),
-            ("status", "status: running", "decision"),
-            ("status", "status: running", "dead_end"),
-            ("status", "status: running", "pivot"),
             ("exploration", "exploration: grid", "decision"),
             ("outcome", "outcome: wins", "pivot"),
             ("why_failed", "why_failed: wf", "experiment"),

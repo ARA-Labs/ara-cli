@@ -3227,6 +3227,11 @@ fn manifest_with_related_work(n: usize) -> ara_core::Manifest {
         exhibits: vec![],
         built_on: vec![],
         node_exhibits: vec![],
+        observations: Vec::new(),
+        sessions: Vec::new(),
+        heuristics: Vec::new(),
+        experiment_plans: Vec::new(),
+        taste_comments: Vec::new(),
     }
 }
 
@@ -3366,6 +3371,11 @@ fn manifest_with_panels(n: usize) -> ara_core::Manifest {
         exhibits: vec![],
         built_on: vec![],
         node_exhibits: vec![],
+        observations: Vec::new(),
+        sessions: Vec::new(),
+        heuristics: Vec::new(),
+        experiment_plans: Vec::new(),
+        taste_comments: Vec::new(),
     }
 }
 

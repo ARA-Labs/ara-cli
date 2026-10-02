@@ -50,10 +50,19 @@ impl ClaimId {
     pub fn as_str(&self) -> &str {
         &self.0
     }
+    pub(crate) fn redirect(&mut self, target: &str) {
+        self.0.clear();
+        self.0.push_str(target);
+    }
 
     /// True when the id matches the canonical grammar `^C\d+$`.
     pub fn is_canonical(&self) -> bool {
         is_canonical_id(&self.0, 'C')
+    }
+}
+impl std::borrow::Borrow<str> for ClaimId {
+    fn borrow(&self) -> &str {
+        self.as_str()
     }
 }
 
@@ -120,6 +129,16 @@ pub struct Manifest {
     /// Node → exhibit edges. Populated by a later resolution task.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub node_exhibits: Vec<NodeExhibit>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub observations: Vec<Observation>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub sessions: Vec<Session>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub heuristics: Vec<Heuristic>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub experiment_plans: Vec<ExperimentPlan>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub taste_comments: Vec<TasteComment>,
 }
 
 /// Paper-level metadata, parsed from `PAPER.md` YAML frontmatter.
@@ -272,6 +291,13 @@ pub struct Node {
     pub source_refs: Vec<String>,
     /// Prose description.
     pub description: Option<String>,
+    /// Verbatim deliberation supplied by the artifact author, never generated.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub thinking: Option<String>,
+    /// Native annotation status on non-experiment nodes. Experiments retain
+    /// their typed body status; readers expose both through the same filter.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub status: Option<String>,
     /// Free-form provenance tag (`user`, `ai-suggested`, ...). No vocabulary
     /// validation.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -283,6 +309,14 @@ pub struct Node {
     pub fields: NodeFields,
     /// Free-text evidence entries (the non-`C##` part of `evidence:`).
     pub evidence_notes: Vec<String>,
+    /// Directional same-finding annotations, independent of dependency edges.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub same_as: Vec<NodeId>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub artifacts: Vec<NodeArtifact>,
+    /// Existing concept term identities, never synthetic numeric ids.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub concepts: Vec<String>,
     /// Whether this node is the root of an *isolated* subtree — a branch the
     /// exploration reached but that hangs off the main tree on its own. Drives
     /// the viewer's "isolated subtree" partition. Defaults to `false`; only the
@@ -292,6 +326,15 @@ pub struct Node {
     /// Center position assigned by layout. Absent when layout has not run.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub pos: Option<Point>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct NodeArtifact {
+    pub name: String,
+    pub pointer: String,
+    pub what: String,
+    #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    pub extra: std::collections::BTreeMap<String, SourceValue>,
 }
 
 /// The canonical node types, plus a preserved escape hatch.
@@ -391,6 +434,211 @@ pub struct Claim {
     pub proof: Vec<String>,
     /// Claim → claim dependencies.
     pub deps: Vec<ClaimId>,
+    /// Complete Proof prose; `proof` remains the legacy E-token list.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub proof_content: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub provenance: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub falsification: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub conditions: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sources: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tags: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_revised: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub source_fields: Vec<SourceField>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub body: Option<String>,
+}
+
+/// YAML-compatible values without exposing the parser backend on the wire.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum SourceValue {
+    Null,
+    Bool(bool),
+    Integer(i64),
+    Unsigned(u64),
+    Float(f64),
+    String(String),
+    Sequence(Vec<SourceValue>),
+    Mapping(std::collections::BTreeMap<String, SourceValue>),
+}
+
+/// A source-spelled Markdown field, including unrecognized labels.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SourceField {
+    pub name: String,
+    pub value: String,
+}
+
+macro_rules! agent_id {
+    ($name:ident, $prefix:literal) => {
+        #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+        #[serde(transparent)]
+        pub struct $name(String);
+        impl $name {
+            pub fn new(id: impl Into<String>) -> Self {
+                Self(id.into())
+            }
+            pub fn as_str(&self) -> &str {
+                &self.0
+            }
+            pub fn is_canonical(&self) -> bool {
+                is_canonical_id(&self.0, $prefix)
+            }
+        }
+        impl std::fmt::Display for $name {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_str(&self.0)
+            }
+        }
+    };
+}
+agent_id!(ObservationId, 'O');
+agent_id!(HeuristicId, 'H');
+agent_id!(ExperimentId, 'E');
+agent_id!(TasteId, 'T');
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct SessionId(String);
+impl SessionId {
+    pub fn new(id: impl Into<String>) -> Self {
+        Self(id.into())
+    }
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+impl std::fmt::Display for SessionId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Observation {
+    pub id: ObservationId,
+    pub source_file: String,
+    pub content: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub timestamp: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub provenance: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub context: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub potential_type: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub bound_to: Vec<NodeId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub promoted: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub promoted_to: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub crystallized_via: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stale: Option<bool>,
+    #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    pub extra: std::collections::BTreeMap<String, SourceValue>,
+}
+
+/// Complete session document, including evolving event/revision structures.
+/// Structured records retain every source key rather than freezing history to
+/// the fields recognized by today's renderer.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Session {
+    pub id: SessionId,
+    pub source_file: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub date: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub started: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_turn: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub turn_count: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub summary: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub events_logged: Vec<SourceValue>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub ai_actions: Vec<SourceValue>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub claims_touched: Vec<SourceValue>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub logic_revisions: Vec<SourceValue>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub key_context: Vec<SourceValue>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub open_threads: Vec<SourceValue>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub ai_suggestions_pending: Vec<SourceValue>,
+    #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    pub metadata_extra: std::collections::BTreeMap<String, SourceValue>,
+    #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    pub extra: std::collections::BTreeMap<String, SourceValue>,
+    pub body: String,
+}
+
+macro_rules! markdown_entry {
+    ($name:ident, $id:ident, $($field:ident),+ $(,)?) => {
+        #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+        pub struct $name {
+            pub id: $id,
+            pub title: String,
+            pub source_file: String,
+            $(#[serde(default, skip_serializing_if = "Option::is_none")]
+              pub $field: Option<String>,)+
+            #[serde(default, skip_serializing_if = "Vec::is_empty")]
+            pub source_fields: Vec<SourceField>,
+            pub body: String,
+        }
+    };
+}
+markdown_entry!(
+    Heuristic,
+    HeuristicId,
+    rationale,
+    sources,
+    status,
+    provenance,
+    sensitivity,
+    code_ref,
+    last_revised
+);
+markdown_entry!(
+    ExperimentPlan,
+    ExperimentId,
+    status,
+    evidence_output,
+    question,
+    setup,
+    prediction,
+    falsification,
+    provenance,
+    last_revised
+);
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct TasteComment {
+    pub id: TasteId,
+    pub source_file: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub timestamp: Option<String>,
+    pub target: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tag: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub object: Option<String>,
+    pub comment: String,
+    #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    pub extra: std::collections::BTreeMap<String, SourceValue>,
 }
 
 #[cfg(test)]
@@ -462,12 +710,17 @@ mod tests {
             support_level: None,
             source_refs: vec![],
             description: None,
+            thinking: None,
+            status: None,
             provenance: Some("user".into()),
             timestamp: Some("2026-08-19".into()),
             fields: NodeFields::Question,
             evidence_notes: vec![],
             isolated: false,
             pos: None,
+            same_as: Vec::new(),
+            artifacts: Vec::new(),
+            concepts: Vec::new(),
         };
         let json = serde_json::to_string(&node).unwrap();
         let back: Node = serde_json::from_str(&json).unwrap();

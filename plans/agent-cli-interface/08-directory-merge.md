@@ -1,8 +1,13 @@
 # PR 08: Merge complete ARA directories
 
+Implementation record: [08-directory-merge](../../docs/agent-cli-interface/08-directory-merge.md). Remaining acceptance: 10k local process timing misses the fixed 1 s gate; historical fixture replay is blocked.
+
+Observed proof: [delivery verification](../../docs/verification/agent-cli-2026-10-02/README.md).
+
+
 **Date:** 2026-10-01
 
-Status: **approved** 2026-10-01. The durable transaction journal moved here from PR 03, and the merge timing threshold was set, at approval. Target repository: `ARA-Labs/ara-cli`. Parent: [Agent CLI interface, Phase 3](../agent-cli-interface.md#phase-3-ara-merge). PR map and shared release gates: [README](README.md). Dependencies: [PR 06: batch apply](06-batch-apply.md) and approved F1 through F4 plus the merge-specific decisions in [PR 00: protocol contracts](00-protocol-contracts.md). The lossless source and transaction interfaces originate in [PR 03](03-guarded-node-writes.md); session and promotion rules originate in [PR 05](05-staging-and-sessions.md). Neither [PR 07: same-as links](07-same-as-links.md) nor search is a prerequisite. [PR 09](09-git-merge.md) supplies Git snapshots to this same merger.
+Status: **approved** 2026-10-01. The durable transaction journal moved here from PR 03, and the merge timing threshold was set, at approval. Target repository: `ARA-Labs/ara-cli`. Parent: [Agent CLI interface, Phase 3](../agent-cli-interface.md#phase-3-ara-merge). PR map and shared release gates: [README](README.md). Dependencies: [PR 06: batch apply](06-batch-apply.md) and approved F1 through F4 plus the merge-specific decisions in [PR 00: protocol contracts](00-protocol-contracts.md). The lossless source and transaction interfaces originate in [PR 03](../../docs/agent-cli-interface/03-guarded-node-writes.md); session and promotion rules originate in [PR 05](../../docs/agent-cli-interface/05-staging-and-sessions.md). Neither [PR 07: same-as links](../../docs/agent-cli-interface/07-same-as-links.md) nor search is a prerequisite. [PR 09](../../docs/agent-cli-interface/09-git-merge.md) supplies Git snapshots to this same merger.
 
 ## TL;DR
 
@@ -18,7 +23,7 @@ Existing `fix.rs` provides useful precise-text and reparse guards, including cou
 
 ## Constraints
 
-This PR ships all Phase 3 knowledge layers together. A nodes-only or nodes-and-claims merge cannot be presented as complete while sessions, promotions, aliases, mutable knowledge documents, or imported references remain unsafe. It uses no network, LLM, database, search index, or automatic semantic deduplication. `duplicate_candidates` remains an empty array until [PR 11](11-duplicate-warnings.md). If F5 has shipped, known `same_as` references pass through the shared scanner; otherwise preserve that source field and report uncertainty rather than require F5. The parent forbids writes to `src/` and evidence bodies: inventory those paths for external merge/review needs, but do not copy, modify, delete, or rewrite them. Any broader file-merge scope needs explicit parent approval.
+This PR ships all Phase 3 knowledge layers together. A nodes-only or nodes-and-claims merge cannot be presented as complete while sessions, promotions, aliases, mutable knowledge documents, or imported references remain unsafe. It uses no network, LLM, database, search index, or automatic semantic deduplication. `duplicate_candidates` remains an empty array until [PR 11](../../docs/agent-cli-interface/11-duplicate-warnings.md). If F5 has shipped, known `same_as` references pass through the shared scanner; otherwise preserve that source field and report uncertainty rather than require F5. The parent forbids writes to `src/` and evidence bodies: inventory those paths for external merge/review needs, but do not copy, modify, delete, or rewrite them. Any broader file-merge scope needs explicit parent approval.
 
 The merge planner is a pure in-memory function. Directory loading, locking, time acquisition, and commit belong to native adapters. Gate merge and its source/writer dependencies behind `ara-core`'s existing `native` feature; the wasm parser, viewer wire format, and layout behavior stay unchanged. The merger must preserve unknown field values, comments, scalar style, untouched whitespace, complete Markdown bodies, and all session lists. A clean normalized `Manifest` is necessary for known semantic checks, but cannot prove preservation of the complete source.
 

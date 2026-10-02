@@ -1,7 +1,12 @@
 # PR 02: ship structural read commands and the CLI contract
 **Date:** 2026-10-01
 
-Status: **approved** 2026-10-01. Repository: `ARA-Labs/ara-cli`. Depends on [PR 01](01-read-model.md). Parent: [agent CLI interface](../agent-cli-interface.md). Shared checks: [PR index](README.md).
+Implementation record: [02-read-commands](../../docs/agent-cli-interface/02-read-commands.md). Remaining acceptance: The first pinned status timing sample misses 100 ms; the original fixed limit remains.
+
+Observed proof: [delivery verification](../../docs/verification/agent-cli-2026-10-02/README.md).
+
+
+Status: **approved** 2026-10-01. Repository: `ARA-Labs/ara-cli`. Depends on [PR 01](../../docs/agent-cli-interface/01-read-model.md). Parent: [agent CLI interface](../agent-cli-interface.md). Shared checks: [PR index](README.md).
 
 ## TL;DR
 
@@ -56,4 +61,4 @@ Add deterministic synthetic artifacts with 100, 1,000, and 10,000 nodes, includi
 
 ## Next Steps
 
-Review discovery tie-breaking, projection keys, excerpt bound, invalid-artifact status semantics, and scanner boundaries before publication. After merge, [PR 03](03-guarded-node-writes.md) and [PR 10](10-keyword-search.md) can proceed independently once their own gates are met.
+Review discovery tie-breaking, projection keys, excerpt bound, invalid-artifact status semantics, and scanner boundaries before publication. After merge, [PR 03](../../docs/agent-cli-interface/03-guarded-node-writes.md) and [PR 10](../../docs/agent-cli-interface/10-keyword-search.md) can proceed independently once their own gates are met.

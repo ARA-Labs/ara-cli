@@ -59,6 +59,11 @@ pub struct ParseReport {
 }
 
 impl ParseReport {
+    #[cfg(feature = "native")]
+    pub(crate) fn append(&mut self, mut other: Self) {
+        self.errors.append(&mut other.errors);
+        self.warnings.append(&mut other.warnings);
+    }
     /// Records an error produced by rule `code`.
     pub(crate) fn error(
         &mut self,

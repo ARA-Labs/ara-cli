@@ -40,12 +40,17 @@ pub(crate) struct RawNode {
     pub ty: Option<String>,
     #[serde(default)]
     pub title: Option<String>,
+    /// Explicit branch resumption. Nesting, when present, must agree.
+    #[serde(default)]
+    pub parent: Option<String>,
     #[serde(default)]
     pub support_level: Option<String>,
     #[serde(default)]
     pub source_refs: Vec<String>,
     #[serde(default)]
     pub description: Option<String>,
+    #[serde(default)]
+    pub thinking: Option<String>,
     /// Marks the root of an isolated subtree. Defaults to `false`.
     #[serde(default)]
     pub isolated: bool,
@@ -74,6 +79,12 @@ pub(crate) struct RawNode {
     pub lesson: Option<String>,
     // pivot
     #[serde(default)]
+    pub from: Option<String>,
+    #[serde(default)]
+    pub to: Option<String>,
+    #[serde(default)]
+    pub trigger: Option<String>,
+    #[serde(default)]
     pub prior_direction: Option<String>,
     #[serde(default)]
     pub new_direction: Option<String>,
@@ -92,12 +103,29 @@ pub(crate) struct RawNode {
     // node → node cross edges
     #[serde(default)]
     pub also_depends_on: Vec<String>,
+    // Proposed additive annotations, parsed leniently so malformed values
+    // diagnose without making an otherwise readable historical tree fatal.
+    #[serde(default)]
+    pub same_as: Option<crate::manifest::SourceValue>,
+    #[serde(default)]
+    pub artifacts: Option<crate::manifest::SourceValue>,
+    #[serde(default)]
+    pub concepts: Option<crate::manifest::SourceValue>,
     // nesting edges
     #[serde(default)]
     pub children: Vec<RawNode>,
     /// Unknown node keys → warnings.
     #[serde(flatten)]
     pub extra: BTreeMap<String, IgnoredAny>,
+}
+impl Drop for RawNode {
+    fn drop(&mut self) {
+        // Deep research branches must not recurse again during destruction.
+        let mut pending = std::mem::take(&mut self.children);
+        while let Some(mut node) = pending.pop() {
+            pending.append(&mut node.children);
+        }
+    }
 }
 
 /// `evidence:` is either a bare scalar (`"Table 3 ..."`) or a mixed list
@@ -124,10 +152,11 @@ impl Evidence {
 ///
 /// Returns the raw serde error message (a `String`, not a `serde-saphyr` type)
 /// so callers stay decoupled from the YAML backend. Multi-document input, a
-/// non-mapping root, and shape mismatches all surface here as `Err` — never a
-/// panic.
+/// non-mapping root, shape mismatches, and explicit depth/resource breaches
+/// surface here as `Err`. Deep children are extracted iteratively in both
+/// native and pure builds; see `docs/deep-tree-parsing.md`.
 pub(crate) fn parse_doc(yaml: &str) -> Result<RawDoc, String> {
-    serde_saphyr::from_str::<RawDoc>(yaml).map_err(|e| e.to_string())
+    crate::flat_yaml::parse(yaml)
 }
 
 #[cfg(test)]
@@ -225,27 +254,6 @@ tree:
         assert_eq!(n2.status.as_deref(), Some("completed"));
         assert_eq!(n2.exploration.as_deref(), Some("grid over k"));
         assert_eq!(n2.outcome.as_deref(), Some("sparse wins"));
-    }
-
-    #[test]
-    fn legacy_pivot_keys_land_in_extra() {
-        let y = "\
-tree:
-  - id: N01
-    type: pivot
-    from: dense retrieval
-    to: sparse retrieval
-    trigger: latency budget
-";
-        let doc = parse_doc(y).expect("parses");
-        let n1 = &doc.tree.expect("tree present")[0];
-        assert_eq!(
-            n1.extra.keys().collect::<Vec<_>>(),
-            vec!["from", "to", "trigger"]
-        );
-        assert!(n1.prior_direction.is_none());
-        assert!(n1.new_direction.is_none());
-        assert!(n1.reason.is_none());
     }
 
     #[test]
