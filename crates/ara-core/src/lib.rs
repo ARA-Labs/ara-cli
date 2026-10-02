@@ -44,7 +44,7 @@ pub use lint::{FixCandidate, LintDiagnostic, LintFile, LintReport, LintRuleId};
 pub use lint::{check_dir, check_sources};
 
 #[cfg(feature = "native")]
-pub use fix::{AppliedFix, FixOutcome, SkippedFix, fix_dir};
+pub use fix::{AppliedFix, FixOutcome, SkippedFix, fix_dir, fix_dir_with};
 
 #[cfg(feature = "native")]
 pub use parse::parse_dir;

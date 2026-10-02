@@ -11,6 +11,15 @@ All notable changes to this project are documented here. The format follows
   finding a stable code — `ARA0xx` format rules, `ARA1xx` structural/reference
   errors, `ARA2xx` field/schema warnings — with name, layer, default severity,
   and fixability. Each validate-layer `Diagnostic` now records its code (#43).
+- `ara check`: optional per-rule config via `.ara-check.toml`, discovered from
+  the artifact directory up to the git repository root (or passed with
+  `--config <path>`; `--no-config` skips it). `select` / `ignore` enable or
+  disable rules by code or code prefix (`ARA1` = every `ARA1xx`), `fixable` /
+  `unfixable` control what `--fix` applies, and a `[severity]` table promotes or
+  demotes rules. Unknown keys or rule codes are an error (exit 2). Without a
+  config file the output and exit codes are unchanged (#40).
+- Core: `fix_dir_with(dir, allow)` applies only the fixes whose rule `allow`
+  accepts (#40).
 
 ### Changed
 - Core: bump serde-saphyr to 1.3.0 (#90).
