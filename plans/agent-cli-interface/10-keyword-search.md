@@ -1,7 +1,7 @@
 # PR 10: add offline keyword search
 **Date:** 2026-10-01
 
-Status: draft for review. Repository: `ARA-Labs/ara-cli`. Depends on [PR 02](02-read-commands.md), not on writes or merge. Parent: [agent CLI interface](../agent-cli-interface.md). Shared checks: [PR index](README.md).
+Status: **approved** 2026-10-01. Repository: `ARA-Labs/ara-cli`. Depends on [PR 02](02-read-commands.md), not on writes or merge. Parent: [agent CLI interface](../agent-cli-interface.md). Shared checks: [PR index](README.md).
 
 ## TL;DR
 

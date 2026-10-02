@@ -1,7 +1,7 @@
 # PR 05: stage observations, promote entries, and retain session history
 **Date:** 2026-10-01
 
-Status: draft for review. Repository: `ARA-Labs/ara-cli`. Parent: [agent CLI interface](../agent-cli-interface.md). Shared rollout and verification: [PR index](README.md). Depends on [PR 04](04-logic-editing.md), PR 03's transaction engine, and approved F3/F4 plus the session-metadata decision in [PR 00](00-protocol-contracts.md).
+Status: **approved** 2026-10-01. Repository: `ARA-Labs/ara-cli`. Parent: [agent CLI interface](../agent-cli-interface.md). Shared rollout and verification: [PR index](README.md). Depends on [PR 04](04-logic-editing.md), PR 03's transaction engine, and approved F3/F4 plus the session-metadata decision in [PR 00](00-protocol-contracts.md).
 
 ## TL;DR
 
@@ -15,7 +15,7 @@ The parent F4 recommendation lists forward pointers and `events_logged`, not the
 
 ## Constraints
 
-All writes use PR 03's whole-source guards, one exclusive lock, and durable multi-file rollback/recovery. A promoted observation remains in staging with its original content, context, provenance, timestamp, and `bound_to`. CLI code does not decide maturity, infer closure, upgrade provenance, fabricate a session summary, or judge evidence. The caller supplies those decisions and any complete target fields. Stage `potential_type` vocabulary and promotion target grammar follow approved protocol, not a guessed enum inferred from one fixture.
+All writes use PR 03's whole-source guards, one exclusive lock, and multi-file preimage rollback. A promoted observation remains in staging with its original content, context, provenance, timestamp, and `bound_to`. CLI code does not decide maturity, infer closure, upgrade provenance, fabricate a session summary, or judge evidence. The caller supplies those decisions and any complete target fields. Stage `potential_type` vocabulary and promotion target grammar follow approved protocol, not a guessed enum inferred from one fixture.
 
 This PR's direct promotion targets are claim and heuristic, matching the parent command list. The manager also needs concepts, constraints, architecture, and refuted observations that become dead ends; PR 06 must cover those pinned requirements before CLI-backed skill integration. Do not call direct claim/heuristic promotion complete manager coverage. This PR does not add merge, reasoning/taste log commands, artifact initialization, or arbitrary historical session editing.
 
@@ -50,7 +50,7 @@ Creating the target first and marking the observation second can leave an unmark
 
 ## Tradeoffs
 
-Per-file atomic rename does not give global filesystem atomicity. Cooperating reads use the engine's shared lock and recovery; raw editors and older readers can see partial files during commit or a crash. Rollback can fail, in which case the command returns a retained recovery state and does not claim the artifact is unchanged.
+Per-file atomic rename does not give global filesystem atomicity. Any reader can see partial files during the rename sequence, and a process crash in that window can leave a promoted pointer without its target until PR 08's durable journal lands; `ara check` reports the dangling pointer and Git restores it. Rollback can fail, in which case the command returns exit 2 with the affected paths and does not claim the artifact is unchanged.
 
 Full session payloads are larger than `--node`, but they preserve the source skill's continuity record. The CLI validates types, source references, turn consistency, and approved mutations. It does not verify whether a quoted user statement occurred or whether an empirical conclusion is warranted. Those remain the skill's responsibilities.
 
@@ -62,7 +62,7 @@ No existing observation or session is rewritten merely to adopt the commands. Th
 
 Add proposed tests in the new native staging/session modules and existing `crates/ara-cli/tests/cli.rs`. Cover exact multiline staging, separate problem/staging `O` namespaces, malformed dates, duplicate IDs, dangling `bound_to`, missing optional files, and preserved unknown content. For promotion, test target creation and all forward pointers together, duplicate promotion rejection, explicit versus inherited provenance, unsupported target kinds, invalid signal/payload, and failure after each affected-file rename with complete source restoration.
 
-For sessions, test concurrent date-sequence allocation, same-day resumption, day rollover, no implicit selection when ambiguous, and rejection of historical edits. Append two turns with full events/actions/context/revisions and assert earlier records remain byte-identical. Check precise turn numbers, supplied before/after values, rolling lists' absent-versus-empty distinction, touched-claim union, and index counts derived from the record. Unauthorized metadata/stale changes must reject under the unapproved policy; approved behavior gets its own fixtures once PR 00 lands. Crash recovery must never let a cooperating read return a promoted pointer without its target or an index entry without its committed record.
+For sessions, test concurrent date-sequence allocation, same-day resumption, day rollover, no implicit selection when ambiguous, and rejection of historical edits. Append two turns with full events/actions/context/revisions and assert earlier records remain byte-identical. Check precise turn numbers, supplied before/after values, rolling lists' absent-versus-empty distinction, touched-claim union, and index counts derived from the record. Unauthorized metadata/stale changes must reject under the unapproved policy; approved behavior gets its own fixtures once PR 00 lands. An injected failure after the first rename must roll back so that no promoted pointer exists without its target and no index entry exists without its committed record.
 
 The proposed real-binary smoke uses a disposable approved fixture with `N12` and a prepared full `turn.json`. Set `SMOKE_ARA` to that copy. Create `observation.txt` with multiline content and choose a fixture where the next observation is `O12` and the next claim is `C06`, then run after implementation:
 

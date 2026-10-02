@@ -1,7 +1,7 @@
 # PR 02: ship structural read commands and the CLI contract
 **Date:** 2026-10-01
 
-Status: draft for review. Repository: `ARA-Labs/ara-cli`. Depends on [PR 01](01-read-model.md). Parent: [agent CLI interface](../agent-cli-interface.md). Shared checks: [PR index](README.md).
+Status: **approved** 2026-10-01. Repository: `ARA-Labs/ara-cli`. Depends on [PR 01](01-read-model.md). Parent: [agent CLI interface](../agent-cli-interface.md). Shared checks: [PR index](README.md).
 
 ## TL;DR
 

@@ -1,7 +1,7 @@
 # PR 01: extend the agent read model
 **Date:** 2026-10-01
 
-Status: draft for review. Repository: `ARA-Labs/ara-cli`. Depends on approval of this plan, not on PR 00 format changes. Parent: [agent CLI interface](../agent-cli-interface.md). Rollout and shared checks: [PR index](README.md).
+Status: **approved** 2026-10-01. Repository: `ARA-Labs/ara-cli`. Depends on approval of this plan, not on PR 00 format changes. Parent: [agent CLI interface](../agent-cli-interface.md). Rollout and shared checks: [PR index](README.md).
 
 ## TL;DR
 

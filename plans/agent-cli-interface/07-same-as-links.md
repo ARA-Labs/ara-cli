@@ -1,7 +1,7 @@
 # PR 07: link nodes that describe the same finding
 **Date:** 2026-10-01
 
-Status: draft for review. Repository: `ARA-Labs/ara-cli`. Parent: [agent CLI interface](../agent-cli-interface.md). Shared rollout and verification: [PR index](README.md). Depends on [PR 03](03-guarded-node-writes.md), read support from PR 02, and approved F5 in [PR 00](00-protocol-contracts.md). This PR does not block [PR 06](06-batch-apply.md) or [PR 08](08-directory-merge.md).
+Status: **approved** 2026-10-01. Repository: `ARA-Labs/ara-cli`. Parent: [agent CLI interface](../agent-cli-interface.md). Shared rollout and verification: [PR index](README.md). Depends on [PR 03](03-guarded-node-writes.md), read support from PR 02, and approved F5 in [PR 00](00-protocol-contracts.md). This PR does not block [PR 06](06-batch-apply.md) or [PR 08](08-directory-merge.md).
 
 ## TL;DR
 
@@ -48,7 +48,7 @@ A symmetric dependency edge would reuse the existing graph model but misrepresen
 
 Directional annotations can leave chains or conflicting judgments that need researcher review. The CLI validates storage and references, not whether the findings are genuinely identical. If the approved format allows chains, queries return the recorded relations explicitly rather than silently computing a canonical representative.
 
-The write inherits PR 03's cooperative-lock and recovery limits. A single-file rename is atomic, but multi-operation batches still have per-file visibility limits for raw readers. This feature changes the wire model even without a viewer display change, so all constructors and the embedded wasm need attention.
+The write inherits PR 03's cooperative-lock and crash-window limits. A single-file rename is atomic, but multi-operation batches still have per-file visibility limits for raw readers. This feature changes the wire model even without a viewer display change, so all constructors and the embedded wasm need attention.
 
 ## Migration
 

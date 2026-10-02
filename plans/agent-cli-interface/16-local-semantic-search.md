@@ -1,7 +1,7 @@
 # PR 16: add local semantic search only if keyword search fails
 **Date:** 2026-10-01
 
-Status: conditional draft for review, not scheduled. Repository: `ARA-Labs/ara-cli`. Depends on [PR 10](10-keyword-search.md) and evidence from [PR 15](15-experiment-harness.md). Parent: [agent CLI interface](../agent-cli-interface.md). Shared checks: [PR index](README.md).
+Status: **approved as conditional** 2026-10-01; not scheduled until its evidence gate fires. Repository: `ARA-Labs/ara-cli`. Depends on [PR 10](10-keyword-search.md) and evidence from [PR 15](15-experiment-harness.md). Parent: [agent CLI interface](../agent-cli-interface.md). Shared checks: [PR index](README.md).
 
 ## TL;DR
 

@@ -1,8 +1,9 @@
 # Plan: agents read and write an ARA through `ara`, not through files
 
-Status: **draft for review**. Covers every phase. Concrete PR engineering
+Status: **approved** 2026-10-01. Covers every phase. Concrete PR engineering
 plans and their dependencies are in [the rollout index](agent-cli-interface/README.md).
-Each numbered plan requires review before its code is written.
+At approval, the evaluation was aligned with the research note and the rollout
+was reordered so the read experiments do not wait for the write chain.
 
 ## Summary
 
@@ -29,8 +30,9 @@ so it can start as soon as this plan is approved. Phases 2 and 3 need a few
 format decisions from the protocol repo first (Phase 0).
 
 The idea, its motivation, and the experiments that will test it are written up
-in the "CLI-Mediated ARA" research note (Obsidian vault, `Ideas/`). This plan is
-the engineering side of that note.
+in the "CLI-Mediated ARA" research note (Obsidian vault, `Ideas/`). The
+collective-research study comes from the "Agora vs ARA as Research Records"
+note (`Analyses/`). This plan is the engineering side of those notes.
 
 ## Why change: what goes wrong today
 
@@ -405,8 +407,12 @@ operation before its copied skill is considered integrated; missing support
 does not justify dropping a source-skill step or silently reverting to file
 writes.
 
+Ship the reader copy first (PR 13a): it needs only the read commands and
+search, so the read experiments can start before any write command exists. The
+research-manager and compiler copies (PR 13b) follow the write chain.
+
 Frontier views and shared intentions are a separate collective-research
-extension to these copies. Keep their instructions separate from the
+extension to these copies, and each installs independently. Keep their instructions separate from the
 CLI-only access substitutions, including any change to the single-writer
 rule. Their detailed plan must specify intention publication and refresh
 across forks before implementation; private fork files alone are not shared
@@ -433,19 +439,26 @@ file-based agents with CLI-using agents on:
 - a session-by-session replay of research-manager on the-ara-of-ara;
 - several agents writing separate copies of one ARA and merging.
 
-Use three reference conditions, with source skill revisions pinned as in
-Phase 5:
+The research note also adds the agent part of the merge test (E0: about 50
+known-result conflict cases per type, git merge plus agent repair versus
+`ara merge` plus the report) and an exploratory end-to-end RE-Bench extension
+(E5). The Agora comparison note adds a collective study (E6).
 
-| Condition | Skills and artifact interface | Purpose |
+Use these arms, with source skill revisions pinned as in Phase 5:
+
+| Arm | Skills and artifact interface | Purpose |
 |---|---|---|
-| Files | Unchanged ARA skills with their original file access | Baseline. |
-| CLI | Copies of the same skills, with artifact access replaced by `ara` commands | Measure the interface change. |
-| CLI + frontier + intentions | CLI-backed copies plus the explicit collective-research instructions | Measure the coordination extension. |
+| Files (F) | Unchanged ARA skills with their original file access | Baseline. |
+| C | CLI copies of the same skills, without `ara find` | Isolate search. |
+| C+S | C plus `ara find` | Main CLI arm: measure the interface change. |
+| C-only | C+S with no direct file reads at all | Is the CLI sufficient on its own? |
+| C+S+frontier, C+S+intentions | C+S plus one collective component each | Measure each coordination component (E6). |
 
-Reading, writing, and compilation experiments compare Files with CLI.
-Collective-research experiments compare CLI with CLI + frontier + intentions.
-Do not run every condition on every benchmark. Disable frontier views or
-intentions individually only when a diagnostic comparison is needed.
+Files versus C+S runs on every reading, scaling, writing, compilation, merge
+and multi-writer experiment. C and C-only are diagnostics on the reading
+benchmark. The collective study compares F, C+S, C+S+frontier and
+C+S+intentions at matched total community compute. Do not run every arm on
+every benchmark.
 
 Within each comparison, hold models, tasks, starting artifacts, grading,
 and total compute budgets fixed. Pin and review every prompt difference;
@@ -456,9 +469,14 @@ experiments excluding deliberate verification, and artifact integrity.
 Repeat whole community runs; contributions within a run are not independent
 samples. Fix quality margins and success criteria before running experiments.
 
-Each experiment reports tokens, wall-clock time and answer quality. The
-experiment harness lives outside this repo. This repo supplies the commands
-and the timing tests.
+Each experiment reports tokens (uncached, cache-read and cache-write), dollars
+both raw and cache-adjusted, wall-clock time split into model and tool time,
+answer quality, and cost per correct answer. Results are reported per stratum,
+including trace size: the claim is that savings grow with artifact size, and
+small PaperBench ARAs act as the control. The CLI is tuned on a dev split and
+frozen before test runs. The experiment harness lives outside this repo
+([PR 15](agent-cli-interface/15-experiment-harness.md)). This repo supplies the
+commands and the timing tests.
 
 ## Open questions for the reviewer
 
@@ -468,7 +486,7 @@ and the timing tests.
 | Q2 | Should commands find the ARA automatically, or always take a path? | Automatic, as described under "Finding the ARA", with `-C` to override. |
 | Q3 | Should nodes created on the same date be grouped in the tree? | No. A child node means "builds on its parent", so grouping by date would invent false parent links. Use `ara ls --since` and session records instead. |
 | Q4 | How strictly to enforce CLI-only writes? | Decide after Phase 5, using evidence of how often direct edits still happen. |
-| Q5 | Who may write `logic/`: every agent (through the CLI, with conflicts reported at merge), or only research-manager? | Every agent through the CLI. The merge report makes conflicts visible, and research-manager stays the one that resolves them. |
+| Q5 | Who may write `logic/`: every agent (through the CLI, with conflicts reported at merge), or only research-manager? | **Decided:** research-manager stays the single writer in the CLI copies, so the interface comparison changes access only. Contributor writers are a collective-role change reviewed in PR 14 and used only in collective arms. |
 | Q6 | Should `ara merge --git` call the `git` binary or use a Rust git library? | Call `git`. It is always present where merges happen. A library such as gix adds a large dependency for one feature. |
 
 ## How this relates to the open issues
@@ -488,14 +506,16 @@ and the timing tests.
 1. Review this parent and the [PR rollout](agent-cli-interface/README.md).
 2. Start PR 00 (protocol decisions), PR 01 (read model), and PR 12 (pinned
    skill contracts) independently. PR 02 adds all six reads after PR 01.
-3. After PR 02, run PR 10 (keyword search) alongside the PR 03–06 write chain
-   once the required protocol decisions are approved. PR 06 also needs PR 12's
-   operation inventory. PR 07 (`same_as`) can ship separately after F5 approval.
-4. After PR 06, ship PR 08 (complete directory merge), then PR 09 (`--git`).
-   PR 11 adds duplicate warnings once node writes, merge, and search are ready.
-5. PR 13 integrates CLI-only skills after read, batch, search, and coverage
-   gates pass. PR 14 adds collective coordination separately. PR 15 owns the
-   external experiment harness and its three-condition comparisons.
+3. After PR 02, ship PR 10 (keyword search) and PR 13a (CLI reader copy), then
+   run the reading-benchmark pilot and the scaling curve (PR 15, E1 and E2).
+4. In parallel, run the PR 03–06 write chain once the required protocol
+   decisions are approved. PR 06 also needs PR 12's operation inventory.
+   PR 07 (`same_as`) can ship separately after F5 approval. After PR 06, ship
+   PR 13b (manager and compiler copies) and run the PM replay (E3).
+5. After PR 06, ship PR 08 (complete directory merge with the durable journal),
+   then PR 09 (`--git`) and PR 11 (duplicate warnings). Then run the merge
+   conflict suite and the multi-writer experiment (E0 agent part, E4). PR 14
+   adds collective coordination for E6.
 6. PR 16 (local semantic search) and PR 17 (write enforcement) remain
    evidence-gated follow-ups, not prerequisites for the baseline interface.
 7. As each PR ships, rewrite its plan into `docs/agent-cli.md` and retire it.

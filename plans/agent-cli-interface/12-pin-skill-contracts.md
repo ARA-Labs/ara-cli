@@ -1,11 +1,11 @@
 # PR 12: pin baseline skills and inventory every artifact operation
 **Date:** 2026-10-01
 
-Status: draft for review. Target repository: `ARA-Labs/Agent-Native-Research-Artifact`. Parent: [agent CLI interface plan](../agent-cli-interface.md). Series: [PR index and shared gates](README.md). Dependencies: none. This inventory can start before CLI commands ship and supplies [06-batch-apply.md](06-batch-apply.md), [13-cli-backed-skills.md](13-cli-backed-skills.md), and [15-experiment-harness.md](15-experiment-harness.md).
+Status: **approved** 2026-10-01. Target repository: `ARA-Labs/Agent-Native-Research-Artifact`. Parent: [agent CLI interface plan](../agent-cli-interface.md). Series: [PR index and shared gates](README.md). Dependencies: none. This inventory can start before CLI commands ship and supplies [06-batch-apply.md](06-batch-apply.md), [13-cli-backed-skills.md](13-cli-backed-skills.md), and [15-experiment-harness.md](15-experiment-harness.md).
 
 ## TL;DR
 
-Pin the exact skills, reference pages and task mappings used by the corresponding paper experiment. Preserve their complete bytes as the Files baseline and make a machine-readable inventory of every required artifact operation. Pin research-manager, the live project manager (PM), and compiler contracts separately where the paper does not provide them. Missing historical provenance or CLI coverage blocks the affected integration; it must not be filled from the locally installed skill.
+Pin the exact skills, reference pages and task mappings used by the corresponding paper experiment. Preserve their complete bytes as the Files baseline and make a machine-readable inventory of every required artifact operation. Pin research-manager, the live project manager (PM), and compiler contracts separately where the paper does not provide them. Missing CLI coverage blocks the affected integration; it must not be filled from the locally installed skill. Pin and publish the reader rows first, because PR 13a and the first read experiments depend only on them. If the paper's historical reader revision cannot be verified, pin the current reader as a live pin and let PR 15 run E1 as "not a reproduction" instead of blocking it.
 
 ## Problem
 
@@ -38,7 +38,7 @@ The proposed operation artifact has `format: ara.skill-operations/v1`. It is con
 
 Implementation steps for the future PR:
 
-1. Locate the paper experiment's authoritative question, prompt, grading and skill configuration. Verify remote commits and retrieve complete skill/reference trees from those revisions. If they are unavailable, finish the live inventory but mark the paper benchmark pin and comparisons blocked.
+1. Locate the paper experiment's authoritative question, prompt, grading and skill configuration. Verify remote commits and retrieve complete skill/reference trees from those revisions. If they are unavailable, mark the historical pin missing, pin the current sources as live pins, and record that E1 runs as "not a reproduction".
 2. Select and review live PM/compiler pins where no corresponding historical paper experiment exists. Record why each pin is selected and keep it distinct from any paper pin.
 3. Copy source skill trees unchanged into baselines and record hashes for every loaded page and template. Include transitive reference pages, assets and validation instructions actually supplied to agents.
 4. Create task mappings from verified task configurations. Record unresolved mappings without inventing an entrypoint.

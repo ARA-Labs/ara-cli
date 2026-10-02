@@ -1,7 +1,7 @@
 # PR 04: edit mutable logic and approved pointer fields
 **Date:** 2026-10-01
 
-Status: draft for review. Repository: `ARA-Labs/ara-cli`. Parent: [agent CLI interface](../agent-cli-interface.md). Shared rollout and verification: [PR index](README.md). Depends on [PR 03](03-guarded-node-writes.md) and its approved [PR 00](00-protocol-contracts.md) contracts. Compiler-wide document creation and complete revision recording are completed in [PR 06](06-batch-apply.md), not assumed here.
+Status: **approved** 2026-10-01. Repository: `ARA-Labs/ara-cli`. Parent: [agent CLI interface](../agent-cli-interface.md). Shared rollout and verification: [PR index](README.md). Depends on [PR 03](03-guarded-node-writes.md) and its approved [PR 00](00-protocol-contracts.md) contracts. Compiler-wide document creation and complete revision recording are completed in [PR 06](06-batch-apply.md), not assumed here.
 
 ## TL;DR
 

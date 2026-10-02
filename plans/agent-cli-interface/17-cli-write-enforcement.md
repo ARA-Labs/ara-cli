@@ -1,7 +1,7 @@
 # PR 17: decide write enforcement from observed skill violations
 **Date:** 2026-10-01
 
-Status: conditional draft for review, not scheduled. Repository: protocol repo or `ARA-Labs/ara-cli`, depending on the reviewed choice. Depends on [PR 13](13-cli-backed-skills.md) and evidence from [PR 15](15-experiment-harness.md). Parent: [agent CLI interface](../agent-cli-interface.md). Shared checks: [PR index](README.md).
+Status: **approved as conditional** 2026-10-01; not scheduled until its evidence gate fires. Repository: protocol repo or `ARA-Labs/ara-cli`, depending on the reviewed choice. Depends on [PR 13](13-cli-backed-skills.md) and evidence from [PR 15](15-experiment-harness.md). Parent: [agent CLI interface](../agent-cli-interface.md). Shared checks: [PR index](README.md).
 
 ## TL;DR
 

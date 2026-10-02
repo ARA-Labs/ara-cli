@@ -1,7 +1,7 @@
 # PR 00: approve the protocol contracts for CLI writes and merges
 **Date:** 2026-10-01
 
-Status: draft for review. Target repository: `ARA-Labs/Agent-Native-Research-Artifact`. Parent: [agent CLI interface plan](../agent-cli-interface.md). Series: [PR index and shared gates](README.md). Dependencies: none; this proposal can proceed alongside [01-read-model.md](01-read-model.md) and [02-read-commands.md](02-read-commands.md).
+Status: **approved** 2026-10-01. Target repository: `ARA-Labs/Agent-Native-Research-Artifact`. Parent: [agent CLI interface plan](../agent-cli-interface.md). Series: [PR index and shared gates](README.md). Dependencies: none; this proposal can proceed alongside [01-read-model.md](01-read-model.md) and [02-read-commands.md](02-read-commands.md).
 
 ## TL;DR
 
@@ -68,7 +68,7 @@ A private cache for import identity is removable and cannot establish repeatable
 
 Explicit exceptions let the CLI reject writes without interpreting the skill's intent. Additive metadata helps older readers continue to work, while complete writers must guard fields they do not model. Preserving unresolved historical conflicts costs space and requires a reviewed resolution path; overwriting them would weaken the audit trail.
 
-The parent's Q5 recommendation that every agent write logic is not approved by F7. CLI-only copies retain single-writer roles. [14-shared-frontier-intentions.md](14-shared-frontier-intentions.md) proposes any collective role changes separately.
+Q5 is decided in the parent: CLI-only copies retain the single-writer role, so F7 changes access only. [14-shared-frontier-intentions.md](14-shared-frontier-intentions.md) proposes any collective role changes separately.
 
 ## Migration
 

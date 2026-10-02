@@ -2,7 +2,7 @@
 
 **Date:** 2026-10-01
 
-Status: Draft for review. Target repository: `ARA-Labs/ara-cli`. Parent: [Agent CLI interface, Phase 3](../agent-cli-interface.md#phase-3-ara-merge). PR map and shared gates: [README](README.md). Dependency: [PR 08: directory merge](08-directory-merge.md), including approval of its source identity, portable import journal, and conflict rules in [PR 00](00-protocol-contracts.md). This PR implements parent question Q6 by calling the `git` binary. It does not introduce a second merge engine.
+Status: **approved** 2026-10-01. Target repository: `ARA-Labs/ara-cli`. Parent: [Agent CLI interface, Phase 3](../agent-cli-interface.md#phase-3-ara-merge). PR map and shared gates: [README](README.md). Dependency: [PR 08: directory merge](08-directory-merge.md), including approval of its source identity, portable import journal, and conflict rules in [PR 00](00-protocol-contracts.md). This PR implements parent question Q6 by calling the `git` binary. It does not introduce a second merge engine.
 
 ## TL;DR
 

@@ -1,11 +1,20 @@
 # PR 13: add CLI-only copies of the pinned research skills
 **Date:** 2026-10-01
 
-Status: draft for review. Target repository: `ARA-Labs/Agent-Native-Research-Artifact`. Parent: [agent CLI interface plan](../agent-cli-interface.md). Series: [PR index and shared gates](README.md). Dependencies: [02-read-commands.md](02-read-commands.md), [06-batch-apply.md](06-batch-apply.md), [10-keyword-search.md](10-keyword-search.md), [12-pin-skill-contracts.md](12-pin-skill-contracts.md), and the relevant approved F3/F4/F6/F7 contracts in [00-protocol-contracts.md](00-protocol-contracts.md). The inventory can be reviewed earlier; integrated variants cannot ship before every required operation is covered.
+Status: **approved** 2026-10-01 (split at approval into 13a and 13b). Target repository: `ARA-Labs/Agent-Native-Research-Artifact`. Parent: [agent CLI interface plan](../agent-cli-interface.md). Series: [PR index and shared gates](README.md). Dependencies:
+
+- **13a (reader):** [02-read-commands.md](02-read-commands.md), [10-keyword-search.md](10-keyword-search.md), the reader rows of [12-pin-skill-contracts.md](12-pin-skill-contracts.md), and approved F6/F7 in [00-protocol-contracts.md](00-protocol-contracts.md).
+- **13b (research-manager and compiler):** 13a, [06-batch-apply.md](06-batch-apply.md), the complete PR 12 inventory, and approved F3/F4 in PR 00.
+
+Each deliverable ships when its own required operations are covered.
 
 ## TL;DR
 
-Copy the pinned reader, research-manager and compiler skills and replace their knowledge-layer access instructions with `ara` commands. Research-manager remains the live project manager (PM). Keep research procedures, evidence standards, roles and stopping criteria unchanged. Full prose, unknown source fields, provenance and every required history record must survive the change. A missing operation blocks integration and must be completed in PR 06 or approved separately; direct file fallback is not allowed.
+Copy the pinned reader, research-manager and compiler skills and replace their knowledge-layer access instructions with `ara` commands. Ship in two deliverables: 13a copies the reader (research-foresight) as soon as reads and search exist, so the read experiments in PR 15 can start; 13b copies research-manager and the compiler after PR 06. Research-manager remains the live project manager (PM). Keep research procedures, evidence standards, roles and stopping criteria unchanged. Full prose, unknown source fields, provenance and every required history record must survive the change. A missing operation blocks integration and must be completed in PR 06 or approved separately; direct file fallback is not allowed.
+
+## Why two deliverables
+
+The research goal is cheaper and faster agent–ARA interaction without losing quality, and the research note runs the read experiments (understanding benchmark pilot and scaling curve) right after the deterministic merge tests. The reader skill needs only the read commands and search. Tying it to the write chain (PRs 03–06) and its protocol approvals would delay the headline read result by the whole write rollout. Each deliverable keeps the full coverage rule for its own skills: 13a cannot ship with an uncovered reader operation, and 13b cannot ship with an uncovered manager or compiler operation.
 
 ## Problem
 
@@ -41,6 +50,8 @@ The compiler copy keeps the original input reading, epistemic reasoning, evidenc
 
 Implementation steps for the future PR:
 
+Run steps 1–7 for the reader skill as deliverable 13a, then again for research-manager and the compiler as deliverable 13b. Each run produces its own variant lock.
+
 1. Read the verified source lock and task map; copy each selected skill tree without altering procedures.
 2. Freeze the operation coverage artifact used for this variant revision. Review every required row against the pinned CLI version and fail integration on proposed/blocked coverage.
 3. Replace only artifact access clauses and the minimum command documentation needed to execute them. Label every changed clause with its source and operation references in the access diff.
@@ -53,7 +64,7 @@ Implementation steps for the future PR:
 
 Editing the original skills would erase the evaluation baseline. A mixed CLI/file-access variant would obscure whether missing operations or the interface caused the outcome. Simplifying PM history or compiler generation would make the variant runnable earlier while changing the task being evaluated.
 
-Shipping a reader-only subset is possible as a separately approved narrower deliverable, but this plan covers reader, writer and compiler copies. It cannot label all skills integrated until those paths work end to end.
+Shipping all three copies together was the draft design. It made the reader wait for write coverage it never uses. The split keeps the coverage rule per skill: no skill is labeled integrated until its own paths work end to end.
 
 ## Tradeoffs
 
@@ -63,7 +74,7 @@ Command pages add context cost, which the harness must count. Research tasks tha
 
 Original skills and immutable baseline archives remain available with their existing names. CLI variants use separate names and explicit pin/version locks. A CLI wire-format change requires a new reviewed variant lock and command reference. Do not rewrite already collected evaluation logs or repin a source after observing results.
 
-The copied skills do not introduce shared intentions, frontier prioritization or Q5's proposed multiwriter roles. Those are separately versioned instructions in PR 14 and a separate experimental condition.
+The copied skills do not introduce shared intentions, frontier prioritization or multiwriter roles (Q5 keeps the single writer for these copies). Those are separately versioned instructions in PR 14 and a separate experimental condition.
 
 ## Verification and acceptance
 
@@ -71,10 +82,10 @@ This drafting task runs no tests or binary commands. Future proposed contract te
 
 Actual-binary smoke scenarios are: answer a mapped reader question using `ara find` then `ara show --full --json`; execute a PM turn that stages, later promotes and revises an entry with complete history; compile a source requiring a non-template solution file and figures, then repair a coverage gap. Run the actual source validation including `ara check <artifact>` where appropriate. Observe correct native refs, complete files and history, unchanged read-only/single-writer roles, and no direct knowledge-layer file access. Inject an unsupported operation and verify the task reports the missing capability, leaves the knowledge transaction unchanged and does not fall back to Edit/Write. All these scenarios are future integration proof, not executions during this drafting task.
 
-Acceptance requires a reviewed access-only diff for every loaded page, covered required inventory rows with pinned proof, and successful representative reading, PM writing and compilation. Required history and artifact fidelity must be audited against the source skill. Performance equivalence remains unproven until PR 15 measures both conditions anew.
+13a acceptance requires a reviewed access-only diff for every loaded reader page, covered reader inventory rows with pinned proof, and a successful representative reading task. 13b acceptance requires the same for research-manager and compiler pages, plus successful representative PM writing and compilation. Required history and artifact fidelity must be audited against the source skill. Performance equivalence remains unproven until PR 15 measures both conditions anew.
 
 ## Next Steps
 
-1. Approve variant paths and the full-source access diff policy.
-2. Resolve all required coverage gaps in PR 06 and protocol contradictions in PR 00.
-3. Run and review the future representative tasks, then freeze variant pins for the external harness.
+1. Start 13a once PRs 02 and 10 are merged and PR 12's reader rows are pinned; freeze its variant lock for PR 15's read experiments.
+2. Resolve the manager and compiler coverage gaps in PR 06 and protocol contradictions in PR 00, then build 13b.
+3. Run and review the representative tasks for each deliverable before freezing its variant pins for the external harness.

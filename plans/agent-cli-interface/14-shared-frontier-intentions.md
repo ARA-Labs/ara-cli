@@ -1,11 +1,11 @@
 # PR 14: define shared frontier and intention protocols across forks
 **Date:** 2026-10-01
 
-Status: draft for review. Target repository: `ARA-Labs/Agent-Native-Research-Artifact`. Parent: [agent CLI interface plan](../agent-cli-interface.md). Series: [PR index and shared gates](README.md). Dependencies: [08-directory-merge.md](08-directory-merge.md) and [13-cli-backed-skills.md](13-cli-backed-skills.md). Shared-channel execution is implemented by the external [15-experiment-harness.md](15-experiment-harness.md) consumer, not by `ara`.
+Status: **approved** 2026-10-01 (frontier and intentions made separately installable at approval, to match the four-arm collective study). Target repository: `ARA-Labs/Agent-Native-Research-Artifact`. Parent: [agent CLI interface plan](../agent-cli-interface.md). Series: [PR index and shared gates](README.md). Dependencies: [08-directory-merge.md](08-directory-merge.md) and [13-cli-backed-skills.md](13-cli-backed-skills.md). Shared-channel execution is implemented by the external [15-experiment-harness.md](15-experiment-harness.md) consumer, not by `ara`.
 
 ## TL;DR
 
-Add frontier and shared-intention instructions as a separately versioned collective extension to the CLI copies. Publish intentions through one shared channel outside all private ARA forks and refresh it before choosing work. Keep `ara` offline; an external runner handles publication, synchronization and budgeting. Changes to writer authority require explicit approval and must never enter the interface-only CLI condition.
+Add frontier and shared-intention instructions as a separately versioned collective extension to the CLI copies. The two are independent components: an agent can receive frontier views alone, intentions alone, or both, so PR 15's E6 can measure each against the CLI arm and the Files arm, as the Agora comparison note proposes. Publish intentions through one shared channel outside all private ARA forks and refresh it before choosing work. Keep `ara` offline; an external runner handles publication, synchronization and budgeting. Changes to writer authority require explicit approval and must never enter the interface-only CLI condition.
 
 ## Problem
 
@@ -21,7 +21,7 @@ The proposed initial transport supports community processes on one host with a s
 
 ## Proposed approach
 
-Create `skills/collective-research-cli/` and its `references/frontier.md`, `intentions.md`, `roles.md`, and `failure-policy.md` (all new) in the protocol repository. This extension composes with pinned CLI skills from PR 13 and leaves their trees unchanged. Add `evaluation/agent-cli/collective-contract.json` and `community-smoke-scenarios/` (new). The contract records approved roles, intention schema, transport requirements, logical staleness parameters and the exact extra prompts supplied to agents. PR 15 implements the runner against this contract.
+Create `skills/collective-research-cli/` and its `references/frontier.md`, `intentions.md`, `roles.md`, and `failure-policy.md` (all new) in the protocol repository. This extension composes with pinned CLI skills from PR 13 and leaves their trees unchanged. `frontier.md` and `intentions.md` install independently; `roles.md` and `failure-policy.md` are shared by both and are part of every collective arm, including the plain C+S collective control, so role changes do not differ between arms. The contract records which components each arm loads. Add `evaluation/agent-cli/collective-contract.json` and `community-smoke-scenarios/` (new). The contract records approved roles, intention schema, transport requirements, logical staleness parameters and the exact extra prompts supplied to agents. PR 15 implements the runner against this contract.
 
 The proposed shared channel is `<run-root>/shared/community/<community-id>/intentions/`, outside every `<run-root>/forks/<agent-id>/ara/`. All agent runners use that exact common path. Only the external coordinator writes `events.jsonl` and atomically replaces `snapshot.json` (new channel files). Agents submit publication requests to their runner, which serializes them through the coordinator before acknowledging success. The coordinator assigns an increasing sequence, validates actor ownership and expected previous intention revision, appends an event durably, then replaces the snapshot. Acknowledgment includes the durable sequence. If acknowledgment is lost, the actor treats publication as uncertain and must recover its request identity before execution. The append log reconstructs the snapshot after interruption, and duplicate request identities return the original acknowledgment without appending a second event.
 
@@ -49,7 +49,7 @@ Implementation steps for the future PR:
 3. Define how contributor proposals reach the integration PM and how revisions, provenance and complete history survive PR 08 merges. Leave unresolved conflicts visible and never resolve them by role privilege alone.
 4. Write the frontier and intention instructions as an extension, with every additional prompt clause recorded for experiment review.
 5. Specify duplicate-intention, expired-owner, concurrent-publication, offline-channel and merge-conflict scenarios for PR 15's external runner.
-6. Review the three-condition separation with PR 15 and publish a contract revision. Mark runtime integration pending until the shared channel is actually exercised across independent forks.
+6. Review the E6 arm separation (F, C+S, C+S+frontier, C+S+intentions) with PR 15 and publish a contract revision. Mark runtime integration pending until the shared channel is actually exercised across independent forks.
 
 ## Alternatives considered
 
