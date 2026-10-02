@@ -83,4 +83,5 @@ Public Rust constructor/type changes are separate from additive optional JSON
 compatibility. The integration minor/major release decision is pending. The final
 CLI PR must merge into main with a merge commit; the protocol repository remains
 separate. Protocol implementation [PR #38](https://github.com/ARA-Labs/Agent-Native-Research-Artifact/pull/38)
-is open. No PR is merged, tagged or released by this delivery.
+is open alongside [CLI implementation PR #99](https://github.com/ARA-Labs/ara-cli/pull/99).
+No PR is merged, tagged or released by this delivery.
