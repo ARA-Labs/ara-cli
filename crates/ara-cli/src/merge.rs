@@ -229,17 +229,51 @@ pub fn run(root: &Path, args: &MergeArgs) -> Result<Value, AgentError> {
         .plan_missing_directories()
         .map_err(crate::write::convert_error)?;
     let rechecked_at = std::time::Instant::now();
-    let mut commit_ms = 0.0;
-    if !args.dry_run
-        && (!plan.working.changed_paths().is_empty() || !plan.working.created_dirs.is_empty())
-    {
+    let should_commit = !args.dry_run
+        && (!plan.working.changed_paths().is_empty() || !plan.working.created_dirs.is_empty());
+    if should_commit {
         plan.working
             .include_operational_ignore()
             .map_err(crate::write::convert_error)?;
-        let commit_started = std::time::Instant::now();
-        ara_core::write::transaction::commit(&plan.working).map_err(crate::write::convert_error)?;
-        commit_ms = commit_started.elapsed().as_secs_f64() * 1000.0;
     }
+    let duplicate_check =
+        !args.no_duplicate_check && std::env::var("ARA_NO_DUPLICATE_CHECK").as_deref() != Ok("1");
+    let validation = &plan.validation;
+    let advice = || {
+        let started = std::time::Instant::now();
+        let candidates = duplicate_check.then(|| {
+            crate::write::duplicate_candidates_from_manifests(
+                validation.base_manifest.as_ref(),
+                &validation.candidate_manifest,
+            )
+        });
+        (candidates, started.elapsed().as_secs_f64() * 1000.0)
+    };
+    let commit = || {
+        let started = std::time::Instant::now();
+        if should_commit {
+            ara_core::write::transaction::commit(&plan.working)
+                .map_err(crate::write::convert_error)?;
+            Ok(started.elapsed().as_secs_f64() * 1000.0)
+        } else {
+            Ok(0.0)
+        }
+    };
+    let (commit_ms, candidates, advisory_ms) =
+        if should_commit && duplicate_check && validation.candidate_manifest.nodes.len() >= 1000 {
+            std::thread::scope(|scope| {
+                let worker = scope.spawn(advice);
+                let commit_ms = commit()?;
+                let (candidates, advisory_ms) = worker
+                    .join()
+                    .unwrap_or_else(|panic| std::panic::resume_unwind(panic));
+                Ok::<_, AgentError>((commit_ms, candidates, advisory_ms))
+            })?
+        } else {
+            let commit_ms = commit()?;
+            let (candidates, advisory_ms) = advice();
+            (commit_ms, candidates, advisory_ms)
+        };
     plan.report.committed = !args.dry_run;
     plan.report.dry_run = args.dry_run;
     let mut report = serde_json::to_value(&plan.report).expect("merge report serialization");
@@ -249,12 +283,8 @@ pub fn run(root: &Path, args: &MergeArgs) -> Result<Value, AgentError> {
             json!(plan.working.created_dirs),
         );
     }
-    let advisory_started = std::time::Instant::now();
-    if !args.no_duplicate_check && std::env::var("ARA_NO_DUPLICATE_CHECK").as_deref() != Ok("1") {
-        match crate::write::duplicate_candidates_from_manifests(
-            plan.validation.base_manifest.as_ref(),
-            &plan.validation.candidate_manifest,
-        ) {
+    if let Some(candidates) = candidates {
+        match candidates {
             Ok(candidates) => {
                 report
                     .as_object_mut()
@@ -269,7 +299,6 @@ pub fn run(root: &Path, args: &MergeArgs) -> Result<Value, AgentError> {
             }
         }
     }
-    let advisory_ms = advisory_started.elapsed().as_secs_f64() * 1000.0;
     report.as_object_mut().unwrap().insert("timings".into(),json!({
         "load_ms":loaded_at.duration_since(operation_started).as_secs_f64()*1000.0,
         "planning_ms":planned_at.duration_since(loaded_at).as_secs_f64()*1000.0,

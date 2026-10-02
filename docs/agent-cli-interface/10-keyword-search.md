@@ -10,10 +10,12 @@ Observed proof and unresolved gates are recorded in the delivery verification
 find tokenizes maximal Unicode alphanumeric runs and lowercases Unicode. BM25 k1=1.2/b=0.75 ranks loaded knowledge once per invocation. In-memory posting lists preserve the original score formula, lexical summation order and tie ordering. Raw source/evidence bodies are excluded.
 
 Corpus-local scoring cells reuse document normalizations and term weights while a
-snapshot is unchanged. Appending a document invalidates corpus-dependent values;
-stable term positions retain lexical accumulation order without per-candidate
-weight allocation. Exact-reference regressions cover repeated queries and append
-transitions. No scoring state survives the invocation.
+snapshot is unchanged. Append always invalidates IDF. If the average length is
+identical, existing normalization values remain valid and only the new document's
+value is appended; otherwise the vector is invalidated. Stable term positions
+retain lexical accumulation order without per-candidate weight allocation.
+Exact-reference regressions cover repeated queries and both append transitions.
+No scoring state survives the invocation.
 
 ## Boundaries and remaining gates
 

@@ -33,6 +33,14 @@ Results retain base/ours/theirs error precedence. Smaller captures and wasm use
 sequential early-exit parsing; writes, observers, validation and commit remain
 ordered on the caller.
 
+For committing native CLI merges with at least 1,000 candidate nodes, enabled
+duplicate advice reads only the validated immutable manifests on one scoped worker
+while the caller performs the durable commit. Commit failure still returns the
+original error and no advice; advice never reads or mutates knowledge files.
+`commit_ms` and `advisory_ms` are elapsed task durations and may overlap. The
+process/`operation_ms` gate remains unchanged; small merges and dry runs stay
+sequential.
+
 The unpublished native ledger stores `revision.files` mapping values,
 `transport.bytes`, and `imported_resolution.evidence` as canonical padded RFC 4648
 standard base64 strings. The shared strict codec rejects malformed/noncanonical

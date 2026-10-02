@@ -172,9 +172,9 @@ impl<'a> Corpus<'a> {
         (1.0 + (self.documents.len() as f64 - frequency + 0.5) / (frequency + 0.5)).ln()
     }
     fn append(&mut self, document: Document<'a>) {
-        // Every append changes document count and may change document frequency
-        // and average length. Invalidate all corpus-dependent scoring values.
-        self.normalizations.take();
+        // IDF always changes. Length normalizations depend only on the average.
+        let old_average = self.average_length;
+        let added_length = document.length;
         for frequency in &mut self.frequencies {
             frequency.weight.take();
         }
@@ -182,6 +182,13 @@ impl<'a> Corpus<'a> {
         self.documents.push(document);
         self.index_document(self.documents.len() - 1);
         self.average_length = (self.total_length as f64 / self.documents.len() as f64).max(1.0);
+        if self.average_length == old_average {
+            if let Some(normalizations) = self.normalizations.get_mut() {
+                normalizations.push(K1 * (1.0 - B + B * added_length as f64 / self.average_length));
+            }
+        } else {
+            self.normalizations.take();
+        }
     }
     fn ranked(
         &self,
@@ -1208,92 +1215,103 @@ mod tests {
                 ),
             })
             .collect::<Vec<_>>();
-        let mut index = DuplicateIndex::from_texts(&texts);
-        let additions = [
-            document(
-                "N72",
-                "node",
-                &format!("{} newterm", "alpha 雪 rare ".repeat(80)),
-            ),
-            document("N73", "node", ""),
-            document("N74", "node", "雪 rare newterm newterm"),
-        ];
-        for addition in std::iter::once(None).chain(additions.into_iter().map(Some)) {
-            if let Some(document) = addition {
-                index.corpus.append(document);
-            }
-            let terms = query("alpha 雪 rare newterm missing");
-            let weight = |term: &str| {
-                let frequency = index
+        let uniform = (0..72)
+            .map(|position| DuplicateText {
+                id: format!("N{position:02}"),
+                title: "alpha".into(),
+                body: "rare".into(),
+            })
+            .collect::<Vec<_>>();
+        for texts in [texts, uniform] {
+            let mut index = DuplicateIndex::from_texts(&texts);
+            let additions = [
+                document("N72", "node", "雪 rare"),
+                document(
+                    "N73",
+                    "node",
+                    &format!("{} newterm", "alpha 雪 rare ".repeat(80)),
+                ),
+                document("N74", "node", ""),
+                document("N75", "node", "雪 rare newterm newterm"),
+            ];
+            for addition in std::iter::once(None).chain(additions.into_iter().map(Some)) {
+                if let Some(document) = addition {
+                    index.corpus.append(document);
+                }
+                let terms = query("alpha 雪 rare newterm missing");
+                let weight = |term: &str| {
+                    let frequency = index
+                        .corpus
+                        .documents
+                        .iter()
+                        .filter(|document| document.terms.contains_key(term))
+                        .count() as f64;
+                    (1.0 + (index.corpus.documents.len() as f64 - frequency + 0.5)
+                        / (frequency + 0.5))
+                        .ln()
+                };
+                let mut reference = index
                     .corpus
                     .documents
                     .iter()
-                    .filter(|document| document.terms.contains_key(term))
-                    .count() as f64;
-                (1.0 + (index.corpus.documents.len() as f64 - frequency + 0.5) / (frequency + 0.5))
-                    .ln()
-            };
-            let mut reference = index
-                .corpus
-                .documents
-                .iter()
-                .filter_map(|document| {
-                    let normalization =
-                        K1 * (1.0 - B + B * document.length as f64 / index.corpus.average_length);
-                    let mut score = 0.0;
-                    for term in &terms {
-                        let frequency = *document.terms.get(term).unwrap_or(&0) as f64;
-                        if frequency != 0.0 {
-                            score +=
-                                weight(term) * frequency * (K1 + 1.0) / (frequency + normalization);
+                    .filter_map(|document| {
+                        let normalization = K1
+                            * (1.0 - B + B * document.length as f64 / index.corpus.average_length);
+                        let mut score = 0.0;
+                        for term in &terms {
+                            let frequency = *document.terms.get(term).unwrap_or(&0) as f64;
+                            if frequency != 0.0 {
+                                score += weight(term) * frequency * (K1 + 1.0)
+                                    / (frequency + normalization);
+                            }
                         }
-                    }
-                    (score > 0.0).then_some(Ranked { score, document })
-                })
-                .collect::<Vec<_>>();
-            reference.sort();
-            reference.truncate(RETRIEVAL_LIMIT + 1);
-            let mut expected = reference
-                .iter()
-                .filter(|ranked| ranked.document.identity() != "N00")
-                .filter_map(|ranked| {
-                    let mut union = terms.iter().map(|term| weight(term)).sum::<f64>();
-                    let mut intersection = 0.0;
-                    for term in ranked.document.terms.keys() {
-                        if terms.contains(term) {
-                            intersection += weight(term);
-                        } else {
-                            union += weight(term);
+                        (score > 0.0).then_some(Ranked { score, document })
+                    })
+                    .collect::<Vec<_>>();
+                reference.sort();
+                reference.truncate(RETRIEVAL_LIMIT + 1);
+                let mut expected = reference
+                    .iter()
+                    .filter(|ranked| ranked.document.identity() != "N00")
+                    .filter_map(|ranked| {
+                        let mut union = terms.iter().map(|term| weight(term)).sum::<f64>();
+                        let mut intersection = 0.0;
+                        for term in ranked.document.terms.keys() {
+                            if terms.contains(term) {
+                                intersection += weight(term);
+                            } else {
+                                union += weight(term);
+                            }
                         }
-                    }
-                    let similarity = (intersection / union).clamp(0.0, 1.0);
-                    (similarity > 0.0).then_some((ranked.document.identity(), similarity))
-                })
-                .collect::<Vec<_>>();
-            expected.sort_by(|a, b| b.1.total_cmp(&a.1).then_with(|| a.0.cmp(b.0)));
-            expected.truncate(10);
-            for _ in 0..2 {
-                let ranked = index.corpus.ranked(&terms, None, RETRIEVAL_LIMIT + 1);
-                assert_eq!(
-                    ranked
-                        .iter()
-                        .map(|ranked| (ranked.document.identity(), ranked.score))
-                        .collect::<Vec<_>>(),
-                    reference
-                        .iter()
-                        .map(|ranked| (ranked.document.identity(), ranked.score))
-                        .collect::<Vec<_>>()
-                );
-                let observed = index
-                    .candidates("alpha 雪 rare newterm missing", Some("N00"), 0.0, 10)
-                    .unwrap();
-                assert_eq!(
-                    observed
-                        .iter()
-                        .map(|candidate| (candidate.id.as_str(), candidate.similarity))
-                        .collect::<Vec<_>>(),
-                    expected
-                );
+                        let similarity = (intersection / union).clamp(0.0, 1.0);
+                        (similarity > 0.0).then_some((ranked.document.identity(), similarity))
+                    })
+                    .collect::<Vec<_>>();
+                expected.sort_by(|a, b| b.1.total_cmp(&a.1).then_with(|| a.0.cmp(b.0)));
+                expected.truncate(10);
+                for _ in 0..2 {
+                    let ranked = index.corpus.ranked(&terms, None, RETRIEVAL_LIMIT + 1);
+                    assert_eq!(
+                        ranked
+                            .iter()
+                            .map(|ranked| (ranked.document.identity(), ranked.score))
+                            .collect::<Vec<_>>(),
+                        reference
+                            .iter()
+                            .map(|ranked| (ranked.document.identity(), ranked.score))
+                            .collect::<Vec<_>>()
+                    );
+                    let observed = index
+                        .candidates("alpha 雪 rare newterm missing", Some("N00"), 0.0, 10)
+                        .unwrap();
+                    assert_eq!(
+                        observed
+                            .iter()
+                            .map(|candidate| (candidate.id.as_str(), candidate.similarity))
+                            .collect::<Vec<_>>(),
+                        expected
+                    );
+                }
             }
         }
     }

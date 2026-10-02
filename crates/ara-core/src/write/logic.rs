@@ -1892,8 +1892,9 @@ fn audit_removed_locator<'a>(
     seen: &mut BTreeSet<usize>,
 ) -> Result<(), WriteError> {
     use super::source::YamlKind;
-    let mut pending = vec![node];
-    while let Some(node) = pending.pop() {
+    let mut pending = Vec::new();
+    let mut first = Some(node);
+    while let Some(node) = first.take().or_else(|| pending.pop()) {
         let node = registry_node(node, anchors);
         if !seen.insert(node.start) {
             continue;
@@ -1995,13 +1996,11 @@ fn audit_registry_rows<'a>(
                 }
                 for value in registry_yaml_fields(row, field, anchors) {
                     audit_removed_locator(
-                        value,
-                        audit,
-                        source,
-                        &format!("{key}[{index}].{field}"),
-                        anchors,
-                        seen,
-                    )?;
+                        value, audit, source,
+                        // Registry addresses never denote the implicit node concepts field.
+                        "", anchors, seen,
+                    )
+                    .map_err(|error| error.at(format!("{key}[{index}].{field}")))?;
                 }
             }
         }
