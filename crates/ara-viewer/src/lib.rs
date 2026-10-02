@@ -10,6 +10,7 @@ pub mod detail;
 pub mod filter;
 pub mod kind;
 pub mod markdown;
+pub mod math;
 pub mod modal;
 pub mod panels;
 pub mod replay;

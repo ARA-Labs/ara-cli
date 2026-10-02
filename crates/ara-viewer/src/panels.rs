@@ -3,68 +3,17 @@
 //! header launcher with a live count (hidden when empty) that opens a filtered
 //! list in a [`Modal`].
 //!
-//! LaTeX in concept/recipe text is rendered as **inert monospace** (`$…$` kept
-//! verbatim inside a `<code>`), never interpreted — a real math renderer is
-//! deferred (D3). The pure helpers ([`latex_segments`], [`concept_matches`],
-//! [`recipe_matches`]) are native-testable.
+//! Glossary and raw Solution-file text use locally lazy-loaded math fragments.
+//! The matching helpers ([`concept_matches`], [`recipe_matches`]) are
+//! native-testable; math source segmentation lives in [`crate::math`].
 
 use ara_core::{Concept, Problem, Recipe};
 use leptos::prelude::*;
 
+use crate::math::MathText;
 use crate::modal::Modal;
 use crate::state::LoadState;
 
-// ── Inert-LaTeX splitting (D3) ────────────────────────────────────────────────
-
-/// A slice of text: plain prose, or an inert `$…$` LaTeX span (kept verbatim).
-#[derive(Debug, Clone, PartialEq)]
-pub enum Segment {
-    Plain(String),
-    /// The full `$…$` span, delimiters included, rendered as monospace.
-    Latex(String),
-}
-
-/// Split `s` into alternating plain / inert-`$…$` segments. An unbalanced `$`
-/// (no closing delimiter) leaves the remainder as plain text. The math is never
-/// interpreted — this only marks spans so the view can render them monospace.
-pub fn latex_segments(s: &str) -> Vec<Segment> {
-    let mut segs = Vec::new();
-    let mut rest = s;
-    while let Some(open) = rest.find('$') {
-        if open > 0 {
-            segs.push(Segment::Plain(rest[..open].to_string()));
-        }
-        let after = &rest[open + 1..];
-        match after.find('$') {
-            Some(close) => {
-                segs.push(Segment::Latex(format!("${}$", &after[..close])));
-                rest = &after[close + 1..];
-            }
-            None => {
-                // Unbalanced: the rest, from the lone `$`, is plain text.
-                segs.push(Segment::Plain(rest[open..].to_string()));
-                rest = "";
-                break;
-            }
-        }
-    }
-    if !rest.is_empty() {
-        segs.push(Segment::Plain(rest.to_string()));
-    }
-    segs
-}
-
-/// Render a string with inert-monospace spans for any `$…$` LaTeX. The returned
-/// view owns its data (`use<>` — captures no borrow of `s`).
-fn latex_view(s: &str) -> impl IntoView + use<> {
-    latex_segments(s)
-        .into_iter()
-        .map(|seg| match seg {
-            Segment::Plain(t) => t.into_any(),
-            Segment::Latex(t) => view! { <code class="latex-inert">{t}</code> }.into_any(),
-        })
-        .collect::<Vec<_>>()
-}
 
 // ── Context panel (logic/problem.md) ──────────────────────────────────────────
 
@@ -232,7 +181,7 @@ pub fn GlossaryPanel(load_state: ReadSignal<LoadState>) -> impl IntoView {
     }
 }
 
-/// Render one concept as a `.block` card with inert-LaTeX text and dotted
+/// Render one concept as a `.block` card with math-capable fields and dotted
 /// cross-reference chips for its related terms.
 ///
 /// The hub also shows a `mentions N07 N08…` node-chip row, but our data model
@@ -244,15 +193,15 @@ fn concept_entry(c: Concept) -> impl IntoView {
             <div class="concept-term">{c.term.clone()}</div>
             {c.notation.clone().map(|n| view! {
                 <div class="rw-line"><span class="rw-key">"Notation"</span>
-                    <span>{latex_view(&n)}</span></div>
+                    <div class="concept-field"><MathText text=n /></div></div>
             })}
             {c.definition.clone().map(|d| view! {
                 <div class="rw-line"><span class="rw-key">"Definition"</span>
-                    <span>{latex_view(&d)}</span></div>
+                    <div class="concept-field"><MathText text=d /></div></div>
             })}
             {c.boundary.clone().map(|b| view! {
                 <div class="rw-line"><span class="rw-key">"Boundary"</span>
-                    <span>{latex_view(&b)}</span></div>
+                    <div class="concept-field"><MathText text=b /></div></div>
             })}
             {(!c.related.is_empty()).then(|| view! {
                 <div class="rw-line"><span class="rw-key">"Related"</span>
@@ -345,15 +294,14 @@ pub fn RecipesPanel(load_state: ReadSignal<LoadState>) -> impl IntoView {
     }
 }
 
-/// Render one recipe: heading + the raw body as preformatted text with inert
-/// LaTeX. Body markdown/tables are NOT rendered (D4); the `<pre>` scrolls
-/// horizontally so wide content can't overflow the modal.
+/// Render one solution file as raw preformatted source with typeset math.
+/// Markdown markers stay literal; the div permits legal display-math blocks.
 fn recipe_entry(r: Recipe) -> impl IntoView {
     let heading = r.title.clone().unwrap_or_else(|| r.name.clone());
     view! {
         <div class="block recipe-entry">
             <div class="concept-term">{heading}</div>
-            <pre class="recipe-body">{latex_view(&r.body)}</pre>
+            <div class="recipe-body"><MathText text=r.body /></div>
         </div>
     }
 }
@@ -363,52 +311,6 @@ fn recipe_entry(r: Recipe) -> impl IntoView {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn latex_split_plain_only() {
-        assert_eq!(
-            latex_segments("just prose"),
-            vec![Segment::Plain("just prose".into())]
-        );
-    }
-
-    #[test]
-    fn latex_split_marks_spans_verbatim() {
-        let segs = latex_segments("policy $\\pi^{(k)}$ over states");
-        assert_eq!(
-            segs,
-            vec![
-                Segment::Plain("policy ".into()),
-                Segment::Latex("$\\pi^{(k)}$".into()),
-                Segment::Plain(" over states".into()),
-            ]
-        );
-    }
-
-    #[test]
-    fn latex_split_unbalanced_dollar_is_plain() {
-        // A lone `$` with no closing delimiter stays plain — never swallowed.
-        assert_eq!(
-            latex_segments("costs $5 total"),
-            vec![
-                Segment::Plain("costs ".into()),
-                Segment::Plain("$5 total".into()),
-            ]
-        );
-    }
-
-    #[test]
-    fn latex_split_two_spans() {
-        let segs = latex_segments("$a$ and $b$");
-        assert_eq!(
-            segs,
-            vec![
-                Segment::Latex("$a$".into()),
-                Segment::Plain(" and ".into()),
-                Segment::Latex("$b$".into()),
-            ]
-        );
-    }
 
     fn concept(term: &str) -> Concept {
         Concept {

@@ -7,9 +7,9 @@
 //! emits only escaped Leptos nodes; the exception is deliberate and bounded to
 //! trusted-local exhibit content.
 //!
-//! Only the extensions the corpus needs are enabled (tables, strikethrough). In
-//! particular the math extension is **off**, so `$…$` stays literal — the same
-//! inert posture as `latex_view` (D3).
+//! Only the extensions the corpus needs are enabled (tables, strikethrough).
+//! Exhibit math remains literal: this renderer deliberately does not use the
+//! separate Glossary/Solution-file math pipeline.
 //!
 //! Two injection vectors are closed before mounting, because the corpus is not
 //! always self-authored — `ara serve` may render a *downloaded* artifact:
