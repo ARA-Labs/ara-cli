@@ -68,6 +68,28 @@ Native tests assert exact source reconstruction, protected-code boundaries, inli
 
 Final verification passed 492 native workspace tests (one ignored) and 72 headless Chrome tests, native and wasm32 all-target Clippy with warnings denied, formatting, wasm builds and embedded freshness. Actual embedded, source-assets, hub and API-free nested static pages rendered both panels with external domains blocked and no vendor requests before a panel mounted. Desktop and 375px screenshots retained raw code and showed no page overflow. Blocking real renderer JS, CSS and font requests produced visible original-source fallback; reopening after a renderer failure made no extra asset requests. The static check put the viewer and manifest in different directories and also decoded the retained 480 by 200 figure with both Markdown tables.
 
+## Screenshots
+
+These captures use a synthetic documentation artifact served by `ara serve` with the embedded viewer. The desktop viewport is 1280px wide; the mobile viewport is 375px wide. Images are cropped to the open panel.
+
+### Glossary on desktop
+
+Inline pi/Phi notation and a two-row display equation render with the local math assets.
+
+![Glossary panel with typeset pi and Phi notation and an aligned display equation](images/viewer/math-glossary-desktop.png)
+
+### Solution files on mobile
+
+The gradient update and matrix fit the narrow panel. The fenced Python example keeps its literal dollar signs and raw source formatting.
+
+![Solution files panel at 375px with aligned gradient equations, a matrix, and unchanged Python source](images/viewer/math-solution-mobile.png)
+
+### When a required font fails to load
+
+This capture blocks the local font requests. The panel retains the original LaTeX and shows the missing-font diagnostic with instructions to reload.
+
+![Glossary panel at 375px showing original LaTeX and visible missing-font diagnostics](images/viewer/math-font-fallback-mobile.png)
+
 ## Next Steps
 
 When updating the pinned renderer, verify the release digest, inspect the exact new font metadata and replace provenance and license records together. Run the native and real-browser suites, exercise embedded/source/static/hub pages with external requests blocked, measure wasm and total assets separately, then regenerate and check the embedded viewer. Keep exhibit math and concept-parser changes separate from this panel-rendering contract.
