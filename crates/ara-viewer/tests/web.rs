@@ -3399,13 +3399,26 @@ async fn math_glossary_shows_count_typeset_notation_and_xref() {
     );
     let text = modal.unchecked_ref::<HtmlElement>().inner_text();
     assert!(text.contains("Concept1"), "lists Concept1");
-    let math = modal.query_selector(".panel-math-inline math").unwrap().expect("accessible MathML notation");
-    let base = math.query_selector("msup mi").unwrap().expect("pi superscript base");
+    let math = modal
+        .query_selector(".panel-math-inline math")
+        .unwrap()
+        .expect("accessible MathML notation");
+    let base = math
+        .query_selector("msup mi")
+        .unwrap()
+        .expect("pi superscript base");
     assert_eq!(base.text_content().as_deref(), Some("π"));
-    assert_ne!(math.get_attribute("display").as_deref(), Some("block"), "notation remains inline");
+    assert_ne!(
+        math.get_attribute("display").as_deref(),
+        Some("block"),
+        "notation remains inline"
+    );
     let annotation = math.query_selector("annotation").unwrap().unwrap();
     assert_eq!(annotation.text_content().as_deref(), Some("\\pi^{(1)}"));
-    assert!(math_support::math_fonts_loaded(), "real KaTeX Math font loaded");
+    assert!(
+        math_support::math_fonts_loaded(),
+        "real KaTeX Math font loaded"
+    );
     // Related term is a dotted cross-reference chip.
     assert!(
         modal.query_selector(".concept-xref").unwrap().is_some(),

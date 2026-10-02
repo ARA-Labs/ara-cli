@@ -105,34 +105,58 @@ extern "C" {
 pub struct Runtime(JsValue);
 
 impl Runtime {
-    pub fn release(&self) { release_math_test(&self.0); }
-    pub fn requests(&self) -> u32 { math_request_count(&self.0) }
+    pub fn release(&self) {
+        release_math_test(&self.0);
+    }
+    pub fn requests(&self) -> u32 {
+        math_request_count(&self.0)
+    }
 }
 
 impl Drop for Runtime {
-    fn drop(&mut self) { cleanup_math_test(&self.0); }
+    fn drop(&mut self) {
+        cleanup_math_test(&self.0);
+    }
 }
 
 pub async fn setup(mode: &str) -> Runtime {
-    Runtime(wasm_bindgen_futures::JsFuture::from(install_math_test(
-        include_str!("../../public/styles.css"), mode,
-    )).await.expect("real local math test assets must load"))
+    Runtime(
+        wasm_bindgen_futures::JsFuture::from(install_math_test(
+            include_str!("../../public/styles.css"),
+            mode,
+        ))
+        .await
+        .expect("real local math test assets must load"),
+    )
 }
 
 pub fn container(doc: &Document) -> HtmlElement {
-    let div = doc.create_element("div").unwrap().unchecked_into::<HtmlElement>();
+    let div = doc
+        .create_element("div")
+        .unwrap()
+        .unchecked_into::<HtmlElement>();
     doc.body().unwrap().append_child(&div).unwrap();
     div
 }
 
 pub fn click(root: &HtmlElement, selector: &str) {
-    root.query_selector(selector).unwrap().unwrap().unchecked_ref::<HtmlElement>().click();
+    root.query_selector(selector)
+        .unwrap()
+        .unwrap()
+        .unchecked_ref::<HtmlElement>()
+        .click();
 }
 
 pub async fn filter(root: &HtmlElement, value: &str) {
-    let input = root.query_selector(".panel-filter").unwrap().unwrap().unchecked_into::<web_sys::HtmlInputElement>();
+    let input = root
+        .query_selector(".panel-filter")
+        .unwrap()
+        .unwrap()
+        .unchecked_into::<web_sys::HtmlInputElement>();
     input.set_value(value);
-    input.dispatch_event(&web_sys::Event::new("input").unwrap()).unwrap();
+    input
+        .dispatch_event(&web_sys::Event::new("input").unwrap())
+        .unwrap();
     leptos::task::tick().await;
 }
 
@@ -140,8 +164,11 @@ pub async fn settle(root: &HtmlElement) {
     for _ in 0..500 {
         leptos::task::tick().await;
         let statuses = root.query_selector_all(".panel-math-status").unwrap();
-        let loading = (0..statuses.length()).any(|i| statuses.item(i).unwrap().text_content().as_deref() == Some("Loading math…"));
-        if !loading { return; }
+        let loading = (0..statuses.length())
+            .any(|i| statuses.item(i).unwrap().text_content().as_deref() == Some("Loading math…"));
+        if !loading {
+            return;
+        }
         sleep(20).await;
     }
     panic!("math did not settle: {}", root.inner_text());
@@ -149,7 +176,10 @@ pub async fn settle(root: &HtmlElement) {
 
 pub async fn sleep(ms: i32) {
     let promise = js_sys::Promise::new(&mut |resolve, _| {
-        web_sys::window().unwrap().set_timeout_with_callback_and_timeout_and_arguments_0(&resolve, ms).unwrap();
+        web_sys::window()
+            .unwrap()
+            .set_timeout_with_callback_and_timeout_and_arguments_0(&resolve, ms)
+            .unwrap();
     });
     wasm_bindgen_futures::JsFuture::from(promise).await.unwrap();
 }

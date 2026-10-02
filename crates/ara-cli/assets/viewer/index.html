@@ -4,14 +4,16 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>ARA Viewer</title>
-    <link rel="stylesheet" href="/styles-cc19f9766c893550.css" integrity="sha384-bcHjwfSFw1HpuCx7u2KJ2xU1hQfNWno/k6yHH3CveyP8yYGBAM4D0M6zVu8K6bIj"/>
+    <link rel="stylesheet" href="/styles-2b22fc8fcc905c18.css" integrity="sha384-zJh05uUt5V9WW5y5R+Q9+2UGyc5wSPgvhjoJUixxgeffFoR9+GC9r7qmOmbtSypA"/>
+    <script src="/math-loader-a9a0bcaa9fafc767.js" integrity="sha384-pxCwlGs1p0h2ab2cQez85Odt0OORbsYE88W9GFViqjhCP/8cz9UrutYkWrF4KsRz"></script>
+    
     <!-- Copy manifest.json to dist/ so the runtime fetch URL "manifest.json" resolves. -->
     <!-- Trunk does not auto-copy public/ contents; this directive is required.        -->
     
     
 <script type="module">
-import init, * as bindings from '/ara-viewer-16ab8f816e7a0588.js';
-const wasm = await init({ module_or_path: '/ara-viewer-16ab8f816e7a0588_bg.wasm' });
+import init, * as bindings from '/ara-viewer-8a3dc2c6721e596b.js';
+const wasm = await init({ module_or_path: '/ara-viewer-8a3dc2c6721e596b_bg.wasm' });
 
 
 window.wasmBindings = bindings;
@@ -20,6 +22,6 @@ window.wasmBindings = bindings;
 dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
 
 </script>
-  <link rel="modulepreload" href="/ara-viewer-16ab8f816e7a0588.js" crossorigin="anonymous" integrity="sha384-FQHrlTlF7I8M9wBja4W6MU9vWQa/bSZQ13sDDSgw0suRywr9mncIpP+jfw4AQWGM"><link rel="preload" href="/ara-viewer-16ab8f816e7a0588_bg.wasm" crossorigin="anonymous" integrity="sha384-cCe+aG92X4BhtASuAxfPEClTxlano7ycJGmtx00KgwZ6ooOsVRiyogB77AsbxgUi" as="fetch" type="application/wasm"></head>
+  <link rel="modulepreload" href="/ara-viewer-8a3dc2c6721e596b.js" crossorigin="anonymous" integrity="sha384-DbD3d6JjMpvpsUhv4t5oDt5KhZg6BH/lL5ctYYgy9cdTEPKR7qN7fEM2TFvTuwHg"><link rel="preload" href="/ara-viewer-8a3dc2c6721e596b_bg.wasm" crossorigin="anonymous" integrity="sha384-Bl7JLgjvlvwfgoi0xgpowLyu00pBqZjTjDVdfNCovKKzV6EI9fmNgvIkpxqM3UBO" as="fetch" type="application/wasm"></head>
   <body></body>
 </html>

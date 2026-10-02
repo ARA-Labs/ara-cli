@@ -141,8 +141,8 @@ that closes a loop) remain fatal.
   and its own case-insensitive filter: **Context** (problem framing),
   **Glossary** (concept terms with dotted cross-reference chips), **Dependencies**
   (related work), **Solution files** (`logic/solution/*.md`, one per file).
-  Concept/recipe LaTeX renders as
-  inert monospace (`$…$` kept verbatim, never interpreted — D3).
+  Concept and Solution-file dollar math uses locally packaged, lazy-loaded KaTeX
+  with accessible MathML and visible original-source fallback on failure.
 
 ## Shipped since this design
 
@@ -157,10 +157,13 @@ that closes a loop) remain fatal.
 - Figure images and local/hub delivery now use optional local references with
   captions and retained Markdown. Static deployments copy the referenced files;
   see [figure-exhibit-images.md](figure-exhibit-images.md) (#60).
+- Panel math now typesets inline `$...$` and display `$$...$$` expressions,
+  including delimiter-wrapped aligned/cases/matrix environments. Renderer assets
+  stay local and load only for mounted math; code ranges and surrounding source
+  remain unchanged. See [panel-math-rendering.md](panel-math-rendering.md) (#31).
 
 ## Deferred (tracked, not in this design)
 
-- **KaTeX / real math** (D3, `T-MATH-RENDER`) — inert monospace for now.
 - **REASONING** (D1) — inert slot, pending a stored `reasoning:` field.
 - **ARTIFACT code-pointer** — code linkage is not modelled.
 - **The "recipe" unit** (E8) — resolved per

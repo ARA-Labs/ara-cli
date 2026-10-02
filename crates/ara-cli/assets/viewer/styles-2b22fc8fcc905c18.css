@@ -887,14 +887,70 @@ body.is-resizing.resizing-row { cursor: row-resize; }
   text-underline-offset: 2px;
 }
 
-/* Inert LaTeX (D3): shown verbatim as monospace, never interpreted. */
-.latex-inert {
-  font-family: var(--font-mono);
-  font-size: 0.85em;
+/* Math is scoped to these two panels; source/diagnostics stay escaped. */
+.concept-field {
+  flex: 1;
+  min-width: 0;
   white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
-/* Recipe body: raw markdown, not rendered (D4); scrolls rather than overflows. */
+.panel-math {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.panel-math-host {
+  white-space: normal;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+.panel-math-inline .panel-math-host {
+  display: inline-block;
+  max-width: 100%;
+  overflow-x: auto;
+  vertical-align: middle;
+  padding-block: 0.2em;
+}
+
+.panel-math-display {
+  display: block;
+  overflow-x: auto;
+  padding-block: 0.35em;
+}
+
+.panel-math-display .katex-display {
+  margin: 0.5em 0;
+  text-align: left;
+}
+
+.panel-math-source {
+  font-family: var(--font-mono);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.panel-math-status,
+.panel-math-diagnostic {
+  font-family: var(--font-body);
+  font-size: 0.72rem;
+  color: var(--muted);
+  white-space: normal;
+  overflow-wrap: anywhere;
+  margin-left: 0.35rem;
+}
+
+.panel-math-diagnostic {
+  color: var(--accent-text);
+}
+
+.panel-math-host[hidden],
+.panel-math-source[hidden] {
+  display: none;
+}
+
+/* Solution bodies retain raw Markdown markers and preformatted source. */
 .recipe-body {
   font-family: var(--font-mono);
   font-size: 0.78rem;
@@ -903,6 +959,7 @@ body.is-resizing.resizing-row { cursor: row-resize; }
   white-space: pre-wrap;
   overflow-x: auto;
   max-width: 100%;
+  min-width: 0;
   margin: 0;
 }
 

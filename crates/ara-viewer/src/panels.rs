@@ -14,7 +14,6 @@ use crate::math::MathText;
 use crate::modal::Modal;
 use crate::state::LoadState;
 
-
 // ── Context panel (logic/problem.md) ──────────────────────────────────────────
 
 /// The Context launcher + modal. Present only when the manifest carries a

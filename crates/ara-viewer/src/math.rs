@@ -43,7 +43,12 @@ fn escaped(bytes: &[u8], position: usize) -> bool {
 
 // A failed inline search also returns its scan boundary, so currency/unmatched
 // dollar runs are not repeatedly scanned from every candidate opener.
-fn closing_delimiter(source: &str, start: usize, end: usize, display: bool) -> (Option<usize>, usize) {
+fn closing_delimiter(
+    source: &str,
+    start: usize,
+    end: usize,
+    display: bool,
+) -> (Option<usize>, usize) {
     let bytes = source.as_bytes();
     let width = if display { 2 } else { 1 };
     let mut position = start + width;
@@ -59,7 +64,10 @@ fn closing_delimiter(source: &str, start: usize, end: usize, display: bool) -> (
             }
             if !display {
                 let content = &source[start + 1..position];
-                let content_edge = content.chars().next_back().is_some_and(|c| !c.is_whitespace());
+                let content_edge = content
+                    .chars()
+                    .next_back()
+                    .is_some_and(|c| !c.is_whitespace());
                 let followed_by_digit = bytes.get(position + 1).is_some_and(u8::is_ascii_digit);
                 if content_edge && !followed_by_digit {
                     return (Some(position), position);
@@ -174,7 +182,10 @@ fn Equation(source: String, tex: String, display: bool) -> impl IntoView {
 
     #[cfg(target_arch = "wasm32")]
     {
-        use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
+        use std::sync::{
+            Arc,
+            atomic::{AtomicBool, Ordering},
+        };
         use wasm_bindgen::JsCast;
 
         let live = Arc::new(AtomicBool::new(true));
@@ -214,11 +225,11 @@ fn Equation(source: String, tex: String, display: bool) -> impl IntoView {
                         let result: bridge::MathResult = value.unchecked_into();
                         match result.status().as_str() {
                             "ready" => {
-                                if let Some(rendered) = result.host() {
-                                    if host.append_child(&rendered).is_ok() {
-                                        state.set(RenderState::Ready);
-                                        return;
-                                    }
+                                if let Some(rendered) = result.host()
+                                    && host.append_child(&rendered).is_ok()
+                                {
+                                    state.set(RenderState::Ready);
+                                    return;
                                 }
                                 state.set(RenderState::Failed {
                                     unavailable: true,
@@ -243,21 +254,23 @@ fn Equation(source: String, tex: String, display: bool) -> impl IntoView {
     #[cfg(not(target_arch = "wasm32"))]
     let _ = tex;
 
-    let content = move || view! {
-        <span class="panel-math-host" node_ref=host_ref hidden=move || state.with(|s| *s != RenderState::Ready)></span>
-        <span class="panel-math-source" hidden=move || state.with(|s| *s == RenderState::Ready)>{source.clone()}</span>
-        <span class="panel-math-status" role="status" aria-live="polite">
+    let content = move || {
+        view! {
+            <span class="panel-math-host" node_ref=host_ref hidden=move || state.with(|s| *s != RenderState::Ready)></span>
+            <span class="panel-math-source" hidden=move || state.with(|s| *s == RenderState::Ready)>{source.clone()}</span>
+            <span class="panel-math-status" role="status" aria-live="polite">
+                {move || match state.get() {
+                    RenderState::Loading => "Loading math…".into(),
+                    RenderState::Ready => String::new(),
+                    RenderState::Failed { unavailable: true, .. } => "Math rendering unavailable; showing LaTeX source.".into(),
+                    RenderState::Failed { unavailable: false, .. } => "Could not render equation.".into(),
+                }}
+            </span>
             {move || match state.get() {
-                RenderState::Loading => "Loading math…".into(),
-                RenderState::Ready => String::new(),
-                RenderState::Failed { unavailable: true, .. } => "Math rendering unavailable; showing LaTeX source.".into(),
-                RenderState::Failed { unavailable: false, .. } => "Could not render equation.".into(),
+                RenderState::Failed { detail, .. } => Some(view! { <span class="panel-math-diagnostic">{detail}</span> }),
+                _ => None,
             }}
-        </span>
-        {move || match state.get() {
-            RenderState::Failed { detail, .. } => Some(view! { <span class="panel-math-diagnostic">{detail}</span> }),
-            _ => None,
-        }}
+        }
     };
     if display {
         view! { <div class="panel-math panel-math-display">{content()}</div> }.into_any()
@@ -286,42 +299,78 @@ mod tests {
 
     fn expressions(source: &str) -> Vec<MathFragment<'_>> {
         let segments = segments(source);
-        assert_eq!(segments.iter().map(Segment::source).collect::<String>(), source);
-        segments.into_iter().filter_map(|segment| match segment {
-            Segment::Math(fragment) => {
-                assert_eq!(&source[fragment.range.clone()], fragment.source);
-                Some(fragment)
-            }
-            Segment::Plain(_) => None,
-        }).collect()
+        assert_eq!(
+            segments.iter().map(Segment::source).collect::<String>(),
+            source
+        );
+        segments
+            .into_iter()
+            .filter_map(|segment| match segment {
+                Segment::Math(fragment) => {
+                    assert_eq!(&source[fragment.range.clone()], fragment.source);
+                    Some(fragment)
+                }
+                Segment::Plain(_) => None,
+            })
+            .collect()
     }
 
     #[test]
     fn math_display_preserves_expression_and_protected_source() {
         let source = "π before $$\\begin{aligned}a&=b\\\\\nc&=d\\end{aligned}$$ after `$code$`\n```text\n$$literal$$\n```\n";
         let fragments = expressions(source);
-        assert_eq!(fragments.iter().map(|m| m.source).collect::<Vec<_>>(), vec!["$$\\begin{aligned}a&=b\\\\\nc&=d\\end{aligned}$$"]);
+        assert_eq!(
+            fragments.iter().map(|m| m.source).collect::<Vec<_>>(),
+            vec!["$$\\begin{aligned}a&=b\\\\\nc&=d\\end{aligned}$$"]
+        );
         assert!(fragments[0].display);
-        assert_eq!(fragments[0].tex, "\\begin{aligned}a&=b\\\\\nc&=d\\end{aligned}");
+        assert_eq!(
+            fragments[0].tex,
+            "\\begin{aligned}a&=b\\\\\nc&=d\\end{aligned}"
+        );
     }
 
     #[test]
     fn mixed_inline_display_adjacent_and_utf8() {
         let fragments = expressions("π policy $\\pi^{(k)}$ and $\\Phi^{k;s}$\n$$a^2$$$$b^2$$ 끝");
-        assert_eq!(fragments.iter().map(|m| (m.tex, m.display)).collect::<Vec<_>>(), vec![("\\pi^{(k)}", false), ("\\Phi^{k;s}", false), ("a^2", true), ("b^2", true)]);
+        assert_eq!(
+            fragments
+                .iter()
+                .map(|m| (m.tex, m.display))
+                .collect::<Vec<_>>(),
+            vec![
+                ("\\pi^{(k)}", false),
+                ("\\Phi^{k;s}", false),
+                ("a^2", true),
+                ("b^2", true)
+            ]
+        );
     }
 
     #[test]
     fn unmatched_inline_cannot_swallow_a_display_expression() {
         let fragments = expressions("$unfinished before $$x^2$$ then $y$");
-        assert_eq!(fragments.iter().map(|m| (m.tex, m.display)).collect::<Vec<_>>(), vec![("x^2", true), ("y", false)]);
+        assert_eq!(
+            fragments
+                .iter()
+                .map(|m| (m.tex, m.display))
+                .collect::<Vec<_>>(),
+            vec![("x^2", true), ("y", false)]
+        );
     }
 
     #[test]
     fn dollars_preserve_currency_escaping_and_unmatched_source() {
-        let source = "cost $5 and $10; \\$escaped\\$; $ spaced $; $a\nb$; $$unfinished; \\(x\\) \\[y\\]";
+        let source =
+            "cost $5 and $10; \\$escaped\\$; $ spaced $; $a\nb$; $$unfinished; \\(x\\) \\[y\\]";
         assert!(expressions(source).is_empty());
-        assert_eq!(expressions(r"\\$x$ \\$y$").iter().map(|m| m.tex).collect::<Vec<_>>(), vec!["x", "y"]);
+        assert_eq!(
+            expressions(r"\\$x$ \\$y$")
+                .iter()
+                .map(|m| m.tex)
+                .collect::<Vec<_>>(),
+            vec!["x", "y"]
+        );
         assert_eq!(expressions("$x$2").len(), 0);
         assert_eq!(expressions("$x$ done")[0].tex, "x");
     }
@@ -329,13 +378,28 @@ mod tests {
     #[test]
     fn protected_code_ranges_are_never_crossed_or_reserialized() {
         let source = "**raw** ``backtick ` $x$`` and `$y$`\n\n~~~rust\n$$fenced$$\n~~~\n\n    $indented$\n    $$still code$$\n\n$real$\n$before `code` after$";
-        assert_eq!(expressions(source).iter().map(|m| m.source).collect::<Vec<_>>(), vec!["$real$"]);
+        assert_eq!(
+            expressions(source)
+                .iter()
+                .map(|m| m.source)
+                .collect::<Vec<_>>(),
+            vec!["$real$"]
+        );
     }
 
     #[test]
     fn escaped_tex_dollars_and_malformed_braces_preserve_fragment_boundaries() {
-        let fragments = expressions(r"$\text{price \$5} + x$ $\frac{1}{$ $$\begin{cases}x&x>0\\0&x\le0\end{cases}$$");
-        assert_eq!(fragments.iter().map(|m| m.tex).collect::<Vec<_>>(), vec![r"\text{price \$5} + x", r"\frac{1}{", r"\begin{cases}x&x>0\\0&x\le0\end{cases}"]);
+        let fragments = expressions(
+            r"$\text{price \$5} + x$ $\frac{1}{$ $$\begin{cases}x&x>0\\0&x\le0\end{cases}$$",
+        );
+        assert_eq!(
+            fragments.iter().map(|m| m.tex).collect::<Vec<_>>(),
+            vec![
+                r"\text{price \$5} + x",
+                r"\frac{1}{",
+                r"\begin{cases}x&x>0\\0&x\le0\end{cases}"
+            ]
+        );
     }
 
     #[test]
