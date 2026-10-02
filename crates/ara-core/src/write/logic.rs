@@ -1533,7 +1533,10 @@ fn dependency_list(text: &str) -> Result<Vec<String>, WriteError> {
 fn reference_issues(
     documents: &std::collections::BTreeMap<&str, &str>,
 ) -> Result<std::collections::BTreeMap<String, usize>, WriteError> {
-    let redirects = claim_redirects_with(|path| documents.get(path).copied())?;
+    let redirects = claim_redirects_with(
+        |path| documents.get(path).copied(),
+        |_, text| super::source::YamlDocument::parse(text).map(std::sync::Arc::new),
+    )?;
     let mut ids = BTreeSet::new();
     let registered = documents
         .get("PAPER.md")
@@ -2235,7 +2238,7 @@ fn validate_retired_origins(working: &WorkingArtifact) -> Result<(), WriteError>
         .filter(|file| file.existed)
         && let Ok(text) = std::str::from_utf8(&file.bytes)
     {
-        let ledger = super::source::YamlDocument::parse(text)?;
+        let ledger = working.indexed_yaml("trace/logic_mutations.yaml", text, true)?;
         let mut anchors = std::collections::BTreeMap::new();
         registry_anchors(&ledger.root, &mut anchors);
         if let Some(rows) = ledger.root.get("mutations")? {
@@ -2990,11 +2993,12 @@ fn validate_claim_retention(working: &WorkingArtifact) -> Result<(), WriteError>
 
 fn claim_redirects_with<'a>(
     mut source: impl FnMut(&str) -> Option<&'a str>,
+    mut parse: impl FnMut(&str, &str) -> Result<std::sync::Arc<super::source::YamlDocument>, WriteError>,
 ) -> Result<std::collections::BTreeMap<String, String>, WriteError> {
     let Some(text) = source("trace/logic_mutations.yaml") else {
         return Ok(std::collections::BTreeMap::new());
     };
-    let ledger = super::source::YamlDocument::parse(text)?;
+    let ledger = parse("trace/logic_mutations.yaml", text)?;
     let claims = source("logic/claims.md").unwrap_or("");
     let mut live = std::collections::BTreeMap::<&str, usize>::new();
     for section in markdown::sections(claims) {
@@ -3078,7 +3082,7 @@ fn claim_redirects_with<'a>(
             let text = source(&path).ok_or_else(|| {
                 WriteError::semantic("write.redirect", "Claim redirect owning session is missing")
             })?;
-            sessions.insert(session, super::source::YamlDocument::parse(text)?);
+            sessions.insert(session, parse(&path, text)?);
         }
         let owner = &sessions[session];
         if owner
@@ -3259,23 +3263,47 @@ fn claim_redirects_with<'a>(
 pub fn claim_redirects_from_source(
     working: &WorkingArtifact,
 ) -> Result<std::collections::BTreeMap<String, String>, WriteError> {
-    claim_redirects_with(|path| working.text(path).ok())
+    claim_redirects_with(
+        |path| working.text(path).ok(),
+        |path, text| working.indexed_yaml(path, text, false),
+    )
 }
 pub fn claim_redirects_from_snapshot(
     snapshot: &super::source::ArtifactSnapshot,
 ) -> Result<std::collections::BTreeMap<String, String>, WriteError> {
-    claim_redirects_with(|path| {
-        snapshot
-            .files
-            .get(path)
-            .filter(|file| file.existed)
-            .and_then(|file| std::str::from_utf8(&file.bytes).ok())
-    })
+    claim_redirects_with(
+        |path| {
+            snapshot
+                .files
+                .get(path)
+                .filter(|file| file.existed)
+                .and_then(|file| std::str::from_utf8(&file.bytes).ok())
+        },
+        |_, text| super::source::YamlDocument::parse(text).map(std::sync::Arc::new),
+    )
+}
+pub(super) fn claim_redirects_from_base(
+    working: &WorkingArtifact,
+) -> Result<std::collections::BTreeMap<String, String>, WriteError> {
+    claim_redirects_with(
+        |path| {
+            working
+                .base
+                .files
+                .get(path)
+                .filter(|file| file.existed)
+                .and_then(|file| std::str::from_utf8(&file.bytes).ok())
+        },
+        |path, text| working.indexed_yaml(path, text, true),
+    )
 }
 pub fn claim_redirects_from_sources(
     sources: &std::collections::BTreeMap<String, String>,
 ) -> Result<std::collections::BTreeMap<String, String>, WriteError> {
-    claim_redirects_with(|path| sources.get(path).map(String::as_str))
+    claim_redirects_with(
+        |path| sources.get(path).map(String::as_str),
+        |_, text| super::source::YamlDocument::parse(text).map(std::sync::Arc::new),
+    )
 }
 
 fn authenticated_mutation(

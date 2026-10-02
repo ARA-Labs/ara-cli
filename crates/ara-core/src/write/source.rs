@@ -94,6 +94,21 @@ struct CachedLedger {
     parsed: Arc<crate::merge::Ledger>,
 }
 #[derive(Debug)]
+struct CachedYaml {
+    raw: Vec<u8>,
+    parsed: Arc<YamlDocument>,
+}
+#[derive(Debug, Default)]
+struct YamlIndexes {
+    base: Option<CachedYaml>,
+    candidate: Option<CachedYaml>,
+}
+#[derive(Debug)]
+struct CachedMarkdown {
+    raw: Vec<u8>,
+    headings: Arc<Vec<OwnedMarkdownHeading>>,
+}
+#[derive(Debug)]
 pub struct WorkingArtifact {
     pub base: ArtifactSnapshot,
     /// Candidate bytes for changed destinations, not copies of every preimage.
@@ -103,9 +118,9 @@ pub struct WorkingArtifact {
     pub revisions: Vec<PendingRevision>,
     pub owned_turns: BTreeMap<(String, u64), String>,
     pub intents: Vec<Intent>,
-    yaml_cache: RefCell<BTreeMap<String, Arc<YamlDocument>>>,
-    pub(super) node_kinds_cache: RefCell<Option<Arc<super::node::NodeKinds>>>,
-    markdown_cache: RefCell<BTreeMap<String, Arc<Vec<OwnedMarkdownHeading>>>>,
+    yaml_cache: RefCell<BTreeMap<String, YamlIndexes>>,
+    pub(super) node_index_cache: RefCell<Option<super::node::CachedNodeIndex>>,
+    markdown_cache: RefCell<BTreeMap<String, CachedMarkdown>>,
     ledger_cache: RefCell<Option<CachedLedger>>,
 }
 
@@ -317,7 +332,7 @@ impl WorkingArtifact {
             owned_turns: BTreeMap::new(),
             intents: Vec::new(),
             yaml_cache: RefCell::new(BTreeMap::new()),
-            node_kinds_cache: RefCell::new(None),
+            node_index_cache: RefCell::new(None),
             markdown_cache: RefCell::new(BTreeMap::new()),
             ledger_cache: RefCell::new(None),
         }
@@ -684,7 +699,7 @@ impl WorkingArtifact {
         indexed: Option<YamlDocument>,
     ) -> Result<(), WriteError> {
         if path == "trace/exploration_tree.yaml" {
-            self.node_kinds_cache.borrow_mut().take();
+            self.node_index_cache.borrow_mut().take();
         }
         let before = self.bytes(path)?;
         validate_bytes(before, &candidate, range.clone(), replacement.as_bytes())?;
@@ -692,9 +707,7 @@ impl WorkingArtifact {
         let after_digest = digest(&candidate);
         if let Some(document) = indexed {
             self.markdown_cache.borrow_mut().remove(path);
-            self.yaml_cache
-                .borrow_mut()
-                .insert(path.into(), Arc::new(document));
+            self.retain_yaml(path, &candidate, Arc::new(document), false);
         } else {
             let text = std::str::from_utf8(&candidate)
                 .map_err(|_| WriteError::semantic("write.encoding", "candidate is not UTF-8"))?;
@@ -712,7 +725,7 @@ impl WorkingArtifact {
     }
     fn check_syntax(&mut self, path: &str, text: &str) -> Result<(), WriteError> {
         if path == "trace/exploration_tree.yaml" {
-            self.node_kinds_cache.borrow_mut().take();
+            self.node_index_cache.borrow_mut().take();
         }
         self.markdown_cache.borrow_mut().remove(path);
         if path == "trace/merge_log.yaml" {
@@ -723,9 +736,7 @@ impl WorkingArtifact {
         }
         if path.ends_with(".yaml") || path.ends_with(".yml") {
             let document = YamlDocument::parse(text).map_err(|error| error.at(path))?;
-            self.yaml_cache
-                .borrow_mut()
-                .insert(path.into(), Arc::new(document));
+            self.retain_yaml(path, text.as_bytes(), Arc::new(document), false);
         }
         Ok(())
     }
@@ -752,23 +763,74 @@ impl WorkingArtifact {
         });
         Ok(parsed)
     }
-    pub fn yaml(&self, path: &str) -> Result<Arc<YamlDocument>, WriteError> {
-        if let Some(document) = self.yaml_cache.borrow().get(path) {
-            return Ok(Arc::clone(document));
+    fn retain_yaml(&self, path: &str, raw: &[u8], parsed: Arc<YamlDocument>, base: bool) {
+        let mut cache = self.yaml_cache.borrow_mut();
+        let indexes = cache.entry(path.into()).or_default();
+        if !base
+            && indexes.candidate.as_ref().is_some_and(|cached| {
+                self.base
+                    .files
+                    .get(path)
+                    .is_some_and(|file| file.existed && file.bytes == cached.raw)
+            })
+        {
+            indexes.base = indexes.candidate.take();
         }
-        let document =
-            Arc::new(YamlDocument::parse(self.text(path)?).map_err(|error| error.at(path))?);
-        self.yaml_cache
-            .borrow_mut()
-            .insert(path.into(), Arc::clone(&document));
-        Ok(document)
+        let cached = Some(CachedYaml {
+            raw: raw.to_vec(),
+            parsed,
+        });
+        if base {
+            indexes.base = cached;
+        } else {
+            indexes.candidate = cached;
+        }
+    }
+    /// Retain an index already parsed from the exact captured preimage.
+    pub(crate) fn retain_base_yaml(&self, path: &str, source: &str, parsed: Arc<YamlDocument>) {
+        if self
+            .base
+            .files
+            .get(path)
+            .is_some_and(|file| file.existed && file.bytes == source.as_bytes())
+        {
+            self.retain_yaml(path, source.as_bytes(), parsed, true);
+        }
+    }
+    pub(super) fn indexed_yaml(
+        &self,
+        path: &str,
+        text: &str,
+        base: bool,
+    ) -> Result<Arc<YamlDocument>, WriteError> {
+        // Both maps are public: retained digests and explicit invalidation are
+        // insufficient authorization after a direct candidate/preimage mutation.
+        if let Some(indexes) = self.yaml_cache.borrow().get(path)
+            && let Some(cached) = indexes
+                .candidate
+                .iter()
+                .chain(indexes.base.iter())
+                .find(|cached| cached.raw == text.as_bytes())
+        {
+            return Ok(Arc::clone(&cached.parsed));
+        }
+        let parsed = Arc::new(YamlDocument::parse(text)?);
+        self.retain_yaml(path, text.as_bytes(), Arc::clone(&parsed), base);
+        Ok(parsed)
+    }
+    pub fn yaml(&self, path: &str) -> Result<Arc<YamlDocument>, WriteError> {
+        self.indexed_yaml(path, self.text(path)?, false)
+            .map_err(|error| error.at(path))
     }
     pub fn headings(&self, path: &str) -> Result<Arc<Vec<OwnedMarkdownHeading>>, WriteError> {
-        if let Some(headings) = self.markdown_cache.borrow().get(path) {
-            return Ok(Arc::clone(headings));
+        let text = self.text(path)?;
+        if let Some(cached) = self.markdown_cache.borrow().get(path)
+            && cached.raw == text.as_bytes()
+        {
+            return Ok(Arc::clone(&cached.headings));
         }
         let headings = Arc::new(
-            crate::markdown::headings(self.text(path)?)
+            crate::markdown::headings(text)
                 .into_iter()
                 .map(|heading| OwnedMarkdownHeading {
                     heading: heading.heading.into(),
@@ -779,18 +841,33 @@ impl WorkingArtifact {
                 })
                 .collect(),
         );
-        self.markdown_cache
-            .borrow_mut()
-            .insert(path.into(), Arc::clone(&headings));
+        self.markdown_cache.borrow_mut().insert(
+            path.into(),
+            CachedMarkdown {
+                raw: text.as_bytes().to_vec(),
+                headings: Arc::clone(&headings),
+            },
+        );
         Ok(headings)
     }
-    /// External merge composers using the public candidate map must invalidate
-    /// a changed path before querying its cached structural source index.
+    /// Drop the candidate structural indexes after a composed source edit.
+    /// Captured preimage indexes remain guarded by exact current byte equality.
     pub fn invalidate_path(&self, path: &str) {
         if path == "trace/exploration_tree.yaml" {
-            self.node_kinds_cache.borrow_mut().take();
+            self.node_index_cache.borrow_mut().take();
         }
-        self.yaml_cache.borrow_mut().remove(path);
+        if let Some(indexes) = self.yaml_cache.borrow_mut().get_mut(path) {
+            if indexes.candidate.as_ref().is_some_and(|cached| {
+                self.base
+                    .files
+                    .get(path)
+                    .is_some_and(|file| file.existed && file.bytes == cached.raw)
+            }) {
+                indexes.base = indexes.candidate.take();
+            } else {
+                indexes.candidate = None;
+            }
+        }
         self.markdown_cache.borrow_mut().remove(path);
     }
     pub fn ensure_yaml(&mut self, path: &str, empty: &str) -> Result<(), WriteError> {
@@ -1137,7 +1214,7 @@ impl WorkingArtifact {
             .get("logic/claims.md")
             .filter(|f| f.existed)
             .and_then(|f| std::str::from_utf8(&f.bytes).ok());
-        let base_redirects = super::logic::claim_redirects_from_snapshot(&self.base)?;
+        let base_redirects = super::logic::claim_redirects_from_base(self)?;
         let (base_manifest, base_errors) = if let Some(tree) = base_tree {
             match crate::parse::parse_sources_detailed_with_claim_redirects(
                 tree,

@@ -1,7 +1,10 @@
 //! Versioned output and the agent-command 0/1/2 exit contract.
 use serde::Serialize;
 use serde_json::{Value, json};
-use std::process::ExitCode;
+use std::{
+    io::{BufWriter, Write},
+    process::ExitCode,
+};
 
 pub const EXCERPT_CHARS: usize = 160;
 
@@ -290,7 +293,11 @@ pub fn emit(
     match result {
         Ok(value) => {
             if json_mode {
-                println!("{value}");
+                let stdout = std::io::stdout();
+                let mut writer = BufWriter::new(stdout.lock());
+                serde_json::to_writer(&mut writer, &value).expect("JSON output");
+                writer.write_all(b"\n").expect("stdout output");
+                writer.flush().expect("stdout output");
             } else {
                 print_human(&value);
             }

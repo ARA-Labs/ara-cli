@@ -1250,6 +1250,94 @@ tree:
     const CLAIMS: &str = "## C01: A claim\n- **Statement**: yes\n";
 
     #[test]
+    fn json_sources_preserve_yaml_normalization_and_annotations() {
+        for source in [
+            r#"{"tree":[{"id":"N01","type":"question","title":"escaped \u03b1 / \n text","artifacts":[{"pointer":"src/code.py","extra":{"values":[null,true,-2,18446744073709551615]}}],"concepts":["term"],"children":[{"id":"N02","type":"insight","same_as":["N01"]}]}],"future":{"nested":true}}"#,
+            r#"{"root":{"id":"N01","type":"future-kind","thinking":"retained","children":null,"same_as":42}}"#,
+            r#"{"tree":[{"id":"N01","type":"question","artifacts":[{"extra":{"float":0.10000000000000002,"exponent":1e2,"overflow_integer":18446744073709551616}}]}]}"#,
+        ] {
+            let json = parse_sources(source, None).expect("JSON-valid YAML");
+            let yaml = parse_sources(&format!("---\n{source}"), None).expect("explicit YAML");
+            assert_eq!(json, yaml);
+        }
+    }
+
+    #[test]
+    fn json_duplicate_keys_remain_hard_tree_errors() {
+        for source in [
+            r#"{"tree":[],"tree":[]}"#,
+            r#"{"tree":[{"id":"N01","\u0069d":"N02","type":"question"}]}"#,
+            r#"{"tree":[{"id":"N01","type":"question","future":1,"future":2}]}"#,
+            r#"{"tree":[{"id":"N01","type":"question","artifacts":[{"name":"first","name":"second"}]}]}"#,
+            r#"{"tree":[{"id":"N01","type":"question","artifacts":[{"extra":{"key":1,"key":2}}]}]}"#,
+        ] {
+            let report = parse_sources(source, None).expect_err("duplicate source key");
+            assert!(
+                report
+                    .errors()
+                    .iter()
+                    .any(|diagnostic| diagnostic.code == RuleCode::MalformedTree)
+            );
+        }
+    }
+
+    #[test]
+    fn json_annotation_shapes_keep_errors_and_same_as_warning_separate() {
+        for field in [
+            r#""concepts":42"#,
+            r#""concepts":[42]"#,
+            r#""artifacts":42"#,
+            r#""artifacts":[42]"#,
+            r#""artifacts":[{"name":42}]"#,
+        ] {
+            let source = format!(r#"{{"tree":[{{"id":"N01","type":"question",{field}}}]}}"#);
+            let report = parse_sources(&source, None).expect_err("malformed typed annotation");
+            assert!(
+                report
+                    .errors()
+                    .iter()
+                    .any(|diagnostic| diagnostic.code == RuleCode::MalformedTree)
+            );
+        }
+        let (manifest, report) = parse_sources(
+            r#"{"tree":[{"id":"N01","type":"question","same_as":42,"artifacts":[{"custom":[true,7]}]}]}"#,
+            None,
+        )
+        .expect("same_as remains advisory");
+        assert!(
+            report
+                .warnings()
+                .iter()
+                .any(|diagnostic| diagnostic.code == RuleCode::MalformedSameAs)
+        );
+        let artifact = &manifest.nodes[0].artifacts[0];
+        assert_eq!(
+            (
+                artifact.name.as_str(),
+                artifact.pointer.as_str(),
+                artifact.what.as_str()
+            ),
+            ("", "", "")
+        );
+        assert_eq!(
+            artifact.extra["custom"],
+            SourceValue::Sequence(vec![SourceValue::Bool(true), SourceValue::Integer(7)])
+        );
+    }
+
+    #[test]
+    fn json_resource_checks_include_ignored_values() {
+        let source = format!(r#"{{"tree":[],"future":[{}]}}"#, "0,".repeat(250_000) + "0");
+        let report = parse_sources(&source, None).expect_err("all source nodes count");
+        assert!(
+            report
+                .errors()
+                .iter()
+                .any(|diagnostic| diagnostic.code == RuleCode::MalformedTree)
+        );
+    }
+
+    #[test]
     fn detailed_outcome_classifies_parser_trust_boundary() {
         #[derive(Debug, PartialEq)]
         enum ExpectedOutcome {
@@ -1845,6 +1933,49 @@ tree:
         assert!(
             report.warnings().is_empty(),
             "right-kind fields must not warn, got: {report}"
+        );
+    }
+
+    #[test]
+    fn quoted_scalars_remain_text_and_explicit_tags_keep_their_type() {
+        let yaml = r#"tree:
+  - id: 'N01'
+    type: "question"
+    title: 'null'
+    description: "true\nnext"
+    artifacts:
+      - name: "null"
+        pointer: 'false'
+        what: "42"
+        quoted_bool: "true"
+        quoted_null: 'null'
+        quoted_integer: "42"
+        tagged_integer: !!int "42"
+        tagged_string: !!str true
+"#;
+        let (manifest, _) = parse_sources(yaml, None).unwrap();
+        let node = &manifest.nodes[0];
+        assert_eq!(node.kind, NodeKind::Question);
+        assert_eq!(node.label.as_deref(), Some("null"));
+        assert_eq!(node.description.as_deref(), Some("true\nnext"));
+        let artifact = &node.artifacts[0];
+        assert_eq!(artifact.name, "null");
+        assert_eq!(artifact.pointer, "false");
+        assert_eq!(artifact.what, "42");
+        for (field, value) in [
+            ("quoted_bool", "true"),
+            ("quoted_null", "null"),
+            ("quoted_integer", "42"),
+            ("tagged_string", "true"),
+        ] {
+            assert_eq!(
+                artifact.extra[field],
+                crate::manifest::SourceValue::String(value.into())
+            );
+        }
+        assert_eq!(
+            artifact.extra["tagged_integer"],
+            crate::manifest::SourceValue::Integer(42)
         );
     }
 

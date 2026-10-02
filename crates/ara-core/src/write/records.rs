@@ -136,6 +136,7 @@ pub fn append_archive(
 }
 
 pub fn validate_references(working: &WorkingArtifact) -> Result<(), WriteError> {
+    let mut nodes = None;
     for path in working.changed_paths() {
         if path != REASONING && path != TASTE {
             continue;
@@ -147,15 +148,15 @@ pub fn validate_references(working: &WorkingArtifact) -> Result<(), WriteError> 
             .ok_or_else(|| invalid("entries", "missing entries sequence"))?
             .sequence()?;
         let previous = if working.base.files.get(&path).is_some_and(|f| f.existed) {
-            super::positions::YamlDocument::parse(
-                std::str::from_utf8(&working.base.files[&path].bytes)
-                    .map_err(|_| invalid("document", "invalid UTF-8"))?,
-            )?
-            .root
-            .get("entries")?
-            .map(|n| n.sequence().map(|a| a.len()))
-            .transpose()?
-            .unwrap_or(0)
+            let text = std::str::from_utf8(&working.base.files[&path].bytes)
+                .map_err(|_| invalid("document", "invalid UTF-8"))?;
+            working
+                .indexed_yaml(&path, text, true)?
+                .root
+                .get("entries")?
+                .map(|n| n.sequence().map(|a| a.len()))
+                .transpose()?
+                .unwrap_or(0)
         } else {
             0
         };
@@ -172,7 +173,10 @@ pub fn validate_references(working: &WorkingArtifact) -> Result<(), WriteError> 
                     .get("target")
                     .and_then(Value::as_str)
                     .ok_or_else(|| invalid("target", "taste target is required"))?;
-                match super::node::node_kind(working, target)?.as_deref() {
+                if nodes.is_none() {
+                    nodes = Some(super::node::cached_node_index(working)?);
+                }
+                match nodes.as_ref().expect("initialized node index").kind(target) {
                     None => {
                         return Err(invalid("target", format!("unknown taste target {target}")));
                     }

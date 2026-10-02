@@ -1009,7 +1009,7 @@ pub(crate) fn reject_ambiguous_display(
             let Some(value) = row.get("from_selector") else {
                 continue;
             };
-            let selector: crate::write::EntrySelector = serde_json::from_value(value.clone())
+            let selector = crate::write::EntrySelector::deserialize(value)
                 .map_err(|error| MergeError::content("merge.redirect_data", error.to_string()))?;
             if let crate::write::EntrySelector::Document {
                 document,
@@ -1120,7 +1120,7 @@ pub(crate) fn archived_selector_key(
         let Some(value) = row.get("from_selector") else {
             continue;
         };
-        let Ok(from) = serde_json::from_value::<crate::write::EntrySelector>(value.clone()) else {
+        let Ok(from) = crate::write::EntrySelector::deserialize(value) else {
             continue;
         };
         if super::markdown::selector_key(&from)

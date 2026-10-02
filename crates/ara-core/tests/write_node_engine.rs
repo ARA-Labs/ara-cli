@@ -1017,3 +1017,71 @@ fn node_lookup_cache_tracks_staged_tree_changes_and_explicit_invalidation() {
         Some("decision")
     );
 }
+
+#[test]
+fn node_lookup_rechecks_direct_candidate_and_preimage_mutations_without_digest_updates() {
+    let (_directory, mut candidate) = working("tree: [{id: N01, type: question}]\n");
+    assert_eq!(
+        node::node_kind(&candidate, "N01").unwrap().as_deref(),
+        Some("question")
+    );
+    candidate.base.files.get_mut(TREE).unwrap().bytes =
+        b"tree: [{id: N02, type: decision}]\n".to_vec();
+    assert_eq!(node::node_kind(&candidate, "N01").unwrap(), None);
+    assert_eq!(
+        node::node_kind(&candidate, "N02").unwrap().as_deref(),
+        Some("decision")
+    );
+    candidate.files.insert(
+        TREE.into(),
+        b"tree: [{id: N03, type: experiment}]\n".to_vec(),
+    );
+    assert_eq!(node::node_kind(&candidate, "N02").unwrap(), None);
+    assert_eq!(
+        node::node_kind(&candidate, "N03").unwrap().as_deref(),
+        Some("experiment")
+    );
+    *candidate.files.get_mut(TREE).unwrap() =
+        b"tree: [{id: N03, type: experiment}, {id: N03, type: decision}]\n".to_vec();
+    assert!(
+        node::node_kind(&candidate, "N03")
+            .unwrap_err()
+            .message
+            .contains("duplicate source node ID")
+    );
+    candidate.deleted_paths.insert(TREE.into());
+    assert_eq!(node::node_kind(&candidate, "N03").unwrap(), None);
+}
+
+#[test]
+fn cached_reference_validation_rechecks_candidate_and_preimage_bytes() {
+    let original =
+        "tree: [{id: N01, type: question}, {id: N02, type: decision, also_depends_on: [N99]}]\n";
+    let (_directory, mut candidate) = working(original);
+    candidate
+        .stage_replace(
+            TREE,
+            format!("# keep history\n{original}").as_bytes(),
+            "replace document",
+        )
+        .unwrap();
+    node::validate_references(&candidate).unwrap();
+    // N99 was historical only in the old preimage. An unchanged stored digest
+    // cannot authorize that exemption after the public preimage bytes change.
+    candidate.base.files.get_mut(TREE).unwrap().bytes =
+        original.replace("[N99]", "[N98]").into_bytes();
+    let error = node::validate_references(&candidate).unwrap_err();
+    assert_eq!(error.code, "write.node");
+    assert!(error.message.contains("N99"));
+    // Restoring the preimage restores only the historical exemption, not
+    // permission for a different dangling reference in directly edited bytes.
+    candidate.base.files.get_mut(TREE).unwrap().bytes = original.as_bytes().to_vec();
+    node::validate_references(&candidate).unwrap();
+    candidate.files.insert(
+        TREE.into(),
+        format!("# keep history\n{}", original.replace("[N99]", "[N97]")).into_bytes(),
+    );
+    let error = node::validate_references(&candidate).unwrap_err();
+    assert_eq!(error.code, "write.node");
+    assert!(error.message.contains("N97"));
+}

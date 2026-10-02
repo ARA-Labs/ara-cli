@@ -27,6 +27,9 @@ enum Identity {
 }
 impl Identity {
     fn key(address: &str) -> Self {
+        if !matches!(address.trim_start().as_bytes().first(), Some(b'{' | b'[')) {
+            return Self::Native(address.into());
+        }
         match serde_json::from_str::<EntrySelector>(address) {
             Ok(EntrySelector::Document {
                 document,
@@ -106,7 +109,12 @@ fn heading_component(path: &str, heading: &str, level: usize) -> String {
 pub(crate) fn heading_address(path: &str, components: &[String]) -> String {
     if components.iter().any(|component| component.contains('/')) {
         exact_heading_address(path, components)
-    } else if path == "logic/concepts.md" && components.len() == 2 {
+    } else {
+        heading_display_address(path, components)
+    }
+}
+fn heading_display_address(path: &str, components: &[String]) -> String {
+    if path == "logic/concepts.md" && components.len() == 2 {
         format!("{path}#{}", components[1])
     } else {
         format!("{path}#{}", components.join("/"))
@@ -138,6 +146,9 @@ pub(crate) fn exact_selector_key(selector: &EntrySelector) -> Option<String> {
     }
 }
 pub(crate) fn display_address(address: &str) -> String {
+    if !matches!(address.trim_start().as_bytes().first(), Some(b'{' | b'[')) {
+        return address.into();
+    }
     match serde_json::from_str::<EntrySelector>(address) {
         Ok(EntrySelector::Document {
             document,
@@ -441,7 +452,7 @@ impl Document {
                 .map(|(ordinal, heading)| heading_component(path, heading, ordinal + 1))
                 .collect::<Vec<_>>();
             *displays
-                .entry(display_address(&heading_address(path, &components)))
+                .entry(heading_display_address(path, &components))
                 .or_default() += 1;
         }
         let mut parents: Vec<(usize, String, String)> = Vec::new();

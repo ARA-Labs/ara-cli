@@ -55,10 +55,16 @@ All notable changes to this project are documented here. The format follows
 - Public Rust node constructors and typed bodies include the native agent fields;
   JSON additions remain optional. The integration minor/major release decision
   is pending; version 0.1.23 is the unreleased engineering revision.
+- Native parsing and merge planning avoid repeated YAML work and unchanged-field
+  copies while preserving strict duplicate-key/resource guards, opaque historical
+  data, exact source bytes, and deterministic duplicate-candidate ordering.
 - Native merge ledger captures use canonical padded RFC 4648 base64 strings for
   revision files, transport bytes and imported-resolution evidence, retaining
   exact decoded bytes and fingerprints. Native core adds the optional `base64`
   dependency; public conflict/report byte arrays are unchanged.
+- Native hashing enables RustCrypto's CPU-dispatched SHA-256 backend, retaining
+  the software fallback and identical fingerprints; `sha2-asm` is a native-only
+  transitive dependency. Flow-map child insertion preserves the JSON subset.
 - Core: bump serde-saphyr to 1.3.0 (#90).
 - `ara check`: validate-layer findings are now prefixed with their rule code
   (`ARA105 error: nodes[N01]: duplicate node id`), and each `--json`

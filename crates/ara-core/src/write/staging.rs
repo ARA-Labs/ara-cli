@@ -3,7 +3,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use serde_json::{Value, json};
 
-use super::positions::{PathPart, YamlDocument};
+use super::positions::PathPart;
 use super::{EntrySelector, Fields, OperationResult, WorkingArtifact, WriteError, WriteOperation};
 
 pub const OBSERVATIONS: &str = "staging/observations.yaml";
@@ -590,30 +590,29 @@ pub fn validate_references(working: &WorkingArtifact) -> Result<(), WriteError> 
     {
         return Ok(());
     }
-    let previous: BTreeMap<String, Value> = if let Some(base) =
-        working.base.files.get(OBSERVATIONS).filter(|f| f.existed)
-    {
-        let doc = YamlDocument::parse(
-            std::str::from_utf8(&base.bytes).map_err(|_| invalid("document", "invalid UTF-8"))?,
-        )?;
-        doc.root
-            .get("observations")?
-            .ok_or_else(|| invalid("observations", "missing observations sequence"))?
-            .sequence()?
-            .iter()
-            .map(|n| {
-                let v = observation_value(n)?;
-                let id = v
-                    .get("id")
-                    .and_then(Value::as_str)
-                    .ok_or_else(|| invalid("id", "missing observation ID"))?
-                    .to_owned();
-                Ok((id, v))
-            })
-            .collect::<Result<_, WriteError>>()?
-    } else {
-        BTreeMap::new()
-    };
+    let previous: BTreeMap<String, Value> =
+        if let Some(base) = working.base.files.get(OBSERVATIONS).filter(|f| f.existed) {
+            let text = std::str::from_utf8(&base.bytes)
+                .map_err(|_| invalid("document", "invalid UTF-8"))?;
+            let doc = working.indexed_yaml(OBSERVATIONS, text, true)?;
+            doc.root
+                .get("observations")?
+                .ok_or_else(|| invalid("observations", "missing observations sequence"))?
+                .sequence()?
+                .iter()
+                .map(|n| {
+                    let v = observation_value(n)?;
+                    let id = v
+                        .get("id")
+                        .and_then(Value::as_str)
+                        .ok_or_else(|| invalid("id", "missing observation ID"))?
+                        .to_owned();
+                    Ok((id, v))
+                })
+                .collect::<Result<_, WriteError>>()?
+        } else {
+            BTreeMap::new()
+        };
     let imported = super::intent::imports_history(working, OBSERVATIONS)?;
     let mut stale_audits = BTreeSet::new();
     for intent in working
@@ -713,6 +712,7 @@ pub fn validate_references(working: &WorkingArtifact) -> Result<(), WriteError> 
             stale_audits.insert(observation.to_owned());
         }
     }
+    let mut nodes = None;
     for value in entries(working)? {
         let id = value
             .get("id")
@@ -775,7 +775,15 @@ pub fn validate_references(working: &WorkingArtifact) -> Result<(), WriteError> 
                 let target = target
                     .as_str()
                     .ok_or_else(|| invalid("bound_to", "expected node ID"))?;
-                if super::node::node_kind(working, target)?.is_none() {
+                if nodes.is_none() {
+                    nodes = Some(super::node::cached_node_index(working)?);
+                }
+                if nodes
+                    .as_ref()
+                    .expect("initialized node index")
+                    .kind(target)
+                    .is_none()
+                {
                     return Err(invalid("bound_to", format!("unknown bound node {target}")));
                 }
             }
@@ -792,7 +800,10 @@ pub fn validate_references(working: &WorkingArtifact) -> Result<(), WriteError> 
                 .and_then(Value::as_str)
                 .ok_or_else(|| invalid("promoted_to", "promotion target is missing"))?;
             if let Some(node) = destination.strip_prefix("trace:") {
-                if super::node::node_kind(working, node)?.as_deref() != Some("dead_end") {
+                if nodes.is_none() {
+                    nodes = Some(super::node::cached_node_index(working)?);
+                }
+                if nodes.as_ref().expect("initialized node index").kind(node) != Some("dead_end") {
                     return Err(invalid(
                         "promoted_to",
                         "promotion target must exist as a dead-end node",

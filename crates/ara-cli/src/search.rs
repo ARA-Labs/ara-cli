@@ -1,4 +1,4 @@
-//! Cache-free keyword ranking and advisory lexical duplicate similarity.
+//! Stateless keyword ranking and advisory lexical duplicate similarity.
 //! Tokens are maximal Unicode alphanumeric runs, lowercased with Unicode's
 //! deterministic lowercase mapping. Punctuation separates tokens (`N12` stays
 //! intact); no stemming, accent folding, locale, model, or network is involved.
@@ -7,6 +7,8 @@ use serde::Serialize;
 use std::borrow::Cow;
 use std::cmp::Ordering;
 use std::collections::{BTreeMap, BTreeSet, BinaryHeap};
+use std::ops::Range;
+use std::sync::OnceLock;
 
 const K1: f64 = 1.2;
 const B: f64 = 0.75;
@@ -35,6 +37,7 @@ struct Document<'a> {
     text: Cow<'a, str>,
     terms: BTreeMap<String, usize>,
     length: usize,
+    term_range: Range<usize>,
 }
 impl<'a> Document<'a> {
     fn new(
@@ -67,6 +70,7 @@ impl<'a> Document<'a> {
             text,
             terms,
             length,
+            term_range: 0..0,
         }
     }
     fn identity(&self) -> &str {
@@ -90,44 +94,94 @@ fn tokens(text: &str) -> impl Iterator<Item = (String, usize, usize)> + '_ {
         })
 }
 
+#[derive(Default)]
+struct TermFrequency {
+    count: usize,
+    weight: OnceLock<f64>,
+}
+
 struct Corpus<'a> {
     documents: Vec<Document<'a>>,
-    frequencies: BTreeMap<String, usize>,
+    term_positions: BTreeMap<String, usize>,
+    frequencies: Vec<TermFrequency>,
+    document_terms: Vec<usize>,
     postings: BTreeMap<String, Vec<(usize, usize)>>,
     average_length: f64,
     total_length: usize,
+    normalizations: OnceLock<Vec<f64>>,
 }
 impl<'a> Corpus<'a> {
     fn new(documents: Vec<Document<'a>>) -> Self {
-        let mut frequencies = BTreeMap::new();
-        let mut postings = BTreeMap::<String, Vec<(usize, usize)>>::new();
-        let mut length = 0;
-        for (position, document) in documents.iter().enumerate() {
-            length += document.length;
-            for term in document.terms.keys() {
-                *frequencies.entry(term.clone()).or_default() += 1;
-                postings
-                    .entry(term.clone())
-                    .or_default()
-                    .push((position, document.terms[term]));
-            }
-        }
+        let (total_length, term_count) =
+            documents.iter().fold((0, 0), |(length, terms), document| {
+                (length + document.length, terms + document.terms.len())
+            });
         let average_length = if documents.is_empty() {
             1.0
         } else {
-            (length as f64 / documents.len() as f64).max(1.0)
+            (total_length as f64 / documents.len() as f64).max(1.0)
         };
-        Self {
+        let mut corpus = Self {
             documents,
-            frequencies,
-            postings,
+            term_positions: BTreeMap::new(),
+            frequencies: Vec::new(),
+            document_terms: Vec::with_capacity(term_count),
+            postings: BTreeMap::new(),
             average_length,
-            total_length: length,
+            total_length,
+            normalizations: OnceLock::new(),
+        };
+        for position in 0..corpus.documents.len() {
+            corpus.index_document(position);
         }
+        corpus
+    }
+    fn index_document(&mut self, position: usize) {
+        let document = &mut self.documents[position];
+        let start = self.document_terms.len();
+        // Stable term positions follow each document's lexical key order.
+        for (term, frequency) in &document.terms {
+            let term_position = *self.term_positions.entry(term.clone()).or_insert_with(|| {
+                let position = self.frequencies.len();
+                self.frequencies.push(TermFrequency::default());
+                position
+            });
+            self.frequencies[term_position].count += 1;
+            self.document_terms.push(term_position);
+            self.postings
+                .entry(term.clone())
+                .or_default()
+                .push((position, *frequency));
+        }
+        document.term_range = start..self.document_terms.len();
     }
     fn weight(&self, term: &str) -> f64 {
-        let frequency = *self.frequencies.get(term).unwrap_or(&0) as f64;
+        match self.term_positions.get(term) {
+            Some(&position) => self.term_weight(position),
+            None => self.frequency_weight(0),
+        }
+    }
+    fn term_weight(&self, position: usize) -> f64 {
+        let frequency = &self.frequencies[position];
+        *frequency
+            .weight
+            .get_or_init(|| self.frequency_weight(frequency.count))
+    }
+    fn frequency_weight(&self, frequency: usize) -> f64 {
+        let frequency = frequency as f64;
         (1.0 + (self.documents.len() as f64 - frequency + 0.5) / (frequency + 0.5)).ln()
+    }
+    fn append(&mut self, document: Document<'a>) {
+        // Every append changes document count and may change document frequency
+        // and average length. Invalidate all corpus-dependent scoring values.
+        self.normalizations.take();
+        for frequency in &mut self.frequencies {
+            frequency.weight.take();
+        }
+        self.total_length += document.length;
+        self.documents.push(document);
+        self.index_document(self.documents.len() - 1);
+        self.average_length = (self.total_length as f64 / self.documents.len() as f64).max(1.0);
     }
     fn ranked(
         &self,
@@ -136,11 +190,12 @@ impl<'a> Corpus<'a> {
         limit: usize,
     ) -> Vec<Ranked<'_>> {
         let mut heap = BinaryHeap::with_capacity(limit.min(self.documents.len()));
-        let normalizations = self
-            .documents
-            .iter()
-            .map(|document| K1 * (1.0 - B + B * document.length as f64 / self.average_length))
-            .collect::<Vec<_>>();
+        let normalizations = self.normalizations.get_or_init(|| {
+            self.documents
+                .iter()
+                .map(|document| K1 * (1.0 - B + B * document.length as f64 / self.average_length))
+                .collect()
+        });
         let mut scores = vec![0.0; self.documents.len()];
         // Preserve the original lexical term summation order and exact formula.
         for term in query {
@@ -164,8 +219,7 @@ impl<'a> Corpus<'a> {
             if heap.len() < limit {
                 heap.push(candidate);
             } else if heap.peek().is_some_and(|worst| candidate < *worst) {
-                heap.pop();
-                heap.push(candidate);
+                *heap.peek_mut().expect("bounded ranking heap is nonempty") = candidate;
             }
         }
         let mut ranked = heap.into_vec();
@@ -447,6 +501,7 @@ impl DuplicateIndex {
         if terms.is_empty() {
             return Ok(Vec::new());
         }
+        let query_weight = terms.iter().map(|term| self.corpus.weight(term)).sum();
         let mut candidates = Vec::new();
         for ranked in self.corpus.ranked(
             &terms,
@@ -457,9 +512,17 @@ impl DuplicateIndex {
             if exclude_id == Some(id) {
                 continue;
             }
-            let similarity = weighted_jaccard(&terms, ranked.document.terms.keys(), |term| {
-                self.corpus.weight(term)
-            });
+            let positions = &self.corpus.document_terms[ranked.document.term_range.clone()];
+            let similarity = weighted_jaccard(
+                &terms,
+                query_weight,
+                ranked
+                    .document
+                    .terms
+                    .keys()
+                    .zip(positions)
+                    .map(|(term, &position)| (term, self.corpus.term_weight(position))),
+            );
             if similarity > 0.0 && similarity >= threshold {
                 candidates.push(DuplicateCandidate {
                     id: id.into(),
@@ -478,16 +541,15 @@ impl DuplicateIndex {
 }
 fn weighted_jaccard<'a>(
     left: &BTreeSet<String>,
-    right: impl Iterator<Item = &'a String>,
-    weight: impl Fn(&str) -> f64,
+    mut union: f64,
+    right: impl Iterator<Item = (&'a String, f64)>,
 ) -> f64 {
-    let mut union: f64 = left.iter().map(|term| weight(term)).sum();
     let mut intersection = 0.0;
-    for term in right {
+    for (term, weight) in right {
         if left.contains(term) {
-            intersection += weight(term);
+            intersection += weight;
         } else {
-            union += weight(term);
+            union += weight;
         }
     }
     if union == 0.0 {
@@ -545,19 +607,7 @@ pub fn duplicate_pairs(
             "trace/exploration_tree.yaml".into(),
             proposed,
         );
-        index.corpus.total_length += document.length;
-        for (term, frequency) in &document.terms {
-            *index.corpus.frequencies.entry(term.clone()).or_default() += 1;
-            index
-                .corpus
-                .postings
-                .entry(term.clone())
-                .or_default()
-                .push((index.corpus.documents.len(), *frequency));
-        }
-        index.corpus.documents.push(document);
-        index.corpus.average_length =
-            (index.corpus.total_length as f64 / index.corpus.documents.len() as f64).max(1.0);
+        index.corpus.append(document);
     }
     Ok(pairs)
 }
@@ -1081,21 +1131,25 @@ mod tests {
 
     #[test]
     fn overlap_is_bounded_and_not_a_probability() {
+        let same = query("same text");
+        let different = query("different words");
         assert_eq!(
-            weighted_jaccard(&query("same text"), query("same text").iter(), |_| 1.0),
+            weighted_jaccard(&same, 2.0, same.iter().map(|term| (term, 1.0))),
             1.0
         );
         assert_eq!(
-            weighted_jaccard(&query("same text"), query("different words").iter(), |_| {
-                1.0
-            }),
+            weighted_jaccard(&same, 2.0, different.iter().map(|term| (term, 1.0))),
             0.0
         );
         assert_eq!(
-            weighted_jaccard(&query("a b"), query("b c").iter(), |_| 1.0),
+            weighted_jaccard(
+                &query("a b"),
+                2.0,
+                query("b c").iter().map(|term| (term, 1.0))
+            ),
             1.0 / 3.0
         );
-        assert_eq!(weighted_jaccard(&query(""), query("").iter(), |_| 1.0), 0.0);
+        assert_eq!(weighted_jaccard(&query(""), 0.0, std::iter::empty()), 0.0);
         assert!(validate_duplicate(f64::NAN, 1).is_err());
         assert!(validate_duplicate(0.8, 0).is_err());
     }
@@ -1139,6 +1193,109 @@ mod tests {
                 .unwrap()
                 .contains("\"similarity\":1.0")
         );
+    }
+
+    #[test]
+    fn duplicate_candidates_match_full_scan_after_snapshot_appends() {
+        let texts = (0..72)
+            .map(|position| DuplicateText {
+                id: format!("N{position:02}"),
+                title: "alpha 雪".into(),
+                body: format!(
+                    "{} unique{position} {}",
+                    "alpha ".repeat(position % 7),
+                    if position < 60 { "rare" } else { "other" }
+                ),
+            })
+            .collect::<Vec<_>>();
+        let mut index = DuplicateIndex::from_texts(&texts);
+        let additions = [
+            document(
+                "N72",
+                "node",
+                &format!("{} newterm", "alpha 雪 rare ".repeat(80)),
+            ),
+            document("N73", "node", ""),
+            document("N74", "node", "雪 rare newterm newterm"),
+        ];
+        for addition in std::iter::once(None).chain(additions.into_iter().map(Some)) {
+            if let Some(document) = addition {
+                index.corpus.append(document);
+            }
+            let terms = query("alpha 雪 rare newterm missing");
+            let weight = |term: &str| {
+                let frequency = index
+                    .corpus
+                    .documents
+                    .iter()
+                    .filter(|document| document.terms.contains_key(term))
+                    .count() as f64;
+                (1.0 + (index.corpus.documents.len() as f64 - frequency + 0.5) / (frequency + 0.5))
+                    .ln()
+            };
+            let mut reference = index
+                .corpus
+                .documents
+                .iter()
+                .filter_map(|document| {
+                    let normalization =
+                        K1 * (1.0 - B + B * document.length as f64 / index.corpus.average_length);
+                    let mut score = 0.0;
+                    for term in &terms {
+                        let frequency = *document.terms.get(term).unwrap_or(&0) as f64;
+                        if frequency != 0.0 {
+                            score +=
+                                weight(term) * frequency * (K1 + 1.0) / (frequency + normalization);
+                        }
+                    }
+                    (score > 0.0).then_some(Ranked { score, document })
+                })
+                .collect::<Vec<_>>();
+            reference.sort();
+            reference.truncate(RETRIEVAL_LIMIT + 1);
+            let mut expected = reference
+                .iter()
+                .filter(|ranked| ranked.document.identity() != "N00")
+                .filter_map(|ranked| {
+                    let mut union = terms.iter().map(|term| weight(term)).sum::<f64>();
+                    let mut intersection = 0.0;
+                    for term in ranked.document.terms.keys() {
+                        if terms.contains(term) {
+                            intersection += weight(term);
+                        } else {
+                            union += weight(term);
+                        }
+                    }
+                    let similarity = (intersection / union).clamp(0.0, 1.0);
+                    (similarity > 0.0).then_some((ranked.document.identity(), similarity))
+                })
+                .collect::<Vec<_>>();
+            expected.sort_by(|a, b| b.1.total_cmp(&a.1).then_with(|| a.0.cmp(b.0)));
+            expected.truncate(10);
+            for _ in 0..2 {
+                let ranked = index.corpus.ranked(&terms, None, RETRIEVAL_LIMIT + 1);
+                assert_eq!(
+                    ranked
+                        .iter()
+                        .map(|ranked| (ranked.document.identity(), ranked.score))
+                        .collect::<Vec<_>>(),
+                    reference
+                        .iter()
+                        .map(|ranked| (ranked.document.identity(), ranked.score))
+                        .collect::<Vec<_>>()
+                );
+                let observed = index
+                    .candidates("alpha 雪 rare newterm missing", Some("N00"), 0.0, 10)
+                    .unwrap();
+                assert_eq!(
+                    observed
+                        .iter()
+                        .map(|candidate| (candidate.id.as_str(), candidate.similarity))
+                        .collect::<Vec<_>>(),
+                    expected
+                );
+            }
+        }
     }
 
     #[test]

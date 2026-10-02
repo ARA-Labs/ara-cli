@@ -365,6 +365,18 @@ impl<'v, 'a> View<'v, 'a> {
             .get(range)
             .ok_or_else(|| error("invalid YAML scalar span"))
     }
+    fn string_scalar(self) -> Option<&'v Cow<'a, str>> {
+        let entry = &self.arena.entries[self.index];
+        match &entry.kind {
+            Kind::Scalar(value, ScalarStyle::Literal | ScalarStyle::Folded) => Some(value),
+            Kind::Scalar(value, ScalarStyle::SingleQuoted | ScalarStyle::DoubleQuoted)
+                if entry.tag.is_none() =>
+            {
+                Some(value)
+            }
+            _ => None,
+        }
+    }
     fn child(self, index: usize) -> Self {
         Self {
             index,
@@ -378,7 +390,7 @@ macro_rules! scalar_method {
     ($($name:ident),* $(,)?) => {$ (
         fn $name<V: Visitor<'a>>(self, visitor: V) -> Result<V::Value, Error> {
             let this = self.resolved()?;
-            if let Kind::Scalar(value, ScalarStyle::Literal | ScalarStyle::Folded) = &this.arena.entries[this.index].kind {
+            if let Some(value) = this.string_scalar() {
                 de::value::StringDeserializer::<Error>::new(value.clone().into_owned()).$name(visitor)
             } else if matches!(this.arena.entries[this.index].kind, Kind::Scalar(..)) {
                 serde_saphyr::with_deserializer_from_str(this.scalar()?, |de| de.$name(visitor)).map_err(error)
@@ -390,10 +402,10 @@ impl<'v, 'a> Deserializer<'a> for View<'v, 'a> {
     type Error = Error;
     fn deserialize_any<V: Visitor<'a>>(self, visitor: V) -> Result<V::Value, Error> {
         let this = self.resolved()?;
+        if let Some(value) = this.string_scalar() {
+            return visitor.visit_string(value.clone().into_owned());
+        }
         match &this.arena.entries[this.index].kind {
-            Kind::Scalar(value, ScalarStyle::Literal | ScalarStyle::Folded) => {
-                visitor.visit_string(value.clone().into_owned())
-            }
             Kind::Scalar(..) => serde_saphyr::with_deserializer_from_str(this.scalar()?, |de| {
                 de.deserialize_any(visitor)
             })
@@ -412,10 +424,7 @@ impl<'v, 'a> Deserializer<'a> for View<'v, 'a> {
     }
     fn deserialize_option<V: Visitor<'a>>(self, visitor: V) -> Result<V::Value, Error> {
         let this = self.resolved()?;
-        if matches!(
-            this.arena.entries[this.index].kind,
-            Kind::Scalar(_, ScalarStyle::Literal | ScalarStyle::Folded)
-        ) {
+        if this.string_scalar().is_some() {
             visitor.visit_some(this)
         } else if matches!(this.arena.entries[this.index].kind, Kind::Scalar(..)) {
             serde_saphyr::with_deserializer_from_str(this.scalar()?, |de| {
@@ -459,6 +468,10 @@ impl<'v, 'a> Deserializer<'a> for View<'v, 'a> {
         visitor: V,
     ) -> Result<V::Value, Error> {
         let this = self.resolved()?;
+        if let Some(value) = this.string_scalar() {
+            return de::value::StringDeserializer::<Error>::new(value.clone().into_owned())
+                .deserialize_enum(name, variants, visitor);
+        }
         serde_saphyr::with_deserializer_from_str(this.scalar()?, |de| {
             de.deserialize_enum(name, variants, visitor)
         })
@@ -559,7 +572,150 @@ fn inspected_depth(source: &str) -> Result<usize, String> {
     Ok(report.max_depth)
 }
 
+/// JSON is a YAML subset, but decoding directly would silently discard duplicate
+/// unknown keys and skip YAML's resource checks. Admit only bounded, unique-key
+/// JSON; every other input still uses the authoritative YAML path below.
+#[cfg(feature = "native")]
+fn json_doc(source: &str) -> Option<RawDoc> {
+    use serde::de::DeserializeSeed;
+
+    let budget = serde_saphyr::budget::Budget::default();
+    if source.len() > budget.max_total_scalar_bytes
+        || source.contains(['\u{85}', '\u{2028}', '\u{2029}'])
+        || !source.trim_start().starts_with('{')
+    {
+        return None;
+    }
+    let mut nodes = 0;
+    let mut decoder = serde_json::Deserializer::from_str(source);
+    JsonCheck {
+        depth: 0,
+        nodes: &mut nodes,
+        max_nodes: budget.max_nodes,
+    }
+    .deserialize(&mut decoder)
+    .ok()?;
+    decoder.end().ok()?;
+    serde_json::from_str(source).ok()
+}
+
+#[cfg(feature = "native")]
+struct JsonCheck<'a> {
+    depth: usize,
+    nodes: &'a mut usize,
+    max_nodes: usize,
+}
+
+#[cfg(feature = "native")]
+impl<'de> DeserializeSeed<'de> for JsonCheck<'_> {
+    type Value = ();
+
+    fn deserialize<D: Deserializer<'de>>(self, decoder: D) -> Result<(), D::Error> {
+        *self.nodes += 1;
+        if *self.nodes > self.max_nodes {
+            return Err(de::Error::custom("JSON node budget exceeded"));
+        }
+        decoder.deserialize_any(self)
+    }
+}
+
+#[cfg(feature = "native")]
+impl<'de> Visitor<'de> for JsonCheck<'_> {
+    type Value = ();
+
+    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        formatter.write_str("bounded unique-key JSON")
+    }
+
+    fn visit_unit<E: de::Error>(self) -> Result<(), E> {
+        Ok(())
+    }
+    fn visit_bool<E: de::Error>(self, _: bool) -> Result<(), E> {
+        Ok(())
+    }
+    fn visit_i64<E: de::Error>(self, _: i64) -> Result<(), E> {
+        Ok(())
+    }
+    fn visit_u64<E: de::Error>(self, _: u64) -> Result<(), E> {
+        Ok(())
+    }
+    fn visit_f64<E: de::Error>(self, _: f64) -> Result<(), E> {
+        // The JSON and YAML backends need not round floating-point literals
+        // identically. Keep all floats, including oversized integers, in YAML.
+        Err(E::custom("floating-point JSON requires YAML decoding"))
+    }
+    fn visit_str<E: de::Error>(self, _: &str) -> Result<(), E> {
+        Ok(())
+    }
+
+    fn visit_seq<A: SeqAccess<'de>>(self, mut sequence: A) -> Result<(), A::Error> {
+        if self.depth >= MAX_METADATA_DEPTH {
+            return Err(de::Error::custom("JSON depth requires YAML decoding"));
+        }
+        while sequence
+            .next_element_seed(JsonCheck {
+                depth: self.depth + 1,
+                nodes: self.nodes,
+                max_nodes: self.max_nodes,
+            })?
+            .is_some()
+        {}
+        Ok(())
+    }
+
+    fn visit_map<A: MapAccess<'de>>(self, mut mapping: A) -> Result<(), A::Error> {
+        if self.depth >= MAX_METADATA_DEPTH {
+            return Err(de::Error::custom("JSON depth requires YAML decoding"));
+        }
+        let mut keys = BTreeSet::new();
+        while let Some(JsonKey(key)) = mapping.next_key()? {
+            // Bound the original quoted spelling below YAML's default
+            // 1024-byte simple-key lookahead, even with JSON escape sequences.
+            if key.len() > 128 || !keys.insert(key) {
+                return Err(de::Error::custom("JSON key requires YAML decoding"));
+            }
+            *self.nodes += 1;
+            if *self.nodes > self.max_nodes {
+                return Err(de::Error::custom("JSON node budget exceeded"));
+            }
+            mapping.next_value_seed(JsonCheck {
+                depth: self.depth + 1,
+                nodes: self.nodes,
+                max_nodes: self.max_nodes,
+            })?;
+        }
+        Ok(())
+    }
+}
+
+#[cfg(feature = "native")]
+struct JsonKey<'a>(Cow<'a, str>);
+
+#[cfg(feature = "native")]
+impl<'de> Deserialize<'de> for JsonKey<'de> {
+    fn deserialize<D: Deserializer<'de>>(decoder: D) -> Result<Self, D::Error> {
+        struct KeyVisitor;
+        impl<'de> Visitor<'de> for KeyVisitor {
+            type Value = JsonKey<'de>;
+            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                formatter.write_str("a JSON mapping key")
+            }
+            fn visit_borrowed_str<E: de::Error>(self, value: &'de str) -> Result<Self::Value, E> {
+                Ok(JsonKey(Cow::Borrowed(value)))
+            }
+            fn visit_str<E: de::Error>(self, value: &str) -> Result<Self::Value, E> {
+                Ok(JsonKey(Cow::Owned(value.to_owned())))
+            }
+        }
+        decoder.deserialize_str(KeyVisitor)
+    }
+}
+
 pub(crate) fn parse(source: &str) -> Result<RawDoc, String> {
+    #[cfg(feature = "native")]
+    if let Some(doc) = json_doc(source) {
+        return Ok(doc);
+    }
     let depth = inspected_depth(source)?;
     // Preserve the existing bounded YAML semantics without deeply recursive serde.
     if depth <= MAX_METADATA_DEPTH {

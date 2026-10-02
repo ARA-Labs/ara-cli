@@ -446,6 +446,52 @@ fn changing_historical_revision_on_both_forks_rejects_complete_before_after_evid
 }
 
 #[test]
+fn historical_unknown_target_is_opaque_even_when_spelling_is_a_native_reference() {
+    let source = session("base", "2026-10-01T10:01Z", 2, true);
+    let mut value = ara_core::write::positions::YamlDocument::parse(&source)
+        .unwrap()
+        .root
+        .to_json()
+        .unwrap();
+    value["events_logged"][0]["target"] = json!("trace:N01");
+    let source = ara_core::write::source::render_yaml(&value, 0, "\n");
+    let idx = index("base", 2, 1);
+    let base = snapshot(&[
+        (TREE, BASIC_TREE),
+        ("logic/claims.md", CLAIMS),
+        (SESSION, &source),
+        (INDEX, &idx),
+    ]);
+    value["events_logged"][0]["target"] = json!("N01");
+    let changed = ara_core::write::source::render_yaml(&value, 0, "\n");
+    let fork = snapshot(&[
+        (TREE, BASIC_TREE),
+        ("logic/claims.md", CLAIMS),
+        (SESSION, &changed),
+        (INDEX, &idx),
+    ]);
+    let error = plan_merge(&base, &fork, &fork, &options()).err().unwrap();
+    assert_eq!(error.code, "merge.protected_content");
+    let evidence = error
+        .evidence
+        .iter()
+        .find(|c| c.field == "events_logged")
+        .unwrap();
+    let target = |bytes: &[u8]| {
+        let source = format!("events_logged:\n  {}", std::str::from_utf8(bytes).unwrap());
+        ara_core::write::positions::YamlDocument::parse(&source)
+            .unwrap()
+            .root
+            .to_json()
+            .unwrap()["events_logged"][0]["target"]
+            .clone()
+    };
+    assert_eq!(target(&evidence.base.bytes), json!("trace:N01"));
+    assert_eq!(target(&evidence.theirs.bytes), json!("N01"));
+    assert_eq!(evidence.ours.bytes, evidence.theirs.bytes);
+}
+
+#[test]
 fn same_semantic_summary_coalesces_with_ours_lexical_representation() {
     let b = session("base", "2026-10-01T10:00Z", 1, false);
     let bi = index("base", 1, 0);
@@ -1374,7 +1420,10 @@ fn flow_parent_without_children_imports_multiple_complete_flow_roots_and_replays
     let source = snapshot(&[(TREE, incoming)]);
     let plan = plan_merge(&base, &base, &source, &options()).unwrap();
     let tree = document(&plan.working, TREE);
-    assert_eq!(tree["tree"][0]["children"].as_array().unwrap().len(), 2);
+    let json_tree: serde_json::Value =
+        serde_json::from_slice(plan.working.bytes(TREE).unwrap()).unwrap();
+    assert_eq!(json_tree, tree);
+    assert_eq!(tree["tree"][0]["children"][0]["description"], "First child");
     assert_eq!(
         tree["tree"][0]["children"][1]["description"],
         "Second child"

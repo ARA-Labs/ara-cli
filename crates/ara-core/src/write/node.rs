@@ -22,8 +22,13 @@ struct AnnotationReferences {
     references: Vec<String>,
 }
 
-pub(super) type NodeKinds = BTreeMap<String, Option<String>>;
+#[derive(Debug)]
+pub(super) struct CachedNodeIndex {
+    document: std::sync::Arc<YamlDocument>,
+    index: std::sync::Arc<NodeIndex>,
+}
 
+#[derive(Debug)]
 struct NodeRecord {
     id: String,
     selector: usize,
@@ -35,6 +40,7 @@ struct NodeRecord {
     concepts: Vec<String>,
 }
 
+#[derive(Debug)]
 enum NodeLocation {
     Root {
         field: &'static str,
@@ -45,7 +51,8 @@ enum NodeLocation {
         index: usize,
     },
 }
-struct NodeIndex {
+#[derive(Debug, Default)]
+pub(super) struct NodeIndex {
     nodes: BTreeMap<String, NodeRecord>,
     children: BTreeMap<String, Vec<String>>,
     locations: Vec<NodeLocation>,
@@ -249,29 +256,30 @@ fn index(document: &YamlDocument) -> Result<NodeIndex, WriteError> {
     })
 }
 
-fn cached_node_kinds(working: &WorkingArtifact) -> Result<std::sync::Arc<NodeKinds>, WriteError> {
-    if let Some(kinds) = working.node_kinds_cache.borrow().as_ref() {
-        return Ok(std::sync::Arc::clone(kinds));
+pub(super) fn cached_node_index(
+    working: &WorkingArtifact,
+) -> Result<std::sync::Arc<NodeIndex>, WriteError> {
+    if !working.exists(TREE) {
+        return Ok(std::sync::Arc::new(NodeIndex::default()));
     }
-    let kinds = std::sync::Arc::new(if working.exists(TREE) {
-        index(working.yaml(TREE)?.as_ref())?
-            .nodes
-            .into_iter()
-            .map(|(id, node)| (id, node.kind))
-            .collect()
-    } else {
-        BTreeMap::new()
-    });
-    working
-        .node_kinds_cache
-        .replace(Some(std::sync::Arc::clone(&kinds)));
-    Ok(kinds)
+    let document = working.yaml(TREE)?;
+    if let Some(cached) = working.node_index_cache.borrow().as_ref()
+        && std::sync::Arc::ptr_eq(&cached.document, &document)
+    {
+        return Ok(std::sync::Arc::clone(&cached.index));
+    }
+    let index = std::sync::Arc::new(index(&document)?);
+    working.node_index_cache.replace(Some(CachedNodeIndex {
+        document,
+        index: std::sync::Arc::clone(&index),
+    }));
+    Ok(index)
 }
 pub fn node_ids(working: &WorkingArtifact) -> Result<Vec<String>, WriteError> {
-    Ok(cached_node_kinds(working)?.keys().cloned().collect())
+    Ok(cached_node_index(working)?.nodes.keys().cloned().collect())
 }
 pub fn node_kind(working: &WorkingArtifact, id: &str) -> Result<Option<String>, WriteError> {
-    Ok(cached_node_kinds(working)?.get(id).cloned().flatten())
+    Ok(cached_node_index(working)?.kind(id).map(str::to_owned))
 }
 
 fn check_id(id: &str, field: &str) -> Result<(), WriteError> {
@@ -374,6 +382,10 @@ fn validate_fields(kind: &str, fields: &Fields) -> Result<(), WriteError> {
 }
 
 impl NodeIndex {
+    pub(super) fn kind(&self, id: &str) -> Option<&str> {
+        self.nodes.get(id).and_then(|node| node.kind.as_deref())
+    }
+
     fn selector(&self, record: &NodeRecord) -> Vec<PathPart> {
         let mut children = Vec::new();
         let mut slot = record.selector;
@@ -748,7 +760,7 @@ pub fn validate_references(working: &WorkingArtifact) -> Result<(), WriteError> 
     if !working.exists(TREE) || !working.files.contains_key(TREE) {
         return Ok(());
     }
-    let candidate = index(working.yaml(TREE)?.as_ref())?;
+    let candidate = cached_node_index(working)?;
     let original = if working
         .base
         .files
@@ -758,7 +770,7 @@ pub fn validate_references(working: &WorkingArtifact) -> Result<(), WriteError> 
         let file = &working.base.files[TREE];
         let text = std::str::from_utf8(&file.bytes)
             .map_err(|_| WriteError::io("exploration tree is not UTF-8"))?;
-        Some(index(&YamlDocument::parse(text)?)?)
+        Some(index(working.indexed_yaml(TREE, text, true)?.as_ref())?)
     } else {
         None
     };

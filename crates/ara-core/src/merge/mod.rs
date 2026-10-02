@@ -512,6 +512,37 @@ pub fn plan_merge(
 ) -> Result<MergePlan, MergeError> {
     plan_merge_with_observer(base, ours, theirs, options, |_| {})
 }
+fn input_inventories(
+    base: &ArtifactSnapshot,
+    ours: &ArtifactSnapshot,
+    theirs: &ArtifactSnapshot,
+) -> Result<[Inventory; 3], MergeError> {
+    #[cfg(not(target_family = "wasm"))]
+    let inputs = [base, ours, theirs];
+    #[cfg(not(target_family = "wasm"))]
+    if inputs
+        .iter()
+        .filter_map(|snapshot| bytes(snapshot, "trace/exploration_tree.yaml"))
+        .map(<[u8]>::len)
+        .sum::<usize>()
+        >= 3 * 1024 * 1024
+    {
+        return std::thread::scope(|scope| {
+            let base = scope.spawn(|| inventory(base));
+            let ours = scope.spawn(|| inventory(ours));
+            let theirs = inventory(theirs);
+            Ok([
+                base.join()
+                    .unwrap_or_else(|panic| std::panic::resume_unwind(panic))?,
+                ours.join()
+                    .unwrap_or_else(|panic| std::panic::resume_unwind(panic))?,
+                theirs?,
+            ])
+        });
+    }
+    Ok([inventory(base)?, inventory(ours)?, inventory(theirs)?])
+}
+
 pub fn plan_merge_with_observer(
     base: &ArtifactSnapshot,
     ours: &ArtifactSnapshot,
@@ -537,36 +568,17 @@ pub fn plan_merge_with_observer(
             ));
         }
     }
-    let original_base = inventory(base).map_err(|e| {
-        evidence(
-            e,
-            base,
-            ours,
-            theirs,
-            options,
-            "trace/exploration_tree.yaml",
-        )
-    })?;
-    let ours_view = inventory(ours).map_err(|e| {
-        evidence(
-            e,
-            base,
-            ours,
-            theirs,
-            options,
-            "trace/exploration_tree.yaml",
-        )
-    })?;
-    let theirs_view = inventory(theirs).map_err(|e| {
-        evidence(
-            e,
-            base,
-            ours,
-            theirs,
-            options,
-            "trace/exploration_tree.yaml",
-        )
-    })?;
+    let [original_base, ours_view, theirs_view] =
+        input_inventories(base, ours, theirs).map_err(|error| {
+            evidence(
+                error,
+                base,
+                ours,
+                theirs,
+                options,
+                "trace/exploration_tree.yaml",
+            )
+        })?;
     validate_metadata(base, &original_base)
         .map_err(|e| evidence(e, base, ours, theirs, options, LOG))?;
     let (ledger, ours_aliases) = validate_metadata(ours, &ours_view)
@@ -775,6 +787,7 @@ pub fn plan_merge_with_observer(
         .cloned()
         .collect();
     let mut working = WorkingArtifact::new(ours.clone());
+    ours_view.yaml.retain_preimages(&mut working);
     yaml::apply(
         &effective_view.yaml,
         &ours_view.yaml,

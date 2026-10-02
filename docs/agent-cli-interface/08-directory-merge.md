@@ -21,6 +21,18 @@ actual raw bytes are identical. Direct candidate/preimage map mutations, malform
 replacement bytes and deletion cannot reuse stale authorization.
 Durable staging, source rechecks, fsync, rollback and recovery remain unchanged.
 
+Original and candidate YAML indexes share the working artifact's invocation-local
+cache. Initial merge inventory seeds only indexes paired with identical preimage
+bytes. Validators reuse the full node index and check cached Markdown headings
+against their exact current bytes. Direct preimage/candidate replacement, unchanged
+digest fields, deletion, and altered owning-session history revoke cache authority.
+
+Native captures with at least 3 MiB of combined exploration-tree source inventory
+their three immutable inputs concurrently (two scoped workers plus the caller).
+Results retain base/ours/theirs error precedence. Smaller captures and wasm use
+sequential early-exit parsing; writes, observers, validation and commit remain
+ordered on the caller.
+
 The unpublished native ledger stores `revision.files` mapping values,
 `transport.bytes`, and `imported_resolution.evidence` as canonical padded RFC 4648
 standard base64 strings. The shared strict codec rejects malformed/noncanonical
@@ -28,6 +40,18 @@ text and legacy integer arrays; decoding recovers arbitrary original bytes.
 Captured-source fingerprints still bind decoded bytes, not their encoding.
 Duplicate paths and unknown record fields remain errors. Public conflict/report
 `MergeValue` byte arrays are unchanged; this is not a second record grammar.
+
+Native normalization accelerates bounded, unique-key JSON documents using the same
+typed schema. Duplicate keys, resource-limit violations and unsupported scalar
+semantics fall back to the original YAML parser, preserving its diagnostics.
+YAML merge fields borrow unchanged indexed values; immutable-field semantic
+comparisons are memoized, and three-way name unions do not allocate per record.
+Historical unknown fields remain opaque even when their spelling resembles a
+native reference. These optimizations do not remove syntax or reference checks.
+
+Flow-map child insertion uses quoted keys, retaining valid JSON when all existing
+and incoming fragments are JSON. Native SHA-256 uses RustCrypto's guarded CPU
+dispatch and software fallback; digest bytes and durable rechecks are unchanged.
 
 ## Boundaries and remaining gates
 

@@ -2128,3 +2128,60 @@ fn ancestor_rename_archives_colliding_display_paths_with_exact_per_entry_owner_p
     assert_eq!(colliding.len(), 2);
     assert_ne!(colliding[0]["from_selector"], colliding[1]["from_selector"]);
 }
+
+#[test]
+fn cached_headings_cannot_authorize_revision_references_after_direct_source_mutation() {
+    const CLAIMS: &str = "logic/claims.md";
+    let original = "# Claims\n\n## C01: Claim\n- **Statement**: Original statement\n";
+    let (_root, mut working) = make_working(&[(CLAIMS, original)]);
+    let revision = json!({"entry":"C01","field":"Statement"});
+    write::logic::validate_revision_entry(&working, "2026-10-01_001", 1, &revision).unwrap();
+    working.base.files.get_mut(CLAIMS).unwrap().bytes = original.replace("C01", "C02").into_bytes();
+    assert_eq!(
+        write::logic::validate_revision_entry(&working, "2026-10-01_001", 1, &revision)
+            .unwrap_err()
+            .code,
+        "write.reference"
+    );
+    working.base.files.get_mut(CLAIMS).unwrap().bytes = original.as_bytes().to_vec();
+    write::logic::validate_revision_entry(&working, "2026-10-01_001", 1, &revision).unwrap();
+    working
+        .files
+        .insert(CLAIMS.into(), original.replace("C01", "C03").into_bytes());
+    assert_eq!(
+        write::logic::validate_revision_entry(&working, "2026-10-01_001", 1, &revision)
+            .unwrap_err()
+            .code,
+        "write.reference"
+    );
+}
+
+#[test]
+fn cached_claim_redirect_cannot_authorize_a_tampered_owning_revision() {
+    let source = "# Claims\n\n## C01: Original\n- **Statement**: Exact old statement\n- **Status**: hypothesis\n";
+    let (_root, mut working) = make_working(&[
+        ("logic/claims.md", source),
+        ("trace/exploration_tree.yaml", "tree: []\n"),
+    ]);
+    own_turn(&mut working, "2026-10-01_001", "2026-10-01T10:01");
+    rename(
+        &mut working,
+        "logic/claims.md",
+        &["Claims", "C01: Original"],
+        "C02",
+        1,
+    );
+    assert_eq!(
+        write::logic::claim_redirects_from_source(&working).unwrap()["C01"],
+        "C02"
+    );
+    const OWNER: &str = "trace/sessions/2026-10-01_001.yaml";
+    let tampered = working
+        .text(OWNER)
+        .unwrap()
+        .replace("Exact old statement", "Tampered statement");
+    working.files.insert(OWNER.into(), tampered.into_bytes());
+    let error = write::logic::claim_redirects_from_source(&working).unwrap_err();
+    assert_eq!(error.code, "write.redirect");
+    assert!(error.message.contains("exact owning revision"));
+}

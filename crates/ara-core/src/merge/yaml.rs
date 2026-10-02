@@ -14,9 +14,10 @@ use crate::write::{
 };
 use serde_json::{Value, json};
 use std::{
+    borrow::Cow,
     collections::{BTreeMap, BTreeSet},
     ops::Range,
-    sync::Arc,
+    sync::{Arc, OnceLock},
 };
 
 const INDEX: &str = "trace/sessions/session_index.yaml";
@@ -34,6 +35,13 @@ pub(crate) struct Inventory {
     pub paths: BTreeSet<String>,
     docs: BTreeMap<String, Document>,
     records: BTreeMap<String, Record>,
+}
+impl Inventory {
+    pub(crate) fn retain_preimages(&self, working: &mut WorkingArtifact) {
+        for (path, document) in &self.docs {
+            working.retain_base_yaml(path, &document.text, Arc::clone(&document.parsed));
+        }
+    }
 }
 struct Document {
     text: String,
@@ -90,6 +98,37 @@ struct Field {
     span: Range<usize>,
     raw: String,
     column: usize,
+    semantic: OnceLock<Option<Value>>,
+}
+impl Field {
+    fn semantic(&self) -> Option<&Value> {
+        self.semantic
+            .get_or_init(|| self.node.to_json().ok())
+            .as_ref()
+    }
+}
+fn field_names<'a>(
+    a: &'a BTreeMap<String, Field>,
+    b: &'a BTreeMap<String, Field>,
+    c: &'a BTreeMap<String, Field>,
+) -> impl Iterator<Item = &'a String> {
+    let mut keys = [
+        a.keys().peekable(),
+        b.keys().peekable(),
+        c.keys().peekable(),
+    ];
+    std::iter::from_fn(move || {
+        let name = keys
+            .iter_mut()
+            .filter_map(|keys| keys.peek().copied())
+            .min()?;
+        for keys in &mut keys {
+            if keys.peek().is_some_and(|key| *key == name) {
+                keys.next();
+            }
+        }
+        Some(name)
+    })
 }
 fn kind(path: &str) -> Option<Kind> {
     Some(match path {
@@ -150,6 +189,7 @@ fn fields_except(
                     } else {
                         value.start - line_start(text, value.start)
                     },
+                    semantic: OnceLock::new(),
                 },
             )
             .is_some()
@@ -726,8 +766,9 @@ fn known_row(name: &str) -> bool {
 fn equal(a: Option<&Field>, b: Option<&Field>, name: &str) -> bool {
     match (a, b) {
         (None, None) => true,
-        (Some(a), Some(b)) if known(name) => match (a.node.to_json(), b.node.to_json()) {
-            (Ok(a), Ok(b)) => a == b,
+        (Some(a), Some(b)) if a.raw == b.raw && a.node.same_source_value(&b.node) => true,
+        (Some(a), Some(b)) if known(name) => match (a.semantic(), b.semantic()) {
+            (Some(a), Some(b)) => a == b,
             _ => a.raw == b.raw,
         },
         (Some(a), Some(b)) => a.node.same_source_value(&b.node),
@@ -740,8 +781,9 @@ fn equal_mapped(a: Option<&Field>, b: Option<&Field>, name: &str, map: &Identity
     }
     match (a, b) {
         (None, None) => true,
-        (Some(a), Some(b)) => match (a.node.to_json(), b.node.to_json()) {
-            (Ok(a), Ok(b)) => rewrite::references_equal(&a, &b, map),
+        (Some(a), Some(b)) if a.raw == b.raw && a.node.same_source_value(&b.node) => true,
+        (Some(a), Some(b)) => match (a.semantic(), b.semantic()) {
+            (Some(a), Some(b)) => rewrite::references_equal(a, b, map),
             _ => a.raw == b.raw,
         },
         _ => false,
@@ -1241,12 +1283,7 @@ fn protected(
             );
             bad = true;
         }
-        let names: BTreeSet<_> = b
-            .fields
-            .keys()
-            .chain(o.fields.keys())
-            .chain(t.fields.keys())
-            .collect();
+        let names = field_names(&b.fields, &o.fields, &t.fields);
         for name in names {
             if doc.kind == Kind::Session
                 && matches!(name.as_str(), "summary" | "last_turn" | "turn_count")
@@ -1280,7 +1317,7 @@ fn protected(
             let bf = if key == "opaque"
                 || doc.kind == Kind::Mutations && matches!(name.as_str(), "before" | "after")
             {
-                b.fields.get(name).cloned()
+                b.fields.get(name).map(Cow::Borrowed)
             } else {
                 mapped_field(
                     b.fields.get(name),
@@ -1301,7 +1338,7 @@ fn protected(
             } else {
                 equal_mapped(b.fields.get(name), t.fields.get(name), key, map)
             };
-            if !equal_mapped(bf.as_ref(), o.fields.get(name), key, map) || !same_source {
+            if !equal_mapped(bf.as_deref(), o.fields.get(name), key, map) || !same_source {
                 report_field(
                     report,
                     o,
@@ -1560,19 +1597,19 @@ fn selector_value(
     output.push_str(&raw[at..]);
     Ok(output)
 }
-fn mapped_field(
-    field: Option<&Field>,
+fn mapped_field<'a>(
+    field: Option<&'a Field>,
     path: &str,
     id: &str,
     name: &str,
     map: &IdentityMap,
     report: &mut MergeReport,
     selector: Option<&YamlNode>,
-) -> Result<Option<Field>, MergeError> {
+) -> Result<Option<Cow<'a, Field>>, MergeError> {
     field
         .map(|f| {
             if !known(name) && !matches!(name, "session" | "historical_references") {
-                return Ok(f.clone());
+                return Ok(Cow::Borrowed(f));
             }
             let historical =
                 path == "trace/logic_mutations.yaml" && matches!(name, "from" | "from_selector");
@@ -1595,7 +1632,7 @@ fn mapped_field(
                 rewrite_field(&f.raw, &f.node, path, id, name, map, report)?
             };
             if raw == f.raw {
-                return Ok(f.clone());
+                return Ok(Cow::Borrowed(f));
             }
             let source = if matches!(f.node.kind, YamlKind::Mapping(_) | YamlKind::Sequence(_))
                 && !f.node.flow
@@ -1617,12 +1654,13 @@ fn mapped_field(
                 .get("value")?
                 .ok_or_else(|| MergeError::content("merge.yaml", "missing rewritten value"))?
                 .clone();
-            Ok(Field {
+            Ok(Cow::Owned(Field {
                 node,
                 span: f.span.clone(),
                 raw,
                 column: f.column,
-            })
+                semantic: OnceLock::new(),
+            }))
         })
         .transpose()
 }
@@ -1640,9 +1678,9 @@ fn merge_mutable(
     let incoming = mapped_field(t.fields.get(name), &o.path, id, name, map, report, None)?;
     let mut quiet = quiet_report(report);
     let prior = mapped_field(b.fields.get(name), &o.path, id, name, map, &mut quiet, None)?;
-    let bf = prior.as_ref();
+    let bf = prior.as_deref();
     let of = o.fields.get(name);
-    let tf = incoming.as_ref();
+    let tf = incoming.as_deref();
     if equal_mapped(bf, tf, name, map) || equal_mapped(of, tf, name, map) {
         return Ok(());
     }
@@ -1677,13 +1715,12 @@ fn append_set(
         r.fields
             .get(name)
             .map(|f| {
-                f.node.to_json().and_then(|v| {
-                    v.as_array().cloned().ok_or_else(|| {
-                        crate::write::WriteError::semantic(
-                            "merge.yaml",
-                            "append field requires sequence",
-                        )
-                    })
+                f.node.to_json().and_then(|value| match value {
+                    Value::Array(rows) => Ok(rows),
+                    _ => Err(crate::write::WriteError::semantic(
+                        "merge.yaml",
+                        "append field requires sequence",
+                    )),
                 })
             })
             .transpose()
@@ -1697,12 +1734,18 @@ fn append_set(
     let mapped_base = mapped_field(b.fields.get(name), &o.path, id, name, map, &mut quiet, None)?
         .map(|f| f.node.to_json())
         .transpose()?
-        .and_then(|value| value.as_array().cloned())
+        .and_then(|value| match value {
+            Value::Array(rows) => Some(rows),
+            _ => None,
+        })
         .unwrap_or_default();
     let mapped_theirs = mapped_field(t.fields.get(name), &o.path, id, name, map, &mut quiet, None)?
         .map(|f| f.node.to_json())
         .transpose()?
-        .and_then(|value| value.as_array().cloned())
+        .and_then(|value| match value {
+            Value::Array(rows) => Some(rows),
+            _ => None,
+        })
         .unwrap_or_default();
     let prefix = |candidate: &[Value], base: &[Value]| {
         candidate.len() >= base.len()
@@ -1802,7 +1845,7 @@ fn promotion(
     for name in PROMOTION {
         if let Some(field) = mapped_field(t.fields.get(name), &o.path, id, name, map, report, None)?
         {
-            incoming.insert(name.to_owned(), field);
+            incoming.insert(name.to_owned(), field.into_owned());
         }
     }
     let tuple = |r: &BTreeMap<String, Field>| -> Result<Value, MergeError> {
@@ -1820,7 +1863,7 @@ fn promotion(
         if let Some(field) =
             mapped_field(b.fields.get(name), &o.path, id, name, map, &mut quiet, None)?
         {
-            prior.insert(name.to_owned(), field);
+            prior.insert(name.to_owned(), field.into_owned());
         }
     }
     let bv = tuple(&prior)?;
@@ -2035,22 +2078,67 @@ fn row_equal(
     if !matches!(a.kind, YamlKind::Mapping(_)) || !matches!(b.kind, YamlKind::Mapping(_)) {
         return Ok(a.to_json()? == b.to_json()?);
     }
-    let af = fields(atext, a)?;
-    let bf = fields(btext, b)?;
-    let names: BTreeSet<_> = af.keys().chain(bf.keys()).collect();
-    Ok(names.into_iter().all(|name| {
-        equal_mapped(
-            af.get(name),
-            bf.get(name),
-            if name == "id" {
-                "target"
-            } else if known_row(name) {
-                name
+    fn indexed_fields<'a>(
+        text: &'a str,
+        node: &'a YamlNode,
+    ) -> Result<BTreeMap<&'a str, (&'a YamlNode, &'a str)>, MergeError> {
+        let mut fields = BTreeMap::new();
+        for (key, value) in node.mapping()? {
+            let name = key
+                .scalar()
+                .ok_or_else(|| MergeError::content("merge.yaml", "complex YAML entry key"))?;
+            if name == "children" {
+                continue;
+            }
+            let end = if node.flow {
+                value.end
             } else {
-                "opaque"
-            },
-            map,
-        )
+                field_range(text, node, name)?
+                    .ok_or_else(|| MergeError::content("merge.yaml", "missing indexed field"))?
+                    .end
+                    .max(value.end)
+            };
+            if fields
+                .insert(name, (value, &text[value.start..end]))
+                .is_some()
+            {
+                return Err(MergeError::content(
+                    "merge.yaml",
+                    format!("duplicate entry field {name}"),
+                ));
+            }
+        }
+        Ok(fields)
+    }
+    let af = indexed_fields(atext, a)?;
+    let bf = indexed_fields(btext, b)?;
+    if af.len() != bf.len() {
+        return Ok(false);
+    }
+    Ok(af.into_iter().all(|(name, (a, araw))| {
+        let Some(&(b, braw)) = bf.get(name) else {
+            return false;
+        };
+        if araw == braw && a.same_source_value(b) {
+            return true;
+        }
+        let key = if name == "id" {
+            "target"
+        } else if known_row(name) {
+            name
+        } else {
+            "opaque"
+        };
+        if !known(key) {
+            return a.same_source_value(b);
+        }
+        match (a.to_json(), b.to_json()) {
+            (Ok(a), Ok(b)) if structured_field("", key) && key != "concepts" => {
+                rewrite::references_equal(&a, &b, map)
+            }
+            (Ok(a), Ok(b)) => a == b,
+            _ => araw == braw,
+        }
     }))
 }
 fn occurrence_ordinal(
@@ -2218,12 +2306,7 @@ fn session_history(
             append_values(edits, od, &or, name, &incoming)?;
         }
     }
-    let names: BTreeSet<_> = br
-        .fields
-        .keys()
-        .chain(or.fields.keys())
-        .chain(tr.fields.keys())
-        .collect();
+    let names = field_names(&br.fields, &or.fields, &tr.fields);
     for name in names {
         if name == "session" || HISTORY.contains(&name.as_str()) {
             continue;
@@ -2330,12 +2413,7 @@ pub(crate) fn apply(
             let destination = format!("index:{}", map.get(source).map_or(source, String::as_str));
             if let (Some(o), Some(t)) = (ours.records.get(&destination), theirs.records.get(native))
             {
-                let names: BTreeSet<_> = b
-                    .fields
-                    .keys()
-                    .chain(o.fields.keys())
-                    .chain(t.fields.keys())
-                    .collect();
+                let names = field_names(&b.fields, &o.fields, &t.fields);
                 for name in names {
                     if matches!(
                         name.as_str(),
@@ -2669,7 +2747,7 @@ pub(crate) fn apply(
                     let slot = edits
                         .appends
                         .entry((destination.clone(), at))
-                        .or_insert((at..at, ", children: []".into()));
+                        .or_insert((at..at, ", \"children\": []".into()));
                     let separator = if slot.1.ends_with("[]") { "" } else { ", " };
                     slot.1.pop();
                     slot.1.push_str(separator);
@@ -2967,7 +3045,7 @@ fn replace_conflict(
             ));
         }
     }
-    let inv = inventory(&candidate_snapshot(working))?;
+    let inv = inventory_cached(&candidate_snapshot(working), working)?;
     let (doc, entry) = located_record(&inv, conflict)?;
     let promotion = (doc.kind == Kind::Observations && conflict.field == "$promotion")
         .then(|| promotion_bytes(&entry.fields));
@@ -3128,7 +3206,7 @@ pub(crate) fn restore_base(
                 "original structural parent cannot be established from captured evidence",
             ));
         }
-        let inv = inventory(&candidate_snapshot(working))?;
+        let inv = inventory_cached(&candidate_snapshot(working), working)?;
         let entry = inv.records.get(&conflict.selector).ok_or_else(|| {
             MergeError::content(
                 "merge.unsafe_restoration",
@@ -3163,7 +3241,7 @@ pub(crate) fn verify_current(
     working: &WorkingArtifact,
     conflict: &MergeConflict,
 ) -> Result<(), MergeError> {
-    let inv = inventory(&candidate_snapshot(working))?;
+    let inv = inventory_cached(&candidate_snapshot(working), working)?;
     let current = match &conflict.locator {
         ConflictLocator::Yaml { keys, .. } => {
             if keys.first().is_some_and(|s| s == "comments") {

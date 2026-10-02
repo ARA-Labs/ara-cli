@@ -1529,3 +1529,17 @@ fn accepted_writer_parent_rename_keeps_colliding_literal_vectors_readable_and_me
         fingerprint(&imported)
     );
 }
+
+#[test]
+fn inventory_errors_keep_input_precedence_for_small_and_large_captures() {
+    let tree = "trace/exploration_tree.yaml";
+    for padding in [0, 1024 * 1024] {
+        let comment = format!("# {}\n", "a".repeat(padding));
+        let mut base = snapshot(&[(tree, &format!("tree: []\n{comment}"))]);
+        base.files.get_mut(tree).unwrap().bytes.push(0xff);
+        let ours = snapshot(&[(tree, &format!("tree: ]\n{comment}"))]);
+        let theirs = snapshot(&[(tree, &format!("tree: []\n{comment}"))]);
+        let error = plan_merge(&base, &ours, &theirs, &options()).err().unwrap();
+        assert_eq!(error.code, "merge.encoding");
+    }
+}
