@@ -73,6 +73,22 @@ Regenerate manifests with the new parser to acquire `image` fields. Old no-image
 
 Native tests cover precedence, pairing, raster-only linkage, compatibility, rejected declarations, directories, ambiguity, and distinct indexed formats. HTTP tests cover local/hub bytes, MIME, ranges, conditionals, traversal, and symlinks. Real browser tests decode fixture PNGs, including punctuation filenames and a wide image, and cover fallback/refetch, captions, retained tables, no-image rendering, and narrow geometry. Actual embedded, source-assets, hub, and nested API-free static smoke runs decoded a 480×200 PNG and retained both Markdown tables; desktop and 375px checks found no page-level horizontal overflow.
 
+## Screenshots
+
+These captures use synthetic data in an artifact served by `ara serve` with the embedded viewer. The desktop viewport is 1280px wide; the mobile viewport is 375px wide. Images are cropped to the relevant detail block.
+
+### Images and Markdown in the same result block
+
+The image-bearing figure keeps its caption and supporting table. The same block shows a Markdown-only figure and styled headings, a list, a blockquote and a code block.
+
+![Result block with a Markdown-only figure, a local training-loss image, its caption, and supporting Markdown](images/viewer/figure-markdown-desktop.png)
+
+### A figure on mobile
+
+The image scales to fit the narrow viewport, and the caption wraps below it.
+
+![Training-loss figure and wrapped caption in a 375px viewport](images/viewer/figure-mobile.png)
+
 ## Next Steps
 
 Keep referenced images within the evidence root, rebuild the viewer for the chosen static hosting prefix, and copy the files when deploying exported JSON. Re-run the native/HTTP/browser suites and embedded freshness check when changing image discovery, URL resolution, or serving guards.
