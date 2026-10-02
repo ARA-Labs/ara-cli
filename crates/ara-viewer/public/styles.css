@@ -1278,10 +1278,7 @@ button.chip-jump:hover {
   padding: 0.25rem 0;
 }
 
-/* ── Inert richer blocks (pending T-REAL-CORPUS schema widening) ──────────────
-   These CSS classes are styled now so the skin is ready when data fields land.
-   No markup is emitted for these until their schema fields exist.
-   ─────────────────────────────────────────────────────────────────────────── */
+/* Rich detail blocks. */
 
 /* Blockquote / pull-quote. */
 .quote {

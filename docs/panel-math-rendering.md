@@ -44,7 +44,7 @@ KaTeX's auto-render helper would mutate panel text owned by Leptos and still req
 
 ## Tradeoffs
 
-The wasm gate measures only wasm, not the added renderer, styles or fonts. Lazy loading avoids those asset requests when no math is mounted, but the packaged distribution and embedded binary grow. The loader also depends on the pinned KaTeX `_parse` API to identify denied commands before conditional output can hide them. Updating KaTeX requires checking that API, the invalid-color sentinel and the nested trust-denial tests; version/API mismatches produce visible source fallback.
+The wasm gate measures only wasm, not the added renderer, styles or fonts. Lazy loading avoids those asset requests when no math is mounted, but the packaged distribution and embedded binary grow. The loader also depends on the pinned KaTeX `__parse` API to identify denied commands before conditional output can hide them. Updating KaTeX requires checking that API, the invalid-color sentinel and the nested trust-denial tests; version/API mismatches produce visible source fallback.
 
 The final `wasm-release` distribution at workspace version `0.1.21` has these measured byte counts. Brotli uses quality 11; distribution totals sum independently compressed files and are not a measured browser transfer. The whole package includes all three upstream font formats and license/provenance records, while a browser requests only the font faces and formats it needs.
 
@@ -56,7 +56,7 @@ The final `wasm-release` distribution at workspace version `0.1.21` has these me
 | KaTeX renderer JavaScript | 272,868 | 63,029 |
 | KaTeX stylesheet | 24,793 | 2,911 |
 | Vendor files excluding `provenance.json` | 1,424,262 | 919,130 |
-| Entire viewer distribution, 72 files | 2,291,721 | 1,188,687 |
+| Entire viewer distribution, 72 files | 2,291,255 | 1,188,585 |
 
 The unmodified release comes from [KaTeX 0.19.0](https://github.com/KaTeX/KaTeX/releases/tag/v0.19.0), with archive SHA-256 `966d9c85655081cca9a57e8a1d667f13f96b1c85c3f93655a8acef74c4ce3875`. `provenance.json` records the upstream URLs and shipped-file hashes. All 60 referenced TTF/WOFF/WOFF2 binaries retain their upstream bytes and name-table metadata; `font-notices.json` records their individual copyright/license notices. `LICENSE-MIT.txt` covers the renderer, and `OFL.txt` preserves the fonts' applicable SIL Open Font License text. No font is renamed or subsetted, and auto-render/contrib extensions are not shipped.
 
