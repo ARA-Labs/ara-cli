@@ -47,6 +47,7 @@ use crate::lint::{FixCandidate, LintDiagnostic, LintFile, LintReport, LintRuleId
 use crate::manifest::{Node, NodeFields, is_canonical_id};
 use crate::parse::{ParseOutcome, parse_sources_detailed};
 use crate::report::Diagnostic;
+use crate::rules::RuleCode;
 
 /// Safety backstop on the fixpoint loop. Each iteration applies or discards
 /// exactly one candidate; applies only ever *reduce* the remaining drift, so a
@@ -118,13 +119,22 @@ impl FixOutcome {
 /// after its edits pass, so a rejected fix never corrupts a source file. Running
 /// `fix_dir` twice is a no-op the second time (idempotent).
 pub fn fix_dir(dir: &Path) -> FixOutcome {
+    fix_dir_with(dir, |_| true)
+}
+
+/// [`fix_dir`] restricted to the rules `allow` accepts. A rule `allow` rejects is
+/// never applied and is not reported in [`FixOutcome::skipped`] either (it was
+/// not a candidate); its drift simply stays in the source and in
+/// [`FixOutcome::remaining`]. `ara check` uses this to honor the `select` /
+/// `ignore` / `fixable` / `unfixable` keys of `.ara-check.toml`. Native only.
+pub fn fix_dir_with(dir: &Path, allow: impl Fn(RuleCode) -> bool) -> FixOutcome {
     let tree_path = dir.join("trace/exploration_tree.yaml");
     let claims_path = dir.join("logic/claims.md");
     let orig_tree = std::fs::read_to_string(&tree_path).unwrap_or_default();
     let orig_claims = std::fs::read_to_string(&claims_path).ok();
 
     let mut applier = Applier::new(orig_tree.clone(), orig_claims.clone());
-    applier.run();
+    applier.run(&allow);
 
     // Write back only the files that actually changed. A successful write is
     // recorded in `changed_files`; a failed write is recorded in `errors` so the
@@ -153,7 +163,7 @@ pub fn fix_dir(dir: &Path) -> FixOutcome {
     let skipped = remaining
         .diagnostics()
         .iter()
-        .filter(|d| d.fixable)
+        .filter(|d| d.fixable && allow(d.rule.code()))
         .map(|d| SkippedFix {
             rule: d.rule,
             file: d.file,
@@ -212,14 +222,17 @@ impl Applier {
         }
     }
 
-    /// Runs the detect → apply/discard → re-detect fixpoint to completion.
-    fn run(&mut self) {
+    /// Runs the detect → apply/discard → re-detect fixpoint to completion,
+    /// considering only candidates whose rule `allow` accepts.
+    fn run(&mut self, allow: &dyn Fn(RuleCode) -> bool) {
         for _ in 0..MAX_ITERS {
             let report = check_sources(&self.tree, self.claims.as_deref());
             let Some(diag) = report
                 .diagnostics()
                 .iter()
-                .find(|d| d.fixable && d.fix.is_some() && !self.is_failed(d))
+                .find(|d| {
+                    d.fixable && d.fix.is_some() && allow(d.rule.code()) && !self.is_failed(d)
+                })
                 .cloned()
             else {
                 break;
@@ -1805,5 +1818,47 @@ root:
             }
             other => panic!("expected DeadEnd, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn fix_dir_with_applies_only_allowed_rules() {
+        // Same drift as above, but ARA001 is disallowed: only the ARA002 rename
+        // lands, the root dialect stays, and the disallowed rule is not reported
+        // as skipped (it was never a candidate).
+        let yaml = "\
+root:
+  id: N01
+  type: question
+  children:
+    - id: N02
+      type: dead_end
+      reason: diverged
+";
+        let dir = artifact(yaml, None);
+        let outcome = fix_dir_with(dir.path(), |code| code != RuleCode::RootDialect);
+
+        let rules: Vec<LintRuleId> = outcome.applied.iter().map(|a| a.rule).collect();
+        assert_eq!(rules, vec![LintRuleId::DeadEndReasonAlias]);
+        assert!(outcome.skipped.is_empty(), "{:?}", outcome.skipped);
+        let remaining: Vec<LintRuleId> = outcome
+            .remaining
+            .diagnostics()
+            .iter()
+            .map(|d| d.rule)
+            .collect();
+        assert_eq!(remaining, vec![LintRuleId::RootDialect]);
+        let tree = read_tree(&dir);
+        assert!(tree.starts_with("root:"), "{tree}");
+        assert!(tree.contains("why_failed: diverged"), "{tree}");
+    }
+
+    #[test]
+    fn fix_dir_with_nothing_allowed_is_a_noop() {
+        let yaml = "tree:\n  - id: N01\n    type: dead_end\n    reason: diverged\n";
+        let dir = artifact(yaml, None);
+        let outcome = fix_dir_with(dir.path(), |_| false);
+        assert!(outcome.is_noop());
+        assert!(outcome.skipped.is_empty());
+        assert_eq!(read_tree(&dir), yaml);
     }
 }

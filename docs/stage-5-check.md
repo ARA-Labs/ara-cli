@@ -51,7 +51,7 @@ wired into `parse_dir`, so `validate`'s output is unchanged.
 ## Command surface
 
 ```
-ara check <dir> [--fix] [--strict] [--json]
+ara check <dir> [--fix] [--strict] [--json] [--config <path> | --no-config]
 ```
 
 | flag       | behavior |
@@ -60,6 +60,8 @@ ara check <dir> [--fix] [--strict] [--json]
 | `--fix`    | Apply the fixable rules to the source files in place, re-check, and report what changed. Exit reflects the **post-fix** state. |
 | `--strict` | Treat remaining warnings as failure (mirrors `validate --strict`). |
 | `--json`   | Machine-readable composed report (for CI annotations). |
+| `--config <path>` | Use this config file instead of discovering `.ara-check.toml` (see [Configuration](#configuration-ara-checktoml)). |
+| `--no-config` | Ignore any `.ara-check.toml`; use the built-in rule settings. |
 
 ## The two diagnostic layers
 
@@ -192,7 +194,8 @@ parsing when the tree file is unreadable, so in practice only library callers of
 - The registry is generated from one macro table, so each rule's code, name,
   layer, default severity, fixability, and summary live on one line.
   `RuleCode::ALL` enumerates every rule in code order; `"ARA107".parse::<RuleCode>()`
-  / `RuleCode::from_code` look one up. Per-rule config (#40) can key off these.
+  / `RuleCode::from_code` look one up. [Per-rule config](#configuration-ara-checktoml)
+  keys off these.
 - A test triggers every validate-layer diagnostic site and asserts the set of
   codes it sees equals every `Validate`-layer entry in `RuleCode::ALL`, so a new
   rule cannot ship without a case that fires it.
@@ -226,15 +229,108 @@ idempotence backstop, so a second `--fix` is a no-op.
 These fixes rewrite source files only. They do not modify or regenerate Hub
 output, static `trajectory.html`, or viewer assets.
 
+## Configuration (`.ara-check.toml`)
+
+Added for issue [#40](https://github.com/ARA-Labs/ara-cli/issues/40). An
+optional TOML file tunes which rules run, which fixes `--fix` may apply, and at
+what severity each rule is reported. No file means the built-in behavior above,
+byte-for-byte. The code lives in
+[`crates/ara-cli/src/check_config.rs`](../crates/ara-cli/src/check_config.rs);
+`ara validate` never reads it.
+
+### Discovery
+
+1. `--no-config` — no file is read.
+2. `--config <path>` — exactly that file (it must exist).
+3. Otherwise `ara check` looks for `.ara-check.toml` in the artifact directory,
+   then each parent directory up to and including the git repository root (the
+   first ancestor that contains `.git`). The nearest file wins; files are not
+   merged. If the artifact is not inside a git repository, only the artifact
+   directory itself is checked, so a stray file in a home or temp directory is
+   never picked up.
+
+A config entry that cannot be read or is invalid is an internal failure
+(exit `2`), reported on stderr with the file path before any fixes. Discovery
+does not skip dangling or cyclic symlinks, directories, or inaccessible entries
+to fall back to an ancestor config or built-in settings.
+
+### Keys
+
+Every key names rules by **selector**: a full rule code (`ARA107`) or a code
+prefix (`ARA` followed by fewer than three digits): `ARA1` matches every
+`ARA1xx`, `ARA21` matches `ARA210`–`ARA215`, and `ARA` matches every rule. A
+selector that is malformed or matches no rule (`ARA999`, `ARA3`, `ara107`) is an
+error, and so is any unknown key, so a typo can never silently turn a check
+off.
+
+| key | type | default | meaning |
+| --- | ---- | ------- | ------- |
+| `select` | list of selectors | `["ARA"]` | rules to report |
+| `ignore` | list of selectors | `[]` | rules not to report |
+| `fixable` | list of selectors | `["ARA"]` | rules `--fix` may apply |
+| `unfixable` | list of selectors | `[]` | rules `--fix` must not apply |
+| `[severity]` | table: selector → `"error"` \| `"warning"` | each rule's default | reported severity |
+
+How selectors combine (the `ruff` convention):
+
+- **`select` / `ignore`.** For each rule, the longest matching selector across
+  both lists decides. If the two lists tie, `ignore` wins. A rule with no
+  matching `select` entry is off, so `select = []` disables everything.
+  Example: `select = ["ARA", "ARA211"]` plus `ignore = ["ARA2"]` turns off
+  every warning except `ARA211`.
+- **`fixable` / `unfixable`.** The same rule. This only narrows the built-in
+  set: a rule without a fix (`ARA1xx`, `ARA2xx`) never becomes fixable.
+- **`[severity]`.** The longest matching key wins (`ARA2 = "error"` plus
+  `ARA207 = "warning"` promotes every warning except `ARA207`).
+
+### Effect on output and exit code
+
+- **Disabled rule.** Its findings are dropped from the human output, from
+  `--json`, and from the summary counts. They never affect the exit code, and
+  `--fix` does not apply them.
+- **Severity override.** A validate finding is reported at its new severity.
+  It prints as `ARA201 error: …`, and in `--json` it moves between
+  `validate.errors` and `validate.warnings` with an updated `severity` field.
+  A format-lint finding prints its overridden severity
+  (`ARA002 warning [fixable]: …`), and its `--json` entry gains a `severity`
+  key. That key is absent when the rule keeps its default (`error`), so the
+  no-config JSON is unchanged.
+- **Unfixable rule.** It is still reported, but without `[fixable]`, with
+  `"fixable": false` and `"fix": null` in `--json`. `--fix` leaves it in
+  place and does not list it as `skipped`.
+- **Exit code.** The run fails (exit `1`) when any reported finding has
+  severity `error`, or under `--strict` when any finding remains at all.
+  Format-lint rules default to `error`, which is why an unfixed fixable issue
+  fails the run by default. Demoting one to `warning` lets the run pass unless
+  `--strict` is set.
+- **Summary counts.** `errors` / `warnings` count every non-fixable finding at
+  that severity: validate findings plus any `unfixable` lint finding. `fixable`
+  counts the lint findings `--fix` may still apply. When a config was loaded,
+  the `--json` report also carries a top-level `config` key with its path.
+
+### Example
+
+```toml
+# .ara-check.toml (at the repo root or in the ARA directory)
+ignore    = ["ARA212"]       # related-work entries without a DOI are fine here
+unfixable = ["ARA001"]       # report `root:` but let a human migrate it
+
+[severity]
+ARA2   = "error"             # treat every warning as an error...
+ARA207 = "warning"           # ...except unresolved claim refs (no claims.md yet)
+```
+
 ## Exit codes
 
-- `0` — clean: no errors and no unfixed fixable issues (and, under `--strict`, no
-  warnings).
-- `1` — errors present, **or** fixable issues remain unfixed. In non-`--fix` mode
-  this is the "run `--fix`" signal (like `ruff check` without `--fix`).
+- `0` — clean: no error-severity findings (and, under `--strict`, no warnings).
+  With no config, this means no errors and no unfixed fixable issues.
+- `1` — error-severity findings present. By default that is any validate error
+  **or** any unfixed fixable issue. In non-`--fix` mode this is the "run `--fix`"
+  signal (like `ruff check` without `--fix`). A [config](#configuration-ara-checktoml)
+  can change which findings count as errors.
 - `2` — internal failure: target missing / not a directory / unreadable
-  `trace/exploration_tree.yaml`, a JSON serialization error, or a failed `--fix`
-  write.
+  `trace/exploration_tree.yaml`, an unreadable or invalid config file, a JSON
+  serialization error, or a failed `--fix` write.
 
 ## The reusable GitHub Action
 
@@ -284,7 +380,6 @@ release-binary path the action uses.
 
 - **A slim `ara`-only Docker image** as a CI fast-path (skip the install step,
   like `ruff`/`uv` ship). Planned, not yet built.
-- **Per-rule config via `.ara-check.toml`** — tracked as issue
-  [#40](https://github.com/ARA-Labs/ara-cli/issues/40). Every finding already
-  carries a stable [rule code](#rule-codes) to key it off; the rule set and
-  severities are hardcoded until then.
+- **Inline suppression comments** (e.g. a per-line `# ara: noqa ARA201`).
+  [`.ara-check.toml`](#configuration-ara-checktoml) works at the level of the
+  whole project; per-finding suppression is not implemented.

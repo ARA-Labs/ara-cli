@@ -141,6 +141,20 @@ Fixes are surgical text edits guarded by a re-parse safety check, so a source
 file is never left corrupted and `--fix` is idempotent. See
 [`docs/stage-5-check.md`](docs/stage-5-check.md) for the design.
 
+Every finding carries a stable rule code. An optional `.ara-check.toml` (in the
+ARA directory or at the repo root) turns rules on or off and changes their
+severity:
+
+```toml
+ignore = ["ARA212"]          # by code, or by prefix: "ARA2" = every ARA2xx
+unfixable = ["ARA001"]       # report it, but don't let --fix rewrite it
+[severity]
+ARA201 = "error"             # promote a warning
+```
+
+See [Configuration](docs/stage-5-check.md#configuration-ara-checktoml) for
+discovery and the full key reference.
+
 ### Gate an ARA in CI
 
 Drop the reusable composite action into a repo that holds an ARA to fail CI when
