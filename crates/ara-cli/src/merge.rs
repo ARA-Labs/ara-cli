@@ -263,10 +263,11 @@ pub fn run(root: &Path, args: &MergeArgs) -> Result<Value, AgentError> {
         if should_commit && duplicate_check && validation.candidate_manifest.nodes.len() >= 1000 {
             std::thread::scope(|scope| {
                 let worker = scope.spawn(advice);
-                let commit_ms = commit()?;
-                let (candidates, advisory_ms) = worker
-                    .join()
-                    .unwrap_or_else(|panic| std::panic::resume_unwind(panic));
+                let committed = commit();
+                let advised = worker.join();
+                let commit_ms = committed?;
+                let (candidates, advisory_ms) =
+                    advised.unwrap_or_else(|panic| std::panic::resume_unwind(panic));
                 Ok::<_, AgentError>((commit_ms, candidates, advisory_ms))
             })?
         } else {
