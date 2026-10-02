@@ -1,7 +1,8 @@
 # Plan: agents read and write an ARA through `ara`, not through files
 
-Status: **draft for review**. Covers every phase. Each phase gets its own
-detailed plan (or a section update here) before its code is written.
+Status: **draft for review**. Covers every phase. Concrete PR engineering
+plans and their dependencies are in [the rollout index](agent-cli-interface/README.md).
+Each numbered plan requires review before its code is written.
 
 ## Summary
 
@@ -134,9 +135,11 @@ follows the same guard `--fix` uses:
 the-ara-of-ara, including process start, and in under 1 s on a synthetic ARA
 with 10,000 nodes. Tests enforce both numbers.
 
-**Versioning.** Each phase ships as one or more PRs. Each PR bumps the patch
-version and adds a CHANGELOG entry, per `CLAUDE.md`. When a phase is done, its
-part of this plan moves into a design doc, `docs/agent-cli.md`.
+**Versioning.** Each functional ara-cli PR bumps the then-current patch version,
+refreshes `Cargo.lock`, and adds a CHANGELOG entry, per the repository rules.
+This docs-only decomposition needs no bump. Protocol and harness PRs follow
+their own repository rules. Completed PR plans become design records in
+`docs/agent-cli.md`; conditional plans may close without implementation.
 
 ## Phase 0: format decisions in the protocol repo
 
@@ -482,11 +485,18 @@ and the timing tests.
 
 ## Order of work
 
-1. Review and approve this plan.
-2. Phase 1: extend the read model first, then add the commands, about two PRs.
-   At the same time, open the Phase 0 proposal in the protocol repo.
-3. Phase 4 (search), in parallel with Phase 2 once Phase 1 is in.
-4. Phase 2: single writes, then `ara apply`.
-5. Phase 3: `ara merge` on directories, then `--git`.
-6. Phase 5 in the protocol repo, after Phase 2 ships.
-7. Rewrite this plan as `docs/agent-cli.md` and remove it from `plans/`.
+1. Review this parent and the [PR rollout](agent-cli-interface/README.md).
+2. Start PR 00 (protocol decisions), PR 01 (read model), and PR 12 (pinned
+   skill contracts) independently. PR 02 adds all six reads after PR 01.
+3. After PR 02, run PR 10 (keyword search) alongside the PR 03–06 write chain
+   once the required protocol decisions are approved. PR 06 also needs PR 12's
+   operation inventory. PR 07 (`same_as`) can ship separately after F5 approval.
+4. After PR 06, ship PR 08 (complete directory merge), then PR 09 (`--git`).
+   PR 11 adds duplicate warnings once node writes, merge, and search are ready.
+5. PR 13 integrates CLI-only skills after read, batch, search, and coverage
+   gates pass. PR 14 adds collective coordination separately. PR 15 owns the
+   external experiment harness and its three-condition comparisons.
+6. PR 16 (local semantic search) and PR 17 (write enforcement) remain
+   evidence-gated follow-ups, not prerequisites for the baseline interface.
+7. As each PR ships, rewrite its plan into `docs/agent-cli.md` and retire it.
+   Retire this parent once all required rollout work has a design record.
