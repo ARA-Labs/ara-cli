@@ -151,18 +151,17 @@ that closes a loop) remain fatal.
   `.exhibit-body` scroll container
   ([#32](https://github.com/ARA-Labs/ara-cli/issues/32), released in `0.1.11`).
   Design record:
-  [`exhibit-markdown-rendering.md`](exhibit-markdown-rendering.md). Styling
-  beyond tables remains open
-  ([#46](https://github.com/ARA-Labs/ara-cli/issues/46)).
+  [`exhibit-markdown-rendering.md`](exhibit-markdown-rendering.md). Non-table
+  CommonMark styling shipped in #82 for
+  [#46](https://github.com/ARA-Labs/ara-cli/issues/46).
+- Figure images and local/hub delivery now use optional local references with
+  captions and retained Markdown. Static deployments copy the referenced files;
+  see [figure-exhibit-images.md](figure-exhibit-images.md) (#60).
 
 ## Deferred (tracked, not in this design)
 
 - **KaTeX / real math** (D3, `T-MATH-RENDER`) — inert monospace for now.
 - **REASONING** (D1) — inert slot, pending a stored `reasoning:` field.
-- **Figure-image serving** (`T-HUB-FIGURES`) — the corpus is overwhelmingly
-  markdown tables (the sampled artifact has zero image files), so inline images
-  in the now-rendered exhibit bodies are still open, tracked in
-  [ARA-Labs/ara-cli#60](https://github.com/ARA-Labs/ara-cli/issues/60).
 - **ARTIFACT code-pointer** — code linkage is not modelled.
 - **The "recipe" unit** (E8) — resolved per
   [ARA-Labs/ara-cli#35](https://github.com/ARA-Labs/ara-cli/issues/35): rather

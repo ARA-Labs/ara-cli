@@ -220,8 +220,8 @@ pub enum ExhibitKind {
     Other,
 }
 
-/// One evidence exhibit — a figure, proof, result, or table body file plus
-/// its index metadata, parsed from `evidence/`.
+/// One evidence exhibit — local Markdown and/or a figure image plus index metadata.
+/// Parsed from `evidence/`, with supporting Markdown retained verbatim.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Exhibit {
     /// Exhibit id.
@@ -238,6 +238,9 @@ pub struct Exhibit {
     pub claims: Vec<ClaimId>,
     /// Raw markdown body, verbatim.
     pub body: String,
+    /// Optional local raster image, relative to the artifact root.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub image: Option<String>,
 }
 
 /// A node → related-work edge. Populated by a later resolution task.

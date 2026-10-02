@@ -22,6 +22,13 @@ All notable changes to this project are documented here. The format follows
   silently using ancestor or built-in settings (#40).
 - Core: `fix_dir_with(dir, allow)` applies only the fixes whose rule `allow`
   accepts (#40).
+- Viewer: figure exhibits render local PNG/JPEG images with description captions
+  and retained Markdown bodies; Markdown-only figures keep their existing
+  rendering. Image URLs follow the manifest's successful serve/static source (#60).
+- Core: figure image declarations and companion discovery, with `ARA216` warnings
+  for missing, unsafe, unsupported, or ambiguous references (#60).
+- Serve: guarded per-artifact image delivery in local and hub modes, preserving
+  range/conditional requests and rejecting escaping symlinks (#60).
 
 ### Changed
 - Core: bump serde-saphyr to 1.3.0 (#90).

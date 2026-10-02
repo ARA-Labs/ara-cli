@@ -247,11 +247,21 @@ async fn serve_hub(args: ServeArgs, aras: Aras) -> Result<(), Box<dyn std::error
 
 /// Build the route table. Split out so tests can drive it via `oneshot`.
 pub fn build_router(state: AppState, assets: Assets, figures_dir: PathBuf) -> Router {
+    let figures_dir = Arc::new(figures_dir);
     let router = Router::new()
         .route("/api/manifest", get(manifest))
         .route("/api/live", get(live_ws))
-        // ServeDir handles range requests and rejects `..` traversal.
-        .nest_service("/api/figure", ServeDir::new(figures_dir));
+        .route("/api/figure", get(|| async { StatusCode::NOT_FOUND }))
+        .route("/api/figure/", get(|| async { StatusCode::NOT_FOUND }))
+        .route(
+            "/api/figure/{*path}",
+            get(
+                move |AxumPath(path): AxumPath<String>, request: axum::extract::Request| {
+                    let root = figures_dir.clone();
+                    async move { serve_figure(&root, &path, request).await }
+                },
+            ),
+        );
 
     let router = match assets {
         Assets::Dir(dir) => {
@@ -282,6 +292,7 @@ struct HubState {
 /// GET /a/{id}              308 -> /a/{id}/ if id known; else 404
 /// GET /a/{id}/             index.html with <base href="/a/{id}/"> injected
 /// GET /a/{id}/api/manifest cached manifest (ETag/304); 404 if id unknown
+/// GET /a/{id}/api/figure/* guarded evidence images, range/conditional aware
 /// GET /                    minimal HTML index of available ARA ids
 /// GET /{*asset}            shared js/wasm/css if the file exists; else 404
 /// ```
@@ -295,10 +306,54 @@ pub fn build_hub_router(aras: Aras, assets: Assets) -> Router {
         .route("/a/{id}", get(hub_ara_redirect))
         .route("/a/{id}/", get(hub_ara_index))
         .route("/a/{id}/api/manifest", get(hub_manifest))
+        .route(
+            "/a/{id}/api/figure",
+            get(|| async { StatusCode::NOT_FOUND }),
+        )
+        .route(
+            "/a/{id}/api/figure/",
+            get(|| async { StatusCode::NOT_FOUND }),
+        )
+        .route("/a/{id}/api/figure/{*path}", get(hub_figure))
         // Any other root path is a shared asset lookup (or 404) — NOT an SPA
         // fallback. Placed last so the specific routes above win.
         .fallback(get(hub_asset))
         .with_state(state)
+}
+
+/// Paths extracted by axum are decoded once. Preserve the original request
+/// headers/method for the file service's range and conditional handling.
+async fn serve_figure(root: &Path, path: &str, request: axum::extract::Request) -> Response {
+    use tower::ServiceExt;
+    let (file, mime) = match ara_core::figure::resolve_image(root, path) {
+        Ok(image) => image,
+        Err(_) => return (StatusCode::NOT_FOUND, "image not found").into_response(),
+    };
+    let mut response = match ServeFile::new(file).oneshot(request).await {
+        Ok(response) => response.into_response(),
+        Err(error) => {
+            eprintln!("figure file service failed: {error}");
+            return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+        }
+    };
+    response
+        .headers_mut()
+        .insert(header::CONTENT_TYPE, mime.parse().unwrap());
+    response
+        .headers_mut()
+        .insert(header::X_CONTENT_TYPE_OPTIONS, "nosniff".parse().unwrap());
+    response
+}
+
+async fn hub_figure(
+    State(state): State<HubState>,
+    AxumPath((id, path)): AxumPath<(String, String)>,
+    request: axum::extract::Request,
+) -> Response {
+    let Some(cached) = state.aras.get(&id) else {
+        return (StatusCode::NOT_FOUND, "unknown ARA").into_response();
+    };
+    serve_figure(&cached.figures_dir, &path, request).await
 }
 
 /// `GET /` — a minimal listing of available ARA ids.
@@ -600,6 +655,237 @@ mod tests {
         assert_eq!(resp.status(), StatusCode::OK);
         let ct = resp.headers().get(header::CONTENT_TYPE).unwrap();
         assert!(ct.to_str().unwrap().starts_with("text/html"));
+    }
+
+    const PNG: &[u8] = include_bytes!("../../../ara-core/tests/fixtures/images/pixel.png");
+    const JPEG: &[u8] = include_bytes!("../../../ara-core/tests/fixtures/images/pixel.jpg");
+
+    fn image_router(root: &Path, hub_mode: bool, assets: Assets) -> Router {
+        let artifact = fixture("minimal-artifact");
+        if hub_mode {
+            let mut cached = CachedAra::from_dir_lean(&artifact).unwrap();
+            cached.figures_dir = root.to_path_buf();
+            let map = std::collections::HashMap::from([("demo".into(), Arc::new(cached))]);
+            build_hub_router(Arc::new(map), assets)
+        } else {
+            let (state, _) = test_state(&artifact);
+            build_router(state, assets, root.to_path_buf())
+        }
+    }
+
+    #[tokio::test]
+    async fn local_and_hub_figures_stream_real_rasters_with_ranges_and_conditionals() {
+        let evidence = tempfile::TempDir::new().unwrap();
+        std::fs::create_dir(evidence.path().join("figures")).unwrap();
+        std::fs::write(evidence.path().join("figures/雪 % # ?.PNG"), PNG).unwrap();
+        std::fs::write(evidence.path().join("figures/pixel.JPEG"), JPEG).unwrap();
+        let assets = tempfile::TempDir::new().unwrap();
+        std::fs::write(
+            assets.path().join("index.html"),
+            "<html><head></head><body>viewer</body></html>",
+        )
+        .unwrap();
+        for hub_mode in [false, true] {
+            for asset_mode in [Assets::Embedded, Assets::Dir(assets.path().into())] {
+                let app = image_router(evidence.path(), hub_mode, asset_mode);
+                let prefix = if hub_mode {
+                    "/a/demo/api/figure"
+                } else {
+                    "/api/figure"
+                };
+                for (name, mime, bytes) in [
+                    ("%E9%9B%AA%20%25%20%23%20%3F.PNG", "image/png", PNG),
+                    ("pixel.JPEG", "image/jpeg", JPEG),
+                ] {
+                    let uri = format!("{prefix}/figures/{name}");
+                    let response = get(&app, &uri).await;
+                    assert_eq!(response.status(), StatusCode::OK);
+                    assert_eq!(response.headers()[header::CONTENT_TYPE], mime);
+                    assert_eq!(
+                        response.headers()[header::X_CONTENT_TYPE_OPTIONS],
+                        "nosniff"
+                    );
+                    let modified = response.headers()[header::LAST_MODIFIED].clone();
+                    assert_eq!(
+                        &response.into_body().collect().await.unwrap().to_bytes()[..],
+                        bytes
+                    );
+                    let partial = app
+                        .clone()
+                        .oneshot(
+                            Request::builder()
+                                .uri(&uri)
+                                .header(header::RANGE, "bytes=0-7")
+                                .body(Body::empty())
+                                .unwrap(),
+                        )
+                        .await
+                        .unwrap();
+                    assert_eq!(partial.status(), StatusCode::PARTIAL_CONTENT);
+                    assert_eq!(
+                        partial.headers()[header::CONTENT_RANGE],
+                        format!("bytes 0-7/{}", bytes.len())
+                    );
+                    assert_eq!(
+                        &partial.into_body().collect().await.unwrap().to_bytes()[..],
+                        &bytes[..8]
+                    );
+                    let conditional = app
+                        .clone()
+                        .oneshot(
+                            Request::builder()
+                                .uri(&uri)
+                                .header(header::IF_MODIFIED_SINCE, modified)
+                                .body(Body::empty())
+                                .unwrap(),
+                        )
+                        .await
+                        .unwrap();
+                    assert_eq!(conditional.status(), StatusCode::NOT_MODIFIED);
+                    assert!(
+                        conditional
+                            .into_body()
+                            .collect()
+                            .await
+                            .unwrap()
+                            .to_bytes()
+                            .is_empty()
+                    );
+                    let head = app
+                        .clone()
+                        .oneshot(
+                            Request::builder()
+                                .method("HEAD")
+                                .uri(&uri)
+                                .body(Body::empty())
+                                .unwrap(),
+                        )
+                        .await
+                        .unwrap();
+                    assert_eq!(head.status(), StatusCode::OK);
+                    assert_eq!(head.headers()[header::CONTENT_TYPE], mime);
+                    assert!(
+                        head.into_body()
+                            .collect()
+                            .await
+                            .unwrap()
+                            .to_bytes()
+                            .is_empty()
+                    );
+                }
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn figure_routes_reject_unsafe_missing_and_disguised_images_without_spa_fallback() {
+        let evidence = tempfile::TempDir::new().unwrap();
+        std::fs::create_dir(evidence.path().join("figures")).unwrap();
+        std::fs::write(
+            evidence.path().join("figures/fake.png"),
+            "<html>protected</html>",
+        )
+        .unwrap();
+        std::fs::write(
+            evidence.path().join("figures/fake.jpg"),
+            "<svg>protected</svg>",
+        )
+        .unwrap();
+        std::fs::write(
+            evidence.path().join("figures/x.svg"),
+            "<svg>protected</svg>",
+        )
+        .unwrap();
+        std::fs::write(evidence.path().join("figures/%2e%2e.png"), PNG).unwrap();
+        for hub_mode in [false, true] {
+            let app = image_router(evidence.path(), hub_mode, Assets::Embedded);
+            let prefix = if hub_mode {
+                "/a/demo/api/figure"
+            } else {
+                "/api/figure"
+            };
+            for path in [
+                "",
+                "/figures/missing.png",
+                "/figures/fake.png",
+                "/figures/fake.jpg",
+                "/figures/x.svg",
+                "/../secret.png",
+                "/%2e%2e/secret.png",
+                "/figures/%2e%2e/%2e%2e/secret.png",
+                "/%2Ftmp/secret.png",
+                "/C%3A/secret.png",
+                "/figures%5Csecret.png",
+                "/figures/x%0A.png",
+            ] {
+                let response = get(&app, &format!("{prefix}{path}")).await;
+                assert_eq!(response.status(), StatusCode::NOT_FOUND, "{prefix}{path}");
+                let body = response.into_body().collect().await.unwrap().to_bytes();
+                assert!(!String::from_utf8_lossy(&body).contains("protected"));
+                assert!(!String::from_utf8_lossy(&body).contains("<html"));
+            }
+            // Decode the route once: these are literal percent characters in a filename.
+            let response = get(&app, &format!("{prefix}/figures/%252e%252e.png")).await;
+            assert_eq!(response.status(), StatusCode::OK);
+            assert_eq!(
+                &response.into_body().collect().await.unwrap().to_bytes()[..],
+                PNG
+            );
+            if hub_mode {
+                assert_eq!(
+                    get(&app, "/a/unknown/api/figure/figures/%252e%252e.png")
+                        .await
+                        .status(),
+                    StatusCode::NOT_FOUND
+                );
+            }
+        }
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn figure_routes_recheck_containment_and_allow_root_and_contained_symlinks() {
+        use std::os::unix::fs::symlink;
+        let evidence = tempfile::TempDir::new().unwrap();
+        let outside = tempfile::TempDir::new().unwrap();
+        std::fs::write(evidence.path().join("asset.png"), PNG).unwrap();
+        std::fs::write(outside.path().join("secret.png"), PNG).unwrap();
+        symlink("asset.png", evidence.path().join("alias.png")).unwrap();
+        let selected_root = outside.path().join("selected-evidence");
+        symlink(evidence.path(), &selected_root).unwrap();
+        for hub_mode in [false, true] {
+            let app = image_router(&selected_root, hub_mode, Assets::Embedded);
+            let prefix = if hub_mode {
+                "/a/demo/api/figure"
+            } else {
+                "/api/figure"
+            };
+            assert_eq!(
+                get(&app, &format!("{prefix}/alias.png")).await.status(),
+                StatusCode::OK
+            );
+            // Change after router/cache construction: ingest-time checking is insufficient.
+            std::fs::remove_file(evidence.path().join("alias.png")).unwrap();
+            symlink(
+                outside.path().join("secret.png"),
+                evidence.path().join("alias.png"),
+            )
+            .unwrap();
+            assert_eq!(
+                get(&app, &format!("{prefix}/alias.png")).await.status(),
+                StatusCode::NOT_FOUND
+            );
+            symlink(outside.path(), evidence.path().join("escape")).unwrap();
+            assert_eq!(
+                get(&app, &format!("{prefix}/escape/secret.png"))
+                    .await
+                    .status(),
+                StatusCode::NOT_FOUND
+            );
+            std::fs::remove_file(evidence.path().join("escape")).unwrap();
+            std::fs::remove_file(evidence.path().join("alias.png")).unwrap();
+            symlink("asset.png", evidence.path().join("alias.png")).unwrap();
+        }
     }
 
     #[tokio::test]

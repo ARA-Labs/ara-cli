@@ -9,6 +9,7 @@
 //! See <https://github.com/ARA-Labs/ara-cli>.
 
 mod claims;
+pub mod figure;
 pub mod layout;
 pub mod lint;
 pub mod manifest;

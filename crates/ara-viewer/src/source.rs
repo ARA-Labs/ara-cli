@@ -53,7 +53,54 @@ impl Default for ManifestSource {
     }
 }
 
+/// Image mapping belonging to the response that actually supplied the manifest.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ImageSource {
+    /// Effective URL of the successful response, including redirects.
+    pub manifest_url: String,
+    /// Whether the successful request was the primary API, not its static fallback.
+    pub api: bool,
+}
+
+impl ImageSource {
+    /// Resolve validated filesystem names with exactly one segment encoding.
+    #[cfg(target_arch = "wasm32")]
+    pub fn image_url(&self, reference: &str) -> Option<String> {
+        if !ara_core::figure::valid_image_reference(reference) {
+            return None;
+        }
+        let path = if self.api {
+            reference.strip_prefix("evidence/")?
+        } else {
+            reference
+        };
+        let mut relative = String::with_capacity(path.len() + 7);
+        if self.api {
+            relative.push_str("figure/");
+        }
+        for (index, segment) in path.split('/').enumerate() {
+            if index > 0 {
+                relative.push('/');
+            }
+            relative.push_str(&js_sys::encode_uri_component(segment).as_string()?);
+        }
+        let base = web_sys::window()?.document()?.base_uri().ok()??;
+        let manifest = web_sys::Url::new_with_base(&self.manifest_url, &base).ok()?;
+        Some(
+            web_sys::Url::new_with_base(&relative, &manifest.href())
+                .ok()?
+                .href(),
+        )
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn image_url(&self, _reference: &str) -> Option<String> {
+        None // URL resolution requires the browser's document base.
+    }
+}
+
 /// Fetch the manifest described by `source` and write the result into `set_state`.
+/// The callback receives the successful image-source context alongside the manifest.
 ///
 /// For [`ManifestSource::Api`] this tries `manifest_url` first and falls back to
 /// `fallback_url` on any network error or non-2xx response, so the same bundle
@@ -62,42 +109,62 @@ impl Default for ManifestSource {
 /// Compiled **only for `wasm32-unknown-unknown`**; on native it is a no-op stub
 /// so `cargo test` compiles without browser deps.
 #[cfg(target_arch = "wasm32")]
-pub fn fetch_manifest(source: ManifestSource, set_state: impl Fn(LoadState) + 'static) {
+pub fn fetch_manifest(
+    source: ManifestSource,
+    set_state: impl Fn(LoadState, Option<ImageSource>) + 'static,
+) {
     use wasm_bindgen_futures::spawn_local;
 
-    let (primary, fallback) = match source {
-        ManifestSource::Static(url) => (url, None),
+    let (primary, fallback, api) = match source {
+        ManifestSource::Static(url) => (url, None, false),
         ManifestSource::Api {
             manifest_url,
             fallback_url,
             ..
-        } => (manifest_url, Some(fallback_url)),
+        } => (manifest_url, Some(fallback_url), true),
     };
 
     spawn_local(async move {
         // Try the primary URL; on transport failure or non-2xx, try the
         // fallback (when one is configured) before surfacing an error.
         let text = match fetch_text(&primary).await {
-            Ok(t) => Ok(t),
+            Ok((body, url)) => Ok((
+                body,
+                ImageSource {
+                    manifest_url: url,
+                    api,
+                },
+            )),
             Err(primary_err) => match &fallback {
-                Some(url) => fetch_text(url).await.map_err(|_| primary_err),
+                Some(url) => fetch_text(url)
+                    .await
+                    .map(|(body, url)| {
+                        (
+                            body,
+                            ImageSource {
+                                manifest_url: url,
+                                api: false,
+                            },
+                        )
+                    })
+                    .map_err(|_| primary_err),
                 None => Err(primary_err),
             },
         };
 
         match text {
-            Ok(body) => match parse_manifest(&body) {
-                Ok(manifest) => set_state(LoadState::Loaded(manifest)),
-                Err(reason) => set_state(LoadState::Failed(format!("Parse error: {reason}"))),
+            Ok((body, image_source)) => match parse_manifest(&body) {
+                Ok(manifest) => set_state(LoadState::Loaded(manifest), Some(image_source)),
+                Err(reason) => set_state(LoadState::Failed(format!("Parse error: {reason}")), None),
             },
-            Err(reason) => set_state(LoadState::Failed(reason)),
+            Err(reason) => set_state(LoadState::Failed(reason), None),
         }
     });
 }
 
-/// GET `url` and return the body text, or a human-readable error string.
+/// GET `url` and return body text plus the effective response URL, or an error.
 #[cfg(target_arch = "wasm32")]
-async fn fetch_text(url: &str) -> Result<String, String> {
+async fn fetch_text(url: &str) -> Result<(String, String), String> {
     let response = gloo_net::http::Request::get(url)
         .send()
         .await
@@ -107,10 +174,12 @@ async fn fetch_text(url: &str) -> Result<String, String> {
         return Err(format!("{} {}", response.status(), response.status_text()));
     }
 
-    response
+    let effective_url = response.url();
+    let body = response
         .text()
         .await
-        .map_err(|e| format!("Failed to read response body: {e}"))
+        .map_err(|e| format!("Failed to read response body: {e}"))?;
+    Ok((body, effective_url))
 }
 
 /// Subscribe to server-side reparse notifications and re-fetch on each message.
@@ -123,7 +192,10 @@ async fn fetch_text(url: &str) -> Result<String, String> {
 /// If the socket cannot open (static host), the task ends quietly — live reload
 /// is inert, not an error.
 #[cfg(target_arch = "wasm32")]
-pub fn connect_live(source: ManifestSource, set_state: impl Fn(LoadState) + Clone + 'static) {
+pub fn connect_live(
+    source: ManifestSource,
+    set_state: impl Fn(LoadState, Option<ImageSource>) + Clone + 'static,
+) {
     use futures_util::StreamExt;
     use wasm_bindgen_futures::spawn_local;
 
@@ -194,13 +266,19 @@ pub fn ws_url_from_base(base: &str, path: &str) -> Option<String> {
 /// Native stub — the viewer never runs natively; the stub keeps `cargo test`
 /// compiling without pulling in any wasm-only dependencies.
 #[cfg(not(target_arch = "wasm32"))]
-pub fn fetch_manifest(_source: ManifestSource, _set_state: impl Fn(LoadState) + 'static) {
+pub fn fetch_manifest(
+    _source: ManifestSource,
+    _set_state: impl Fn(LoadState, Option<ImageSource>) + 'static,
+) {
     // No-op on native: network fetch is browser-only.
 }
 
 /// Native stub — see [`fetch_manifest`].
 #[cfg(not(target_arch = "wasm32"))]
-pub fn connect_live(_source: ManifestSource, _set_state: impl Fn(LoadState) + Clone + 'static) {
+pub fn connect_live(
+    _source: ManifestSource,
+    _set_state: impl Fn(LoadState, Option<ImageSource>) + Clone + 'static,
+) {
     // No-op on native: WebSocket live reload is browser-only.
 }
 
