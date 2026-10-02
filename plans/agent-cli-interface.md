@@ -19,8 +19,9 @@ the agent's interface instead:
    needs a decision.
 4. **`ara find`** adds keyword search, and the same index warns about likely
    duplicate nodes when adding or merging.
-5. The agent skills that write ARAs (research-manager, the compiler) switch to
-   these commands. That change happens in the protocol repo.
+5. Copy ARA's existing skills into CLI-backed variants in the protocol repo,
+   preserving their research procedures and changing their artifact access.
+   Keep the original skills as the evaluation baseline.
 
 Phase 1 changes no file format and does not depend on any open decision below,
 so it can start as soon as this plan is approved. Phases 2 and 3 need a few
@@ -151,7 +152,7 @@ changes once instead of several times.
 | F4 | Which trace and staging fields may change after they are written | Write down the pointer fields the protocol already allows to change (`promoted`, `promoted_to`, `crystallized_via`, session `events_logged`). The CLI refuses edits to any other field in `trace/` or `staging/`. |
 | F5 | How to mark two nodes as the same finding | A `same_as: [N131]` field on the later node. Neither node is deleted. |
 | F6 | Claim fields the CLI must read | `Provenance`, `Falsification criteria` and `Tags` are already in the published `claims.md` but are not modeled here. This is issue #61. Node artifact pointers (#62) and node→concept links (#63) go into the same proposal. |
-| F7 | The rule that agents write only through the CLI | One paragraph in research-manager's write protocol. Phase 5 makes the change. |
+| F7 | The rule that agents write only through the CLI | Add it to the copied skills' write protocols. Phase 5 preserves the original skills as the file-based baseline. |
 
 ## Phase 1: read commands (no format change)
 
@@ -367,20 +368,54 @@ entries that should be returned. The test measures how many of those appear in
 the top 10. Duplicate warnings are tested on pairs of nodes known to be
 duplicates and pairs known to be distinct.
 
-## Phase 5: the skills use the CLI (protocol repo)
+## Phase 5: CLI-backed copies of the ARA skills (protocol repo)
 
-Not code in this repo, but the plan depends on it.
+Copy the existing ARA skills and put `ara` between those skills and the
+artifact. Skill changes live in the protocol repo; experiment configuration
+lives in the external harness. Preserve the original skills for comparison.
 
-- Rewrite research-manager's write steps as `ara` calls. In particular, step 2
-  of its crystallization procedure ("Allocate the next ID … read the target
-  file first") becomes `ara promote`.
-- Make the compiler skill emit one `ops.jsonl` and run `ara apply` instead of
-  writing files.
-- Add a short reference page on using `ara` to the skills. Agents do not know
-  this tool the way they know grep, so the page is part of the cost, and the
-  experiments count its tokens.
-- Revise research-foresight's "no index layer" principle (its §0) to allow
-  `ara find`. The index is a cache, and judging relevance stays with the agent.
+For paper-benchmark comparisons, pin the skill files and reference pages used
+by the paper's corresponding experiment. Record their source revision and
+the mapping from each task to its skill. Copy from that revision, not from
+the skill version installed locally. For live research-manager and compiler
+experiments, also pin the source skills and keep unchanged baseline copies.
+
+The CLI-only variants retain the source skills' research instructions:
+reasoning steps, evidence standards, staging and promotion rules, roles,
+and stopping criteria. Change only artifact access instructions and the
+documentation needed to use the commands:
+
+| Existing skill operation | CLI-backed operation |
+|---|---|
+| Read or grep knowledge-layer files to locate entries and relations | Use `ara ls`, `show`, `path`, `refs`, `open`, and `find`; retrieve the needed prose with `--full`. |
+| Read files to choose the next ID, then write or edit an entry | Use the corresponding `ara add`, `edit`, `claim`, or `heuristic` command; the CLI assigns new IDs. |
+| Stage an observation, or promote it when the skill's closure rule fires | Use `ara stage` or `ara promote`, retaining the same closure decision and provenance. |
+| Write a compiled artifact through many file edits | Emit operations and call `ara apply`; retain the compiler's content and evidence requirements. |
+| Maintain session records and revision history | Use session commands and batch operations that preserve every record required by the source skill. |
+| Read or write code and evidence bodies | Keep direct file access, as required by the non-goals. |
+
+Revise research-foresight's "no index layer" instruction only in its copied
+variant, to permit `ara find`; relevance judgment stays with the agent.
+Count the command reference and all other supplied skill documentation in
+the experiment's token cost. The CLI must cover each required knowledge-layer
+operation before its copied skill is considered integrated; missing support
+does not justify dropping a source-skill step or silently reverting to file
+writes.
+
+Frontier views and shared intentions are a separate collective-research
+extension to these copies. Keep their instructions separate from the
+CLI-only access substitutions, including any change to the single-writer
+rule. Their detailed plan must specify intention publication and refresh
+across forks before implementation; private fork files alone are not shared
+intentions. The target workflow includes this extension, but it must not
+change the CLI-only condition used to measure the interface.
+
+**Done when** each copied skill has a reviewed access-change diff against
+its pinned source, and representative reading, writing, and compilation
+tasks run end to end through the CLI. Check artifact fidelity, provenance,
+and required history against the source skill's contract. Reuse the paper's
+task and grading procedures where applicable. Measure performance again
+after inserting the CLI; the original results do not establish equivalence.
 
 ## How we will know it works
 
@@ -394,6 +429,29 @@ file-based agents with CLI-using agents on:
 - a scaling curve, holding questions fixed while the ARA grows to 1,000+ nodes;
 - a session-by-session replay of research-manager on the-ara-of-ara;
 - several agents writing separate copies of one ARA and merging.
+
+Use three reference conditions, with source skill revisions pinned as in
+Phase 5:
+
+| Condition | Skills and artifact interface | Purpose |
+|---|---|---|
+| Files | Unchanged ARA skills with their original file access | Baseline. |
+| CLI | Copies of the same skills, with artifact access replaced by `ara` commands | Measure the interface change. |
+| CLI + frontier + intentions | CLI-backed copies plus the explicit collective-research instructions | Measure the coordination extension. |
+
+Reading, writing, and compilation experiments compare Files with CLI.
+Collective-research experiments compare CLI with CLI + frontier + intentions.
+Do not run every condition on every benchmark. Disable frontier views or
+intentions individually only when a diagnostic comparison is needed.
+
+Within each comparison, hold models, tasks, starting artifacts, grading,
+and total compute budgets fixed. Pin and review every prompt difference;
+keep research procedures unchanged in Files versus CLI. In the collective
+comparison, record the coordination instructions as part of the intervention.
+Measure held-out task quality, dollars and time, accidental duplicate
+experiments excluding deliberate verification, and artifact integrity.
+Repeat whole community runs; contributions within a run are not independent
+samples. Fix quality margins and success criteria before running experiments.
 
 Each experiment reports tokens, wall-clock time and answer quality. The
 experiment harness lives outside this repo. This repo supplies the commands
