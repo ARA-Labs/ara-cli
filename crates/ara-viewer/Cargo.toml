@@ -37,7 +37,9 @@ pulldown-cmark = { version = "0.13", default-features = false, features = ["html
 # (which builds for the native host) continues to compile without a browser.
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 gloo-net = { version = "0.7", features = ["http", "websocket"] }
+js-sys = "0.3"
 wasm-bindgen-futures = "0.4"
+wasm-bindgen = "0.2"
 # StreamExt for draining the live-reload WebSocket.
 futures-util = { version = "0.3", default-features = false }
 # document.baseURI + URL resolution → absolute ws:// URL for the live socket,
@@ -76,6 +78,7 @@ web-sys = { version = "0.3", features = [
     "HtmlHeadElement",
     "HtmlInputElement",
     "HtmlIFrameElement",
+    "HtmlImageElement",
     "CssStyleDeclaration",
     "DomTokenList",
     "Event",

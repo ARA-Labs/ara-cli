@@ -268,6 +268,12 @@ Two layers, split by the eng review:
   search→dimming sync, the per-kind detail hierarchy, bound-claim rendering, and
   degradation. Run in CI by the `viewer-web-test` job (`wasm-pack test --headless
   --chrome`).
+- **Panel math** adds native source-partition tests and real-renderer browser
+  tests in `tests/math_web.rs`. They cover inline/display MathML, code/source
+  preservation, isolated malformed/untrusted equations, local asset failures,
+  and disposal during loading. Rendering, packaging, source syntax and bundle
+  costs are recorded in [panel-math-rendering.md](panel-math-rendering.md) (#31).
+
 
 The toggle browser tests treat the `LayoutMode` and `DisplayMode` defaults as a
 cross-layer invariant: they assert the initial `is-active`/`aria-pressed` DOM

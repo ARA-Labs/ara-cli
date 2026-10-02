@@ -887,14 +887,70 @@ body.is-resizing.resizing-row { cursor: row-resize; }
   text-underline-offset: 2px;
 }
 
-/* Inert LaTeX (D3): shown verbatim as monospace, never interpreted. */
-.latex-inert {
-  font-family: var(--font-mono);
-  font-size: 0.85em;
+/* Math is scoped to these two panels; source/diagnostics stay escaped. */
+.concept-field {
+  flex: 1;
+  min-width: 0;
   white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
-/* Recipe body: raw markdown, not rendered (D4); scrolls rather than overflows. */
+.panel-math {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.panel-math-host {
+  white-space: normal;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+.panel-math-inline .panel-math-host {
+  display: inline-block;
+  max-width: 100%;
+  overflow-x: auto;
+  vertical-align: middle;
+  padding-block: 0.2em;
+}
+
+.panel-math-display {
+  display: block;
+  overflow-x: auto;
+  padding-block: 0.35em;
+}
+
+.panel-math-display .katex-display {
+  margin: 0.5em 0;
+  text-align: left;
+}
+
+.panel-math-source {
+  font-family: var(--font-mono);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.panel-math-status,
+.panel-math-diagnostic {
+  font-family: var(--font-body);
+  font-size: 0.72rem;
+  color: var(--muted);
+  white-space: normal;
+  overflow-wrap: anywhere;
+  margin-left: 0.35rem;
+}
+
+.panel-math-diagnostic {
+  color: var(--accent-text);
+}
+
+.panel-math-host[hidden],
+.panel-math-source[hidden] {
+  display: none;
+}
+
+/* Solution bodies retain raw Markdown markers and preformatted source. */
 .recipe-body {
   font-family: var(--font-mono);
   font-size: 0.78rem;
@@ -903,6 +959,7 @@ body.is-resizing.resizing-row { cursor: row-resize; }
   white-space: pre-wrap;
   overflow-x: auto;
   max-width: 100%;
+  min-width: 0;
   margin: 0;
 }
 
@@ -1221,10 +1278,7 @@ button.chip-jump:hover {
   padding: 0.25rem 0;
 }
 
-/* ── Inert richer blocks (pending T-REAL-CORPUS schema widening) ──────────────
-   These CSS classes are styled now so the skin is ready when data fields land.
-   No markup is emitted for these until their schema fields exist.
-   ─────────────────────────────────────────────────────────────────────────── */
+/* Rich detail blocks. */
 
 /* Blockquote / pull-quote. */
 .quote {
@@ -1241,10 +1295,16 @@ figure.detail-figure {
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
+  margin: 0 0 0.75rem;
+  min-width: 0;
 }
 
 figure.detail-figure img {
   max-width: 100%;
+  display: block;
+  height: auto;
+  align-self: flex-start;
+  box-sizing: border-box;
   border-radius: 4px;
   border: 1px solid var(--line);
 }
@@ -1252,6 +1312,8 @@ figure.detail-figure img {
 figure.detail-figure figcaption {
   font-size: 0.78rem;
   color: var(--muted);
+  font-family: var(--font-mono);
+  overflow-wrap: anywhere;
 }
 
 /* Exhibit body: client-side-rendered GFM markdown (issue #32). Wide tables

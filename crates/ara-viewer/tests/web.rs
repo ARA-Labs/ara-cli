@@ -36,6 +36,8 @@ use leptos::prelude::*;
 use wasm_bindgen::JsCast;
 use web_sys::{Document, HtmlElement};
 
+mod math_support;
+
 // ── Manifest JSON fixture ─────────────────────────────────────────────────────
 //
 // Covers:
@@ -3368,7 +3370,8 @@ fn manifest_with_panels(n: usize) -> ara_core::Manifest {
 }
 
 #[wasm_bindgen_test]
-async fn glossary_shows_count_opens_with_latex_and_xref() {
+async fn math_glossary_shows_count_typeset_notation_and_xref() {
+    let _math_runtime = math_support::setup("normal").await;
     let doc = web_sys::window().unwrap().document().unwrap();
     let container = body_div(&doc);
     let (load_state, _) = signal(LoadState::Loaded(manifest_with_panels(2)));
@@ -3386,6 +3389,7 @@ async fn glossary_shows_count_opens_with_latex_and_xref() {
 
     btn.unchecked_ref::<HtmlElement>().click();
     leptos::task::tick().await;
+    math_support::settle(&container).await;
 
     let modal = doc.query_selector(".modal").unwrap().expect("modal opens");
     assert_eq!(
@@ -3395,17 +3399,25 @@ async fn glossary_shows_count_opens_with_latex_and_xref() {
     );
     let text = modal.unchecked_ref::<HtmlElement>().inner_text();
     assert!(text.contains("Concept1"), "lists Concept1");
-    // Inert LaTeX span rendered verbatim as monospace, never interpreted (D3).
-    let latex = modal
-        .query_selector("code.latex-inert")
+    let math = modal
+        .query_selector(".panel-math-inline math")
         .unwrap()
-        .expect("notation rendered as inert LaTeX");
+        .expect("accessible MathML notation");
+    let base = math
+        .query_selector("msup mi")
+        .unwrap()
+        .expect("pi superscript base");
+    assert_eq!(base.text_content().as_deref(), Some("π"));
+    assert_ne!(
+        math.get_attribute("display").as_deref(),
+        Some("block"),
+        "notation remains inline"
+    );
+    let annotation = math.query_selector("annotation").unwrap().unwrap();
+    assert_eq!(annotation.text_content().as_deref(), Some("\\pi^{(1)}"));
     assert!(
-        latex
-            .unchecked_ref::<HtmlElement>()
-            .inner_text()
-            .contains('$'),
-        "inert LaTeX keeps the $…$ delimiters verbatim"
+        math_support::math_fonts_loaded(),
+        "real KaTeX Math font loaded"
     );
     // Related term is a dotted cross-reference chip.
     assert!(

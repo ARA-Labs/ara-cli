@@ -21,6 +21,12 @@ An [axum](https://docs.rs/axum) 0.8 server, native-only, living in
 | `assets.rs` | Viewer delivery: embedded (`include_dir!`) or `--assets <dir>` |
 | `watch.rs` | Debounced `notify` file watcher (`--poll` backend) |
 
+The embedded directory and `--assets` distribution also include the local
+panel-math loader and versioned KaTeX JS/CSS/fonts. Hub `<base href>` changes do
+not change their source: the loader resolves vendor files beside its own script.
+Copy the entire Trunk distribution when deploying statically. See
+[panel-math-rendering.md](panel-math-rendering.md) (#31).
+
 ```bash
 ara serve ./my-ara                 # embedded viewer, http://127.0.0.1:8080
 ara serve ./my-ara --port 3000
@@ -83,11 +89,21 @@ process run — the only lifetime an `If-None-Match` validator must survive.
   `--assets` `ServeDir`. Unknown paths fall back to `index.html` (CSR routing).
 - `GET /api/manifest` → the cached `Arc<Bytes>` JSON with a strong `ETag`,
   `Cache-Control: no-cache`, and `304` on a matching `If-None-Match`.
-- `GET /api/figure/{*path}` → `ServeDir` over `<dir>/evidence`: range requests
-  and `..`-traversal rejection come for free from `tower-http`.
+- `GET /api/figure/{*path}` serves PNG/JPEG files beneath `<dir>/evidence`.
+  The shared local/hub handler validates relative paths, canonical containment,
+  regular files, and signatures before calling `tower-http::ServeFile` with the
+  original request. Range, HEAD, and conditional requests retain file-service
+  handling; image MIME and `X-Content-Type-Options: nosniff` are explicit.
+  `/a/{id}/api/figure/{*path}` uses the same checks for that hub artifact.
 - `GET /api/live` → a WebSocket that forwards the new ETag on every reparse.
   Broadcast `Lagged` is handled by skipping missed ETags, not dropping the
   socket.
+
+Figure URLs resolve from the manifest response that actually loaded, including
+static fallback and redirects. Embedded assets contain the viewer, not user
+images. See [figure authoring and static packaging](figure-exhibit-images.md).
+Canonicalize-then-open checks do not promise race-proof access during hostile
+concurrent filesystem mutation.
 
 ## Live reload
 

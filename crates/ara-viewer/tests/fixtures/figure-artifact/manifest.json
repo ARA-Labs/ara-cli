@@ -1,0 +1,13 @@
+{
+  "nodes": [{"id":"N01","kind":"question","label":"Figure checks","source_refs":[],"evidence_notes":[],"fields":"question","isolated":false}],
+  "links": [], "bindings": [], "claims": [],
+  "exhibits": [
+    {"id":"paired","file":"evidence/figures/paired.md","kind":"figure","source":null,"description":"<em>Loss & accuracy</em>","claims":[],"body":"Supporting measurements.\n\n| Step | Loss |\n|---|---|\n| 1 | 0.5 |","image":"evidence/figures/雪 % # ?.PNG"},
+    {"id":"only","file":"evidence/figures/pixel.png","kind":"figure","source":null,"description":"Image only","claims":[],"body":"","image":"evidence/figures/pixel.png"},
+    {"id":"uncaptioned","file":"evidence/figures/pixel.png","kind":"figure","source":null,"description":null,"claims":[],"body":"","image":"evidence/figures/pixel.png"},
+    {"id":"markdown","file":"evidence/figures/markdown.md","kind":"figure","source":null,"description":"Markdown caption","claims":[],"body":"Markdown fallback.\n\n| A | B |\n|---|---|\n| 2 | 3 |"},
+    {"id":"rejected","file":"evidence/figures/rejected.md","kind":"figure","source":null,"description":"Rejected caption","claims":[],"body":"Safe rejected body. <script>window.figureUnsafe=true</script>","image":"https://unsafe.example/x.png"},
+    {"id":"table","file":"evidence/tables/table.md","kind":"table","source":null,"description":"Table caption","claims":[],"body":"Non-figure body.","image":"evidence/figures/pixel.png"}
+  ],
+  "node_exhibits": [{"node":"N01","exhibit":"paired"},{"node":"N01","exhibit":"only"},{"node":"N01","exhibit":"uncaptioned"},{"node":"N01","exhibit":"markdown"},{"node":"N01","exhibit":"rejected"},{"node":"N01","exhibit":"table"}]
+}

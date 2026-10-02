@@ -86,6 +86,22 @@ the fixed-size case.
   dedicated "isolated subtree" box. This is a **logical** (not geometry) field,
   so it is additively extensible and needs no coordinated version bump.
 
+## `Exhibit.image`
+
+Figure exhibits may carry an optional `image` string, such as
+`"evidence/figures/loss.png"`, relative to the artifact root. Absent images default
+to `None` and are omitted during serialization, so old manifests keep their
+no-image behavior. `file` remains the Markdown path for a companion pair, or the
+actual raster path for an image-only exhibit; `body` remains raw Markdown.
+
+Supported references are local PNG/JPEG filesystem names. The parser and viewer
+reject URL schemes, absolute paths, parent components, backslashes, drive paths,
+and control characters. Literal spaces, Unicode, `%`, `#`, and `?` are filename
+characters and are encoded once per URL segment. The viewer maps the path beside
+the successful static manifest or through its matching serve image route.
+See [figure-exhibit-images.md](figure-exhibit-images.md) for metadata precedence,
+captions, diagnostics, and complete static packaging.
+
 ## Logical model extensibility
 
 The **logical** model (`nodes`, `links`, `bindings`, `claims`, `NodeKind`,

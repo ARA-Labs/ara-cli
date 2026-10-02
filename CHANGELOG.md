@@ -11,6 +11,29 @@ All notable changes to this project are documented here. The format follows
   finding a stable code — `ARA0xx` format rules, `ARA1xx` structural/reference
   errors, `ARA2xx` field/schema warnings — with name, layer, default severity,
   and fixability. Each validate-layer `Diagnostic` now records its code (#43).
+- `ara check`: optional per-rule config via `.ara-check.toml`, discovered from
+  the artifact directory up to the git repository root (or passed with
+  `--config <path>`; `--no-config` skips it). `select` / `ignore` enable or
+  disable rules by code or code prefix (`ARA1` = every `ARA1xx`), `fixable` /
+  `unfixable` control what `--fix` applies, and a `[severity]` table promotes or
+  demotes rules. Unknown keys or rule codes are an error (exit 2). Without a
+  config file the output and exit codes are unchanged (#40).
+- `ara check`: an unreadable nearest config fails before any fixes instead of
+  silently using ancestor or built-in settings (#40).
+- Core: `fix_dir_with(dir, allow)` applies only the fixes whose rule `allow`
+  accepts (#40).
+- Viewer: figure exhibits render local PNG/JPEG images with description captions
+  and retained Markdown bodies; Markdown-only figures keep their existing
+  rendering. Image URLs follow the manifest's successful serve/static source (#60).
+- Core: figure image declarations and companion discovery, with `ARA216` warnings
+  for missing, unsafe, unsupported, or ambiguous references (#60).
+- Serve: guarded per-artifact image delivery in local and hub modes, preserving
+  range/conditional requests and rejecting escaping symlinks (#60).
+- Viewer: Glossary and Solution-file panels typeset inline and display dollar
+  math with locally packaged, lazy-loaded KaTeX 0.19.0 and accessible MathML.
+  Original source and visible errors remain on malformed equations or local
+  renderer, stylesheet, or font failures. Protected code and non-math text stay
+  unchanged; untrusted commands and macros are isolated and bounded (#31).
 
 ### Changed
 - Core: bump serde-saphyr to 1.3.0 (#90).
