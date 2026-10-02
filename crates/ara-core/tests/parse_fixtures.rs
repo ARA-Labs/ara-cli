@@ -229,6 +229,82 @@ fn self_composing_policies_snapshot() {
     });
 }
 
+#[test]
+#[cfg(feature = "native")]
+fn figure_images_resolve_and_serialize_end_to_end() {
+    let dir = copy_fixture("evidence/e2e-variants");
+    let evidence = dir.path().join("evidence");
+    let figures = evidence.join("figures");
+    std::fs::create_dir_all(&figures).unwrap();
+    let body = "Supporting pixels.\n\n| Step | Loss |\n|---|---|\n| 1 | 0.5 |\n";
+    std::fs::write(figures.join("f_pixels.md"), body).unwrap();
+    std::fs::write(
+        figures.join("f_pixels.png"),
+        include_bytes!("fixtures/images/pixel.png"),
+    )
+    .unwrap();
+    std::fs::write(
+        figures.join("f_raster.jpg"),
+        include_bytes!("fixtures/images/pixel.jpg"),
+    )
+    .unwrap();
+    let mut index = std::fs::read_to_string(evidence.join("README.md")).unwrap();
+    index.push_str("\n\n| File | Claims | Description |\n|---|---|---|\n| figures/f_pixels.md | C01 | Paired pixels |\n| figures/f_raster.jpg | C01 | Raster pixels |\n");
+    std::fs::write(evidence.join("README.md"), index).unwrap();
+
+    let (manifest, report) =
+        ara_core::parse_and_layout_dir(dir.path(), &ara_core::LayoutOptions::default()).unwrap();
+    assert!(report.is_ok());
+    assert!(
+        !report
+            .warnings()
+            .iter()
+            .any(|w| w.code == ara_core::RuleCode::InvalidFigureImage)
+    );
+    let paired = manifest
+        .exhibits
+        .iter()
+        .find(|e| e.id == "f_pixels")
+        .unwrap();
+    assert_eq!(paired.body, body);
+    assert_eq!(paired.file, "evidence/figures/f_pixels.md");
+    assert_eq!(
+        paired.image.as_deref(),
+        Some("evidence/figures/f_pixels.png")
+    );
+    let raster = manifest
+        .exhibits
+        .iter()
+        .find(|e| e.id == "f_raster")
+        .unwrap();
+    assert_eq!(raster.body, "");
+    assert_eq!(raster.description.as_deref(), Some("Raster pixels"));
+    assert_eq!(
+        raster.image.as_deref(),
+        Some("evidence/figures/f_raster.jpg")
+    );
+    let linked: Vec<_> = manifest
+        .node_exhibits
+        .iter()
+        .filter(|e| {
+            e.node.as_str() == "N02" && matches!(e.exhibit.as_str(), "f_pixels" | "f_raster")
+        })
+        .map(|e| e.exhibit.as_str())
+        .collect();
+    assert_eq!(linked, ["f_pixels", "f_raster"]);
+    let json = serde_json::to_value(&manifest).unwrap();
+    let payloads = json["exhibits"].as_array().unwrap();
+    assert_eq!(payloads.iter().filter(|e| e["id"] == "f_pixels").count(), 1);
+    assert_eq!(
+        payloads.iter().find(|e| e["id"] == "f_pixels").unwrap()["image"],
+        "evidence/figures/f_pixels.png"
+    );
+    assert_eq!(
+        serde_json::from_value::<ara_core::Manifest>(json).unwrap(),
+        manifest
+    );
+}
+
 /// End-to-end over synthetic header-variant fixtures: a single artifact whose
 /// `evidence/README.md` mixes the reordered `Claims`, `Key refs`, no-claims-
 /// column (`What it shows`), backtick-file-cell, dual-ext, and `Used by` fact

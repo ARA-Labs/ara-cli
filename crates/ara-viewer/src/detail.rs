@@ -58,10 +58,12 @@ pub struct ExhibitView {
     pub kind: String,
     /// Origin of the exhibit, when stated.
     pub source: Option<String>,
-    /// Caption / description prose, rendered above the exhibit body (#55).
+    /// Escaped caption prose: figcaption for images, paragraph for Markdown-only exhibits.
     pub description: Option<String>,
     /// Raw markdown body, verbatim (rendered client-side; issue #32).
     pub body: String,
+    /// Optional local image, resolved only for figure exhibits.
+    pub image: Option<String>,
 }
 
 /// A node referenced by a `DependsOn` link (DEPENDS ON block, #57).
@@ -251,6 +253,11 @@ pub fn detail_model(node: &Node, manifest: &Manifest) -> DetailModel {
                     source: ex.source.clone(),
                     description: ex.description.clone(),
                     body: ex.body.clone(),
+                    image: if ex.kind == ExhibitKind::Figure {
+                        ex.image.clone()
+                    } else {
+                        None
+                    },
                 })
         })
         .collect();
@@ -539,6 +546,7 @@ pub fn DetailPane(
     load_state: ReadSignal<LoadState>,
     selected: RwSignal<Option<NodeId>>,
 ) -> impl IntoView {
+    let image_source = use_context::<RwSignal<Option<crate::source::ImageSource>>>();
     move || {
         let sel = selected.get();
         let state = load_state.get();
@@ -562,7 +570,8 @@ pub fn DetailPane(
                     .into_any(),
                     Some(node) => {
                         let model = detail_model(node, &manifest);
-                        render_detail(model, selected).into_any()
+                        render_detail(model, selected, image_source.and_then(|s| s.get()))
+                            .into_any()
                     }
                 }
             }
@@ -609,7 +618,11 @@ fn CollapsibleBlock(
 }
 
 /// Render a fully-populated `DetailModel` into DOM.
-fn render_detail(m: DetailModel, selected: RwSignal<Option<NodeId>>) -> impl IntoView {
+fn render_detail(
+    m: DetailModel,
+    selected: RwSignal<Option<NodeId>>,
+    image_source: Option<crate::source::ImageSource>,
+) -> impl IntoView {
     let is_empty = m.is_empty();
     let dead_end_class = if m.kind_css_class == "dead_end" {
         "dead_end"
@@ -816,6 +829,7 @@ fn render_detail(m: DetailModel, selected: RwSignal<Option<NodeId>>) -> impl Int
             // the rendered exhibit bodies: each non-empty `body` is GFM markdown
             // rendered client-side to HTML and mounted via `inner_html` in a
             // `.exhibit-body` scroll container (issue #32, see `markdown.rs`).
+            // Valid figure images render first; their supporting bodies stay below.
             {if !m.result_exhibits.is_empty() {
                 Some(view! {
                     <CollapsibleBlock label="result" count=m.result_exhibits.len() class="result-block" selected=selected>
@@ -828,16 +842,32 @@ fn render_detail(m: DetailModel, selected: RwSignal<Option<NodeId>>) -> impl Int
                                 }
                             }).collect::<Vec<_>>()}
                         </div>
-                        {m.result_exhibits.iter().filter(|ex| !ex.body.trim().is_empty()).map(|ex| {
-                            let rendered = crate::markdown::render_exhibit_body(&ex.body);
-                            view! {
-                                // Caption (#55): `Exhibit.description` rendered
-                                // above its body, figcaption-style.
-                                {ex.description.clone().map(|cap| view! {
-                                    <p class="exhibit-caption">{cap}</p>
-                                })}
-                                <div class="exhibit-body" inner_html=rendered></div>
+                        {m.result_exhibits.iter().filter_map(|ex| {
+                            let image = (ex.kind == "figure").then(|| {
+                                image_source.as_ref()?.image_url(ex.image.as_deref()?)
+                            }).flatten();
+                            if ex.body.trim().is_empty() && image.is_none() {
+                                return None;
                             }
+                            let body = (!ex.body.trim().is_empty()).then(|| {
+                                let rendered = crate::markdown::render_exhibit_body(&ex.body);
+                                view! { <div class="exhibit-body" inner_html=rendered></div> }
+                            });
+                            let caption = ex.description.clone().filter(|s| !s.trim().is_empty());
+                            let header = if let Some(url) = image {
+                                let alt = caption.clone().unwrap_or_else(|| ex.id.clone());
+                                view! {
+                                    <figure class="detail-figure">
+                                        <img src=url alt=alt />
+                                        {caption.map(|cap| view! { <figcaption>{cap}</figcaption> })}
+                                    </figure>
+                                }.into_any()
+                            } else {
+                                ex.description.clone().map(|cap| view! {
+                                    <p class="exhibit-caption">{cap}</p>
+                                }).into_any()
+                            };
+                            Some(view! { {header} {body} })
                         }).collect::<Vec<_>>()}
                     </CollapsibleBlock>
                 })
@@ -1272,6 +1302,7 @@ mod tests {
             description: None,
             claims: vec![],
             body: String::new(),
+            image: None,
         }];
         manifest.node_exhibits = vec![NodeExhibit {
             node: NodeId::new("N01"),
@@ -1555,6 +1586,7 @@ mod tests {
                 description: None,
                 claims: vec![],
                 body: String::new(),
+                image: None,
             },
             Exhibit {
                 id: "T01".to_string(),
@@ -1564,6 +1596,7 @@ mod tests {
                 description: None,
                 claims: vec![],
                 body: String::new(),
+                image: None,
             },
         ];
         manifest.node_exhibits = vec![
@@ -1626,6 +1659,7 @@ mod tests {
             description: None,
             claims: vec![],
             body: String::new(),
+            image: None,
         }];
         manifest.node_exhibits = vec![NodeExhibit {
             node: NodeId::new("N02"), // different node
@@ -1694,6 +1728,7 @@ mod tests {
             description: None,
             claims: vec![],
             body: String::new(),
+            image: None,
         }];
         m2.node_exhibits = vec![NodeExhibit {
             node: NodeId::new("N01"),
@@ -1718,6 +1753,7 @@ mod tests {
                 description: Some("Table 1: Speedrun Progression".to_string()),
                 claims: vec![],
                 body: "| a | b |".to_string(),
+                image: None,
             },
             Exhibit {
                 id: "T02".to_string(),
@@ -1727,6 +1763,7 @@ mod tests {
                 description: None,
                 claims: vec![],
                 body: String::new(),
+                image: None,
             },
         ];
         manifest.node_exhibits = vec![

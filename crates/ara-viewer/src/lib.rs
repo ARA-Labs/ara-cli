@@ -55,12 +55,17 @@ pub fn mount() {
 pub fn App() -> impl IntoView {
     // ── Manifest load state ──────────────────────────────────────────────────
     let (load_state, set_load_state) = signal(LoadState::Loading);
+    let image_source: RwSignal<Option<source::ImageSource>> = RwSignal::new(None);
+    provide_context(image_source);
 
     // On mount, start the async fetch, then subscribe to live-reload pushes.
     // Both are cfg'd out on native so `cargo test` compiles without browser
     // deps. `set_load_state` is Copy, so the update closure is Clone — required
     // by `connect_live`, which re-fetches on every WebSocket message.
-    let update = move |s| set_load_state.set(s);
+    let update = move |s, image| {
+        image_source.set(image);
+        set_load_state.set(s);
+    };
     fetch_manifest(ManifestSource::default(), update);
     connect_live(ManifestSource::default(), update);
 

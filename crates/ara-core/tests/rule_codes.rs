@@ -220,6 +220,14 @@ fn tree_cases() -> Vec<(RuleCode, &'static str, Files)> {
                 ("evidence/tables/X1.md", "table"),
             ],
         ),
+        (
+            RuleCode::InvalidFigureImage,
+            "invalid figure image",
+            vec![
+                (tree, Q),
+                ("evidence/figures/X1.md", "- **Image**: ../outside.png"),
+            ],
+        ),
     ]
 }
 

@@ -174,6 +174,7 @@ retired rule keeps its number). The code space is split by layer:
 | `ARA213` | duplicate-exhibit-basename | the same exhibit basename appears under two `evidence/` categories | warning | no |
 | `ARA214` | exhibit-missing-index-row | an `evidence/` body file has no row in `evidence/README.md` | warning | no |
 | `ARA215` | index-row-missing-exhibit | an `evidence/README.md` row references a body file that does not exist | warning | no |
+| `ARA216` | invalid-figure-image | a figure image declaration is missing, unsafe, unsupported, or ambiguous | warning | no |
 
 Some drift fires one rule in each layer: `reason:` on a `dead_end` is both
 `ARA002` (fixable) and `ARA206`; `justification:` / pivot `from:` / `to:` /
@@ -258,7 +259,7 @@ to fall back to an ancestor config or built-in settings.
 
 Every key names rules by **selector**: a full rule code (`ARA107`) or a code
 prefix (`ARA` followed by fewer than three digits): `ARA1` matches every
-`ARA1xx`, `ARA21` matches `ARA210`–`ARA215`, and `ARA` matches every rule. A
+`ARA1xx`, `ARA21` matches `ARA210`–`ARA216`, and `ARA` matches every rule. A
 selector that is malformed or matches no rule (`ARA999`, `ARA3`, `ara107`) is an
 error, and so is any unknown key, so a typo can never silently turn a check
 off.

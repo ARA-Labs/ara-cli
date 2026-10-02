@@ -1241,10 +1241,16 @@ figure.detail-figure {
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
+  margin: 0 0 0.75rem;
+  min-width: 0;
 }
 
 figure.detail-figure img {
   max-width: 100%;
+  display: block;
+  height: auto;
+  align-self: flex-start;
+  box-sizing: border-box;
   border-radius: 4px;
   border: 1px solid var(--line);
 }
@@ -1252,6 +1258,8 @@ figure.detail-figure img {
 figure.detail-figure figcaption {
   font-size: 0.78rem;
   color: var(--muted);
+  font-family: var(--font-mono);
+  overflow-wrap: anywhere;
 }
 
 /* Exhibit body: client-side-rendered GFM markdown (issue #32). Wide tables

@@ -5,6 +5,7 @@
 //! `evidence/figures/*.md`, `evidence/proofs/*.md`, `evidence/results/*.md`,
 //! and `evidence/tables/*.md` (enumerated in that fixed order, each sorted; a
 //! basename duplicated across categories keeps both bodies and warns once).
+//! Figures also discover PNG/JPEG companions and raster-only exhibits.
 //! The corpus index tables
 //! drift heavily — eight distinct header shapes across the 34 real artifacts,
 //! some with no claims column, one reordering columns, others using `Key refs`
@@ -313,15 +314,15 @@ fn non_empty(s: &str) -> Option<String> {
 
 /// Reads the `evidence/` layer of `dir` into exhibits, appending warnings.
 ///
-/// Enumerates `evidence/figures/*.md`, `evidence/proofs/*.md`,
-/// `evidence/results/*.md`, then `evidence/tables/*.md` (fixed order, each
-/// sorted), building one [`Exhibit`] per body file. Index rows enrich the
-/// matching body by basename id (index wins over body for source/description).
-/// An index row with no matching body, or a body with no index row, warns but
-/// never errors. The same basename appearing in two categories also warns —
+/// Enumerates direct children of figures, proofs, results, then tables (fixed
+/// category order, sorted within each). Figures combine Markdown and local PNG/
+/// JPEG assets; the other categories remain Markdown-only. Index rows enrich
+/// each basename (index wins over body for source/description). Unmatched index
+/// rows and unindexed exhibits warn but never error.
+/// The same basename appearing in two categories also warns —
 /// exhibit identity is basename-based, so both exhibits keep their bodies but
-/// share index enrichment. An absent `evidence/` dir or absent `README.md` is
-/// a silent skip.
+/// share index enrichment. An absent `evidence/` directory is a silent skip;
+/// `README.md` metadata is optional.
 #[cfg(feature = "native")]
 pub(crate) fn read_evidence(
     dir: &std::path::Path,
@@ -358,6 +359,14 @@ pub(crate) fn read_evidence(
         ("results", ExhibitKind::Result),
         ("tables", ExhibitKind::Table),
     ] {
+        let category_start = exhibits.len();
+        let rasters = if kind == ExhibitKind::Figure {
+            sorted_raster_files(&evidence_dir.join(subdir))
+        } else {
+            Vec::new()
+        };
+        let mut body_ids = BTreeSet::new();
+        let mut referenced_images = BTreeSet::new();
         for path in sorted_md_files(&evidence_dir.join(subdir)) {
             let Ok(body) = std::fs::read_to_string(&path) else {
                 continue;
@@ -366,6 +375,7 @@ pub(crate) fn read_evidence(
                 .file_stem()
                 .map(|s| s.to_string_lossy().into_owned())
                 .unwrap_or_default();
+            body_ids.insert(id.clone());
             let file = format!(
                 "evidence/{subdir}/{}",
                 path.file_name()
@@ -406,19 +416,129 @@ pub(crate) fn read_evidence(
                 );
             }
 
-            let exhibit = assemble_exhibit(id, file, kind.clone(), row, &body);
+            let mut exhibit = assemble_exhibit(id, file, kind.clone(), row, &body);
+            if kind == ExhibitKind::Figure {
+                let declared = body_bullet(&body, "image").or_else(|| {
+                    row.and_then(|r| r.file.as_ref())
+                        .filter(|file| crate::figure::image_mime(file).is_some())
+                        .cloned()
+                });
+                let selected =
+                    if declared.is_some() {
+                        declared
+                    } else {
+                        let stem = path.file_stem();
+                        let mut candidates = rasters.iter().filter(|p| p.file_stem() == stem);
+                        match (candidates.next(), candidates.next()) {
+                            (Some(candidate), None) => Some(format!(
+                                "{subdir}/{}",
+                                candidate.file_name().unwrap().to_string_lossy()
+                            )),
+                            (Some(_), Some(_)) => {
+                                report.warn(RuleCode::InvalidFigureImage, &exhibit.file,
+                                "ambiguous same-stem raster siblings; declare an Image explicitly");
+                                None
+                            }
+                            _ => None,
+                        }
+                    };
+                if let Some(reference) = selected {
+                    match crate::figure::resolve_image(&evidence_dir, &reference) {
+                        Ok(_) => exhibit.image = Some(format!("evidence/{reference}")),
+                        Err(reason) => report.warn(
+                            RuleCode::InvalidFigureImage,
+                            &exhibit.file,
+                            format!("invalid figure image {reference:?}: {reason}"),
+                        ),
+                    }
+                    referenced_images.insert(reference);
+                }
+            }
             exhibits.push(exhibit);
         }
+        // Raster companions and explicitly selected differently named assets are
+        // not standalone exhibits. Remaining rasters retain their own identities.
+        let mut raster_groups: std::collections::BTreeMap<String, Vec<String>> =
+            std::collections::BTreeMap::new();
+        for path in rasters {
+            let id = path.file_stem().unwrap().to_string_lossy().into_owned();
+            raster_groups.entry(id).or_default().push(format!(
+                "{subdir}/{}",
+                path.file_name().unwrap().to_string_lossy()
+            ));
+        }
+        for (id, candidates) in raster_groups {
+            let row = index_by_id.get(&id);
+            if let Some(row) = row {
+                consumed.insert(row.id.clone());
+            }
+            if body_ids.contains(&id) {
+                continue;
+            }
+            let declaration = row
+                .and_then(|r| r.file.as_ref())
+                .filter(|file| crate::figure::image_mime(file).is_some());
+            let relative = if let Some(declared) = declaration {
+                declared.as_str()
+            } else {
+                let mut remaining = candidates
+                    .iter()
+                    .filter(|p| !referenced_images.contains(*p));
+                match (remaining.next(), remaining.next()) {
+                    (Some(candidate), None) => candidate.as_str(),
+                    (None, _) => continue,
+                    _ => {
+                        report.warn(RuleCode::InvalidFigureImage, format!("evidence/{subdir}/{id}"),
+                            "ambiguous raster files; select a File explicitly in evidence/README.md");
+                        continue;
+                    }
+                }
+            };
+            if referenced_images.contains(relative) {
+                continue;
+            }
+            let file = format!("evidence/{relative}");
+            match crate::figure::resolve_image(&evidence_dir, relative) {
+                Ok(_) => {
+                    if row.is_none() {
+                        report.warn(
+                            RuleCode::ExhibitMissingIndexRow,
+                            &file,
+                            "image file has no index row in evidence/README.md",
+                        );
+                    }
+                    first_seen.entry(id.clone()).or_insert(subdir);
+                    let mut exhibit = assemble_exhibit(id, file.clone(), kind.clone(), row, "");
+                    exhibit.image = Some(file);
+                    exhibits.push(exhibit);
+                }
+                Err(reason) => report.warn(
+                    RuleCode::InvalidFigureImage,
+                    &file,
+                    format!("invalid figure image: {reason}"),
+                ),
+            }
+        }
+        exhibits[category_start..].sort_by(|a, b| a.file.cmp(&b.file));
     }
 
-    // Any index row that never matched a body file (and pointed at one) warns.
+    // Index rows without discovered exhibits still diagnose missing declarations.
     for row in &index {
         if row.file.is_some() && !consumed.contains(&row.id) {
-            report.warn(
-                RuleCode::IndexRowMissingExhibit,
-                format!("evidence[{}]", row.id),
-                "index row references a file with no body under evidence/",
-            );
+            if row
+                .file
+                .as_deref()
+                .is_some_and(|p| crate::figure::image_mime(p).is_some())
+            {
+                report.warn(RuleCode::InvalidFigureImage, format!("evidence[{}]", row.id),
+                    "invalid figure image: indexed raster has no discovered figure under evidence/figures");
+            } else {
+                report.warn(
+                    RuleCode::IndexRowMissingExhibit,
+                    format!("evidence[{}]", row.id),
+                    "index row references a file with no body under evidence/",
+                );
+            }
         }
     }
 
@@ -456,6 +576,7 @@ fn assemble_exhibit(
         description,
         claims,
         body: body.to_string(),
+        image: None,
     }
 }
 
@@ -476,6 +597,9 @@ fn body_bullet(body: &str, label: &str) -> Option<String> {
         if key.trim().eq_ignore_ascii_case(label) {
             let tail = tail.trim_start();
             let value = tail.strip_prefix(':').unwrap_or(tail).trim();
+            if label == "image" {
+                return Some(value.to_string());
+            }
             if let Some(v) = non_empty(value) {
                 return Some(v);
             }
@@ -512,6 +636,25 @@ fn sorted_md_files(dir: &std::path::Path) -> Vec<std::path::PathBuf> {
         .flatten()
         .map(|e| e.path())
         .filter(|p| p.is_file() && p.extension().is_some_and(|ext| ext == "md"))
+        .collect();
+    paths.sort();
+    paths
+}
+
+/// Direct-child raster discovery, sorted just like Markdown discovery.
+#[cfg(feature = "native")]
+fn sorted_raster_files(dir: &std::path::Path) -> Vec<std::path::PathBuf> {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return Vec::new();
+    };
+    let mut paths: Vec<_> = entries
+        .flatten()
+        .map(|e| e.path())
+        .filter(|p| {
+            p.is_file()
+                && p.to_str()
+                    .is_some_and(|s| crate::figure::image_mime(s).is_some())
+        })
         .collect();
     paths.sort();
     paths
@@ -799,6 +942,38 @@ mod tests {
 
     #[cfg(feature = "native")]
     #[test]
+    fn read_evidence_figure_companion_preserves_body_and_image() {
+        let body =
+            "# Loss\n\nSupporting measurements.\n\n| Step | Loss |\n|---|---|\n| 1 | 0.5 |\n";
+        let dir = evidence_artifact(
+            &[("figures", "loss.md", body)],
+            Some(
+                "| File | Claims | Description |\n|---|---|---|\n| figures/loss.md | C01 | Loss curve |\n",
+            ),
+        );
+        // A complete, decodable one-pixel PNG, not merely an extension fixture.
+        let png: &[u8] = &[
+            137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82, 0, 0, 0, 1, 0, 0, 0, 1,
+            8, 4, 0, 0, 0, 181, 28, 12, 2, 0, 0, 0, 11, 73, 68, 65, 84, 120, 218, 99, 100, 248, 15,
+            0, 1, 5, 1, 1, 39, 24, 227, 102, 0, 0, 0, 0, 73, 69, 78, 68, 174, 66, 96, 130,
+        ];
+        std::fs::write(dir.path().join("evidence/figures/loss.png"), png).unwrap();
+
+        let mut report = crate::report::ParseReport::default();
+        let exhibits = read_evidence(dir.path(), &mut report);
+        assert_eq!(exhibits.len(), 1, "companions form one exhibit");
+        assert_eq!(exhibits[0].body, body);
+        assert_eq!(exhibits[0].file, "evidence/figures/loss.md");
+        assert_eq!(exhibits[0].claims, claims(&["C01"]));
+        assert_eq!(
+            serde_json::to_value(&exhibits[0]).unwrap().get("image"),
+            Some(&serde_json::json!("evidence/figures/loss.png")),
+        );
+        assert!(report.warnings().is_empty());
+    }
+
+    #[cfg(feature = "native")]
+    #[test]
     fn read_evidence_enumerates_four_categories_in_fixed_order() {
         let dir = evidence_artifact(
             &[
@@ -936,6 +1111,361 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "native")]
+    fn add_png(dir: &std::path::Path, name: &str) {
+        let path = dir.join("evidence").join(name);
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(path, include_bytes!("../tests/fixtures/images/pixel.png")).unwrap();
+    }
+
+    #[cfg(feature = "native")]
+    #[test]
+    fn raster_only_indexed_figure_links_to_claim() {
+        let dir = evidence_artifact(
+            &[],
+            Some(
+                "| File | Claims | Description |\n|---|---|---|\n| figures/plot.PNG | C01 | The plot |\n",
+            ),
+        );
+        add_png(dir.path(), "figures/plot.PNG");
+        let mut report = crate::report::ParseReport::default();
+        let exhibits = read_evidence(dir.path(), &mut report);
+        assert_eq!(exhibits.len(), 1);
+        let ex = &exhibits[0];
+        assert_eq!(ex.id, "plot");
+        assert_eq!(ex.file, "evidence/figures/plot.PNG");
+        assert_eq!(ex.image.as_deref(), Some(ex.file.as_str()));
+        assert_eq!(ex.body, "");
+        assert_eq!(ex.description.as_deref(), Some("The plot"));
+        assert_eq!(
+            resolve_node_exhibits(&[node("N01")], &[binding("N01", "C01")], &exhibits),
+            vec![NodeExhibit {
+                node: NodeId::new("N01"),
+                exhibit: "plot".into()
+            }]
+        );
+        assert!(report.warnings().is_empty());
+    }
+
+    #[cfg(feature = "native")]
+    #[test]
+    fn raster_only_ambiguous_formats_require_an_index_selection() {
+        let dir = evidence_artifact(&[], None);
+        add_png(dir.path(), "figures/loss.png");
+        std::fs::write(
+            dir.path().join("evidence/figures/loss.jpg"),
+            include_bytes!("../tests/fixtures/images/pixel.jpg"),
+        )
+        .unwrap();
+        let mut report = crate::report::ParseReport::default();
+        assert!(read_evidence(dir.path(), &mut report).is_empty());
+        assert!(
+            report
+                .warnings()
+                .iter()
+                .any(|w| w.code == RuleCode::InvalidFigureImage)
+        );
+        std::fs::write(
+            dir.path().join("evidence/README.md"),
+            "| File | Claims |\n|---|---|\n| figures/loss.jpg | C01 |\n",
+        )
+        .unwrap();
+        let mut report = crate::report::ParseReport::default();
+        let exhibits = read_evidence(dir.path(), &mut report);
+        assert_eq!(exhibits.len(), 1);
+        assert_eq!(
+            exhibits[0].image.as_deref(),
+            Some("evidence/figures/loss.jpg")
+        );
+        assert_eq!(exhibits[0].claims, claims(&["C01"]));
+        assert!(report.warnings().is_empty());
+    }
+
+    #[cfg(feature = "native")]
+    #[test]
+    fn invalid_index_raster_does_not_replace_declaration_with_valid_sibling() {
+        for file in ["../loss.png", "figures/loss.jpg"] {
+            let readme = format!("| File | Claims |\n|---|---|\n| {file} | C01 |\n");
+            let dir = evidence_artifact(&[("figures", "loss.md", "Keep body.")], Some(&readme));
+            add_png(dir.path(), "figures/loss.png");
+            let mut report = crate::report::ParseReport::default();
+            let exhibits = read_evidence(dir.path(), &mut report);
+            assert_eq!(exhibits.len(), 1);
+            assert_eq!(exhibits[0].body, "Keep body.");
+            assert!(exhibits[0].image.is_none());
+            assert!(
+                report
+                    .warnings()
+                    .iter()
+                    .any(|w| w.code == RuleCode::InvalidFigureImage)
+            );
+        }
+    }
+
+    #[cfg(feature = "native")]
+    #[test]
+    fn raster_index_missing_or_unsafe_reference_uses_image_warning() {
+        for reference in [
+            "figures/missing.PNG",
+            "../missing.png",
+            "https://example.test/missing.png",
+        ] {
+            let index = format!("| File | Claims |\n|---|---|\n| {reference} | C01 |\n");
+            let dir = evidence_artifact(&[], Some(&index));
+            let mut report = crate::report::ParseReport::default();
+            assert!(read_evidence(dir.path(), &mut report).is_empty());
+            assert_eq!(report.warnings().len(), 1);
+            assert_eq!(report.warnings()[0].code, RuleCode::InvalidFigureImage);
+        }
+    }
+
+    #[cfg(feature = "native")]
+    #[test]
+    fn explicit_image_wins_and_asset_is_not_an_exhibit() {
+        let body = "- **Image**: figures/other % # ?.png\n\nSupporting data.";
+        let dir = evidence_artifact(
+            &[("figures", "loss.md", body)],
+            Some("| File | Claims |\n|---|---|\n| figures/loss.jpg | C01 |\n"),
+        );
+        add_png(dir.path(), "figures/loss.png");
+        add_png(dir.path(), "figures/other % # ?.png");
+        let mut report = crate::report::ParseReport::default();
+        let exhibits = read_evidence(dir.path(), &mut report);
+        assert_eq!(exhibits.len(), 1);
+        assert_eq!(
+            exhibits[0].image.as_deref(),
+            Some("evidence/figures/other % # ?.png")
+        );
+        assert_eq!(exhibits[0].body, body);
+        assert!(report.warnings().is_empty());
+    }
+
+    #[cfg(feature = "native")]
+    #[test]
+    fn rejected_explicit_images_do_not_fall_back_to_sibling() {
+        for reference in [
+            "figures/missing.png",
+            "../outside.png",
+            "/tmp/outside.png",
+            "https://example.test/x.png",
+            "//example.test/x.png",
+            "C:/x.png",
+            "figures\\loss.png",
+            "figures/x.svg",
+            "",
+        ] {
+            let body = format!("- **Image**: {reference}\n\nKeep this body.");
+            let dir = evidence_artifact(&[("figures", "loss.md", &body)], None);
+            add_png(dir.path(), "figures/loss.png");
+            let mut report = crate::report::ParseReport::default();
+            let exhibits = read_evidence(dir.path(), &mut report);
+            assert_eq!(exhibits.len(), 1, "{reference}");
+            assert_eq!(exhibits[0].body, body);
+            assert!(exhibits[0].image.is_none(), "{reference}");
+            assert!(
+                report
+                    .warnings()
+                    .iter()
+                    .any(|w| w.code == RuleCode::InvalidFigureImage),
+                "{reference}"
+            );
+        }
+    }
+
+    #[cfg(feature = "native")]
+    #[test]
+    fn index_raster_beats_sibling_and_dual_extension_uses_real_pair() {
+        for (file, expected) in [
+            ("figures/loss.jpg", "evidence/figures/loss.jpg"),
+            ("figures/loss.(png/md)", "evidence/figures/loss.png"),
+        ] {
+            let readme = format!("| File | Claims |\n|---|---|\n| {file} | C01 |\n");
+            let dir = evidence_artifact(&[("figures", "loss.md", "body")], Some(&readme));
+            add_png(dir.path(), "figures/loss.png");
+            if file.ends_with(".jpg") {
+                std::fs::write(
+                    dir.path().join("evidence/figures/loss.jpg"),
+                    include_bytes!("../tests/fixtures/images/pixel.jpg"),
+                )
+                .unwrap();
+            }
+            let mut report = crate::report::ParseReport::default();
+            let exhibits = read_evidence(dir.path(), &mut report);
+            assert_eq!(exhibits.len(), 1);
+            assert_eq!(exhibits[0].image.as_deref(), Some(expected));
+            assert!(report.warnings().is_empty());
+        }
+    }
+
+    #[cfg(feature = "native")]
+    #[test]
+    fn ambiguous_siblings_keep_markdown_without_selecting_an_image() {
+        let dir = evidence_artifact(&[("figures", "loss.md", "body")], None);
+        add_png(dir.path(), "figures/loss.png");
+        std::fs::write(
+            dir.path().join("evidence/figures/loss.jpg"),
+            include_bytes!("../tests/fixtures/images/pixel.jpg"),
+        )
+        .unwrap();
+        let mut report = crate::report::ParseReport::default();
+        let exhibits = read_evidence(dir.path(), &mut report);
+        assert_eq!(exhibits.len(), 1);
+        assert_eq!(exhibits[0].body, "body");
+        assert!(exhibits[0].image.is_none());
+        assert!(
+            report
+                .warnings()
+                .iter()
+                .any(|w| w.code == RuleCode::InvalidFigureImage)
+        );
+    }
+
+    #[cfg(feature = "native")]
+    #[test]
+    fn raster_named_directory_does_not_hide_regular_sibling() {
+        let dir = evidence_artifact(
+            &[("figures", "loss.md", "body")],
+            Some("| File | Claims |\n|---|---|\n| figures/loss.md | C01 |\n"),
+        );
+        add_png(dir.path(), "figures/loss.png");
+        std::fs::create_dir(dir.path().join("evidence/figures/loss.jpg")).unwrap();
+        let mut report = crate::report::ParseReport::default();
+        let exhibits = read_evidence(dir.path(), &mut report);
+        assert_eq!(
+            exhibits[0].image.as_deref(),
+            Some("evidence/figures/loss.png")
+        );
+        assert_eq!(exhibits[0].body, "body");
+        assert!(report.warnings().is_empty());
+    }
+
+    #[cfg(feature = "native")]
+    #[test]
+    fn referenced_raster_does_not_suppress_distinct_indexed_format() {
+        for jpeg_present in [true, false] {
+            let dir = evidence_artifact(
+                &[("figures", "overview.md", "- **Image**: figures/shared.png")],
+                Some(
+                    "| File | Claims |\n|---|---|\n| figures/overview.md | C01 |\n| figures/shared.jpg | C02 |\n",
+                ),
+            );
+            add_png(dir.path(), "figures/shared.png");
+            if jpeg_present {
+                std::fs::write(
+                    dir.path().join("evidence/figures/shared.jpg"),
+                    include_bytes!("../tests/fixtures/images/pixel.jpg"),
+                )
+                .unwrap();
+            }
+            let mut report = crate::report::ParseReport::default();
+            let exhibits = read_evidence(dir.path(), &mut report);
+            assert_eq!(
+                exhibits
+                    .iter()
+                    .find(|ex| ex.id == "overview")
+                    .unwrap()
+                    .image
+                    .as_deref(),
+                Some("evidence/figures/shared.png")
+            );
+            if jpeg_present {
+                let indexed = exhibits
+                    .iter()
+                    .find(|ex| ex.id == "shared")
+                    .expect("distinct indexed raster");
+                assert_eq!(
+                    indexed.image.as_deref(),
+                    Some("evidence/figures/shared.jpg")
+                );
+                assert_eq!(
+                    resolve_node_exhibits(&[node("N01")], &[binding("N01", "C02")], &exhibits),
+                    vec![NodeExhibit {
+                        node: NodeId::new("N01"),
+                        exhibit: "shared".into()
+                    }]
+                );
+                assert!(report.warnings().is_empty());
+            } else {
+                assert!(
+                    report
+                        .warnings()
+                        .iter()
+                        .any(|w| w.code == RuleCode::InvalidFigureImage)
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn legacy_exhibit_json_and_optional_image_round_trip() {
+        let legacy = serde_json::json!({
+            "id": "loss", "file": "evidence/figures/loss.md", "kind": "figure",
+            "source": null, "description": null, "claims": [], "body": "body"
+        });
+        let mut ex: Exhibit = serde_json::from_value(legacy.clone()).unwrap();
+        assert!(ex.image.is_none());
+        assert_eq!(serde_json::to_value(&ex).unwrap(), legacy);
+        ex.image = Some("evidence/figures/loss.png".into());
+        assert_eq!(
+            serde_json::from_str::<Exhibit>(&serde_json::to_string(&ex).unwrap()).unwrap(),
+            ex
+        );
+    }
+
+    #[cfg(all(feature = "native", unix))]
+    #[test]
+    fn image_symlinks_allow_selected_root_and_contained_assets_only() {
+        use std::os::unix::fs::symlink;
+        let dir = evidence_artifact(
+            &[("figures", "loss.md", "- **Image**: figures/alias.png")],
+            None,
+        );
+        add_png(dir.path(), "figures/asset.png");
+        symlink("asset.png", dir.path().join("evidence/figures/alias.png")).unwrap();
+        let roots = tempfile::TempDir::new().unwrap();
+        let selected = roots.path().join("selected");
+        symlink(dir.path(), &selected).unwrap();
+        let mut report = crate::report::ParseReport::default();
+        let exhibits = read_evidence(&selected, &mut report);
+        assert_eq!(
+            exhibits
+                .iter()
+                .find(|e| e.id == "loss")
+                .unwrap()
+                .image
+                .as_deref(),
+            Some("evidence/figures/alias.png")
+        );
+        let outside = tempfile::TempDir::new().unwrap();
+        std::fs::write(
+            outside.path().join("secret.png"),
+            include_bytes!("../tests/fixtures/images/pixel.png"),
+        )
+        .unwrap();
+        std::fs::remove_file(dir.path().join("evidence/figures/alias.png")).unwrap();
+        symlink(
+            outside.path().join("secret.png"),
+            dir.path().join("evidence/figures/alias.png"),
+        )
+        .unwrap();
+        let mut report = crate::report::ParseReport::default();
+        let exhibits = read_evidence(&selected, &mut report);
+        assert!(
+            exhibits
+                .iter()
+                .find(|e| e.id == "loss")
+                .unwrap()
+                .image
+                .is_none()
+        );
+        assert!(
+            report
+                .warnings()
+                .iter()
+                .any(|w| w.code == RuleCode::InvalidFigureImage)
+        );
+    }
+
     // ── test helpers ─────────────────────────────────────────────────────────
 
     fn node(id: &str) -> Node {
@@ -976,6 +1506,7 @@ mod tests {
             source: None,
             description: None,
             claims: claims(claim_ids),
+            image: None,
             body: String::new(),
         }
     }

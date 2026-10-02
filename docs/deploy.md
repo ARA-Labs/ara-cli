@@ -178,11 +178,17 @@ WantedBy=multi-user.target
 
 Bind `127.0.0.1` and let the reverse proxy (above) face the internet.
 
+## Serving artifact figures
+
+Hub figures use `/a/{id}/api/figure/{*path}` with the same guarded PNG/JPEG handler
+as local serving. Keep referenced files beneath each artifact's `evidence/`
+directory in the read-only mount. The viewer derives image URLs from the loaded
+manifest, so the per-artifact document base does not send images to another ARA.
+See [figure-exhibit-images.md](figure-exhibit-images.md) for authoring, allowed
+symlinks, and manual static deployment without a running API.
+
 ## Out of scope (deferred)
 
-- **Per-ARA figure serving** (`/a/{id}/api/figure/*`) — the viewer renders figures
-  inert today; the traversal-safe per-id handler + the relative figure-`src`
-  contract are designed together in the figure-rendering PR.
 - **Static-export mode** (`ara build <root>` → per-ARA `manifest.json` served by a
   plain file host/CDN) — kept as a post-`0.1.3` scaling play; Stage 5 keeps a
   running server so there is one binary and one `/api` contract, local and hub.

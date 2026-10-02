@@ -219,22 +219,6 @@ cold. Remove an item when it lands.
   real multi-ARA traffic and we know whether live `/api` semantics matter.
 - **Depends on:** Stage 5 shipping first (need the running hub to compare against).
 
-### T-HUB-FIGURES — per-ARA figure serving on the hub
-- **What:** `/a/{id}/api/figure/*` for hub mode, plus relative-URL treatment for
-  figure `src` in the viewer so figures resolve under `<base href="/a/{id}/">`.
-- **Why:** Deferred from the Stage 5 eng review (issue 11). Stage 4 mounts figures
-  via a single `nest_service("/api/figure", ServeDir::new(dir))` (`mod.rs:144`) —
-  a static prefix bound to ONE dir. axum cannot `nest_service` a `ServeDir` under a
-  `{id}` path parameter, so the hub must either register N nested ServeDirs at
-  ingest or hand-roll a handler that re-implements `..`-traversal rejection AND
-  range support. Either way it's a security-sensitive (directory-escape) surface.
-- **Context:** The viewer renders figures **inert** today (`crates/ara-viewer/src/detail.rs:386`,
-  T-REAL-CORPUS deferred), so the endpoint would serve nothing yet. Build it in the
-  SAME PR that lights up figure rendering, so the endpoint + the viewer's relative
-  figure-URL contract are designed and tested together. When built, add
-  traversal-attack tests (`../`, absolute path, symlink).
-- **Depends on:** figure rendering (T-REAL-CORPUS) shipping in the viewer.
-
 ## Deferred from hub-parity design review (2026-07-16)
 
 ### T-MATH-RENDER — proper LaTeX/math rendering in Glossary + Recipes panels

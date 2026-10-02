@@ -211,6 +211,9 @@ rules! {
     /// An `evidence/README.md` row points at a body file that does not exist.
     IndexRowMissingExhibit => ("ARA215", "index-row-missing-exhibit", Validate, Warning, false,
         "an `evidence/README.md` row references a body file that does not exist"),
+    /// A figure image declaration is missing, unsafe, invalid, or ambiguous.
+    InvalidFigureImage => ("ARA216", "invalid-figure-image", Validate, Warning, false,
+        "a figure image declaration is missing, unsafe, invalid, or ambiguous"),
 }
 
 impl RuleCode {

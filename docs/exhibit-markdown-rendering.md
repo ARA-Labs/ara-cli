@@ -87,9 +87,12 @@ keeps a future renderer or font from silently eating the headroom.
 
 ## Rendering and layout
 
-- `ExhibitView` carries `body`, populated from `ex.body` in `detail_model`.
-- Each exhibit chip is followed by its rendered body in a
-  `<div class="exhibit-body">`; blank bodies are skipped.
+- `ExhibitView` carries the raw body and optional validated figure image.
+- Image-bearing figures use `<figure><img><figcaption>` with escaped descriptions
+  as captions and alternative text. A nonblank supporting Markdown body follows
+  in `.exhibit-body`; image-only exhibits render without a body container.
+- No-image figures retain the caption-above-Markdown branch. Other kinds remain
+  Markdown-only. See [figure-exhibit-images.md](figure-exhibit-images.md).
 - The `.exhibit-body { overflow-x: auto; max-width: 100% }` overflow contract
   is unchanged: a wide table scrolls **inside its own block** rather than
   pushing the page into a horizontal scroll at narrow viewports.
@@ -133,7 +136,4 @@ keeps a future renderer or font from silently eating the headroom.
 
 ## Known gaps (tracked)
 
-- **Figure images are not rendered** as inline images
-  ([#60](https://github.com/ARA-Labs/ara-cli/issues/60), the `T-HUB-FIGURES`
-  follow-on). The sampled corpus is overwhelmingly markdown tables.
 - **Math is inert** ([#31](https://github.com/ARA-Labs/ara-cli/issues/31)).
