@@ -219,18 +219,3 @@ cold. Remove an item when it lands.
   real multi-ARA traffic and we know whether live `/api` semantics matter.
 - **Depends on:** Stage 5 shipping first (need the running hub to compare against).
 
-## Deferred from hub-parity design review (2026-07-16)
-
-### T-MATH-RENDER — proper LaTeX/math rendering in Glossary + Recipes panels
-- **What:** Render inline/display LaTeX (`$\pi^{(k)}$`, `$\Phi^{k;s}$`, aligned
-  equations) in the Concepts (Glossary) and Solution (Recipes) panels with a
-  KaTeX-style renderer, instead of the v1 inert-monospace fallback.
-- **Why:** `logic/concepts.md` and `logic/solution/*.md` carry heavy math (notation,
-  multi-step derivations). The hub-parity plan (`plans/hub-parity-full.md`, decision
-  D3) ships **inert monospace `$…$`** for v1: honest and cheap, but unreadable for
-  real equations. A proper renderer makes the math legible.
-- **Context:** Deferred because a KaTeX/MathML renderer adds JS/wasm weight that
-  tensions the enforced sub-MB wasm bundle gate, and is not needed for *structural*
-  parity. Evaluate a wasm-safe pure-Rust math typesetter or a lazily-loaded KaTeX
-  before adding bundle weight. Not required to match the hub's structure.
-- **Depends on:** the Glossary/Recipes panels shipping (hub-parity slice 5).

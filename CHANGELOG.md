@@ -29,6 +29,11 @@ All notable changes to this project are documented here. The format follows
   for missing, unsafe, unsupported, or ambiguous references (#60).
 - Serve: guarded per-artifact image delivery in local and hub modes, preserving
   range/conditional requests and rejecting escaping symlinks (#60).
+- Viewer: Glossary and Solution-file panels typeset inline and display dollar
+  math with locally packaged, lazy-loaded KaTeX 0.19.0 and accessible MathML.
+  Original source and visible errors remain on malformed equations or local
+  renderer, stylesheet, or font failures. Protected code and non-math text stay
+  unchanged; untrusted commands and macros are isolated and bounded (#31).
 
 ### Changed
 - Core: bump serde-saphyr to 1.3.0 (#90).

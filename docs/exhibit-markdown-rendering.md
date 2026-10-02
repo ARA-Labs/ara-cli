@@ -37,10 +37,10 @@ Only the extensions the corpus needs are enabled: `ENABLE_TABLES` and
 - comrak buys GitHub-exact output we do not need at meaningfully more weight;
   `markdown-rs` was a viable lighter alternative, but pulldown-cmark is the
   ecosystem default and what #32 named.
-- **Math stays inert (D3).** The math extension is off, so `$…$` in an exhibit
-  body renders as literal text — the same "never interpreted" posture as
-  `latex_view`. Real math rendering remains
-  [#31 / `T-MATH-RENDER`](https://github.com/ARA-Labs/ara-cli/issues/31).
+- **Exhibit math stays literal.** The math extension is off, so `$...$` in an
+  exhibit body renders as source text. Glossary and Solution-file panels have a
+  separate, locally lazy-loaded renderer; see
+  [panel-math-rendering.md](panel-math-rendering.md) (#31).
 
 ## Mounting — `inner_html`, with both injection vectors closed
 
@@ -136,4 +136,6 @@ keeps a future renderer or font from silently eating the headroom.
 
 ## Known gaps (tracked)
 
-- **Math is inert** ([#31](https://github.com/ARA-Labs/ara-cli/issues/31)).
+- Dollar math in exhibit Markdown is literal. The panel-only renderer shipped
+  for [#31](https://github.com/ARA-Labs/ara-cli/issues/31) does not change this
+  contract.

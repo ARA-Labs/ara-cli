@@ -21,6 +21,12 @@ An [axum](https://docs.rs/axum) 0.8 server, native-only, living in
 | `assets.rs` | Viewer delivery: embedded (`include_dir!`) or `--assets <dir>` |
 | `watch.rs` | Debounced `notify` file watcher (`--poll` backend) |
 
+The embedded directory and `--assets` distribution also include the local
+panel-math loader and versioned KaTeX JS/CSS/fonts. Hub `<base href>` changes do
+not change their source: the loader resolves vendor files beside its own script.
+Copy the entire Trunk distribution when deploying statically. See
+[panel-math-rendering.md](panel-math-rendering.md) (#31).
+
 ```bash
 ara serve ./my-ara                 # embedded viewer, http://127.0.0.1:8080
 ara serve ./my-ara --port 3000
