@@ -1,14 +1,14 @@
 # PR 13: add CLI-only copies of the pinned research skills
 **Date:** 2026-10-01
 
-Implementation record: [13-cli-backed-skills](../../docs/agent-cli-interface/13-cli-backed-skills.md). Remaining acceptance: Revised independent access review, human protocol approval and installed-agent smoke remain pending.
+Implementation record: [13-cli-backed-skills](../../docs/agent-cli-interface/13-cli-backed-skills.md). Independent static access review and installed reader/PM/compiler packaging smokes pass; human protocol approval and historical scientific reproduction remain separate pending gates.
 
 Observed proof: [delivery verification](../../docs/verification/agent-cli-2026-10-02/README.md).
 
 
 Status: **approved** 2026-10-01 (split at approval into 13a and 13b). Target repository: `ARA-Labs/Agent-Native-Research-Artifact`. Parent: [agent CLI interface plan](../agent-cli-interface.md). Series: [PR index and shared gates](README.md). Dependencies:
 
-- **13a (reader):** [02-read-commands.md](02-read-commands.md), [10-keyword-search.md](../../docs/agent-cli-interface/10-keyword-search.md), the reader rows of [12-pin-skill-contracts.md](12-pin-skill-contracts.md), and approved F6/F7 in [00-protocol-contracts.md](00-protocol-contracts.md).
+- **13a (reader):** [02-read-commands.md](../../docs/agent-cli-interface/02-read-commands.md), [10-keyword-search.md](../../docs/agent-cli-interface/10-keyword-search.md), the reader rows of [12-pin-skill-contracts.md](12-pin-skill-contracts.md), and approved F6/F7 in [00-protocol-contracts.md](00-protocol-contracts.md).
 - **13b (research-manager and compiler):** 13a, [06-batch-apply.md](06-batch-apply.md), the complete PR 12 inventory, and approved F3/F4 in PR 00.
 
 Each deliverable ships when its own required operations are covered.

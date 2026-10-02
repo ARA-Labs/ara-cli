@@ -1,0 +1,20 @@
+{
+  "format": "ara.acceptance-evidence-integrity/v1",
+  "binary_sha256": "edb181c62e4a275bfaae4e464aea83d54cafb125739b0fb8fbd2385531912734",
+  "source_record_commit": "4f70972cb68aaec122148cf98421dda29f3061e4",
+  "archive": {
+    "path": "final-acceptance.json.xz",
+    "compression": "xz",
+    "bytes": 18773812,
+    "sha256": "243a8cc431a2ca5d6705d6fde1d0512cab1b18327ff803ec8abb1038f087d11a"
+  },
+  "uncompressed": {
+    "bytes": 3388275698,
+    "sha256": "a635ea79af307d124843c81536d71512ca5f07eb0ce37ea6e2209913edd7a485"
+  },
+  "lossless_archive_check": "xz --test passed",
+  "summary": "complete-acceptance-edb181c62e4a275b.json",
+  "acceptance_complete": true,
+  "passed": false,
+  "scientific_claimed": false
+}

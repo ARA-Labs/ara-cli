@@ -65,6 +65,9 @@ All notable changes to this project are documented here. The format follows
 - Native hashing enables RustCrypto's CPU-dispatched SHA-256 backend, retaining
   the software fallback and identical fingerprints; `sha2-asm` is a native-only
   transitive dependency. Flow-map child insertion preserves the JSON subset.
+- Large native CLI merges overlap immutable duplicate advice with durable commit;
+  commit errors retain precedence and no advice changes knowledge bytes. Phase
+  elapsed times may overlap; every required final process budget passes.
 - Core: bump serde-saphyr to 1.3.0 (#90).
 - `ara check`: validate-layer findings are now prefixed with their rule code
   (`ARA105 error: nodes[N01]: duplicate node id`), and each `--json`

@@ -2,14 +2,15 @@
   "schema": "ara.installed-agent-final-release-replay/v1",
   "binary": {
     "version": "0.1.23",
-    "sha256": "674f0229e76c13819a343e370211006e89d160d62773b6611c6775342928cd3b"
+    "sha256": "edb181c62e4a275bfaae4e464aea83d54cafb125739b0fb8fbd2385531912734",
+    "source_record_commit": "4f70972cb68aaec122148cf98421dda29f3061e4"
   },
   "installed_runtime_proof": "https://github.com/ARA-Labs/Agent-Native-Research-Artifact/blob/feat/agent-cli-interface/evaluation/agent-cli/delivery-proof/runtime-smoke.json",
   "pm": {
     "argv": [
-      "/tmp/ara-integration-binary/ara-0.1.23-674f0229e76c1381",
+      "/tmp/ara-integration-binary/ara-0.1.23-edb181c62e4a275b",
       "-C",
-      "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-owner-smoke-edq4riv4/pm-final-023/ara",
+      "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-owner-smoke-edq4riv4/pm-delivery-4f70972",
       "apply",
       "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-owner-smoke-edq4riv4/pm/c01-revision-request.jsonl",
       "--json"
@@ -64,7 +65,7 @@
   },
   "compiler": {
     "argv": [
-      "/tmp/ara-integration-binary/ara-0.1.23-674f0229e76c1381",
+      "/tmp/ara-integration-binary/ara-0.1.23-edb181c62e4a275b",
       "check",
       "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-owner-smoke-edq4riv4/compiler/ara-output",
       "--json"

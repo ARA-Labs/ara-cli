@@ -6,7 +6,7 @@ Implementation record: [00-protocol-contracts](../../docs/agent-cli-interface/00
 Observed proof: [delivery verification](../../docs/verification/agent-cli-2026-10-02/README.md).
 
 
-Status: **approved** 2026-10-01. Target repository: `ARA-Labs/Agent-Native-Research-Artifact`. Parent: [agent CLI interface plan](../agent-cli-interface.md). Series: [PR index and shared gates](README.md). Dependencies: none; this proposal can proceed alongside [01-read-model.md](../../docs/agent-cli-interface/01-read-model.md) and [02-read-commands.md](02-read-commands.md).
+Status: **approved** 2026-10-01. Target repository: `ARA-Labs/Agent-Native-Research-Artifact`. Parent: [agent CLI interface plan](../agent-cli-interface.md). Series: [PR index and shared gates](README.md). Dependencies: none; this proposal can proceed alongside [01-read-model.md](../../docs/agent-cli-interface/01-read-model.md) and [02-read-commands.md](../../docs/agent-cli-interface/02-read-commands.md).
 
 ## TL;DR
 

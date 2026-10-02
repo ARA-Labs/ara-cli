@@ -1,6 +1,6 @@
 # PR 08: Merge complete ARA directories
 
-Implementation record: [08-directory-merge](../../docs/agent-cli-interface/08-directory-merge.md). Remaining acceptance: 10k local process timing misses the fixed 1 s gate; historical fixture replay is blocked.
+Implementation record: [08-directory-merge](../../docs/agent-cli-interface/08-directory-merge.md). Engineering implementation and the fixed 10k process timing gate pass; the separate unchanged historical creation replay remains blocked and is not relabeled as successful acceptance.
 
 Observed proof: [delivery verification](../../docs/verification/agent-cli-2026-10-02/README.md).
 

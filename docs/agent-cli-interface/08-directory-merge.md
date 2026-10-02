@@ -63,7 +63,12 @@ dispatch and software fallback; digest bytes and durable rechecks are unchanged.
 
 ## Boundaries and remaining gates
 
-10k process timing remains a recorded failed acceptance gate on this runner. Unknown/opaque data cannot be silently omitted. The pinned historical fixture contains five dangling session-index entries and cannot be claimed as a successful replay.
+The final frozen binary passes all five 10k process samples at 868.62–894.49 ms
+against the unchanged 1,000 ms gate. Earlier failed and first-launch measurements
+remain attributed in the verification record; this is not a cold-cache guarantee.
+Unknown/opaque data cannot be silently omitted. The pinned historical fixture
+contains five dangling session-index entries and cannot be claimed as a successful
+creation replay. The 100k probes remain report-only and retain actual failures.
 
 ## Code and proof boundaries
 
