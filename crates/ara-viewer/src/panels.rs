@@ -126,12 +126,37 @@ pub fn concept_matches(c: &Concept, query: &str) -> bool {
 
 /// The Glossary launcher + modal. Count = number of concept (`## Term`) blocks.
 #[component]
-pub fn GlossaryPanel(load_state: ReadSignal<LoadState>) -> impl IntoView {
-    let open = RwSignal::new(false);
-    let query = RwSignal::new(String::new());
+pub fn GlossaryPanel(
+    load_state: ReadSignal<LoadState>,
+    open: RwSignal<bool>,
+    query: RwSignal<String>,
+    target: RwSignal<Option<String>>,
+) -> impl IntoView {
     let concepts = Memo::new(move |_| match load_state.get() {
         LoadState::Loaded(m) => m.concepts.clone(),
         _ => Vec::new(),
+    });
+
+    Effect::new(move |_| {
+        let valid = target.with(|requested| {
+            let Some(term) = requested.as_deref() else {
+                return true;
+            };
+            concepts.with(|items| {
+                let mut matches = items.iter().filter(|concept| {
+                    concept
+                        .term
+                        .chars()
+                        .flat_map(char::to_lowercase)
+                        .eq(term.chars().flat_map(char::to_lowercase))
+                });
+                matches.next().is_some_and(|concept| concept.term == term)
+                    && matches.next().is_none()
+            })
+        });
+        if !valid {
+            target.set(None);
+        }
     });
 
     view! {
@@ -141,7 +166,11 @@ pub fn GlossaryPanel(load_state: ReadSignal<LoadState>) -> impl IntoView {
                 <button
                     type="button"
                     class="btn panel-launch-btn"
-                    on:click=move |_| open.update(|o| *o = !*o)
+                    on:click=move |_| {
+                        target.set(None);
+                        query.set(String::new());
+                        open.set(true);
+                    }
                 >
                     "Glossary"
                     <span class="launch-count">{count}</span>
@@ -156,7 +185,10 @@ pub fn GlossaryPanel(load_state: ReadSignal<LoadState>) -> impl IntoView {
                 placeholder="filter\u{2026}"
                 aria-label="Filter glossary"
                 prop:value=move || query.get()
-                on:input=move |ev| query.set(event_target_value(&ev))
+                on:input=move |ev| {
+                    target.set(None);
+                    query.set(event_target_value(&ev));
+                }
             />
             {move || {
                 let q = query.get();
@@ -170,7 +202,7 @@ pub fn GlossaryPanel(load_state: ReadSignal<LoadState>) -> impl IntoView {
                 } else {
                     view! {
                         <div class="rw-list">
-                            {items.into_iter().map(concept_entry).collect::<Vec<_>>()}
+                            {items.into_iter().map(|concept| concept_entry(concept, open, target)).collect::<Vec<_>>()}
                         </div>
                     }
                     .into_any()
@@ -180,15 +212,54 @@ pub fn GlossaryPanel(load_state: ReadSignal<LoadState>) -> impl IntoView {
     }
 }
 
-/// Render one concept as a `.block` card with math-capable fields and dotted
-/// cross-reference chips for its related terms.
-///
-/// The hub also shows a `mentions N07 N08…` node-chip row, but our data model
-/// carries no concept→node linkage, so that row is intentionally omitted rather
-/// than fabricated.
-fn concept_entry(c: Concept) -> impl IntoView {
+/// Render one focusable concept card with math-capable fields and related terms.
+fn concept_entry(
+    c: Concept,
+    open: RwSignal<bool>,
+    target: RwSignal<Option<String>>,
+) -> impl IntoView {
+    let card_ref: NodeRef<leptos::html::Div> = NodeRef::new();
+    #[cfg(not(target_arch = "wasm32"))]
+    let _ = (open, target);
+
+    #[cfg(target_arch = "wasm32")]
+    {
+        let term = c.term.clone();
+        Effect::new(move |_| {
+            let is_open = open.get();
+            let matches = target.with(|requested| requested.as_deref() == Some(term.as_str()));
+            let card = card_ref.get();
+            if !is_open || !matches || card.is_none() {
+                return;
+            }
+
+            // Modal captures the opener and focuses its dialog in an effect.
+            // Wait until the next frame so this card cannot become the opener.
+            let term = term.clone();
+            match request_animation_frame_with_handle(move || {
+                if open.try_get_untracked() != Some(true)
+                    || !target
+                        .try_with_untracked(|requested| requested.as_deref() == Some(term.as_str()))
+                        .unwrap_or(false)
+                {
+                    return;
+                }
+                if let Some(card) = card_ref.try_get_untracked().flatten()
+                    && card.is_connected()
+                {
+                    let _ = card.focus();
+                    card.scroll_into_view();
+                }
+            }) {
+                Ok(handle) => on_cleanup(move || handle.cancel()),
+                Err(error) => {
+                    leptos::logging::warn!("Could not schedule glossary focus: {error:?}")
+                }
+            }
+        });
+    }
     view! {
-        <div class="block concept-entry">
+        <div class="block concept-entry" tabindex="-1" node_ref=card_ref>
             <div class="concept-term">{c.term.clone()}</div>
             {c.notation.clone().map(|n| view! {
                 <div class="rw-line"><span class="rw-key">"Notation"</span>

@@ -12,6 +12,7 @@
 //! warnings. This means unknown-field *values* are not retained — acceptable
 //! because Stage 1 has no consumer for them and the field name is reported.
 
+use crate::manifest::NodeArtifact;
 use serde::Deserialize;
 use serde::de::IgnoredAny;
 use std::collections::BTreeMap;
@@ -46,6 +47,10 @@ pub(crate) struct RawNode {
     pub source_refs: Vec<String>,
     #[serde(default)]
     pub description: Option<String>,
+    #[serde(default)]
+    pub artifacts: Vec<NodeArtifact>,
+    #[serde(default)]
+    pub concepts: Vec<String>,
     /// Marks the root of an isolated subtree. Defaults to `false`.
     #[serde(default)]
     pub isolated: bool,

@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>ARA Viewer</title>
-    <link rel="stylesheet" href="/styles-4fe00dac29bdef80.css" integrity="sha384-4SWUr/vA3PgIg4T4jxg5+slqCTh7tNA81/qaOMoSBsV8dZdIGAqby6/o5kBMMkv6"/>
+    <link rel="stylesheet" href="/styles-d2342e5ae9397142.css" integrity="sha384-I3NN1bRmptLoJDqj0g3nflq9ZSIf1BQXlXSm9RicQkHWlouIb+XbQKhT1/fJGsVt"/>
     <script src="/math-loader-a9a0bcaa9fafc767.js" integrity="sha384-pxCwlGs1p0h2ab2cQez85Odt0OORbsYE88W9GFViqjhCP/8cz9UrutYkWrF4KsRz"></script>
     
     <!-- Copy manifest.json to dist/ so the runtime fetch URL "manifest.json" resolves. -->
@@ -12,8 +12,8 @@
     
     
 <script type="module">
-import init, * as bindings from '/ara-viewer-8a3dc2c6721e596b.js';
-const wasm = await init({ module_or_path: '/ara-viewer-8a3dc2c6721e596b_bg.wasm' });
+import init, * as bindings from '/ara-viewer-f2516cc8c2592820.js';
+const wasm = await init({ module_or_path: '/ara-viewer-f2516cc8c2592820_bg.wasm' });
 
 
 window.wasmBindings = bindings;
@@ -22,6 +22,6 @@ window.wasmBindings = bindings;
 dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
 
 </script>
-  <link rel="modulepreload" href="/ara-viewer-8a3dc2c6721e596b.js" crossorigin="anonymous" integrity="sha384-DbD3d6JjMpvpsUhv4t5oDt5KhZg6BH/lL5ctYYgy9cdTEPKR7qN7fEM2TFvTuwHg"><link rel="preload" href="/ara-viewer-8a3dc2c6721e596b_bg.wasm" crossorigin="anonymous" integrity="sha384-Bl7JLgjvlvwfgoi0xgpowLyu00pBqZjTjDVdfNCovKKzV6EI9fmNgvIkpxqM3UBO" as="fetch" type="application/wasm"></head>
+  <link rel="modulepreload" href="/ara-viewer-f2516cc8c2592820.js" crossorigin="anonymous" integrity="sha384-5EcUoRD2jU5wzlfz9bKH+qIHFM90prC1CCgxXJddUoLZ5InFLIwU80BQNDROT42L"><link rel="preload" href="/ara-viewer-f2516cc8c2592820_bg.wasm" crossorigin="anonymous" integrity="sha384-hFhryeredheILQZP/8uEZMVF5GELGrKEMbx2RLPTHR9zwyKEkOjeLIYxgap3IY3P" as="fetch" type="application/wasm"></head>
   <body></body>
 </html>

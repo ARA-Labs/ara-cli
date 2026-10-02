@@ -257,6 +257,17 @@ pub struct NodeExhibit {
     pub exhibit: String,
 }
 
+/// An author-supplied artifact pointer; pointers are display text, not fetch URLs.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct NodeArtifact {
+    #[serde(default)]
+    pub name: String,
+    #[serde(default)]
+    pub pointer: String,
+    #[serde(default)]
+    pub what: String,
+}
+
 /// One exploration node.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Node {
@@ -283,6 +294,12 @@ pub struct Node {
     pub fields: NodeFields,
     /// Free-text evidence entries (the non-`C##` part of `evidence:`).
     pub evidence_notes: Vec<String>,
+    /// Explicit artifact pointers in author order.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub artifacts: Vec<NodeArtifact>,
+    /// Explicit glossary term names, not inferred mentions.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub concepts: Vec<String>,
     /// Whether this node is the root of an *isolated* subtree — a branch the
     /// exploration reached but that hangs off the main tree on its own. Drives
     /// the viewer's "isolated subtree" partition. Defaults to `false`; only the
@@ -387,6 +404,8 @@ pub struct Claim {
     pub title: String,
     pub statement: Option<String>,
     pub status: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub falsification: Option<String>,
     /// `E##` proof refs, stored raw. Not validated — no evidence registry yet.
     pub proof: Vec<String>,
     /// Claim → claim dependencies.
@@ -466,6 +485,8 @@ mod tests {
             timestamp: Some("2026-08-19".into()),
             fields: NodeFields::Question,
             evidence_notes: vec![],
+            artifacts: vec![],
+            concepts: vec![],
             isolated: false,
             pos: None,
         };

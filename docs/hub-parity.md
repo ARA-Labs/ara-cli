@@ -161,11 +161,18 @@ that closes a loop) remain fatal.
   including delimiter-wrapped aligned/cases/matrix environments. Renderer assets
   stay local and load only for mounted math; code ranges and surrounding source
   remain unchanged. See [panel-math-rendering.md](panel-math-rendering.md) (#31).
+- Claim cards now preserve falsification criteria and display IDs, experiment
+  proof references, and claim dependencies (#61). Explicit node artifact
+  pointers render after RESULT and before SOURCES (#62). Explicit glossary
+  term references render after EVIDENCE and before BUILT ON, opening the
+  matching definition with keyboard focus (#63).
+  `artifacts` and node-level `concepts` are author-supplied CLI extensions;
+  existing trees do not gain inferred bindings from text mentions. See
+  [claim-artifact-concept-details.md](claim-artifact-concept-details.md).
 
 ## Deferred (tracked, not in this design)
 
 - **REASONING** (D1) — inert slot, pending a stored `reasoning:` field.
-- **ARTIFACT code-pointer** — code linkage is not modelled.
 - **The "recipe" unit** (E8) — resolved per
   [ARA-Labs/ara-cli#35](https://github.com/ARA-Labs/ara-cli/issues/35): rather
   than block on defining a canonical "recipe", the panel is labelled **Solution

@@ -8,7 +8,7 @@
 //!    the rest of the viewer it compiles on native too (no browser-only APIs),
 //!    so no `cfg` gating is needed.
 
-use ara_core::{ExhibitKind, LinkKind, Manifest, Node, NodeFields, NodeId};
+use ara_core::{ClaimId, ExhibitKind, LinkKind, Manifest, Node, NodeArtifact, NodeFields, NodeId};
 use leptos::prelude::*;
 
 use crate::kind::kind_meta;
@@ -19,9 +19,21 @@ use crate::state::LoadState;
 /// A fully-resolved claim, ready to render.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ClaimView {
+    pub id: ClaimId,
     pub title: String,
     pub statement: Option<String>,
     pub status: Option<String>,
+    pub falsification: Option<String>,
+    pub proof: Vec<String>,
+    pub deps: Vec<ClaimId>,
+}
+
+/// Explicit concept reference: only unique full-term matches are interactive.
+#[derive(Debug, Clone, PartialEq)]
+pub enum ConceptView {
+    Resolved { term: String },
+    Missing { reference: String },
+    Ambiguous { reference: String },
 }
 
 /// The display value for a typed field.
@@ -147,6 +159,10 @@ pub struct DetailModel {
     pub evidence_notes: Vec<String>,
     /// Claims resolved from `manifest.bindings` filtered to this node.
     pub claims: Vec<ClaimView>,
+    /// Explicit glossary references in first-reference order.
+    pub concepts: Vec<ConceptView>,
+    /// Nonblank artifact entries, preserving authored values and order.
+    pub artifacts: Vec<NodeArtifact>,
     /// Related work this node builds on (BUILT ON block), in source order.
     pub built_on: Vec<BuiltOnView>,
     /// Exhibits linked to this node (RESULT block), in source order.
@@ -162,8 +178,7 @@ pub struct DetailModel {
 impl DetailModel {
     /// True when there is nothing to show beyond the header.
     ///
-    /// Criteria: description is `None`, no typed fields, no evidence notes, no
-    /// claims, no built-on refs, no result exhibits, no source refs.
+    /// Includes artifact-only and concept-only nodes as recorded content.
     pub fn is_empty(&self) -> bool {
         self.description.is_none()
             && self.typed_fields.is_empty()
@@ -171,6 +186,8 @@ impl DetailModel {
             && self.claims.is_empty()
             && self.built_on.is_empty()
             && self.result_exhibits.is_empty()
+            && self.artifacts.is_empty()
+            && self.concepts.is_empty()
             && self.source_refs.is_empty()
     }
 }
@@ -206,9 +223,17 @@ pub fn detail_model(node: &Node, manifest: &Manifest) -> DetailModel {
                 .iter()
                 .find(|c| c.id == b.claim)
                 .map(|c| ClaimView {
+                    id: c.id.clone(),
                     title: c.title.clone(),
                     statement: c.statement.clone(),
                     status: c.status.clone(),
+                    falsification: c
+                        .falsification
+                        .as_ref()
+                        .filter(|s| !s.trim().is_empty())
+                        .cloned(),
+                    proof: c.proof.clone(),
+                    deps: c.deps.clone(),
                 })
         })
         .collect();
@@ -285,6 +310,46 @@ pub fn detail_model(node: &Node, manifest: &Manifest) -> DetailModel {
         .map(|l| dep_view(&l.from))
         .collect();
 
+    let artifacts = node
+        .artifacts
+        .iter()
+        .filter(|entry| {
+            [&entry.name, &entry.pointer, &entry.what]
+                .iter()
+                .any(|text| !text.trim().is_empty())
+        })
+        .cloned()
+        .collect();
+    let mut resolved_terms = std::collections::HashSet::new();
+    let concepts = node
+        .concepts
+        .iter()
+        .filter_map(|reference| {
+            let reference = reference.trim();
+            let mut matches = manifest.concepts.iter().filter(|concept| {
+                concept
+                    .term
+                    .chars()
+                    .flat_map(char::to_lowercase)
+                    .eq(reference.chars().flat_map(char::to_lowercase))
+            });
+            match (matches.next(), matches.next()) {
+                (Some(concept), None) => {
+                    resolved_terms
+                        .insert(concept.term.as_str())
+                        .then(|| ConceptView::Resolved {
+                            term: concept.term.clone(),
+                        })
+                }
+                (None, _) => Some(ConceptView::Missing {
+                    reference: reference.into(),
+                }),
+                (Some(_), Some(_)) => Some(ConceptView::Ambiguous {
+                    reference: reference.into(),
+                }),
+            }
+        })
+        .collect();
     DetailModel {
         id: node.id.clone(),
         title,
@@ -299,6 +364,8 @@ pub fn detail_model(node: &Node, manifest: &Manifest) -> DetailModel {
         typed_fields,
         evidence_notes: node.evidence_notes.clone(),
         claims,
+        artifacts,
+        concepts,
         built_on,
         result_exhibits,
         depends_on,
@@ -545,6 +612,7 @@ fn typed_fields_for(node: &Node) -> Vec<TypedField> {
 pub fn DetailPane(
     load_state: ReadSignal<LoadState>,
     selected: RwSignal<Option<NodeId>>,
+    on_concept: Callback<String>,
 ) -> impl IntoView {
     let image_source = use_context::<RwSignal<Option<crate::source::ImageSource>>>();
     move || {
@@ -570,8 +638,13 @@ pub fn DetailPane(
                     .into_any(),
                     Some(node) => {
                         let model = detail_model(node, &manifest);
-                        render_detail(model, selected, image_source.and_then(|s| s.get()))
-                            .into_any()
+                        render_detail(
+                            model,
+                            selected,
+                            image_source.and_then(|s| s.get()),
+                            on_concept,
+                        )
+                        .into_any()
                     }
                 }
             }
@@ -622,6 +695,7 @@ fn render_detail(
     m: DetailModel,
     selected: RwSignal<Option<NodeId>>,
     image_source: Option<crate::source::ImageSource>,
+    on_concept: Callback<String>,
 ) -> impl IntoView {
     let is_empty = m.is_empty();
     let dead_end_class = if m.kind_css_class == "dead_end" {
@@ -731,6 +805,7 @@ fn render_detail(
                             let status_class = status_css_class(cv.status.as_deref());
                             view! {
                                 <div class="claim">
+                                    <span class="claim-id">{cv.id.to_string()}</span>
                                     <span class="claim-title">{cv.title.clone()}</span>
                                     {cv.statement.clone().map(|stmt| view! {
                                         <p class="claim-statement">{stmt}</p>
@@ -740,6 +815,32 @@ fn render_detail(
                                             {st}
                                         </span>
                                     })}
+                                    {cv.falsification.clone().map(|text| view! {
+                                        <div class="claim-falsification">
+                                            <span class="block-label">"falsification criteria"</span>
+                                            <p>{text}</p>
+                                        </div>
+                                    })}
+                                    {(!cv.proof.is_empty()).then(|| view! {
+                                        <div class="claim-proof">
+                                            <span class="block-label">"proof"</span>
+                                            <div class="chip-row">
+                                                {cv.proof.iter().map(|reference| view! {
+                                                    <span class="chip">{reference.clone()}</span>
+                                                }).collect::<Vec<_>>()}
+                                            </div>
+                                        </div>
+                                    })}
+                                    {(!cv.deps.is_empty()).then(|| view! {
+                                        <div class="claim-deps">
+                                            <span class="block-label">"dependencies"</span>
+                                            <div class="chip-row">
+                                                {cv.deps.iter().map(|reference| view! {
+                                                    <span class="chip">{reference.to_string()}</span>
+                                                }).collect::<Vec<_>>()}
+                                            </div>
+                                        </div>
+                                    })}
                                 </div>
                             }
                         }).collect::<Vec<_>>()}
@@ -748,6 +849,38 @@ fn render_detail(
             } else {
                 None
             }}
+
+            {(!m.concepts.is_empty()).then(|| view! {
+                <CollapsibleBlock label="concepts" count=m.concepts.len() class="concepts-block" selected=selected>
+                    <div class="chip-row">
+                        {m.concepts.iter().map(|concept| match concept {
+                            ConceptView::Resolved { term } => {
+                                let target = term.clone();
+                                view! {
+                                    <button type="button" class="chip concept-chip"
+                                        on:click=move |_| on_concept.run(target.clone())>
+                                        {term.clone()}
+                                    </button>
+                                }.into_any()
+                            }
+                            ConceptView::Missing { reference } => view! {
+                                <span class="chip concept-chip concept-chip-unresolved"
+                                    title="No matching glossary definition">
+                                    {reference.clone()}
+                                    <span>" · missing definition"</span>
+                                </span>
+                            }.into_any(),
+                            ConceptView::Ambiguous { reference } => view! {
+                                <span class="chip concept-chip concept-chip-unresolved"
+                                    title="Multiple glossary definitions match this term">
+                                    {reference.clone()}
+                                    <span>" · ambiguous term"</span>
+                                </span>
+                            }.into_any(),
+                        }).collect::<Vec<_>>()}
+                    </div>
+                </CollapsibleBlock>
+            })}
 
             // ── 5. Built on (related work this node builds on) ─────────────
             // Omit entirely when empty — a bare node shows nothing, matching
@@ -875,6 +1008,24 @@ fn render_detail(
                 None
             }}
 
+            {(!m.artifacts.is_empty()).then(|| view! {
+                <CollapsibleBlock label="artifacts" count=m.artifacts.len() class="artifacts-block" selected=selected>
+                    {m.artifacts.iter().map(|artifact| view! {
+                        <div class="artifact-entry">
+                            {(!artifact.name.trim().is_empty()).then(|| view! {
+                                <p class="artifact-name">{artifact.name.clone()}</p>
+                            })}
+                            {(!artifact.pointer.trim().is_empty()).then(|| view! {
+                                <p class="artifact-pointer">{artifact.pointer.clone()}</p>
+                            })}
+                            {(!artifact.what.trim().is_empty()).then(|| view! {
+                                <p class="artifact-what">{artifact.what.clone()}</p>
+                            })}
+                        </div>
+                    }).collect::<Vec<_>>()}
+                </CollapsibleBlock>
+            })}
+
             // ── 7. Sources ────────────────────────────────────────────────
             {if !m.source_refs.is_empty() {
                 Some(view! {
@@ -971,9 +1122,79 @@ mod tests {
             timestamp: None,
             fields,
             evidence_notes: vec![],
+            artifacts: vec![],
+            concepts: vec![],
             isolated: false,
             pos: None,
         }
+    }
+
+    #[test]
+    fn artifact_content_omits_blank_entries_but_preserves_pointer_text() {
+        let mut node = make_node("N01", NodeKind::Question, NodeFields::Question);
+        node.artifacts = vec![
+            ara_core::NodeArtifact {
+                name: " ".into(),
+                pointer: "\n".into(),
+                what: "".into(),
+            },
+            ara_core::NodeArtifact {
+                name: "".into(),
+                pointer: "<script>remote/path</script>".into(),
+                what: "Purpose".into(),
+            },
+        ];
+        let model = detail_model(&node, &bare_manifest());
+        assert!(!model.is_empty());
+        assert_eq!(model.artifacts, vec![node.artifacts[1].clone()]);
+        node.artifacts.truncate(1);
+        assert!(detail_model(&node, &bare_manifest()).is_empty());
+    }
+
+    #[test]
+    fn explicit_concepts_resolve_full_terms_and_deduplicate_in_reference_order() {
+        let mut manifest = bare_manifest();
+        manifest.concepts = ["First", "Second", "Duplicate", "duplicate"]
+            .map(|term| ara_core::Concept {
+                term: term.into(),
+                notation: None,
+                definition: None,
+                boundary: None,
+                related: vec![],
+            })
+            .into();
+        let mut node = make_node("N01", NodeKind::Question, NodeFields::Question);
+        node.concepts = [" second ", "FIRST", "Second", "Sec", "Unknown", "DUPLICATE"]
+            .map(str::to_string)
+            .into();
+        let model = detail_model(&node, &manifest);
+        assert!(!model.is_empty());
+        assert_eq!(
+            model.concepts,
+            vec![
+                ConceptView::Resolved {
+                    term: "Second".into()
+                },
+                ConceptView::Resolved {
+                    term: "First".into()
+                },
+                ConceptView::Missing {
+                    reference: "Sec".into()
+                },
+                ConceptView::Missing {
+                    reference: "Unknown".into()
+                },
+                ConceptView::Ambiguous {
+                    reference: "DUPLICATE".into()
+                },
+            ]
+        );
+        manifest.concepts.clear();
+        assert!(matches!(
+            detail_model(&node, &manifest).concepts[0],
+            ConceptView::Missing { .. }
+        ));
+        assert!(!detail_model(&node, &manifest).is_empty());
     }
 
     // ── Decision order ────────────────────────────────────────────────────────
@@ -1343,8 +1564,9 @@ mod tests {
             title: "ResNet convergence".to_string(),
             statement: Some("The model converges.".to_string()),
             status: Some("refuted".to_string()),
-            proof: vec![],
-            deps: vec![],
+            falsification: Some("A matched trial fails.".into()),
+            proof: vec!["E01".into(), "E99".into()],
+            deps: vec![ClaimId::new("C02")],
         });
 
         let m = detail_model(&node, &manifest);
@@ -1355,6 +1577,17 @@ mod tests {
             Some("The model converges.".to_string())
         );
         assert_eq!(m.claims[0].status, Some("refuted".to_string()));
+        assert_eq!(m.claims[0].id, ClaimId::new("C01"));
+        assert_eq!(
+            m.claims[0].falsification.as_deref(),
+            Some("A matched trial fails.")
+        );
+        assert_eq!(m.claims[0].proof, ["E01", "E99"]);
+        assert_eq!(m.claims[0].deps, [ClaimId::new("C02")]);
+        manifest.claims[0].falsification = Some(" \n ".into());
+        assert_eq!(detail_model(&node, &manifest).claims[0].falsification, None);
+        manifest.claims[0].falsification = None;
+        assert_eq!(detail_model(&node, &manifest).claims[0].falsification, None);
     }
 
     /// A binding to a missing claim id → silently skipped (no panic).
@@ -1392,6 +1625,7 @@ mod tests {
             title: "Other node claim".to_string(),
             statement: None,
             status: None,
+            falsification: None,
             proof: vec![],
             deps: vec![],
         });

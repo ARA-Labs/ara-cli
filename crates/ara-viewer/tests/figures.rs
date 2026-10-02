@@ -97,7 +97,7 @@ async fn static_and_api_fallback_figures_decode_real_images_and_keep_markdown() 
     let selected = RwSignal::new(Some(ara_core::NodeId::new("N01")));
     let handle = leptos::mount::mount_to(container.clone(), move || {
         provide_context(image_source);
-        view! { <DetailPane load_state=load_state selected=selected /> }
+        view! { <DetailPane load_state=load_state selected=selected on_concept=Callback::new(|_: String| {}) /> }
     });
     for (source, api_expected) in [
         (ManifestSource::Static(fixture.into()), false),

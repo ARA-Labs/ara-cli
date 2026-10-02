@@ -1182,6 +1182,74 @@ details.block:not([open]) {
   line-height: 1.45;
 }
 
+.claim-id,
+.artifact-pointer {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.claim-falsification,
+.claim-proof,
+.claim-deps {
+  margin-top: 0.3rem;
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.artifact-entry {
+  min-width: 0;
+  margin-top: 0.4rem;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background-color: var(--panel);
+}
+
+.artifact-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.artifact-what {
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.artifact-name,
+.artifact-pointer,
+.artifact-what,
+.concept-chip {
+  overflow-wrap: anywhere;
+  white-space: normal;
+  max-width: 100%;
+}
+
+.artifact-entry p + p {
+  margin-top: 0.3rem;
+}
+
+button.concept-chip {
+  cursor: pointer;
+  color: var(--accent-text);
+}
+
+button.concept-chip:hover {
+  border-color: var(--accent);
+}
+
+.concept-chip-unresolved {
+  color: var(--muted);
+  flex-wrap: wrap;
+  gap: 0.25em;
+}
+
+button.concept-chip:focus-visible,
+.concept-entry:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
 /* Status pills. */
 .status-pill {
   display: inline-flex;

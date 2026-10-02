@@ -42,6 +42,7 @@ pub(crate) fn parse_claims(md: &str) -> ParsedClaims {
 
         let mut statement = None;
         let mut status = None;
+        let mut falsification = None;
         let mut proof = Vec::new();
         let mut deps = Vec::new();
         for line in body {
@@ -51,6 +52,7 @@ pub(crate) fn parse_claims(md: &str) -> ParsedClaims {
             match key.to_ascii_lowercase().as_str() {
                 "statement" => statement = non_empty(&value),
                 "status" => status = non_empty(&value),
+                "falsification criteria" => falsification = non_empty(&value),
                 "proof" => proof = extract_ids(&value, 'E'),
                 "dependencies" => {
                     deps = extract_ids(&value, 'C')
@@ -71,6 +73,7 @@ pub(crate) fn parse_claims(md: &str) -> ParsedClaims {
                 title,
                 statement,
                 status,
+                falsification,
                 proof,
                 deps,
             });
@@ -105,15 +108,20 @@ fn is_level2_header(line: &str) -> bool {
     line.trim_start().starts_with("## ")
 }
 
-/// Matches `- **Key**: value` (also `* ...`), returning `(key, value)`.
+/// Matches `- **Key**: value` or `**Key.** value`, returning `(key, value)`.
 fn parse_bullet(line: &str) -> Option<(String, String)> {
     let t = line.trim_start();
-    let rest = t.strip_prefix("- ").or_else(|| t.strip_prefix("* "))?;
+    let rest = t
+        .strip_prefix("- ")
+        .or_else(|| t.strip_prefix("* "))
+        .unwrap_or(t);
     let rest = rest.trim_start().strip_prefix("**")?;
     let (key, rest_after) = rest.split_once("**")?;
     let after = rest_after.trim_start();
     let value = after.strip_prefix(':').unwrap_or(after).trim();
-    Some((key.trim().to_string(), value.to_string()))
+    let key = key.trim();
+    let key = key.strip_suffix('.').unwrap_or(key).trim_end();
+    Some((key.to_string(), value.to_string()))
 }
 
 /// Extracts every `^<prefix>\d+$` token, splitting on non-alphanumeric
@@ -139,6 +147,38 @@ fn non_empty(s: &str) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn preserves_falsification_and_references_across_claims() {
+        for (leader, label_end, separator) in [
+            ("- ", "", ":"),
+            ("* ", "", ":"),
+            ("", "", ":"),
+            ("", ".", ""),
+        ] {
+            let md = format!(
+                "## C01: Comparison\n{leader}**Falsification criteria{label_end}**{separator} The improvement disappears under a matched comparison.\n{leader}**Proof{label_end}**{separator} [E01, E02]\n{leader}**Dependencies{label_end}**{separator} [C02]\n{leader}**Unknown label{label_end}**{separator} ignored\n## C02: Control\n{leader}**Statement{label_end}**{separator} Choices are fixed.\n"
+            );
+            let out = parse_claims(&md);
+            let json = serde_json::to_value(&out.claims).unwrap();
+            assert_eq!(
+                json[0]["falsification"],
+                "The improvement disappears under a matched comparison."
+            );
+            assert_eq!(out.claims[0].proof, ["E01", "E02"]);
+            assert_eq!(out.claims[0].deps, [ClaimId::new("C02")]);
+            assert!(json[1].get("falsification").is_none());
+            assert!(out.claims[1].proof.is_empty());
+            assert!(out.claims[1].deps.is_empty());
+        }
+    }
+
+    #[test]
+    fn blank_falsification_is_absent() {
+        let out = parse_claims("## C01: Blank\n- **Falsification criteria**:   \n");
+        let json = serde_json::to_value(&out.claims[0]).unwrap();
+        assert!(json.get("falsification").is_none());
+    }
 
     #[test]
     fn parses_canonical_claims() {
