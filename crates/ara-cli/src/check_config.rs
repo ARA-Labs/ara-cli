@@ -142,22 +142,32 @@ impl std::fmt::Display for ConfigError {
     }
 }
 
-/// Finds the `.ara-check.toml` that applies to `ara_dir` (see the module docs
-/// for the search order), or `None` when there is none.
-pub fn discover(ara_dir: &Path) -> Option<PathBuf> {
-    let start = ara_dir
-        .canonicalize()
-        .unwrap_or_else(|_| ara_dir.to_path_buf());
-    let ancestors: Vec<&Path> = start.ancestors().collect();
+/// Finds the nearest `.ara-check.toml`, or `None` when there is none.
+/// Existing entries are returned even if unreadable, so loading fails visibly.
+pub fn discover(ara_dir: &Path) -> Result<Option<PathBuf>, ConfigError> {
+    let start = ara_dir.canonicalize().map_err(|e| ConfigError {
+        path: ara_dir.to_path_buf(),
+        message: format!("cannot resolve artifact directory: {e}"),
+    })?;
     // Search up to and including the git root; outside a repo, only `ara_dir`.
-    let last = ancestors
-        .iter()
+    let last = start
+        .ancestors()
         .position(|d| d.join(".git").exists())
         .unwrap_or(0);
-    ancestors[..=last]
-        .iter()
-        .map(|d| d.join(CONFIG_FILE_NAME))
-        .find(|p| p.is_file())
+    for dir in start.ancestors().take(last + 1) {
+        let path = dir.join(CONFIG_FILE_NAME);
+        match std::fs::symlink_metadata(&path) {
+            Ok(_) => return Ok(Some(path)),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+            Err(e) => {
+                return Err(ConfigError {
+                    path,
+                    message: format!("cannot inspect config: {e}"),
+                });
+            }
+        }
+    }
+    Ok(None)
 }
 
 // ---- raw file shape -------------------------------------------------------
@@ -403,21 +413,27 @@ mod tests {
         std::fs::create_dir_all(&ara).unwrap();
         std::fs::create_dir_all(repo.join(".git")).unwrap();
 
-        assert_eq!(discover(&ara), None);
+        assert_eq!(discover(&ara).unwrap(), None);
 
         // Above the git root: not found.
         std::fs::write(root.path().join(CONFIG_FILE_NAME), "").unwrap();
-        assert_eq!(discover(&ara), None);
+        assert_eq!(discover(&ara).unwrap(), None);
 
         // At the git root: found.
         let at_root = repo.join(CONFIG_FILE_NAME);
         std::fs::write(&at_root, "").unwrap();
-        assert_eq!(discover(&ara), Some(at_root.canonicalize().unwrap()));
+        assert_eq!(
+            discover(&ara).unwrap(),
+            Some(at_root.canonicalize().unwrap())
+        );
 
         // In the ARA dir: the nearest one wins.
         let in_ara = ara.join(CONFIG_FILE_NAME);
         std::fs::write(&in_ara, "").unwrap();
-        assert_eq!(discover(&ara), Some(in_ara.canonicalize().unwrap()));
+        assert_eq!(
+            discover(&ara).unwrap(),
+            Some(in_ara.canonicalize().unwrap())
+        );
     }
 
     #[test]
@@ -430,10 +446,13 @@ mod tests {
         // the no-repo behavior when it does not.
         let in_repo = ara.ancestors().any(|d| d.join(".git").exists());
         if !in_repo {
-            assert_eq!(discover(&ara), None);
+            assert_eq!(discover(&ara).unwrap(), None);
         }
         let in_ara = ara.join(CONFIG_FILE_NAME);
         std::fs::write(&in_ara, "").unwrap();
-        assert_eq!(discover(&ara), Some(in_ara.canonicalize().unwrap()));
+        assert_eq!(
+            discover(&ara).unwrap(),
+            Some(in_ara.canonicalize().unwrap())
+        );
     }
 }

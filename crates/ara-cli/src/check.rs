@@ -5,10 +5,10 @@
 //! are fixable) with the **format-lint** layer ([`check_dir`], whose diagnostics
 //! each carry a safe fix). Every finding from either layer is rendered with its
 //! stable [`RuleCode`] (`ARA0xx` format, `ARA1xx` errors, `ARA2xx` warnings).
-//! Without `--fix` it only reports and, like `ruff check`, exits non-zero when a
-//! fixable issue remains. With `--fix` it applies the safe fixes in place
-//! ([`fix_dir`]), re-checks the now-fixed directory, and reports the post-fix
-//! state.
+//! With built-in settings, a run without `--fix` exits non-zero when a fixable
+//! issue remains. With `--fix` it applies the configured safe fixes in place
+//! ([`fix_dir_with`]), re-checks the now-fixed directory, and reports the
+//! post-fix state.
 //!
 //! An optional `.ara-check.toml` ([`crate::check_config`]) tunes the rule set:
 //! ignored rules vanish from both outputs and from the exit decision, severity
@@ -74,10 +74,10 @@ struct LoadedConfig {
 fn load_config(args: &CheckArgs) -> Result<LoadedConfig, check_config::ConfigError> {
     let path = if args.no_config {
         None
+    } else if let Some(path) = &args.config {
+        Some(path.clone())
     } else {
-        args.config
-            .clone()
-            .or_else(|| check_config::discover(&args.dir))
+        check_config::discover(&args.dir)?
     };
     let config = match &path {
         Some(p) => CheckConfig::load(p)?,

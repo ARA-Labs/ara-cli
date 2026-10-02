@@ -373,3 +373,28 @@ fn validate_ignores_check_config() {
         .failure()
         .stdout(predicate::str::contains("duplicate node id"));
 }
+
+#[cfg(unix)]
+#[test]
+fn unreadable_discovered_config_never_falls_back_or_fixes() {
+    for target in ["missing.toml", ".ara-check.toml"] {
+        let repo = TempDir::new().unwrap();
+        std::fs::create_dir(repo.path().join(".git")).unwrap();
+        std::fs::write(repo.path().join(".ara-check.toml"), "").unwrap();
+        let dir = repo.path().join("artifact");
+        std::fs::create_dir_all(dir.join("trace")).unwrap();
+        let tree = dir.join("trace/exploration_tree.yaml");
+        std::fs::write(&tree, DEAD_END_REASON).unwrap();
+        let config = dir.join(".ara-check.toml");
+        std::os::unix::fs::symlink(target, &config).unwrap();
+
+        ara()
+            .arg("check")
+            .arg(&dir)
+            .arg("--fix")
+            .assert()
+            .code(2)
+            .stderr(predicate::str::contains(config.display().to_string()));
+        assert_eq!(std::fs::read_to_string(&tree).unwrap(), DEAD_END_REASON);
+    }
+}

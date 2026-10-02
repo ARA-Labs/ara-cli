@@ -249,8 +249,10 @@ byte-for-byte. The code lives in
    directory itself is checked, so a stray file in a home or temp directory is
    never picked up.
 
-A config file that cannot be read or is invalid is an internal failure
-(exit `2`), reported on stderr with the file path.
+A config entry that cannot be read or is invalid is an internal failure
+(exit `2`), reported on stderr with the file path before any fixes. Discovery
+does not skip dangling or cyclic symlinks, directories, or inaccessible entries
+to fall back to an ancestor config or built-in settings.
 
 ### Keys
 

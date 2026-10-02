@@ -18,6 +18,8 @@ All notable changes to this project are documented here. The format follows
   `unfixable` control what `--fix` applies, and a `[severity]` table promotes or
   demotes rules. Unknown keys or rule codes are an error (exit 2). Without a
   config file the output and exit codes are unchanged (#40).
+- `ara check`: an unreadable nearest config fails before any fixes instead of
+  silently using ancestor or built-in settings (#40).
 - Core: `fix_dir_with(dir, allow)` applies only the fixes whose rule `allow`
   accepts (#40).
 
