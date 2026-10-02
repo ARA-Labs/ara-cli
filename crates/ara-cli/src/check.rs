@@ -3,10 +3,12 @@
 //!
 //! It merges the **validate** layer ([`parse_dir`] errors/warnings, none of which
 //! are fixable) with the **format-lint** layer ([`check_dir`], whose diagnostics
-//! each carry a rule id and a safe fix). Without `--fix` it only reports and, like
-//! `ruff check`, exits non-zero when a fixable issue remains. With `--fix` it
-//! applies the safe fixes in place ([`fix_dir`]), re-checks the now-fixed
-//! directory, and reports the post-fix state.
+//! each carry a safe fix). Every finding from either layer is rendered with its
+//! stable [`RuleCode`] (`ARA0xx` format, `ARA1xx` errors, `ARA2xx` warnings).
+//! Without `--fix` it only reports and, like `ruff check`, exits non-zero when a
+//! fixable issue remains. With `--fix` it applies the safe fixes in place
+//! ([`fix_dir`]), re-checks the now-fixed directory, and reports the post-fix
+//! state.
 //!
 //! # Exit codes (contract)
 //!
@@ -23,8 +25,8 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use ara_core::{
-    AppliedFix, FixOutcome, LintDiagnostic, LintFile, LintReport, ParseReport, SkippedFix,
-    check_dir, fix_dir, parse_dir,
+    AppliedFix, Diagnostic, FixOutcome, LintDiagnostic, LintFile, LintReport, ParseReport,
+    RuleCode, Severity, SkippedFix, check_dir, fix_dir, parse_dir,
 };
 use serde::Serialize;
 
@@ -191,10 +193,10 @@ fn print_human(
     }
 
     for d in report.errors() {
-        println!("{d}");
+        print_validate_line(d);
     }
     for d in report.warnings() {
-        println!("{d}");
+        print_validate_line(d);
     }
     for d in lint {
         print_lint_line(d);
@@ -215,6 +217,13 @@ fn print_human(
     }
 
     print_summary_line(dir, report, lint, outcome, strict);
+}
+
+/// Prints one validate diagnostic prefixed with its rule code
+/// (e.g. `ARA107 error: <path>: <message>`). The text after the code is exactly
+/// what `ara validate` prints for the same diagnostic.
+fn print_validate_line(d: &Diagnostic) {
+    println!("{} {d}", d.code);
 }
 
 /// Prints one lint diagnostic, annotated with its rule id and a `[fixable]`
@@ -308,8 +317,9 @@ fn emit_json(report: &CheckReport) -> ExitCode {
 struct CheckReport<'a> {
     /// The artifact directory that was checked.
     dir: String,
-    /// Validate-layer diagnostics (`errors` + `warnings`); none are fixable.
-    validate: &'a ParseReport,
+    /// Validate-layer diagnostics (`errors` + `warnings`), each with its rule
+    /// code; none are fixable.
+    validate: ValidateSection<'a>,
     /// Format-lint diagnostics, each with its rule id, `fixable` flag, and fix.
     lint: &'a [LintDiagnostic],
     /// Present only in `--fix` mode: what the fixer applied/skipped, the files it
@@ -334,7 +344,7 @@ impl<'a> CheckReport<'a> {
         let write_errors = outcome.is_some_and(FixOutcome::has_errors);
         Self {
             dir: dir.display().to_string(),
-            validate,
+            validate: ValidateSection::from(validate),
             lint,
             fix: outcome.map(FixSummary::from),
             summary: Summary {
@@ -345,6 +355,48 @@ impl<'a> CheckReport<'a> {
                 write_errors,
                 passed: !failed_counts(errors, fixable, warnings, strict),
             },
+        }
+    }
+}
+
+/// The validate portion of a [`CheckReport`]: the `ara validate --json` shape
+/// with a `rule` code added to every diagnostic.
+#[derive(Serialize)]
+struct ValidateSection<'a> {
+    errors: Vec<CodedDiagnostic<'a>>,
+    warnings: Vec<CodedDiagnostic<'a>>,
+}
+
+impl<'a> From<&'a ParseReport> for ValidateSection<'a> {
+    fn from(report: &'a ParseReport) -> Self {
+        Self {
+            errors: report.errors().iter().map(CodedDiagnostic::from).collect(),
+            warnings: report
+                .warnings()
+                .iter()
+                .map(CodedDiagnostic::from)
+                .collect(),
+        }
+    }
+}
+
+/// A validate diagnostic as rendered by `check --json`. `rule` uses the same key
+/// as a lint diagnostic, so CI can group findings from both layers by rule.
+#[derive(Serialize)]
+struct CodedDiagnostic<'a> {
+    rule: RuleCode,
+    severity: Severity,
+    path: &'a str,
+    message: &'a str,
+}
+
+impl<'a> From<&'a Diagnostic> for CodedDiagnostic<'a> {
+    fn from(d: &'a Diagnostic) -> Self {
+        Self {
+            rule: d.code,
+            severity: d.severity,
+            path: &d.path,
+            message: &d.message,
         }
     }
 }

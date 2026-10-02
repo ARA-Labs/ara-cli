@@ -127,9 +127,12 @@ even error ordering is hash-seed independent. Nothing is sorted by id.
 - **IGNORED (stored raw):** `Proof:[E##]` — no evidence registry exists yet
   (tracked as `T-EVIDENCE`).
 
-`Diagnostic { severity, path, message }` uses a **logical** path
+`Diagnostic { code, severity, path, message }` uses a **logical** path
 (e.g. `nodes[N07].evidence[0]`), not a source `line:column` — `serde-saphyr`
-does not expose reliable spans through serde.
+does not expose reliable spans through serde. `code` is the stable rule code
+(`ARA1xx`/`ARA2xx`, see [`stage-5-check.md`](stage-5-check.md#rule-codes)); it
+is skipped by serde and `Display`, so `ara validate` never prints it — only
+`ara check` does.
 
 ## CLI: `ara validate <dir> [--json] [--strict]`
 

@@ -14,6 +14,7 @@ pub mod lint;
 pub mod manifest;
 mod parse;
 pub mod report;
+pub mod rules;
 mod schema;
 // The fix applier reads/writes source files and re-parses through `parse_dir`'s
 // building blocks, so it is native-only like `check_dir`/`parse_dir`.
@@ -36,6 +37,7 @@ pub use manifest::{
     RelatedWork,
 };
 pub use report::{Diagnostic, ParseReport, Severity};
+pub use rules::{RuleCode, RuleLayer, UnknownRuleCode};
 
 pub use lint::{FixCandidate, LintDiagnostic, LintFile, LintReport, LintRuleId};
 #[cfg(feature = "native")]

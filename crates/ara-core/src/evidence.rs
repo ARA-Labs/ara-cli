@@ -23,6 +23,7 @@ use crate::manifest::{
     Binding, BindingRole, BuiltOn, ClaimId, Exhibit, ExhibitKind, Node, NodeExhibit, NodeId,
     RelatedWork, is_canonical_id,
 };
+use crate::rules::RuleCode;
 
 // ── index (`evidence/README.md`) ─────────────────────────────────────────────
 
@@ -382,6 +383,7 @@ pub(crate) fn read_evidence(
                 std::collections::btree_map::Entry::Occupied(o) => {
                     if *o.get() != subdir {
                         report.warn(
+                            RuleCode::DuplicateExhibitBasename,
                             format!("evidence/{subdir}/{id}"),
                             format!(
                                 "duplicate exhibit basename: already read from evidence/{}/{id}; \
@@ -398,6 +400,7 @@ pub(crate) fn read_evidence(
                 consumed.insert(row.id.clone());
             } else {
                 report.warn(
+                    RuleCode::ExhibitMissingIndexRow,
                     format!("evidence/{subdir}/{id}"),
                     "body file has no index row in evidence/README.md",
                 );
@@ -412,6 +415,7 @@ pub(crate) fn read_evidence(
     for row in &index {
         if row.file.is_some() && !consumed.contains(&row.id) {
             report.warn(
+                RuleCode::IndexRowMissingExhibit,
                 format!("evidence[{}]", row.id),
                 "index row references a file with no body under evidence/",
             );

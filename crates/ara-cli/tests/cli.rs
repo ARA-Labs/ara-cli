@@ -589,6 +589,130 @@ fn check_json_validate_error_exits_one_with_valid_json() {
     assert!(!parsed["summary"]["passed"].as_bool().unwrap());
 }
 
+// ── Rule codes on every finding (#43) ──────────────────────────────────────
+
+/// An artifact that trips the validate layer (an `ARA1xx` error, an `ARA2xx`
+/// warning) and the format-lint layer (`ARA002`) at once.
+const MIXED_TREE: &str = "tree:\n  - id: N01\n    type: dead_end\n    reason: diverged\n    \
+                          bogus: 1\n  - id: N01\n    type: insight\n";
+
+/// `ara validate`'s human output is byte-stable: rule codes are never rendered
+/// by `validate`, only by `check`.
+#[test]
+fn validate_human_output_is_byte_stable() {
+    let dir = artifact(MIXED_TREE, None);
+    let output = ara()
+        .arg("validate")
+        .arg(dir.path())
+        .assert()
+        .code(1)
+        .get_output()
+        .stdout
+        .clone();
+    let expected = format!(
+        "error: nodes[N01]: duplicate node id\n\
+         warning: nodes[N01]: field `reason` dropped for type `dead_end`\n\
+         warning: nodes[N01]: unknown field `bogus`\n\
+         {}: FAIL — 1 error(s), 2 warning(s)\n",
+        dir.path().display()
+    );
+    assert_eq!(String::from_utf8(output).unwrap(), expected);
+}
+
+/// `ara check` prefixes every finding — validate errors, validate warnings, and
+/// format-lint diagnostics — with its rule code.
+#[test]
+fn check_human_output_names_a_rule_for_every_finding() {
+    let dir = artifact(MIXED_TREE, None);
+    let output = ara()
+        .arg("check")
+        .arg(dir.path())
+        .assert()
+        .code(1)
+        .get_output()
+        .stdout
+        .clone();
+    let stdout = String::from_utf8(output).unwrap();
+    let mut lines: Vec<&str> = stdout.lines().collect();
+    let summary = lines.pop().expect("summary line");
+    assert!(summary.contains("FAIL"), "{summary}");
+    assert_eq!(
+        lines,
+        [
+            "ARA105 error: nodes[N01]: duplicate node id",
+            "ARA206 warning: nodes[N01]: field `reason` dropped for type `dead_end`",
+            "ARA201 warning: nodes[N01]: unknown field `bogus`",
+            "ARA002 [fixable]: trace/exploration_tree.yaml: `reason:` on a dead_end node is an \
+             alias; canonical key is `why_failed:`",
+        ]
+    );
+}
+
+/// `ara check --json` carries a `rule` code on every validate and lint finding,
+/// and each one is a registered [`ara_core::RuleCode`].
+#[test]
+fn check_json_names_a_rule_for_every_finding() {
+    let dir = artifact(MIXED_TREE, None);
+    let output = ara()
+        .arg("check")
+        .arg(dir.path())
+        .arg("--json")
+        .assert()
+        .code(1)
+        .get_output()
+        .stdout
+        .clone();
+    let parsed: serde_json::Value = serde_json::from_slice(&output).expect("valid JSON");
+
+    let rule_of = |d: &serde_json::Value| -> ara_core::RuleCode {
+        d["rule"]
+            .as_str()
+            .expect("finding has a `rule` string")
+            .parse()
+            .expect("rule is a registered code")
+    };
+    let errors = parsed["validate"]["errors"].as_array().unwrap();
+    let warnings = parsed["validate"]["warnings"].as_array().unwrap();
+    let lint = parsed["lint"].as_array().unwrap();
+    assert_eq!(
+        errors.iter().map(rule_of).collect::<Vec<_>>(),
+        [ara_core::RuleCode::DuplicateNodeId]
+    );
+    assert_eq!(
+        warnings.iter().map(rule_of).collect::<Vec<_>>(),
+        [
+            ara_core::RuleCode::FieldDroppedForType,
+            ara_core::RuleCode::UnknownNodeField
+        ]
+    );
+    assert_eq!(
+        lint.iter().map(rule_of).collect::<Vec<_>>(),
+        [ara_core::RuleCode::DeadEndReasonAlias]
+    );
+    // The validate entries keep the `ara validate --json` fields alongside `rule`.
+    assert_eq!(errors[0]["severity"], "error");
+    assert_eq!(errors[0]["path"], "nodes[N01]");
+    assert_eq!(errors[0]["message"], "duplicate node id");
+}
+
+/// `ara validate --json` never gains a `rule` key.
+#[test]
+fn validate_json_has_no_rule_codes() {
+    let dir = artifact(MIXED_TREE, None);
+    let output = ara()
+        .arg("validate")
+        .arg(dir.path())
+        .arg("--json")
+        .assert()
+        .code(1)
+        .get_output()
+        .stdout
+        .clone();
+    let stdout = String::from_utf8(output).unwrap();
+    assert!(!stdout.contains("\"rule\""), "{stdout}");
+    assert!(!stdout.contains("ARA"), "{stdout}");
+}
+
 /// A non-existent target maps to the internal-failure exit code 2.
 #[test]
 fn check_missing_dir_exits_two() {

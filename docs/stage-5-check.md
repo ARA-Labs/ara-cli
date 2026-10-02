@@ -67,12 +67,25 @@ ara check <dir> [--fix] [--strict] [--json]
 
 1. **Validate layer (reused):** the exact errors/warnings from the existing
    `parse_dir` pipeline — duplicate ids, unknown references, missing `id`/`type`,
-   unknown fields, and so on. Reported as-is. Almost all need human judgment and
-   are reported **not fixable**.
+   unknown fields, and so on. Each carries an `ARA1xx` (error) or `ARA2xx`
+   (warning) rule code. All need human judgment and are reported **not fixable**.
 2. **Format-lint layer (new):** a small, closed set of rules (`check_dir`) that
-   detect the *canonicalizable* drift and know how to rewrite it. These carry a
-   rule id (`ARA001`..`ARA007`) and the `[fixable]` marker, and are the only
-   thing `--fix` touches.
+   detect the *canonicalizable* drift and know how to rewrite it. These carry an
+   `ARA0xx` rule code and the `[fixable]` marker, and are the only thing `--fix`
+   touches.
+
+Every finding from either layer names its rule (see [Rule codes](#rule-codes)):
+
+```
+ARA105 error: nodes[N01]: duplicate node id
+ARA201 warning: nodes[N01]: unknown field `bogus`
+ARA002 [fixable]: trace/exploration_tree.yaml: `reason:` on a dead_end node is an alias; canonical key is `why_failed:`
+```
+
+The text after a validate code is exactly what `ara validate` prints for the
+same diagnostic. In `--json`, every `validate.errors[]` / `validate.warnings[]`
+entry has `rule`, `severity`, `path`, and `message`, and every `lint[]` entry has
+`rule`, so CI can group findings from both layers by the same key.
 
 `ARA002`, `ARA003`, and `ARA005`–`ARA007` correspond to drift `validate`
 already warns about: the unmodeled spellings (`justification:`, `from:`,
@@ -110,6 +123,79 @@ directly on a node of the matching kind.
 Fixes are surgical text edits only. `ara check --fix` is **not** a canonical
 re-serializer: it never re-emits the YAML/Markdown from the parsed model, so
 comments, key order, and author style are left untouched.
+
+## Rule codes
+
+Every rule `ara check` can report has a stable code, defined once in
+[`crates/ara-core/src/rules.rs`](../crates/ara-core/src/rules.rs) (`RuleCode`).
+Codes are an API surface: once published they are never renumbered or reused (a
+retired rule keeps its number). The code space is split by layer:
+
+- `ARA0xx` — format/canonicalization drift (format-lint layer). All fixable; an
+  unfixed one fails the run, so its default severity is `error`.
+- `ARA1xx` — structural/reference errors (validate layer).
+- `ARA2xx` — field/schema warnings (validate layer).
+
+| code | name | meaning | severity | fixable |
+| ---- | ---- | ------- | -------- | ------- |
+| `ARA001` | root-dialect | top-level `root:` instead of a `tree:` list | error | yes |
+| `ARA002` | dead-end-reason-alias | `reason:` on a `dead_end` node (canonical `why_failed:`) | error | yes |
+| `ARA003` | decision-rationale-alias | `justification:` on a `decision` node (canonical `rationale:`) | error | yes |
+| `ARA004` | claim-header-style | claim header uses a dash separator instead of `## <id>: <title>` | error | yes |
+| `ARA005` | pivot-from-alias | `from:` on a `pivot` node (canonical `prior_direction:`) | error | yes |
+| `ARA006` | pivot-to-alias | `to:` on a `pivot` node (canonical `new_direction:`) | error | yes |
+| `ARA007` | pivot-trigger-alias | `trigger:` on a `pivot` node (canonical `reason:`) | error | yes |
+| `ARA100` | malformed-tree | `trace/exploration_tree.yaml` fails to parse (invalid YAML, multi-document, non-mapping root, wrong field types) | error | no |
+| `ARA101` | unreadable-tree | `trace/exploration_tree.yaml` cannot be read | error | no |
+| `ARA102` | tree-and-root | both `tree:` and `root:` are present | error | no |
+| `ARA103` | missing-tree | neither `tree:` nor `root:` is present | error | no |
+| `ARA104` | missing-node-id | node is missing an `id` (node and subtree dropped) | error | no |
+| `ARA105` | duplicate-node-id | two nodes share an id (the later node and its subtree are dropped) | error | no |
+| `ARA106` | duplicate-claim-id | two claims in `logic/claims.md` share an id | error | no |
+| `ARA107` | unknown-evidence-claim | node `evidence:` references a claim not in `logic/claims.md` | error | no |
+| `ARA108` | unknown-dependency-node | `also_depends_on:` references a node that does not exist | error | no |
+| `ARA109` | unknown-claim-dependency | claim `Dependencies:` references a claim that does not exist | error | no |
+| `ARA110` | dependency-cycle | `children:` + `also_depends_on:` edges form a cycle | error | no |
+| `ARA200` | unknown-document-field | unrecognized top-level key in `trace/exploration_tree.yaml` | warning | no |
+| `ARA201` | unknown-node-field | unrecognized key on a node (value dropped) | warning | no |
+| `ARA202` | empty-tree | `tree: []` yields an empty manifest | warning | no |
+| `ARA203` | missing-node-type | node is missing a `type` | warning | no |
+| `ARA204` | field-dropped-missing-type | body field dropped because the node has no `type` | warning | no |
+| `ARA205` | field-dropped-unknown-type | body field dropped because the node's `type` is not recognized | warning | no |
+| `ARA206` | field-dropped-for-type | body field not modeled for the node's `type` is dropped | warning | no |
+| `ARA207` | unresolved-claim-reference | claim reference unresolved because `logic/claims.md` is absent | warning | no |
+| `ARA208` | redundant-ancestor-dependency | `also_depends_on:` on an ancestor restates `children:` nesting (edge dropped) | warning | no |
+| `ARA209` | duplicate-link | the same edge is declared more than once (duplicate dropped) | warning | no |
+| `ARA210` | malformed-paper-frontmatter | `PAPER.md` frontmatter fails to parse (paper metadata dropped) | warning | no |
+| `ARA211` | concept-missing-definition | a `logic/concepts.md` entry has no definition | warning | no |
+| `ARA212` | related-work-missing-doi | a `logic/related_work.md` entry has no DOI | warning | no |
+| `ARA213` | duplicate-exhibit-basename | the same exhibit basename appears under two `evidence/` categories | warning | no |
+| `ARA214` | exhibit-missing-index-row | an `evidence/` body file has no row in `evidence/README.md` | warning | no |
+| `ARA215` | index-row-missing-exhibit | an `evidence/README.md` row references a body file that does not exist | warning | no |
+
+Some drift fires one rule in each layer: `reason:` on a `dead_end` is both
+`ARA002` (fixable) and `ARA206`; `justification:` / pivot `from:` / `to:` /
+`trigger:` are both their `ARA0xx` alias rule and `ARA201`. `--fix` resolves
+both at once. `ARA101` is listed for completeness: `ara check` exits `2` before
+parsing when the tree file is unreadable, so in practice only library callers of
+`parse_dir` see it.
+
+### How codes are attached
+
+- A validate `Diagnostic` gets its code at its construction site:
+  `ParseReport::error`/`warn` take a `RuleCode` (and debug-assert that its
+  default severity matches). The code is `#[serde(skip)]` and not part of
+  `Display`, so `ara validate`'s human and `--json` output stay byte-identical;
+  `check` renders it explicitly.
+- A format-lint diagnostic keeps its `LintRuleId` (used by the fixer);
+  `LintRuleId::code()` maps it into the registry.
+- The registry is generated from one macro table, so each rule's code, name,
+  layer, default severity, fixability, and summary live on one line.
+  `RuleCode::ALL` enumerates every rule in code order; `"ARA107".parse::<RuleCode>()`
+  / `RuleCode::from_code` look one up. Per-rule config (#40) can key off these.
+- A test triggers every validate-layer diagnostic site and asserts the set of
+  codes it sees equals every `Validate`-layer entry in `RuleCode::ALL`, so a new
+  rule cannot ship without a case that fires it.
 
 ## The fix-safety guard (load-bearing correctness)
 
@@ -199,5 +285,6 @@ release-binary path the action uses.
 - **A slim `ara`-only Docker image** as a CI fast-path (skip the install step,
   like `ruff`/`uv` ship). Planned, not yet built.
 - **Per-rule config via `.ara-check.toml`** — tracked as issue
-  [#40](https://github.com/ARA-Labs/ara-cli/issues/40). The rule set is hardcoded
-  for v1.
+  [#40](https://github.com/ARA-Labs/ara-cli/issues/40). Every finding already
+  carries a stable [rule code](#rule-codes) to key it off; the rule set and
+  severities are hardcoded until then.
