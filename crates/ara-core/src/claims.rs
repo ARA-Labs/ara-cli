@@ -117,6 +117,38 @@ mod tests {
     use super::*;
 
     #[test]
+    fn preserves_falsification_and_references_across_claims() {
+        for (leader, label_end, separator) in [
+            ("- ", "", ":"),
+            ("* ", "", ":"),
+            ("", "", ":"),
+            ("", ".", ""),
+        ] {
+            let md = format!(
+                "## C01: Comparison\n{leader}**Falsification criteria{label_end}**{separator} The improvement disappears under a matched comparison.\n{leader}**Proof{label_end}**{separator} [E01, E02]\n{leader}**Dependencies{label_end}**{separator} [C02]\n{leader}**Unknown label{label_end}**{separator} ignored\n## C02: Control\n{leader}**Statement{label_end}**{separator} Choices are fixed.\n"
+            );
+            let out = parse_claims(&md);
+            let json = serde_json::to_value(&out.claims).unwrap();
+            assert_eq!(
+                json[0]["falsification"],
+                "The improvement disappears under a matched comparison."
+            );
+            assert_eq!(out.claims[0].proof, ["E01", "E02"]);
+            assert_eq!(out.claims[0].deps, [ClaimId::new("C02")]);
+            assert!(json[1].get("falsification").is_none());
+            assert!(out.claims[1].proof.is_empty());
+            assert!(out.claims[1].deps.is_empty());
+        }
+    }
+
+    #[test]
+    fn blank_falsification_is_absent() {
+        let out = parse_claims("## C01: Blank\n- **Falsification criteria**:   \n");
+        let json = serde_json::to_value(&out.claims[0]).unwrap();
+        assert!(json.get("falsification").is_none());
+    }
+
+    #[test]
     fn parses_canonical_claims() {
         let md = "\
 # Claims

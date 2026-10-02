@@ -1,0 +1,30 @@
+{
+  "schema": "ara.delivery-browser-proof/v1",
+  "binary": {
+    "version": "0.1.23",
+    "path": "/tmp/ara-integration-binary/ara-0.1.23-674f0229e76c1381",
+    "sha256": "674f0229e76c13819a343e370211006e89d160d62773b6611c6775342928cd3b"
+  },
+  "url": "http://127.0.0.1:18425/",
+  "thinking": "Packaging smoke artifact\nFixture author · 2026\nGlossary\n1\nSolution files\n1\ngraph\ntree\nstack\nsplit\nall kinds\nquestion\nexperiment\ndead ends only\nstep 1 / 2\n‹\n▶ Replay\n›\nQ\nN01\nCan a prior statement be recovered?\n✦\nN02\nCheck exact revision history\nCan a prior statement be recovered?\nN01\nQ\nquestion\nuser\n2026-10-01T09:00\n\nInspect the complete session revision contract.\n\nTHINKING\n\nPreserve the exact source-grounded deliberation.\n\nCONCEPTS\n1\nrevision-history\nARTIFACTS\n1\n\nreference-note\n\nhttps://example.invalid/unfetched\n\nDisplay-only fixture pointer; never fetched.",
+  "glossary": "Packaging smoke artifact\nFixture author · 2026\nGlossary\n1\nGlossary\n✕\nEsc\nrevision-history\nNOTATION\nnone\nDEFINITION\nThe complete prior and new body of an entry, linked to the session turn that changed it.\nBOUNDARY\nThis fixture specifies a record contract, not an empirical research result.\nRELATED\ncurrent-view\nSolution files\n1\ngraph\ntree\nstack\nsplit\nall kinds\nquestion\nexperiment\ndead ends only\nstep 1 / 2\n‹\n▶ Replay\n›\nQ\nN01\nCan a prior statement be recovered?\n✦\nN02\nCheck exact revision history\nCan a prior statement be recovered?\nN01\nQ\nquestion\nuser\n2026-10-01T09:00\n\nInspect the complete session revision contract.\n\nTHINKING\n\nPreserve the exact source-grounded deliberation.\n\nCONCEPTS\n1\nrevision-history\nARTIFACTS\n1\n\nreference-note\n\nhttps://example.invalid/unfetched\n\nDisplay-only fixture pointer; never fetched.",
+  "result": "Packaging smoke artifact\nFixture author · 2026\nGlossary\n1\nSolution files\n1\ngraph\ntree\nstack\nsplit\nall kinds\nquestion\nexperiment\ndead ends only\nstep 2 / 2\n‹\n▶ Replay\n›\nQ\nN01\nCan a prior statement be recovered?\n✦\nN02\nCheck exact revision history\nCheck exact revision history\nN02\n✦\nexperiment\nai-executed\n2026-10-01T10:00\nWHAT IT DID\n\nOriginal and revised wording are recorded separately.\n\nSTATUS\n\nsucceeded\n\nEVIDENCE\n1\nC01\nState follows validated history\n\nA current view can preserve previous wording through complete revision history.\n\nhypothesis\nFALSIFICATION CRITERIA\n\nA prior body cannot be recovered after a revision.",
+  "errors": {
+    "entries": [],
+    "nextSeq": 0,
+    "dropped": 0
+  },
+  "external_pointer_fetched": false,
+  "checks": {
+    "thinking": true,
+    "artifact_pointer": true,
+    "concept_definition": true,
+    "experiment_result": true,
+    "experiment_status": true,
+    "claim_falsification": true
+  },
+  "screenshots": [
+    "final-release-thinking.webp",
+    "final-release-experiment.webp"
+  ]
+}

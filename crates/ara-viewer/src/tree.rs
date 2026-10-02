@@ -378,11 +378,11 @@ mod tests {
             timestamp: None,
             fields: NodeFields::Question,
             evidence_notes: vec![],
+            artifacts: vec![],
+            concepts: vec![],
             isolated: false,
             pos: None,
             same_as: Vec::new(),
-            artifacts: Vec::new(),
-            concepts: Vec::new(),
         }
     }
 

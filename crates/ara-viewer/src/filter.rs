@@ -161,11 +161,11 @@ mod tests {
             timestamp: None,
             fields: NodeFields::Question,
             evidence_notes: vec![],
+            artifacts: vec![],
+            concepts: vec![],
             isolated: false,
             pos: None,
             same_as: Vec::new(),
-            artifacts: Vec::new(),
-            concepts: Vec::new(),
         }
     }
 
@@ -321,11 +321,11 @@ mod tests {
             title: title.to_string(),
             statement: statement.map(|s| s.to_string()),
             status: None,
+            falsification: None,
             proof: vec![],
             deps: vec![],
             proof_content: None,
             provenance: None,
-            falsification: None,
             conditions: None,
             sources: None,
             tags: None,

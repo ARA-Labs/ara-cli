@@ -209,7 +209,11 @@ The JSON additions preserve missing optional fields and published experiment
 `fields.status`; common non-experiment status is optional. Existing JSON callers
 can ignore additive fields. Public Rust types/constructors and node-kind bodies
 have changed, so source compatibility is distinct from JSON compatibility.
-Workspace version remains 0.1.22 for this integration. The minor/major release
+`NodeArtifact` retains arbitrary typed extra values and optional source fields;
+Rust literals must supply its `extra` map. Its richer value domain does not
+implement `Eq`. Legacy dotted bold-field labels still resolve without changing
+their original Markdown spelling or bytes.
+Workspace version is 0.1.23 for this integration. The minor/major release
 decision remains pending; no tag or release is implied by engineering checks.
 
 Core behavior affects wasm even when the embedded-viewer source hash does not.

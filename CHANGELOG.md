@@ -15,6 +15,13 @@ All notable changes to this project are documented here. The format follows
   audited resolution/repair and nonblocking duplicate advice.
 - Core: bounded 10,000-deep trees, complete optional agent layers, native node
   annotations and exact UTF-8 source spans for lossless edits and grounding.
+- Core and viewer: preserve claim falsification criteria and show claim IDs,
+  experiment proof references, and claim dependencies (#61).
+- Core and viewer: explicit per-node `artifacts` lists carry names, display-only
+  pointers, and descriptions in the detail pane (#62).
+- Core and viewer: explicit per-node `concepts` lists use glossary term names;
+  chips open and focus the matching definition, with keyboard focus restored
+  on close. Missing or ambiguous terms remain non-interactive (#63).
 - Core: `RuleCode` registry (`ara_core::rules`) giving every `ara check`
   finding a stable code — `ARA0xx` format rules, `ARA1xx` structural/reference
   errors, `ARA2xx` field/schema warnings — with name, layer, default severity,
@@ -47,7 +54,7 @@ All notable changes to this project are documented here. The format follows
 - `ara check --fix` shares the guarded writer's lock and durable recovery journal.
 - Public Rust node constructors and typed bodies include the native agent fields;
   JSON additions remain optional. The integration minor/major release decision
-  is pending; version 0.1.22 is the unreleased engineering revision.
+  is pending; version 0.1.23 is the unreleased engineering revision.
 - Native merge ledger captures use canonical padded RFC 4648 base64 strings for
   revision files, transport bytes and imported-resolution evidence, retaining
   exact decoded bytes and fingerprints. Native core adds the optional `base64`

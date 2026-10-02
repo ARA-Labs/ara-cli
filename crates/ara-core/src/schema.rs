@@ -103,8 +103,8 @@ pub(crate) struct RawNode {
     // node → node cross edges
     #[serde(default)]
     pub also_depends_on: Vec<String>,
-    // Proposed additive annotations, parsed leniently so malformed values
-    // diagnose without making an otherwise readable historical tree fatal.
+    // Preserve arbitrary extra artifact fields. Invalid concept/artifact kinds
+    // are tree errors; malformed same_as retains its native warning rule.
     #[serde(default)]
     pub same_as: Option<crate::manifest::SourceValue>,
     #[serde(default)]

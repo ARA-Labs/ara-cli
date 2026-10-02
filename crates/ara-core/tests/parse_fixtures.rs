@@ -12,6 +12,122 @@ fn read(rel: &str) -> String {
     std::fs::read_to_string(fixtures().join(rel)).unwrap_or_else(|e| panic!("read {rel}: {e}"))
 }
 
+const DETAIL_TREE: &str = r#"tree:
+  - id: N01
+    type: experiment
+    title: Matched comparison
+    result: Supports the claim.
+    evidence: [C01]
+    artifacts:
+      - name: muon_optimizer.py
+        pointer: src/execution/muon_optimizer.py
+        what: Newton-Schulz orthogonalization and Nesterov momentum.
+      - name: external
+        pointer: "https://example.org/result"
+        what: External pointer text.
+    concepts: [Muon Optimizer, Unknown term]
+"#;
+const DETAIL_CLAIMS: &str = "## C01: Optimizer improves convergence\n- **Statement**: The optimizer improves convergence in the measured regime.\n- **Status**: supported\n- **Falsification criteria**: The improvement disappears under a matched comparison.\n- **Proof**: [E01, E02]\n- **Dependencies**: [C02]\n\n## C02: Matched comparisons isolate the optimizer\n- **Statement**: The comparisons keep other training choices fixed.\n";
+
+#[test]
+fn node_detail_extensions_survive_parse_and_json() {
+    let (manifest, report) = parse_sources(DETAIL_TREE, Some(DETAIL_CLAIMS)).expect("parse");
+    let json = serde_json::to_value(&manifest).unwrap();
+    assert_eq!(
+        json["nodes"][0]["artifacts"],
+        serde_json::json!([
+            {"name":"muon_optimizer.py","pointer":"src/execution/muon_optimizer.py","what":"Newton-Schulz orthogonalization and Nesterov momentum."},
+            {"name":"external","pointer":"https://example.org/result","what":"External pointer text."}
+        ])
+    );
+    assert_eq!(
+        json["nodes"][0]["concepts"],
+        serde_json::json!(["Muon Optimizer", "Unknown term"])
+    );
+    assert_eq!(
+        json["claims"][0]["falsification"],
+        "The improvement disappears under a matched comparison."
+    );
+    assert!(report.warnings().is_empty(), "{report}");
+    let back: ara_core::Manifest = serde_json::from_value(json).unwrap();
+    assert_eq!(back, manifest);
+}
+
+#[test]
+#[cfg(feature = "native")]
+fn node_details_survive_directory_parse() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::create_dir(dir.path().join("trace")).unwrap();
+    std::fs::create_dir(dir.path().join("logic")).unwrap();
+    std::fs::write(dir.path().join("trace/exploration_tree.yaml"), DETAIL_TREE).unwrap();
+    std::fs::write(dir.path().join("logic/claims.md"), DETAIL_CLAIMS).unwrap();
+    std::fs::write(dir.path().join("logic/concepts.md"), "## Muon Optimizer\n- **Definition**: An optimizer using orthogonalized matrix updates.\n- **Notation**: $W$\n").unwrap();
+    let (manifest, _) = ara_core::parse_dir(dir.path()).unwrap();
+    let json = serde_json::to_value(&manifest).unwrap();
+    assert_eq!(
+        json["nodes"][0]["artifacts"][0]["pointer"],
+        "src/execution/muon_optimizer.py"
+    );
+    assert_eq!(
+        json["nodes"][0]["artifacts"][1]["pointer"],
+        "https://example.org/result"
+    );
+    assert_eq!(
+        json["nodes"][0]["concepts"],
+        serde_json::json!(["Muon Optimizer", "Unknown term"])
+    );
+    assert_eq!(
+        json["claims"][0]["falsification"],
+        "The improvement disappears under a matched comparison."
+    );
+    assert_eq!(
+        manifest.concepts[0].definition.as_deref(),
+        Some("An optimizer using orthogonalized matrix updates.")
+    );
+}
+
+#[test]
+fn partial_artifacts_default_strings_and_missing_lists_serialize_away() {
+    let (manifest, report) = parse_sources(
+        "tree:\n  - id: N01\n    type: question\n    artifacts: [{pointer: only/path}, {}]\n  - id: N02\n    type: question\n",
+        None,
+    ).unwrap();
+    assert!(report.warnings().is_empty(), "{report}");
+    assert_eq!(
+        manifest.nodes[0].artifacts,
+        [
+            ara_core::NodeArtifact {
+                name: String::new(),
+                pointer: "only/path".into(),
+                what: String::new(),
+                extra: Default::default(),
+            },
+            ara_core::NodeArtifact {
+                name: String::new(),
+                pointer: String::new(),
+                what: String::new(),
+                extra: Default::default(),
+            },
+        ]
+    );
+    let json = serde_json::to_value(&manifest).unwrap();
+    assert!(json["nodes"][0].get("concepts").is_none());
+    assert!(json["nodes"][1].get("artifacts").is_none());
+    assert!(json["nodes"][1].get("concepts").is_none());
+}
+
+#[test]
+fn malformed_node_extensions_follow_yaml_error_path() {
+    for field in [
+        "artifacts: [{pointer: [not, text]}]",
+        "concepts: [{term: invalid}]",
+    ] {
+        let yaml = format!("tree:\n  - id: N01\n    type: question\n    {field}\n");
+        let report = parse_sources(&yaml, None).unwrap_err();
+        assert_eq!(report.errors()[0].code, ara_core::RuleCode::MalformedTree);
+    }
+}
+
 /// Both official artifacts must parse with **zero** errors and **zero**
 /// warnings (every canonical field is modeled) — the Stage-1 acceptance bar.
 #[test]
@@ -377,14 +493,28 @@ fn evidence_malformed_warns_not_fatal() {
 fn manifest_forward_and_round_trip_compat() {
     use ara_core::Manifest;
 
-    // OLD-shape JSON: only the four original vectors, none of the new fields.
+    // Populated old-shape JSON must default every newly added field.
     let old = r#"{
-        "nodes": [],
+        "nodes": [{
+            "id": "N01", "kind": "question", "label": "Old node",
+            "support_level": null, "source_refs": [], "description": null,
+            "fields": "question", "evidence_notes": []
+        }],
         "links": [],
-        "bindings": [],
-        "claims": []
+        "bindings": [{"node":"N01","claim":"C01","role":"evidence"}],
+        "claims": [{
+            "id":"C01","title":"Old claim","statement":null,"status":null,
+            "proof":["E01"],"deps":[]
+        }]
     }"#;
     let m: Manifest = serde_json::from_str(old).expect("old manifest deserializes via defaults");
+    assert!(m.nodes[0].artifacts.is_empty());
+    assert!(m.nodes[0].concepts.is_empty());
+    assert!(m.claims[0].falsification.is_none());
+    let old_json = serde_json::to_value(&m).unwrap();
+    assert!(old_json["nodes"][0].get("artifacts").is_none());
+    assert!(old_json["nodes"][0].get("concepts").is_none());
+    assert!(old_json["claims"][0].get("falsification").is_none());
     assert!(m.paper.is_none());
     assert!(m.exhibits.is_empty());
     assert!(m.built_on.is_empty());

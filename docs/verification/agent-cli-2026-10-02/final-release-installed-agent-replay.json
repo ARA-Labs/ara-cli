@@ -1,0 +1,78 @@
+{
+  "schema": "ara.installed-agent-final-release-replay/v1",
+  "binary": {
+    "version": "0.1.23",
+    "sha256": "674f0229e76c13819a343e370211006e89d160d62773b6611c6775342928cd3b"
+  },
+  "installed_runtime_proof": "https://github.com/ARA-Labs/Agent-Native-Research-Artifact/blob/feat/agent-cli-interface/evaluation/agent-cli/delivery-proof/runtime-smoke.json",
+  "pm": {
+    "argv": [
+      "/tmp/ara-integration-binary/ara-0.1.23-674f0229e76c1381",
+      "-C",
+      "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-owner-smoke-edq4riv4/pm-final-023/ara",
+      "apply",
+      "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-owner-smoke-edq4riv4/pm/c01-revision-request.jsonl",
+      "--json"
+    ],
+    "exit": 0,
+    "result": {
+      "bindings": {
+        "$revision": "N02"
+      },
+      "changed_paths": [
+        ".gitignore",
+        "logic/claims.md",
+        "trace/exploration_tree.yaml",
+        "trace/pm_reasoning_log.yaml",
+        "trace/sessions/2026-10-01_001.yaml",
+        "trace/sessions/session_index.yaml"
+      ],
+      "committed": true,
+      "diagnostics": [],
+      "dry_run": false,
+      "duplicate_candidates": [],
+      "format": "ara.apply/v1",
+      "operations": [
+        {
+          "id": "N02",
+          "no_op": false,
+          "operation": "node.add"
+        },
+        {
+          "no_op": false,
+          "operation": "logic.revise",
+          "target": "logic/claims.md:C01: State follows validated history",
+          "turn": 1
+        },
+        {
+          "id": "2026-10-01_001",
+          "no_op": false,
+          "operation": "session.log",
+          "turn": 1
+        },
+        {
+          "no_op": false,
+          "operation": "record.append"
+        }
+      ]
+    },
+    "claim": "# Claims\n\n## C01: State follows validated history\n- **Statement**: A current view can preserve previous wording through complete revision history.\n- **Conditions**: Each revision requires a uniquely resolved session and retains its full prior and new body in that session record.\n- **Status**: hypothesis\n- **Provenance**: user-revised\n- **Falsification**: A prior body cannot be recovered after a revision.\n- **Proof**: pending\n- **Sources**: []\n- **Dependencies**: []\n- **Last revised**:\n  2026-10-01 (2026-10-01_001#1)\n",
+    "session": "session:\n  id: 2026-10-01_001\n  date: '2026-10-01'\n  started: '2026-10-01T09:00'\n  last_turn: \"2026-10-01T09:01\"\n  turn_count: 1\n  summary: \"C01 Conditions now require a uniquely resolved session; complete before/after archived under user-directive with user-revised provenance.\"\nevents_logged: \n  - id: \"N02\"\n    provenance: \"user-revised\"\n    routing: \"direct\"\n    summary: \"Researcher directed unique session resolution for C01 Conditions and preservation of prior wording.\"\n    turn: 1\n    type: \"decision\"\nai_actions: \n  - action: \"Applied a source-digest-guarded C01 Body revision, preserved exact prior/new body in logic_revisions, and appended the complete turn and reasoning through ara apply.\"\n    files_changed: [\"logic/claims.md\",\"trace/exploration_tree.yaml\",\"trace/sessions/2026-10-01_001.yaml\",\"trace/sessions/session_index.yaml\",\"trace/pm_reasoning_log.yaml\"]\n    provenance: \"ai-executed\"\n    turn: 1\nclaims_touched: \n  - action: \"revised\"\n    id: \"C01\"\n    turn: 1\nlogic_revisions: \n  - after: \"Each revision requires a uniquely resolved session and retains its full prior and new body in that session record.\"\n    before: \"Each revision retains its full prior and new body in a session record.\"\n    entry: \"C01\"\n    field: \"Conditions\"\n    note: \"Field-specific audit accompanies the automatic complete Body before/after record.\"\n    provenance: \"user-revised\"\n    signal: \"user-directive\"\n    turn: 1\n  - after: |2\n      - **Statement**: A current view can preserve previous wording through complete revision history.\n      - **Conditions**: Each revision requires a uniquely resolved session and retains its full prior and new body in that session record.\n      - **Status**: hypothesis\n      - **Provenance**: user-revised\n      - **Falsification**: A prior body cannot be recovered after a revision.\n      - **Proof**: pending\n      - **Sources**: []\n      - **Dependencies**: []\n      - **Last revised**:\n        2026-10-01 (2026-10-01_001#1)\n    before: |2\n      - **Statement**: A current view can preserve previous wording through complete revision history.\n      - **Conditions**: Each revision retains its full prior and new body in a session record.\n      - **Status**: hypothesis\n      - **Provenance**: ai-suggested\n      - **Falsification**: A prior body cannot be recovered after a revision.\n      - **Proof**: pending\n      - **Sources**: []\n      - **Dependencies**: []\n    entry: \n      document: \"logic/claims.md\"\n      entry: null\n      heading: [\"C01: State follows validated history\"]\n    field: \"Body\"\n    note: \"The researcher explicitly directed the Conditions revision and recovery of prior wording; this is a packaging fixture, not empirical resolution.\"\n    provenance: \"user-revised\"\n    signal: \"user-directive\"\n    turn: 1\nkey_context: \n  - excerpt: \"Researcher direction: Revise C01 Conditions to require a uniquely resolved session and keep the previous wording recoverable.\"\n    turn: 1\n  - excerpt: \"Fixture date is 2026-10-01; append turn 1 to existing 2026-10-01_001. This is an engineering packaging smoke under proposed local CLI contracts, not an experiment or human protocol approval.\"\n    turn: 1\n  - excerpt: \"Existing open thread 'Confirm the wording of C01' is retained for continuity; this turn explicitly directs the Conditions revision.\"\n    turn: 1\nopen_threads:\n  - Confirm the wording of C01\nai_suggestions_pending: []\n",
+    "index": "sessions:\n  - id: 2026-10-01_001\n    date: '2026-10-01'\n    summary: \"C01 Conditions now require a uniquely resolved session; complete before/after archived under user-directive with user-revised provenance.\"\n    turn_count: 1\n    events_count: 1\n    claims_touched: [\"C01\"]\n    open_threads: 1\n",
+    "reasoning": "entries: \n  - session_metadata: \n      after: \n        ai_suggestions_pending: []\n        last_turn: \"2026-10-01T09:01\"\n        open_threads: [\"Confirm the wording of C01\"]\n        summary: \"C01 Conditions now require a uniquely resolved session; complete before/after archived under user-directive with user-revised provenance.\"\n        turn_count: 1\n      before: \n        ai_suggestions_pending: []\n        last_turn: \"2026-10-01T09:00\"\n        open_threads: [\"Confirm the wording of C01\"]\n        summary: \"Packaging fixture initialized\"\n        turn_count: 0\n      session: \"2026-10-01_001\"\n    turn: \"2026-10-01_001#1\"\n  - notes: [\"Stage 1 harvested the explicit researcher direction to narrow C01 Conditions and preserve previous wording. Stage 2 records the direction as a direct decision linked to N01 and C01; the guarded edit is an ai-executed session action.\",\"Stage 4 signal is user-directive (explicit verbal declaration naming C01). Provenance is user-revised because the user specified the meaning rather than exact complete replacement wording.\",\"Reconciled the mutable current snapshot using the exact selected source digest. Archived full verbatim Body before/after and a Conditions-specific before/after in the owning session; Last revised points to 2026-10-01_001#1.\",\"No empirical-resolution or artifact-commitment upgrade: the fixture request supplies no experiment result or merged downstream implementation. C01 remains hypothesis with its existing Statement, Falsification, pending Proof, Sources and Dependencies intact.\",\"Stage 3 has no staged observations to promote or stale-flag. No new conflicting evidence, reader report, taste reaction, dependency change or terminology drift warrants another edit.\",\"Consistency review found no claim dependency edge or structured incoming reference requiring repair. The existing concept definition and method remain consistent with complete revision history; their source content was preserved.\",\"Use the existing fixture-day session rather than host calendar date. Append all applicable session arrays; preserve the existing open thread and empty pending-suggestions list. session.log audits rolling metadata and updates the native index without rewriting earlier turn history.\",\"This guarded write is an engineering packaging smoke only. Proposed/pending CLI contracts and upstream protocol review remain pending; no human protocol approval, experimental result, performance equivalence or integration acceptance is inferred.\"]\n    turn: \"2026-10-01_001#1\"\n",
+    "exact_equal_to_original_observed_complete_revision": true
+  },
+  "compiler": {
+    "argv": [
+      "/tmp/ara-integration-binary/ara-0.1.23-674f0229e76c1381",
+      "check",
+      "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-owner-smoke-edq4riv4/compiler/ara-output",
+      "--json"
+    ],
+    "exit": 0,
+    "stdout": "{\n  \"dir\": \"/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-owner-smoke-edq4riv4/compiler/ara-output\",\n  \"validate\": {\n    \"errors\": [],\n    \"warnings\": []\n  },\n  \"lint\": [],\n  \"summary\": {\n    \"errors\": 0,\n    \"warnings\": 0,\n    \"fixable\": 0,\n    \"strict\": false,\n    \"write_errors\": false,\n    \"passed\": true\n  }\n}\n",
+    "stderr": ""
+  },
+  "new_model_run_claimed": false,
+  "scientific_or_experiment_claimed": false
+}

@@ -317,19 +317,19 @@ fn tree_cases() -> Vec<(RuleCode, &'static str, Files)> {
             )],
         ),
         (
-            RuleCode::MalformedNodeAnnotation,
-            "",
-            vec![(
-                tree,
-                "tree:\n  - {id: N01, type: question, artifacts: [{name: missing-pointer}]}\n",
-            )],
-        ),
-        (
             RuleCode::UnknownNodeConcept,
             "",
             vec![(
                 tree,
                 "tree:\n  - {id: N01, type: question, concepts: [MissingTerm]}\n",
+            )],
+        ),
+        (
+            RuleCode::MalformedNodeAnnotation,
+            "",
+            vec![(
+                tree,
+                "tree:\n  - {id: N01, type: question, concepts: [Term, Term]}\n",
             )],
         ),
     ]

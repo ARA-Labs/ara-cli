@@ -658,13 +658,25 @@ fn annotation_strings(
     id: &NodeId,
     field: &str,
     code: RuleCode,
+    strict_shape: bool,
     report: &mut ParseReport,
 ) -> Vec<String> {
     let Some(value) = value else {
         return Vec::new();
     };
+    let malformed = |report: &mut ParseReport, message: &str| {
+        if strict_shape {
+            report.error(
+                RuleCode::MalformedTree,
+                format!("nodes[{id}].{field}"),
+                message,
+            );
+        } else {
+            report.warn(code, format!("nodes[{id}].{field}"), message);
+        }
+    };
     let SourceValue::Sequence(items) = value else {
-        report.warn(code, format!("nodes[{id}].{field}"), "expected a sequence");
+        malformed(report, "expected a sequence");
         return Vec::new();
     };
     let mut seen = BTreeSet::new();
@@ -682,11 +694,7 @@ fn annotation_strings(
                 Some(text.clone())
             }
             _ => {
-                report.warn(
-                    code,
-                    format!("nodes[{id}].{field}"),
-                    "annotation must be text",
-                );
+                malformed(report, "annotation must be text");
                 None
             }
         })
@@ -702,8 +710,8 @@ fn annotation_artifacts(
         return Vec::new();
     };
     let SourceValue::Sequence(items) = value else {
-        report.warn(
-            RuleCode::MalformedNodeAnnotation,
+        report.error(
+            RuleCode::MalformedTree,
             format!("nodes[{id}].artifacts"),
             "expected artifact sequence",
         );
@@ -712,29 +720,32 @@ fn annotation_artifacts(
     items
         .iter()
         .filter_map(|value| {
-            if let SourceValue::Mapping(map) = value
-                && let (
-                    Some(SourceValue::String(name)),
-                    Some(SourceValue::String(pointer)),
-                    Some(SourceValue::String(what)),
-                ) = (map.get("name"), map.get("pointer"), map.get("what"))
-            {
-                let extra = map
-                    .iter()
-                    .filter(|(key, _)| !matches!(key.as_str(), "name" | "pointer" | "what"))
-                    .map(|(key, value)| (key.clone(), value.clone()))
-                    .collect();
-                return Some(NodeArtifact {
-                    name: name.clone(),
-                    pointer: pointer.clone(),
-                    what: what.clone(),
-                    extra,
-                });
+            if let SourceValue::Mapping(map) = value {
+                let text = |key| match map.get(key) {
+                    None => Some(""),
+                    Some(SourceValue::String(value)) => Some(value.as_str()),
+                    _ => None,
+                };
+                if let (Some(name), Some(pointer), Some(what)) =
+                    (text("name"), text("pointer"), text("what"))
+                {
+                    let extra = map
+                        .iter()
+                        .filter(|(key, _)| !matches!(key.as_str(), "name" | "pointer" | "what"))
+                        .map(|(key, value)| (key.clone(), value.clone()))
+                        .collect();
+                    return Some(NodeArtifact {
+                        name: name.into(),
+                        pointer: pointer.into(),
+                        what: what.into(),
+                        extra,
+                    });
+                }
             }
-            report.warn(
-                RuleCode::MalformedNodeAnnotation,
+            report.error(
+                RuleCode::MalformedTree,
                 format!("nodes[{id}].artifacts"),
-                "artifact must carry text name, pointer, and what",
+                "artifact entry must be a mapping with text fields",
             );
             None
         })
@@ -886,6 +897,7 @@ impl Normalizer<'_> {
                 &id,
                 "same_as",
                 RuleCode::MalformedSameAs,
+                false,
                 &mut self.report,
             )
             .into_iter()
@@ -908,6 +920,7 @@ impl Normalizer<'_> {
                 &id,
                 "concepts",
                 RuleCode::MalformedNodeAnnotation,
+                true,
                 &mut self.report,
             ),
             isolated: raw.isolated,

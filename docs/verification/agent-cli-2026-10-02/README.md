@@ -14,7 +14,7 @@ and observed metrics are recorded here; no E0–E6 experiment is claimed.
 | Release build | PASS, 0.1.22; hash/path in binary.json |
 | 107-row operation inventory | 88 required CLI operations PASS; 19 explicitly permitted direct/reference/output cases |
 | Broad/deep 100/1k/10k reads | Functional PASS; every 10k read sample below 1 s |
-| Pinned reads | Functional PASS; one cold status timing sample misses 100 ms |
+| Pinned reads | Functional PASS; first status invocation misses 100 ms; OS cache state not controlled |
 | True corpus | 32 read sweeps and 32 layout calls; defined errors retained, source bytes unchanged |
 | Native writes/resources | Broad/deep 100/1k/10k source/readback checks PASS; actual per-child RSS in layout-rss-writes.json |
 | Same-checkout concurrency | 8 processes × 50 appends: 400 unique nodes and exact payloads PASS |
@@ -26,8 +26,8 @@ and observed metrics are recorded here; no E0–E6 experiment is claimed.
 | Packaging/variants | 14 archived pages/3 pins/107 operations; 21 files/13 pages/13 collective files PASS |
 | Original-node replay | BLOCKED by strict creation/ancestor/leaf dialect incompatibilities; no source invention or skipped nodes |
 | Human protocol approval | Pending F1–F7 |
-| Revised independent access review | Pending; prior byte review is not approval of revised bytes |
-| Actual browser/installed-agent runtime | Owner-run gates pending; final PR creation also belongs to owner |
+| Revised independent access review | PASS for 21 primary paths and 9 selected consumers; not human/scientific approval |
+| Actual browser/installed-agent runtime | Browser thinking/result/glossary PASS; installed reader, PM revision, and source-bounded compiler PASS |
 
 `acceptance.json.gz` is the lossless complete JSON proof, including source and
 final-state data. `evidence-integrity.json` records its uncompressed and compressed

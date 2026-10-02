@@ -1,7 +1,7 @@
 # Source-preserving CLI skill variants
 
 This record describes the implementation on `feat/agent-cli-interface`, workspace
-0.1.22. Its command/source contract is [agent-cli.md](../agent-cli.md).
+0.1.23. Its command/source contract is [agent-cli.md](../agent-cli.md).
 Observed proof and unresolved gates are recorded in the delivery verification
 [report](../verification/agent-cli-2026-10-02/README.md); engineering execution does not imply upstream approval or release.
 
@@ -11,7 +11,12 @@ Twenty-one variant files preserve thirteen source pages and their procedures, wh
 
 ## Boundaries and remaining gates
 
-Fresh independent semantic access review, human protocol approval and installed-agent runtime execution remain pending. Runtime smoke and final PR creation are owned by the integration owner.
+Independent static access review and three actual installed-agent packaging tasks
+passed; the source-bounded compiler also emitted a complete artifact with no
+invented code or empirical results. Exact fixture/readback evidence is in the
+protocol repository's `evaluation/agent-cli/delivery-proof/runtime-smoke.json`.
+Human protocol approval and historical reproduction remain pending. These smokes
+are not E0–E6 experiments or evidence of interface-only reasoning equivalence.
 
 ## Code and proof boundaries
 

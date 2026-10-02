@@ -250,8 +250,16 @@ fn field_label(line: &str) -> Option<(&str, usize)> {
     let rest = rest.strip_prefix("**")?;
     let (name, after) = rest.split_once("**")?;
     let after = after.trim_start();
-    let value = after.strip_prefix(':')?.trim_start();
-    Some((name.trim(), line.len() - value.len()))
+    let name = name.trim();
+    let value = match after.strip_prefix(':') {
+        Some(value) => value.trim_start(),
+        None if name.ends_with('.') => after,
+        None => return None,
+    };
+    Some((
+        name.strip_suffix('.').unwrap_or(name).trim_end(),
+        line.len() - value.len(),
+    ))
 }
 
 fn outside_fence(line: &str, fence: &mut Option<(u8, usize)>) -> bool {

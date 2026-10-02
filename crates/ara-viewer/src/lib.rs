@@ -75,6 +75,16 @@ pub fn App() -> impl IntoView {
     // pane without requiring prop-drilling through MapPane.
     let selected: RwSignal<Option<NodeId>> = RwSignal::new(None);
 
+    // Shared glossary navigation lets detail chips open the header's modal.
+    let glossary_open = RwSignal::new(false);
+    let glossary_query = RwSignal::new(String::new());
+    let glossary_target: RwSignal<Option<String>> = RwSignal::new(None);
+    let on_concept = Callback::new(move |term: String| {
+        glossary_target.set(Some(term));
+        glossary_query.set(String::new());
+        glossary_open.set(true);
+    });
+
     // ── Pan/zoom state (persists across manifest swaps) ───────────────────────
     let pan_zoom: RwSignal<PanZoom> = RwSignal::new(PanZoom::default());
 
@@ -157,7 +167,12 @@ pub fn App() -> impl IntoView {
             // Dependencies · Recipes.
             <div class="panel-launchers">
                 <ContextPanel load_state=load_state />
-                <GlossaryPanel load_state=load_state />
+                <GlossaryPanel
+                    load_state=load_state
+                    open=glossary_open
+                    query=glossary_query
+                    target=glossary_target
+                />
                 <DependenciesPanel load_state=load_state />
                 <RecipesPanel load_state=load_state />
             </div>
@@ -205,7 +220,7 @@ pub fn App() -> impl IntoView {
             </section>
             <Splitter layout=layout split_ratio=split_ratio stack_ratio=stack_ratio dragging=dragging />
             <section id="detail" class="panel panel-detail" role="region" aria-label="Detail">
-                <DetailPane load_state=load_state selected=selected />
+                <DetailPane load_state=load_state selected=selected on_concept=on_concept />
             </section>
         </main>
     }

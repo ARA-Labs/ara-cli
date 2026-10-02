@@ -1,7 +1,7 @@
 # Nonblocking lexical duplicate advice
 
 This record describes the implementation on `feat/agent-cli-interface`, workspace
-0.1.22. Its command/source contract is [agent-cli.md](../agent-cli.md).
+0.1.23. Its command/source contract is [agent-cli.md](../agent-cli.md).
 Observed proof and unresolved gates are recorded in the delivery verification
 [report](../verification/agent-cli-2026-10-02/README.md); engineering execution does not imply upstream approval or release.
 

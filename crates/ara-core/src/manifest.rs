@@ -276,6 +276,19 @@ pub struct NodeExhibit {
     pub exhibit: String,
 }
 
+/// An author-supplied artifact pointer; pointers are display text, not fetch URLs.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct NodeArtifact {
+    #[serde(default)]
+    pub name: String,
+    #[serde(default)]
+    pub pointer: String,
+    #[serde(default)]
+    pub what: String,
+    #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    pub extra: std::collections::BTreeMap<String, SourceValue>,
+}
+
 /// One exploration node.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Node {
@@ -326,15 +339,6 @@ pub struct Node {
     /// Center position assigned by layout. Absent when layout has not run.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub pos: Option<Point>,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct NodeArtifact {
-    pub name: String,
-    pub pointer: String,
-    pub what: String,
-    #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
-    pub extra: std::collections::BTreeMap<String, SourceValue>,
 }
 
 /// The canonical node types, plus a preserved escape hatch.
@@ -430,6 +434,8 @@ pub struct Claim {
     pub title: String,
     pub statement: Option<String>,
     pub status: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub falsification: Option<String>,
     /// `E##` proof refs, stored raw. Not validated — no evidence registry yet.
     pub proof: Vec<String>,
     /// Claim → claim dependencies.
@@ -439,8 +445,6 @@ pub struct Claim {
     pub proof_content: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub provenance: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub falsification: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub conditions: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -716,11 +720,11 @@ mod tests {
             timestamp: Some("2026-08-19".into()),
             fields: NodeFields::Question,
             evidence_notes: vec![],
+            artifacts: vec![],
+            concepts: vec![],
             isolated: false,
             pos: None,
             same_as: Vec::new(),
-            artifacts: Vec::new(),
-            concepts: Vec::new(),
         };
         let json = serde_json::to_string(&node).unwrap();
         let back: Node = serde_json::from_str(&json).unwrap();
