@@ -102,6 +102,30 @@ the successful static manifest or through its matching serve image route.
 See [figure-exhibit-images.md](figure-exhibit-images.md) for metadata precedence,
 captions, diagnostics, and complete static packaging.
 
+## Claim and node detail fields
+
+`Claim.falsification` is an optional string parsed from the `Falsification criteria` label in `logic/claims.md`. Bullet (`- **Falsification criteria**: text`) and bold-leading (`**Falsification criteria.** text`) forms are supported. Missing or blank values default to `None` and serialize away. Claim cards show the claim ID, criterion, raw experiment `proof` references, and claim `deps` when present. Proof references remain text because experiments have no exhibit-resolution contract.
+
+`Node.artifacts` and `Node.concepts` are explicit CLI extensions to the exploration-tree YAML. They are author-supplied lists, with no automatic binding from mentions or global artifact indexes:
+
+```yaml
+tree:
+  - id: N01
+    type: experiment
+    title: Compare optimizers
+    artifacts:
+      - name: muon_optimizer.py
+        pointer: src/execution/muon_optimizer.py
+        what: Orthogonalized matrix updates.
+    concepts: [Muon Optimizer]
+```
+
+The normalized JSON keeps the same array shapes. Artifact entries contain default-empty string fields `name`, `pointer`, and `what`. Pointer values are escaped display text, including external pointer strings; the viewer does not fetch them or generate executable links. Empty subfields and wholly blank entries do not render.
+
+Concept references name full `Concept.term` headings from `logic/concepts.md`, not authored IDs or generated glossary anchors. The viewer trims reference whitespace and compares full terms case-insensitively. A unique match opens that exact definition in the Glossary modal. Repeated resolved references produce one chip in first-reference order. Missing or ambiguous references stay visible as non-interactive chips. Renaming a glossary term requires updating its node references.
+
+Both node arrays default to empty and serialize away when empty. Existing populated JSON manifests remain readable. See [claim-artifact-concept-details.md](claim-artifact-concept-details.md) for the source contract, focus behavior, and limits.
+
 ## Logical model extensibility
 
 The **logical** model (`nodes`, `links`, `bindings`, `claims`, `NodeKind`,

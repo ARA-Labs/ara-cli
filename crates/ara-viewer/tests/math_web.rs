@@ -284,9 +284,12 @@ async fn math_filter_and_reopen_cancel_pending_jobs_and_reuse_renderer() {
     let doc = web_sys::window().unwrap().document().unwrap();
     let root = container(&doc);
     let (load_state, _) = signal(LoadState::Loaded(manifest("$\\pi^2$", "raw source")));
+    let open = RwSignal::new(false);
+    let query = RwSignal::new(String::new());
+    let target = RwSignal::new(None::<String>);
     let handle = leptos::mount::mount_to(
         root.clone(),
-        move || view! { <GlossaryPanel load_state=load_state /> },
+        move || view! { <GlossaryPanel load_state=load_state open=open query=query target=target /> },
     );
     click(&root, ".panel-launch-btn");
     leptos::task::tick().await;
@@ -334,9 +337,12 @@ async fn math_manifest_replacement_during_loading_renders_only_current_text() {
     let root = container(&doc);
     let (load_state, set_load_state) =
         signal(LoadState::Loaded(manifest("$\\pi^2$", "raw source")));
+    let open = RwSignal::new(false);
+    let query = RwSignal::new(String::new());
+    let target = RwSignal::new(None::<String>);
     let handle = leptos::mount::mount_to(
         root.clone(),
-        move || view! { <GlossaryPanel load_state=load_state /> },
+        move || view! { <GlossaryPanel load_state=load_state open=open query=query target=target /> },
     );
     click(&root, ".panel-launch-btn");
     leptos::task::tick().await;
@@ -370,9 +376,12 @@ async fn math_close_during_loading_and_closed_manifest_replacement_are_safe() {
     let root = container(&doc);
     let (load_state, set_load_state) =
         signal(LoadState::Loaded(manifest("$\\pi^2$", "raw source")));
+    let open = RwSignal::new(false);
+    let query = RwSignal::new(String::new());
+    let target = RwSignal::new(None::<String>);
     let handle = leptos::mount::mount_to(
         root.clone(),
-        move || view! { <GlossaryPanel load_state=load_state /> },
+        move || view! { <GlossaryPanel load_state=load_state open=open query=query target=target /> },
     );
     click(&root, ".panel-launch-btn");
     leptos::task::tick().await;
@@ -409,9 +418,12 @@ async fn math_lazy_loading_is_shared_by_both_panels_and_skips_plain_source() {
         "$\\pi^2$",
         "only raw Markdown **here**",
     )));
+    let open = RwSignal::new(false);
+    let query = RwSignal::new(String::new());
+    let target = RwSignal::new(None::<String>);
     let handle = leptos::mount::mount_to(root.clone(), move || {
         view! {
-            <GlossaryPanel load_state=load_state /> <RecipesPanel load_state=load_state />
+            <GlossaryPanel load_state=load_state open=open query=query target=target /> <RecipesPanel load_state=load_state />
         }
     });
     leptos::task::tick().await;

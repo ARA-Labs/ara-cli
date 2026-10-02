@@ -382,6 +382,7 @@ expression: manifest
       "title": "Plain CNNs exhibit a depth-induced degradation problem",
       "statement": "For sufficiently deep \"plain\" CNNs (no shortcuts), increasing depth strictly increases *training* error on both CIFAR-10 and ImageNet, even with BN and competent initialization.",
       "status": "supported",
+      "falsification": "A controlled depth scan (e.g. plain-{18, 34, 56, 110}) trained with BN and standard SGD in which deeper models show monotonically lower or equal training error.",
       "proof": [
         "E01"
       ],
@@ -392,6 +393,7 @@ expression: manifest
       "title": "Residual learning eliminates the degradation problem",
       "statement": "Replacing each pair of stacked 3×3 layers in a plain net with a residual block F(x) + x (with identity shortcut, no extra parameters) makes the deeper variant achieve *lower* training and validation error than the shallower one for matched depths.",
       "status": "supported",
+      "falsification": "Under the same depth/width/training pipeline, ResNet-34 fails to improve over ResNet-18 on ImageNet validation, or ResNet-34 has higher training error than plain-34.",
       "proof": [
         "E01",
         "E02"
@@ -405,6 +407,7 @@ expression: manifest
       "title": "Residual networks gain accuracy from increased depth up to 152 layers on ImageNet",
       "statement": "Deeper ResNets (50, 101, 152) achieve monotonically lower top-1 and top-5 ImageNet validation error than shallower ResNets, with the 152-layer model still having lower complexity (11.3 GFLOPs) than VGG-16/19 (15.3/19.6 GFLOPs).",
       "status": "supported",
+      "falsification": "A ResNet-152 trained with the same recipe fails to improve top-1 over ResNet-101 (or ResNet-101 over ResNet-50) by a margin larger than the noise floor (~0.1%).",
       "proof": [
         "E03"
       ],
@@ -417,6 +420,7 @@ expression: manifest
       "title": "Identity shortcuts are sufficient; projection shortcuts give only marginal gains",
       "statement": "Among shortcut options A (zero-padding identity), B (projection only when dimensions change), and C (projection on every shortcut), the differences in ImageNet top-1 error are small (≤0.65 pts on ResNet-34); identity shortcuts (A) suffice to fix degradation, and option C is rejected as not worth its parameter / memory cost.",
       "status": "supported",
+      "falsification": "A controlled comparison in which option C beats option A or B by more than ~1 top-1 point under identical training, indicating projection shortcuts are essential rather than convenience.",
       "proof": [
         "E04"
       ],
@@ -429,6 +433,7 @@ expression: manifest
       "title": "Bottleneck blocks make 50/101/152-layer ResNets practical",
       "statement": "Replacing the 2-layer 3×3 building block with a 3-layer 1×1 → 3×3 → 1×1 *bottleneck* block of the same per-block time complexity allows construction of 50/101/152-layer ResNets that achieve lower error than the 34-layer ResNet without exploding compute.",
       "status": "supported",
+      "falsification": "A 50- or 101-layer non-bottleneck ResNet matches the bottleneck ResNet at equal compute, eliminating the practical need for bottlenecks; or bottleneck ResNets fail to improve over ResNet-34.",
       "proof": [
         "E03"
       ],
@@ -442,6 +447,7 @@ expression: manifest
       "title": "Residual nets generalize to extreme CIFAR-10 depths (110 layers; 1202 layers without optimization difficulty)",
       "statement": "On CIFAR-10, ResNets at depths {20, 32, 44, 56, 110} all train successfully, with the 110-layer model achieving 6.43% test error (best mean ± std 6.61 ± 0.16); a 1202-layer ResNet trains with no optimization difficulty (final training error <0.1%) although it overfits to 7.93% test error on this small dataset.",
       "status": "supported",
+      "falsification": "A CIFAR ResNet at depth ≥110 trained with the same recipe fails to converge to <10% test error, or its training error fails to decrease below the 56-layer model's.",
       "proof": [
         "E05"
       ],
@@ -455,6 +461,7 @@ expression: manifest
       "title": "Warming up the learning rate is necessary for the 110-layer CIFAR ResNet",
       "statement": "A 110-layer ResNet on CIFAR-10 fails to start converging cleanly with the default initial LR of 0.1; warming up at LR 0.01 for ~400 iterations until training error drops below ~80%, then restoring LR 0.1, restores convergence.",
       "status": "supported",
+      "falsification": "Training a 110-layer ResNet on CIFAR-10 from scratch at LR 0.1 from iteration 0 reliably reaches the same final test error as the warmup recipe under the same total budget.",
       "proof": [
         "E05"
       ],
@@ -467,6 +474,7 @@ expression: manifest
       "title": "ResNet representations transfer to detection, giving large COCO gains over VGG-16",
       "statement": "Replacing the VGG-16 backbone with ResNet-101 in baseline Faster R-CNN improves COCO val mAP@[.5,.95] from 21.2 to 27.2, a 6.0-point absolute (28% relative) increase, attributed solely to the better learned representations.",
       "status": "supported",
+      "falsification": "A controlled VGG-16 → ResNet-101 swap in Faster R-CNN with the same hyperparameters fails to improve COCO mAP@[.5,.95] by ≥3 absolute points.",
       "proof": [
         "E06"
       ],

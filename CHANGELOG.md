@@ -7,6 +7,13 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Core and viewer: preserve claim falsification criteria and show claim IDs,
+  experiment proof references, and claim dependencies (#61).
+- Core and viewer: explicit per-node `artifacts` lists carry names, display-only
+  pointers, and descriptions in the detail pane (#62).
+- Core and viewer: explicit per-node `concepts` lists use glossary term names;
+  chips open and focus the matching definition, with keyboard focus restored
+  on close. Missing or ambiguous terms remain non-interactive (#63).
 - Core: `RuleCode` registry (`ara_core::rules`) giving every `ara check`
   finding a stable code — `ARA0xx` format rules, `ARA1xx` structural/reference
   errors, `ARA2xx` field/schema warnings — with name, layer, default severity,

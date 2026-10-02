@@ -1485,6 +1485,8 @@ mod tests {
                 status: None,
             },
             evidence_notes: Vec::new(),
+            artifacts: vec![],
+            concepts: vec![],
             isolated: false,
             pos: None,
         }

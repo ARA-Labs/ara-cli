@@ -1,6 +1,5 @@
 ---
 source: crates/ara-core/tests/parse_fixtures.rs
-assertion_line: 226
 expression: manifest
 ---
 {
@@ -348,6 +347,7 @@ expression: manifest
       "title": "Linear Parameter Growth",
       "statement": "The total number of parameters in CompoNet grows as O(n) with respect to the number of tasks n, because each self-composing policy module has a constant number of parameters independent of n (six linear transformations and a feed-forward block whose sizes depend only on fixed hyperparameters d_enc, d_model, |A|).",
       "status": "supported",
+      "falsification": "Demonstrating that adding a new module requires increasing the size of any weight matrix as a function of n, or that total parameter count follows a super-linear curve.",
       "proof": [
         "E04"
       ],
@@ -358,6 +358,7 @@ expression: manifest
       "title": "Superior Performance and Forward Transfer",
       "statement": "CompoNet achieves strictly higher or equal average performance P(T) and forward transfer FTr on all three task sequences (Meta-World, SpaceInvaders, Freeway) compared to all five baselines (Baseline, FT-1, FT-N, ProgressiveNet, PackNet), as reported in Table 1.",
       "status": "supported",
+      "falsification": "Any baseline method achieving higher mean performance or forward transfer than CompoNet on any of the three sequences with 10 random seeds.",
       "proof": [
         "E01",
         "E02",
@@ -372,6 +373,7 @@ expression: manifest
       "title": "Three-Scenario Robustness",
       "statement": "CompoNet correctly handles all three task-relatedness scenarios: (i) when a previous policy solves the current task, the output attention head assigns high attention to it; (ii) when a function over previous policies can help, the module learns that function; (iii) when no previous policy is relevant, the internal policy overwrites the attention output and learns from scratch without interference.",
       "status": "supported",
+      "falsification": "In scenario (i), the output attention head failing to assign dominant attention to the relevant prior module; in scenario (iii), CompoNet performing significantly worse than a baseline trained from scratch.",
       "proof": [
         "E03"
       ],
@@ -382,6 +384,7 @@ expression: manifest
       "title": "Empirical Inference Scalability",
       "statement": "Although CompoNet's theoretical inference complexity is O(n²), its empirical inference time grows substantially slower than ProgressiveNet up to 300 tasks tested, because CompoNet computes attention keys and values in parallel over previous module outputs rather than through sequential layer-wise lateral connections.",
       "status": "supported",
+      "falsification": "CompoNet's empirical inference time curve matching or exceeding ProgressiveNet's quadratic growth rate at any point in a 300-task sequence.",
       "proof": [
         "E04"
       ],
@@ -394,6 +397,7 @@ expression: manifest
       "title": "Knowledge Composition Beyond Fine-Tuning",
       "statement": "CompoNet's forward transfer consistently exceeds the Reference Transfer (RT) in all three task sequences, demonstrating that it leverages compositional knowledge from multiple previous tasks simultaneously, beyond what fine-tuning on the single best previous task can achieve.",
       "status": "supported",
+      "falsification": "CompoNet's average FTr falling below or equal to RT on any task sequence.",
       "proof": [
         "E01",
         "E02",

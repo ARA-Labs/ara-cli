@@ -129,6 +129,335 @@ fn body_div(doc: &Document) -> HtmlElement {
     div.unchecked_into::<HtmlElement>()
 }
 
+const SCHEMA_DETAIL_FIXTURE: &str = r#"{
+  "nodes": [
+    {"id":"N01","kind":"experiment","label":"Optimizer run","fields":{"experiment":{}},
+     "source_refs":["§4.2"],"evidence_notes":[],
+     "artifacts":[
+       {"name":"Weights","pointer":"runs/42/model.bin","what":"Final checkpoint"},
+       {"name":"   ","pointer":"\n","what":" "},
+       {"name":"Metrics","pointer":"runs/42/metrics.json","what":"Held-out scores"},
+       {"name":"<img src=x onerror=\"window.artifactExecuted=true\">",
+        "pointer":"<script>window.artifactExecuted=true</script>",
+        "what":"<button onclick=\"window.artifactExecuted=true\">execute</button>"}
+     ],
+     "concepts":[" muon optimizer ","Muon Optimizer","Unknown method","Ambiguous"]},
+    {"id":"N02","kind":"insight","label":"Legacy node","fields":"insight",
+     "source_refs":[],"evidence_notes":[]},
+    {"id":"N03","kind":"insight","label":"Blank artifacts","fields":"insight",
+     "source_refs":[],"evidence_notes":[],
+     "artifacts":[{"name":" ","pointer":"","what":"\n"}]}
+  ],
+  "links":[],
+  "bindings":[
+    {"node":"N01","claim":"C01","role":"evidence"},
+    {"node":"N02","claim":"C02","role":"evidence"}
+  ],
+  "claims":[
+    {"id":"C01","title":"Muon improves convergence","statement":"Muon wins at equal compute.",
+     "status":"supported","falsification":"Falsified if the held-out loss fails to improve at equal compute.",
+     "proof":["E01","E02"],"deps":["C02"]},
+    {"id":"C02","title":"Legacy prerequisite","statement":"Fixed training budget.",
+     "status":"future-status","proof":[],"deps":[]}
+  ],
+  "exhibits":[
+    {"id":"E01","file":"evidence/loss.md","kind":"table","source":"Table 1","claims":[],"body":""},
+    {"id":"E02","file":"evidence/curve.md","kind":"figure","source":"Figure 2","claims":[],"body":""}
+  ],
+  "node_exhibits":[{"node":"N01","exhibit":"E01"}],
+  "concepts":[
+    {"term":"Adam","definition":"First definition: adaptive moments.","related":[]},
+    {"term":"Muon Optimizer","definition":"Second definition: orthogonalized momentum.","related":[]},
+    {"term":"Ambiguous","definition":"One ambiguous definition.","related":[]},
+    {"term":"AMBIGUOUS","definition":"Another ambiguous definition.","related":[]}
+  ]
+}"#;
+
+fn schema_element(root: &HtmlElement, selector: &str) -> web_sys::Element {
+    root.query_selector(selector)
+        .unwrap()
+        .unwrap_or_else(|| panic!("missing {selector}"))
+}
+
+fn schema_text(root: &HtmlElement, selector: &str) -> String {
+    schema_element(root, selector)
+        .text_content()
+        .unwrap_or_default()
+}
+
+async fn schema_next_frame() {
+    let frame = js_sys::Promise::new(&mut |resolve, _| {
+        web_sys::window()
+            .unwrap()
+            .request_animation_frame(&resolve)
+            .unwrap();
+    });
+    wasm_bindgen_futures::JsFuture::from(frame).await.unwrap();
+    leptos::task::tick().await;
+}
+
+#[wasm_bindgen_test]
+async fn claim_detail_preserves_ids_falsification_and_evidence_references() {
+    let doc = web_sys::window().unwrap().document().unwrap();
+    let root = body_div(&doc);
+    let selected = RwSignal::new(Some(ara_core::NodeId::new("N01")));
+    let (load_state, _) = signal(LoadState::Loaded(
+        parse_manifest(SCHEMA_DETAIL_FIXTURE).unwrap(),
+    ));
+    let handle = leptos::mount::mount_to(root.clone(), move || {
+        view! { <DetailPane load_state=load_state selected=selected on_concept=Callback::new(|_: String| {}) /> }
+    });
+    assert_eq!(schema_text(&root, ".claim-id"), "C01");
+    assert_eq!(
+        schema_text(&root, ".claim-falsification p"),
+        "Falsified if the held-out loss fails to improve at equal compute."
+    );
+    let proof = schema_text(&root, ".claim-proof");
+    assert!(proof.contains("E01") && proof.contains("E02"), "{proof}");
+    assert!(proof.find("E01").unwrap() < proof.find("E02").unwrap());
+    assert!(
+        schema_element(&root, ".claim-proof")
+            .query_selector("a, button")
+            .unwrap()
+            .is_none(),
+        "experiment IDs remain text references even when exhibit IDs collide"
+    );
+    assert!(schema_text(&root, ".claim-deps").contains("C02"));
+    selected.set(Some(ara_core::NodeId::new("N02")));
+    leptos::task::tick().await;
+    assert_eq!(schema_text(&root, ".claim-id"), "C02");
+    assert!(
+        root.query_selector(".claim-falsification")
+            .unwrap()
+            .is_none()
+    );
+    assert!(root.query_selector(".claim-proof").unwrap().is_none());
+    assert!(root.query_selector(".claim-deps").unwrap().is_none());
+    assert_eq!(
+        schema_text(&root, ".status-pill.status-neutral"),
+        "future-status"
+    );
+    assert!(!root.inner_text().contains("Muon improves convergence"));
+    drop(handle);
+    root.remove();
+}
+
+#[wasm_bindgen_test]
+async fn artifacts_render_values_in_order_as_inert_text_and_follow_selection() {
+    let doc = web_sys::window().unwrap().document().unwrap();
+    let root = body_div(&doc);
+    let selected = RwSignal::new(Some(ara_core::NodeId::new("N01")));
+    let (load_state, _) = signal(LoadState::Loaded(
+        parse_manifest(SCHEMA_DETAIL_FIXTURE).unwrap(),
+    ));
+    let handle = leptos::mount::mount_to(root.clone(), move || {
+        view! { <DetailPane load_state=load_state selected=selected on_concept=Callback::new(|_: String| {}) /> }
+    });
+    let block = schema_element(&root, ".artifacts-block");
+    let entries = block.query_selector_all(".artifact-entry").unwrap();
+    assert_eq!(
+        entries.length(),
+        3,
+        "whitespace-only artifacts must be omitted"
+    );
+    for (index, name, pointer, what) in [
+        (0, "Weights", "runs/42/model.bin", "Final checkpoint"),
+        (1, "Metrics", "runs/42/metrics.json", "Held-out scores"),
+        (
+            2,
+            "<img src=x onerror=\"window.artifactExecuted=true\">",
+            "<script>window.artifactExecuted=true</script>",
+            "<button onclick=\"window.artifactExecuted=true\">execute</button>",
+        ),
+    ] {
+        let entry = entries
+            .item(index)
+            .unwrap()
+            .unchecked_into::<web_sys::Element>();
+        for (selector, value) in [
+            (".artifact-name", name),
+            (".artifact-pointer", pointer),
+            (".artifact-what", what),
+        ] {
+            assert_eq!(
+                entry
+                    .query_selector(selector)
+                    .unwrap()
+                    .unwrap()
+                    .text_content()
+                    .as_deref(),
+                Some(value),
+                "{selector} must preserve the exact artifact value"
+            );
+        }
+    }
+    let text = root.inner_text().to_lowercase();
+    let result = text.find("result").expect("result section");
+    let artifacts = text.find("artifacts").expect("artifacts section");
+    let sources = text.find("sources").expect("sources section");
+    assert!(result < artifacts && artifacts < sources);
+    assert!(block.query_selector(".artifact-entry img, .artifact-entry script, .artifact-entry button, .artifact-entry [onerror], .artifact-entry [onclick]").unwrap().is_none());
+    for node in ["N02", "N03"] {
+        selected.set(Some(ara_core::NodeId::new(node)));
+        leptos::task::tick().await;
+        assert!(root.query_selector(".artifacts-block").unwrap().is_none());
+        assert!(!root.inner_text().contains("runs/42/model.bin"));
+    }
+    drop(handle);
+    root.remove();
+}
+
+#[wasm_bindgen_test]
+async fn concept_chip_targets_definition_restores_focus_and_clears_stale_filter() {
+    let doc = web_sys::window().unwrap().document().unwrap();
+    let root = body_div(&doc);
+    let selected = RwSignal::new(Some(ara_core::NodeId::new("N01")));
+    let (load_state, set_load_state) = signal(LoadState::Loaded(
+        parse_manifest(SCHEMA_DETAIL_FIXTURE).unwrap(),
+    ));
+    let open = RwSignal::new(false);
+    let query = RwSignal::new(String::new());
+    let target = RwSignal::new(None::<String>);
+    let on_concept = Callback::new(move |term: String| {
+        target.set(Some(term));
+        query.set(String::new());
+        open.set(true);
+    });
+    let handle = leptos::mount::mount_to(root.clone(), move || {
+        view! {
+            <DetailPane load_state=load_state selected=selected on_concept=on_concept />
+            <GlossaryPanel load_state=load_state open=open query=query target=target />
+        }
+    });
+    let chips = root.query_selector_all("button.concept-chip").unwrap();
+    assert_eq!(
+        chips.length(),
+        1,
+        "resolved references deduplicate; unresolved references are not buttons"
+    );
+    let chip = chips.item(0).unwrap().unchecked_into::<HtmlElement>();
+    assert_eq!(chip.text_content().as_deref(), Some("Muon Optimizer"));
+    let unresolved = root.query_selector_all(".concept-chip-unresolved").unwrap();
+    assert_eq!(unresolved.length(), 2);
+    for index in 0..unresolved.length() {
+        let entry = unresolved
+            .item(index)
+            .unwrap()
+            .unchecked_into::<web_sys::Element>();
+        assert_ne!(entry.tag_name(), "BUTTON");
+        assert_ne!(entry.tag_name(), "A");
+        assert_ne!(entry.get_attribute("role").as_deref(), Some("button"));
+        assert!(entry.get_attribute("tabindex").is_none());
+    }
+    schema_element(&root, ".panel-launch-btn")
+        .unchecked_ref::<HtmlElement>()
+        .click();
+    leptos::task::tick().await;
+    let input =
+        schema_element(&root, ".panel-filter").unchecked_into::<web_sys::HtmlInputElement>();
+    input.set_value("Adam");
+    input
+        .dispatch_event(&web_sys::Event::new("input").unwrap())
+        .unwrap();
+    leptos::task::tick().await;
+    assert!(!schema_text(&root, ".modal").contains("Second definition:"));
+    dispatch_modal_keydown(&doc, "Escape", false);
+    leptos::task::tick().await;
+    chip.focus().unwrap();
+    chip.click();
+    leptos::task::tick().await;
+    schema_next_frame().await;
+    assert_eq!(
+        schema_element(&root, ".panel-filter")
+            .unchecked_ref::<web_sys::HtmlInputElement>()
+            .value(),
+        ""
+    );
+    let cards = root.query_selector_all(".concept-entry").unwrap();
+    let card = (0..cards.length())
+        .map(|index| {
+            cards
+                .item(index)
+                .unwrap()
+                .unchecked_into::<web_sys::Element>()
+        })
+        .find(|card| {
+            card.text_content()
+                .unwrap_or_default()
+                .contains("Second definition:")
+        })
+        .expect("the referenced second definition is visible");
+    assert!(card.text_content().unwrap().contains("Muon Optimizer"));
+    assert_eq!(
+        card.query_selector(".concept-field")
+            .unwrap()
+            .unwrap()
+            .text_content()
+            .as_deref(),
+        Some("Second definition: orthogonalized momentum."),
+        "navigation preserves the exact selected definition"
+    );
+    assert!(
+        doc.active_element()
+            .unwrap()
+            .is_same_node(Some(card.unchecked_ref::<web_sys::Node>())),
+        "targeted definition, not the first card or filter, must receive focus"
+    );
+    let filter =
+        schema_element(&root, ".panel-filter").unchecked_into::<web_sys::HtmlInputElement>();
+    filter.focus().unwrap();
+    for prefix in ["m", "mu"] {
+        filter.set_value(prefix);
+        filter
+            .dispatch_event(&web_sys::Event::new("input").unwrap())
+            .unwrap();
+        leptos::task::tick().await;
+        schema_next_frame().await;
+        assert!(
+            doc.active_element()
+                .unwrap()
+                .is_same_node(Some(filter.unchecked_ref::<web_sys::Node>())),
+            "editing a matching filter must not refocus the navigated definition"
+        );
+        assert_eq!(filter.value(), prefix);
+    }
+    dispatch_modal_keydown(&doc, "Escape", false);
+    leptos::task::tick().await;
+    assert!(
+        doc.active_element()
+            .unwrap()
+            .is_same_node(Some(chip.unchecked_ref::<web_sys::Node>())),
+        "Escape returns focus to the initiating concept chip"
+    );
+    schema_element(&root, ".panel-launch-btn")
+        .unchecked_ref::<HtmlElement>()
+        .click();
+    leptos::task::tick().await;
+    let full = schema_text(&root, ".modal");
+    assert!(full.contains("First definition:") && full.contains("Second definition:"));
+    assert_eq!(
+        target.get_untracked(),
+        None,
+        "header launcher clears the old target"
+    );
+    dispatch_modal_keydown(&doc, "Escape", false);
+    leptos::task::tick().await;
+    chip.focus().unwrap();
+    chip.click();
+    leptos::task::tick().await;
+    set_load_state.set(LoadState::Loaded(manifest_with_panels(1)));
+    leptos::task::tick().await;
+    leptos::task::tick().await;
+    assert_eq!(
+        target.get_untracked(),
+        None,
+        "manifest replacement invalidates the old target"
+    );
+    assert!(!root.inner_text().contains("Second definition:"));
+    drop(handle);
+    root.remove();
+}
+
 // ── Test: live-socket URL resolves relative to the document base (D1) ─────────
 //
 // The load-bearing hub assumption: the viewer's relative `api/live` must resolve
@@ -403,7 +732,7 @@ async fn click_node_updates_detail_pane() {
     // Mount the detail pane: inject the manifest directly via LoadState::Loaded
     let (load_state, _set_ls) = signal(LoadState::Loaded(manifest_clone));
     let _dh = leptos::mount::mount_to(detail_container.clone(), move || {
-        view! { <DetailPane load_state=load_state selected=selected /> }
+        view! { <DetailPane load_state=load_state selected=selected on_concept=Callback::new(|_: String| {}) /> }
     });
 
     // Before click: detail pane shows placeholder
@@ -461,7 +790,7 @@ fn decision_detail_hierarchy_order() {
     let (load_state, _) = signal(LoadState::Loaded(manifest));
 
     let _handle = leptos::mount::mount_to(container.clone(), move || {
-        view! { <DetailPane load_state=load_state selected=selected /> }
+        view! { <DetailPane load_state=load_state selected=selected on_concept=Callback::new(|_: String| {}) /> }
     });
 
     let text = container.inner_text();
@@ -500,7 +829,7 @@ fn dead_end_detail_why_failed_is_primary() {
     let (load_state, _) = signal(LoadState::Loaded(manifest));
 
     let _handle = leptos::mount::mount_to(container.clone(), move || {
-        view! { <DetailPane load_state=load_state selected=selected /> }
+        view! { <DetailPane load_state=load_state selected=selected on_concept=Callback::new(|_: String| {}) /> }
     });
 
     // The primary field gets class "block reason" in render_detail.
@@ -539,7 +868,7 @@ fn bound_claim_renders_title_and_status_pill() {
     let (load_state, _) = signal(LoadState::Loaded(manifest));
 
     let _handle = leptos::mount::mount_to(container.clone(), move || {
-        view! { <DetailPane load_state=load_state selected=selected /> }
+        view! { <DetailPane load_state=load_state selected=selected on_concept=Callback::new(|_: String| {}) /> }
     });
 
     let text = container.inner_text();
@@ -576,7 +905,7 @@ fn empty_node_renders_nothing_recorded() {
     let (load_state, _) = signal(LoadState::Loaded(manifest));
 
     let _handle = leptos::mount::mount_to(container.clone(), move || {
-        view! { <DetailPane load_state=load_state selected=selected /> }
+        view! { <DetailPane load_state=load_state selected=selected on_concept=Callback::new(|_: String| {}) /> }
     });
 
     let text = container.inner_text();
@@ -601,7 +930,7 @@ fn insight_node_shows_description_no_typed_fields() {
     let (load_state, _) = signal(LoadState::Loaded(manifest));
 
     let _handle = leptos::mount::mount_to(container.clone(), move || {
-        view! { <DetailPane load_state=load_state selected=selected /> }
+        view! { <DetailPane load_state=load_state selected=selected on_concept=Callback::new(|_: String| {}) /> }
     });
 
     let text = container.inner_text();
@@ -677,7 +1006,7 @@ fn mount_detail(fixture: &str, node_id: &str) -> web_sys::HtmlElement {
         RwSignal::new(Some(ara_core::NodeId::new(node_id)));
     let (load_state, _) = signal(LoadState::Loaded(manifest));
     let _handle = leptos::mount::mount_to(container.clone(), move || {
-        view! { <DetailPane load_state=load_state selected=selected /> }
+        view! { <DetailPane load_state=load_state selected=selected on_concept=Callback::new(|_: String| {}) /> }
     });
     // Leak the handle: the mounted view must outlive the test body. Other
     // tests in this file hold `_handle` in scope; here the container keeps
@@ -863,7 +1192,7 @@ fn built_on_and_result_blocks_render_after_evidence() {
     let (load_state, _) = signal(LoadState::Loaded(manifest));
 
     let _handle = leptos::mount::mount_to(container.clone(), move || {
-        view! { <DetailPane load_state=load_state selected=selected /> }
+        view! { <DetailPane load_state=load_state selected=selected on_concept=Callback::new(|_: String| {}) /> }
     });
 
     // Both new blocks are present.
@@ -922,7 +1251,7 @@ fn node_without_linkage_renders_neither_block() {
     let (load_state, _) = signal(LoadState::Loaded(manifest));
 
     let _handle = leptos::mount::mount_to(container.clone(), move || {
-        view! { <DetailPane load_state=load_state selected=selected /> }
+        view! { <DetailPane load_state=load_state selected=selected on_concept=Callback::new(|_: String| {}) /> }
     });
 
     assert!(
@@ -1062,7 +1391,7 @@ fn exhibit_body_renders_table_in_scroll_container() {
     let (load_state, _) = signal(LoadState::Loaded(manifest));
 
     let _handle = leptos::mount::mount_to(container.clone(), move || {
-        view! { <DetailPane load_state=load_state selected=selected /> }
+        view! { <DetailPane load_state=load_state selected=selected on_concept=Callback::new(|_: String| {}) /> }
     });
 
     // The scroll container wraps the rendered body.
@@ -1339,7 +1668,7 @@ fn empty_exhibit_body_renders_no_body_container() {
     let (load_state, _) = signal(LoadState::Loaded(manifest));
 
     let _handle = leptos::mount::mount_to(container.clone(), move || {
-        view! { <DetailPane load_state=load_state selected=selected /> }
+        view! { <DetailPane load_state=load_state selected=selected on_concept=Callback::new(|_: String| {}) /> }
     });
 
     // The result-block (with its chip) renders...
@@ -1403,7 +1732,7 @@ async fn collapsible_block_reopens_on_node_switch() {
     let (load_state, _) = signal(LoadState::Loaded(manifest));
 
     let _handle = leptos::mount::mount_to(container.clone(), move || {
-        view! { <DetailPane load_state=load_state selected=selected /> }
+        view! { <DetailPane load_state=load_state selected=selected on_concept=Callback::new(|_: String| {}) /> }
     });
 
     let details = container
@@ -3375,8 +3704,11 @@ async fn math_glossary_shows_count_typeset_notation_and_xref() {
     let doc = web_sys::window().unwrap().document().unwrap();
     let container = body_div(&doc);
     let (load_state, _) = signal(LoadState::Loaded(manifest_with_panels(2)));
+    let open = RwSignal::new(false);
+    let query = RwSignal::new(String::new());
+    let target = RwSignal::new(None::<String>);
     let _handle = leptos::mount::mount_to(container.clone(), move || {
-        view! { <GlossaryPanel load_state=load_state /> }
+        view! { <GlossaryPanel load_state=load_state open=open query=query target=target /> }
     });
 
     let btn = container
@@ -3431,8 +3763,11 @@ fn glossary_hidden_at_zero() {
     let doc = web_sys::window().unwrap().document().unwrap();
     let container = body_div(&doc);
     let (load_state, _) = signal(LoadState::Loaded(manifest_with_panels(0)));
+    let open = RwSignal::new(false);
+    let query = RwSignal::new(String::new());
+    let target = RwSignal::new(None::<String>);
     let _handle = leptos::mount::mount_to(container.clone(), move || {
-        view! { <GlossaryPanel load_state=load_state /> }
+        view! { <GlossaryPanel load_state=load_state open=open query=query target=target /> }
     });
     assert!(
         container

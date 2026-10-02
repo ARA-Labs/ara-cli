@@ -154,6 +154,8 @@ mod tests {
             timestamp: None,
             fields: NodeFields::Question,
             evidence_notes: vec![],
+            artifacts: vec![],
+            concepts: vec![],
             isolated: false,
             pos: None,
         }
@@ -311,6 +313,7 @@ mod tests {
             title: title.to_string(),
             statement: statement.map(|s| s.to_string()),
             status: None,
+            falsification: None,
             proof: vec![],
             deps: vec![],
         });

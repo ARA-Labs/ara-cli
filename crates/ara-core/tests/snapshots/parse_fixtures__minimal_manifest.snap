@@ -80,6 +80,7 @@ expression: manifest
       "title": "Attention-only architecture achieves SOTA",
       "statement": "A model based entirely on self-attention, without recurrence or convolution, achieves state-of-the-art BLEU on WMT 2014 English-to-German translation.",
       "status": "supported",
+      "falsification": "A recurrent or convolutional model trained under identical conditions achieves higher BLEU.",
       "proof": [
         "E01"
       ],
@@ -90,6 +91,7 @@ expression: manifest
       "title": "Transformers train faster",
       "statement": "The Transformer requires significantly less training time than architectures based on recurrent or convolutional layers.",
       "status": "supported",
+      "falsification": "An RNN-based model achieves comparable quality with equal or less compute.",
       "proof": [
         "E02"
       ],

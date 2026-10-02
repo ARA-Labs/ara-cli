@@ -414,6 +414,8 @@ impl Normalizer {
             timestamp: raw.timestamp.clone(),
             fields,
             evidence_notes,
+            artifacts: raw.artifacts.clone(),
+            concepts: raw.concepts.clone(),
             isolated: raw.isolated,
             pos: None,
         });

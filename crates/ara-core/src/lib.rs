@@ -34,8 +34,8 @@ mod sections;
 pub use layout::{LayoutOptions, LayoutResult, NodePosition, Point, Rect};
 pub use manifest::{
     Binding, BindingRole, BuiltOn, Claim, ClaimId, Concept, Exhibit, ExhibitKind, Link, LinkKind,
-    Manifest, Node, NodeExhibit, NodeFields, NodeId, NodeKind, PaperMeta, Problem, Recipe,
-    RelatedWork,
+    Manifest, Node, NodeArtifact, NodeExhibit, NodeFields, NodeId, NodeKind, PaperMeta, Problem,
+    Recipe, RelatedWork,
 };
 pub use report::{Diagnostic, ParseReport, Severity};
 pub use rules::{RuleCode, RuleLayer, UnknownRuleCode};

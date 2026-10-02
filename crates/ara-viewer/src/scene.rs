@@ -700,6 +700,8 @@ mod tests {
                     timestamp: None,
                     fields: NodeFields::Question,
                     evidence_notes: vec![],
+                    artifacts: vec![],
+                    concepts: vec![],
                     isolated: false,
                     pos: Some(ara_core::Point { x: 90.0, y: 30.0 }),
                 },
@@ -719,6 +721,8 @@ mod tests {
                         status: None,
                     },
                     evidence_notes: vec![],
+                    artifacts: vec![],
+                    concepts: vec![],
                     isolated: false,
                     pos: None, // <-- no pos
                 },
