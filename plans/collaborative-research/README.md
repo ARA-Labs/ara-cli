@@ -1,23 +1,24 @@
 # CLI-mediated parallel and collaborative ARA research
 **Date:** 2026-10-02 (revised and split 2026-10-03)
 
-Status: draft for human review. This plan series authorizes no implementation, role change, network service, paid model run, commit, or release. It replaces the single draft `plans/collaborative-research-cli.md`; see [Review record](#review-record-2026-10-03) for what changed and why.
+Status: **approved** by the human developer on 2026-10-03, with the review revisions below. Implementation pending. The approval adopts this design and its implementation scope; this turn changes documentation only. It does not create a commit, start a paid run, deploy a service, approve an upstream protocol release, or waive owning-repository contract and evaluation gates. This series replaces `plans/collaborative-research-cli.md`.
 
 ## TL;DR
 
-Researchers (human or agent) work in private ARA forks. When a result is ready, an external runner freezes an exact copy of the fork, publishes it as an immutable *contribution*, and shows it to peers before anyone merges it into the canonical ARA. Peers can reuse, reproduce, or challenge it right away. One integration project manager later merges selected contributions into canonical `logic/` with the existing `ara merge`, keeping competing interpretations visible. Lara optionally rechecks the numbers and arguments behind selected claims.
+Researchers (human or agent) work in private ARA forks. When a result is ready, an external runner freezes the fork and its declared inputs, publishes an immutable *contribution*, and shows it to peers before canonical integration. Peers can read, reproduce, challenge, or import its knowledge and publish their own follow-on results. One integration project manager merges selected contributions into canonical `logic/`, keeping competing interpretations visible. Lara optionally rechecks the numbers and arguments behind selected claims.
 
-`ara-cli` has one job in this design: an offline `ara snapshot` command that captures a fork exactly, so publication uses the same capture rules as `ara merge`. Everything else lives in other repositories.
+`ara-cli` supplies offline snapshots and native merges. This series adds `ara snapshot` and fixes identity/provenance handling for a peer result that reaches canonical through more than one fork. Publication, participant authority, community views, and Lara invocation remain outside the CLI.
 
 ## Plan series
 
 | Plan | Implementation target | Status |
 |---|---|---|
-| [01-ara-snapshot](01-ara-snapshot.md) | `ara-cli`: the only CLI change | Draft; next to review |
-| [02-contribution-workflow](02-contribution-workflow.md) | `Agent-Native-Research-Artifact` (contracts) and `ara-eval` (runner) | Draft; staged here until the upstream route is decided |
-| [03-lara-integration](03-lara-integration.md) | `ara-eval` (adapter) and `Lara` (docs only) | Draft; staged here until the upstream route is decided |
+| [01-ara-snapshot](01-ara-snapshot.md) | `ara-cli`: snapshot command and shared capture rules | Approved; implementation pending |
+| [02-contribution-workflow](02-contribution-workflow.md) | `Agent-Native-Research-Artifact` (contracts) and `ara-eval` (runner) | Approved design; staged here pending upstream routing |
+| [03-lara-integration](03-lara-integration.md) | `Agent-Native-Research-Artifact` (bindings), `ara-eval` (adapter), `Lara` (docs only) | Approved design; staged here pending upstream routing |
+| [04-peer-feedback-merge](04-peer-feedback-merge.md) | `ara-cli`: identity reconciliation and provenance transport | Approved; required before native peer imports |
 
-Plans 02 and 03 live in this repository for now, following the precedent of [plan 14](../agent-cli-interface/14-shared-frontier-intentions.md), which targets the protocol repository but is staged here. How and when they move to `Agent-Native-Research-Artifact` or `ara-eval` is decision D1.
+Plans 02 and 03 remain staged here, following the precedent of [plan 14](../agent-cli-interface/14-shared-frontier-intentions.md). D1 leaves their eventual repository placement deferred. Plan 04's portable provenance contract belongs to the protocol repository even though its implementation lives in `ara-cli`.
 
 ## Problem
 
@@ -52,6 +53,7 @@ Goals:
 - Peers see each other's current work, so duplicate runs are visible and any repetition is a choice.
 - Canonical integration preserves sources, history, and competing interpretations.
 - Numerical and argument checks (Lara) are recorded with their exact scope.
+- Workers can incorporate peer or canonical knowledge into their forks and republish without duplicating original identities or losing history.
 
 Non-goals for this series:
 
@@ -68,8 +70,9 @@ Non-goals for this series:
 | Fork | A private copy of the seed ARA owned by one participant, with its own code workspace. |
 | Continuity writer | The participant's authorized knowledge writer (the research-manager skill), which records into its own fork through CLI writes. |
 | Integration PM | The single project manager that owns canonical `logic/` and merges contributions into it. |
-| Contribution | An immutable, published package: a frozen native ARA snapshot, the declared code and evidence, and an external envelope describing it. |
-| Envelope | Metadata stored outside the native ARA: attribution, lineage, inventory, verification relations. It never becomes an alternate knowledge format. |
+| Contribution | An immutable record binding a frozen native ARA, declared code/evidence, and its attribution and lineage. Its contribution ID covers the envelope and payload digest. |
+| Envelope | Metadata outside the native ARA: attribution, lineage, inventory, and verification relations. It is bound into the contribution ID, not an alternate knowledge format. |
+| Payload digest | Identity of frozen bytes and modes, including the snapshot and declared external inputs. It does not identify attribution or parentage. |
 | Runner | The external process (`ara-eval`) that isolates workspaces, freezes packages, publishes, and builds community views. |
 | Coordinator | The runner's single same-host component that serializes publication and owns the shared channel. |
 | Intention | An advisory, expiring record of what an actor plans or is attempting. |
@@ -104,7 +107,7 @@ The canonical ARA is one reviewed synthesis of contributions, not the only place
 | Runner / coordinator | Isolates workspaces, freezes and publishes packages, serves views, meters budget. | Decide scientific truth or edit published packages. |
 | Integration PM | Merges contributions and resolves mutable conflicts through audited operations. | Override protected history or silently accept a disputed conclusion. |
 | Verifier | Tests an exact published version and publishes a scoped verdict. | Imply independence from account separation alone. |
-| Argument producer | Writes Lara arguments and source bindings for selected claims. | Gain knowledge-write privileges. |
+| Argument producer / reviewer | Producer writes arguments and bindings; an authorized reviewer separately attests their faithfulness. | Gain knowledge-write privileges or count producer self-review as audited coverage. |
 | Lara checker | Rechecks certificates, bridges, and compatible argument maps. | Fetch evidence, reproduce experiments, or change claim status. |
 
 ### End-to-end flow
@@ -118,8 +121,9 @@ worker (private fork)
   -> runner: ara snapshot                                  [01]
   -> argument producer + runner: optional Lara check       [03]
   -> runner: freeze package, publish contribution, announce [02]
-  -> peers: read exact snapshot; reuse, reproduce, or challenge
-  -> integration PM: ara merge --source-key ...; resolve; record synthesis
+  -> peers: read/reproduce/challenge; optionally import into their fork [04]
+  -> peers: publish a follow-on contribution with retained parent identities
+  -> integration PM: merge exact versions; acknowledge external files; resolve
   -> runner: publish integration receipt; refresh briefing
 ```
 
@@ -145,17 +149,17 @@ Private forks are the recommended path. Same-checkout concurrency stays supporte
 
 ## Phases
 
-The core track proves publication, visibility, and integration. The Lara track adds checking. Whether the Lara track gates core phases 3–4 is decision D3.
+The core track proves publication, visibility, and integration. Lara runs in parallel and joins the complete worker loop at phase 5; it does not gate core phases 3 or 4. Plans 01 and 04 can be developed independently, but the runner cannot enable native peer imports until plan 04 passes. Approval does not claim that these capabilities already exist.
 
 | Phase | Deliverable | Acceptance before proceeding |
 |---|---|---|
-| 1. Freeze contracts | Snapshot contract ([01](01-ara-snapshot.md)), contribution/verification envelope, role policy, publication boundary ([02](02-contribution-workflow.md)). | Covers negative results, missing evidence, competing interpretations, source advancement, and repetition. Collective roles reviewed separately from the interface-only skills. |
-| 2. Capture and publish | `ara snapshot`; runner freezing, inventories, contribution records, recoverable announcements. | Two processes publish complete snapshots. Exercise unsafe output, source mutation, pending transactions, missing objects, lost acknowledgment, and restart. |
-| 3. Shared frontier | Briefing from CLI reads, intentions, integration receipts. | A peer sees a result before integration and retrieves its exact evidence. Incomplete views report truncation. |
-| 4. Integrate and verify | Audited merges, source-qualified receipts, reproduction records, separately evaluated synthesis. | Colliding identities and histories survive; repeated import is a no-op; protected edits reject; a synthesis is evaluated anew. |
-| L1. Lara contracts | ARA-to-Lara binding schema; selected policy and vocabulary ([03](03-lara-integration.md)). | Reviewed with the `ara-eval` stack revision. |
-| L2. Lara checks in the frontier | Adapter, packaged arguments, individual and composite verdict views. | Shows gaps, rejected certificates, same-setting contests, non-conflicting different settings, incompatible policies, and incomplete map coverage without changing native maturity. |
-| 5. Complete worker loop | Provider-backed runner smoke over the reviewed contracts, with all costs recorded. | Approved smoke covers intention → experiment → record → (argument) → publication → peer reproduction → integration → recovery. No paid call without approval. |
+| 1. Freeze contracts | Snapshot contract ([01](01-ara-snapshot.md)), contribution identity, roles, publication and external-evidence receipts ([02](02-contribution-workflow.md)), origin/import-history representation ([04](04-peer-feedback-merge.md)). | Covers negative results, missing evidence, envelope tampering, source advancement, feedback histories, and repetition. Owning repositories adopt versioned contracts separately from the interface-only skills. |
+| 2. Capture and publish | `ara snapshot`; runner quiescence, inventories, immutable contributions, recoverable announcements. | Two processes publish complete snapshots. Exercise unsafe output and output races, source mutation, pending transactions, missing objects, changed requests, lost acknowledgment, and restart. |
+| 3. Shared frontier | Briefing from CLI reads, intentions, contribution and integration receipts. | A peer sees a result before integration and retrieves its exact evidence. Incomplete views report truncation. Peer native imports remain gated on plan 04. |
+| 4. Integrate and verify | Peer-feedback merge support; audited integration; external-file acknowledgments; reproduction records; separately evaluated synthesis. | Publish, peer import, republish, canonical import, and canonical feedback all preserve original identities and histories. Latest replay and older receipt lookup do not duplicate entries. Protected edits reject; external evidence remains retrievable. |
+| L1. Lara contracts | Binding and reviewer authority, setting registry, attachment and map-scope identities ([03](03-lara-integration.md)). | Freeze schemas and actual checker/policy/vocabulary pins with their owners; review the `ara-eval` stack revision. |
+| L2. Lara checks in the frontier | Adapter, review attestations, initial and later checks, individual and composite verdict views. | Shows rejected certificates, same-setting contests, different-setting separation, unreviewed/disputed bindings, incompatible policies, and incomplete map coverage without changing native maturity. |
+| 5. Complete worker loop | Provider-backed runner smoke over the adopted contracts, with all costs recorded. | Approved smoke covers intention → experiment → record → (argument) → publication → peer reuse/import → republication → integration → restart/rebuild. Lara joins here. No paid call without separate budget approval. |
 | 6. Evaluate | The reviewed `ara-eval` collective-stack study. | Dependencies, prompts, policies, tasks, budgets, and held-out evaluation frozen before collection. |
 
 ## Alternatives considered
@@ -165,6 +169,7 @@ The core track proves publication, visibility, and integration. The Lara track a
 - **A central planner that assigns experiments.** Rejected: participants choose work from shared evidence; the coordinator serializes publication, not research.
 - **A hosted Agora-style service.** It adds deployment, admission, storage, and network-failure contracts before the same-host loop is proven.
 - **Making every contribution canonical.** That hides alternatives and delays visibility until integration.
+- **Package-only peer reuse.** It avoids the current diamond-merge failure but prevents workers from maintaining native knowledge that incorporates peers. Read-only reuse remains available; it does not replace the required feedback path.
 - **A new native verification node kind.** It would change the protocol, parser, writers, and viewer. An external envelope pointing at native records avoids that cutover.
 
 ## Tradeoffs
@@ -183,38 +188,53 @@ The core track proves publication, visibility, and integration. The Lara track a
 - **Historical contributions** are imported only with their original attribution. Unknown fields stay unknown.
 - **Repository rules still apply.** Interface-only procedures stay unchanged. Adding Lara to the evaluated stack needs a reviewed `ara-eval` update. Functional CLI PRs follow the patch-version, changelog, and viewer rules; this docs-only revision needs no version bump.
 
-## Decisions needed
+## Approved decisions and remaining gates
 
-| ID | Decision | Options | Recommendation |
-|---|---|---|---|
-| D1 | Where do plans 02 and 03 live long-term? | (a) Stay here as the umbrella; (b) move 02 contracts to `Agent-Native-Research-Artifact` and 02 runner + 03 to `ara-eval`; (c) split differently. | Deferred by the human developer; keep them staged here. |
-| D2 | One canonical writer? | (a) Many private contributors, one integration PM; (b) partitioned claim ownership; (c) concurrent canonical writers. | (a). Revisit only with evidence of a bottleneck. |
-| D3 | Does Lara gate core phases 3–4? | (a) Yes, as in the original draft; (b) no, Lara is a parallel track that joins at phase 5. | (b). The core loop can be proven without Lara, and failures stay easier to isolate. Lara stays in scope. |
-| D4 | `ara snapshot` design choices | See [01 decisions](01-ara-snapshot.md#decisions-needed). | As recommended there. |
-| D5 | Merge expected-revision check | (a) Rely on the integration PM's exclusive control of the canonical workspace; (b) add an `--expected-revision` guard under the CLI lock now. | (a). Add (b) through a separate review if concurrent canonical advancement becomes a requirement. |
+The developer approved these choices on 2026-10-03. Implementation evidence, upstream adoption, and experimental registration remain required before the corresponding capabilities or studies run.
+
+| ID | Decision | Adopted choice or remaining gate |
+|---|---|---|
+| D1 | Where do plans 02 and 03 live long-term? | Placement remains deferred. Keep them staged here; each repository retains semantic ownership. |
+| D2 | Canonical writer | Many private contributors, one integration PM. Revisit only with evidence of a bottleneck. |
+| D3 | Lara on the core critical path | No. Develop Lara in parallel and join at phase 5. Lara remains in scope. |
+| D4 | `ara snapshot` | Adopt [01's decisions](01-ara-snapshot.md#approved-decisions): public command, lock, no source-key option, report-only diagnostics, caller-enforced direct-writer quiescence. |
+| D5 | Merge expected-revision flag | Rely on the integration PM's exclusive workspace ownership across review and commit. A new CLI flag is outside this series. |
+| D6 | Peer and canonical feedback | Support native imports and republication. Include [04](04-peer-feedback-merge.md), not a package-only restriction or provenance bypass. |
+| D7 | Contribution identity | Distinguish native revision, complete payload digest, and an envelope-bound contribution ID. Parents and verification target contribution IDs. |
+| D8 | Lara audit and scope | Authorized review separate from producer assertions; pinned setting identities; immutable later attachments and map revisions. Freeze concrete schemas in L1. |
 
 ## Review record (2026-10-03)
 
-A review of the original single draft found the technical design sound but hard to review. The findings and how this revision addresses them:
+The initial review of the single draft focused on organization. A subsequent source and real-CLI review found an integration blocker and missing contracts. The original restructuring changes were:
 
 | Finding | Change |
 |---|---|
 | The problem was abstract and buried; the clearest motivation (the A/B/C/D example) sat mid-document. | The Problem section now opens with the example and names four concrete failures. |
 | It didn't say what ARA adds over Agora's contribution graph. | Stated in Problem. |
 | The "What exists and what this plan adds" table mixed problem and proposal. | Removed; current capabilities are cited in each plan's own background. |
-| Scope didn't match the repository: the only `ara-cli` change was `ara snapshot`, but most of the 6.9k words were runner, protocol, and Lara design. | Split into 01 (CLI), 02 (contracts + runner), and 03 (Lara). |
-| The one CLI change had the thinnest spec and hedged on whether it was needed. | 01 gives the interface, an example manifest, error codes, a rationale grounded in existing code, tests, and explicit decisions. |
+| The initial draft concentrated runner, protocol, and Lara design in the CLI repository. | Split capture, contribution workflow, and Lara into separate plans. The later behavioral review adds a second CLI/core plan, 04. |
+| Snapshot capture had the thinnest specification. | 01 now defines the interface, manifest, errors, shared capture rules, isolation boundary, and tests. |
 | Too many negative statements hid the positive design. | Positive behavior comes first; non-guarantees are collected into per-plan lists. |
 | Terms were undefined. | Glossary added. |
 | There were no concrete examples of the envelope or manifest. | Illustrative examples added in 01 and 02. |
-| "Next steps" said "review X" but listed no decisions. | Replaced with a decisions table with recommendations. |
-| Lara sat on the critical path of phases 1–4. | Lara moved to a parallel track; whether it gates the core phases is D3. |
+| "Next steps" lacked concrete decisions. | Added decision tables; the adopted choices are now recorded above. |
+| Lara sat on the critical path of phases 1 through 4. | Moved Lara to a parallel track joining at phase 5. |
 
-The reviewer checked that every linked plan, doc, and source file exists, and that `ara merge` already requires `--source-key` and treats `--as` as a display label only (`crates/ara-cli/src/merge.rs`).
+The behavioral review ran temporary fixtures with the actual `ara 0.1.23` binary. Canonical imports of A1 and B1 and B's import of A1 succeeded. Canonical's import of B2 using exact B1 as base then rejected with `merge.alias_conflict` for `fork-a:C77`. A separate import containing a new `src/worker.py` committed knowledge metadata but returned exit 1 and an unresolved `external_read_only` conflict; replay retained it. These observations establish current limits, not passing acceptance evidence for the planned fixes.
 
-## Next steps
+| Finding | Approved revision |
+|---|---|
+| A peer's original identity can arrive through multiple forks, which the current merger cannot reconcile. | Added [04](04-peer-feedback-merge.md), including source-fact/import-event separation, diamond and canonical-feedback tests, and explicit CLI/core scope. |
+| Normal code/evidence changes produce unresolved conflicts without scientific disagreement. | 02 defines audited external-file acknowledgments, source-owned inherited resolution, package-backed evidence reads, and completion criteria. |
+| A payload digest alone does not bind attribution, lineage, or verification targets. | 02 adds a canonical envelope-bound contribution ID and request-to-record idempotency. |
+| A checker verdict does not authenticate formalization review or establish shared experimental settings. | 03 defines reviewer authority, setting descriptors, audit coverage, and immutable attachment/map scopes. |
+| A lock and double-read cannot isolate unrestricted direct writers. | 01 states the quiescence precondition, shared privacy filtering, and verified no-replace output publication. |
 
-1. Review [01-ara-snapshot](01-ara-snapshot.md); it is the only `ara-cli` implementation in the series.
-2. Decide D2–D5.
-3. Review 02 and 03 as cross-repository designs; decide D1 later.
-4. Do not commit this draft or start implementation without human approval.
+The developer approved the revised design after the behavioral review. This revision changes documentation only; it performs no implementation, commit, paid run, or upstream release.
+
+## Next Steps
+
+1. Freeze the versioned snapshot, contribution, and provenance contracts with their owning repositories.
+2. Implement 01 and 04 with their regressions and real-binary acceptance checks; enable the runner's native peer imports only after 04 passes.
+3. Build 02's complete feedback/recovery loop and 03's parallel Lara track. Keep upstream placement D1 deferred until directed.
+4. Obtain separate paid-smoke and scored-study approvals before provider-backed execution or collection. Do not create commits or PRs without an explicit request.
