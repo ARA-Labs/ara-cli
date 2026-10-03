@@ -142,7 +142,12 @@ merges into `main`, create `feat/agent-cli-interface` from the updated `main`.
 Every ara-cli implementation PR in this rollout targets that branch and is
 squash-merged into it. Dependencies are satisfied when prerequisite PRs have
 merged into the integration branch. Protocol and external-harness PRs stay in
-their owning repositories and follow those repositories' merge rules.
+their owning repositories. Keep protocol [PR #38](https://github.com/ARA-Labs/Agent-Native-Research-Artifact/pull/38)
+as draft and run experiments against its `feat/agent-cli-interface` branch.
+The experiment harness pins that branch's exact commit as a submodule; experiments
+do not wait for a protocol merge or upstream F1–F7 approval. This experimental
+permission does not mark the protocol contracts approved for upstream release.
+Baseline archives and the paper-corresponding source gates remain unchanged.
 
 When the required rollout is complete and verified, prepare the release on
 `feat/agent-cli-interface` and open its final PR against `main`. Merge that PR
@@ -164,9 +169,9 @@ become design records in `docs/agent-cli.md`.
 
 ## Phase 0: format decisions in the protocol repo
 
-Phase 1 does not wait for these. Phases 2 and 3 do. I will open one proposal in
-`ARA-Labs/Agent-Native-Research-Artifact` covering all of them, so the format
-changes once instead of several times.
+The protocol proposal is implemented in draft PR #38. Experimental write and
+merge conditions consume its pinned branch contract without waiting for upstream
+approval; the proposal remains separate from protocol main and release.
 
 | # | Decision | My recommendation |
 |---|---|---|

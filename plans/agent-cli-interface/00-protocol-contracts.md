@@ -5,6 +5,12 @@ Implementation record: [00-protocol-contracts](../../docs/agent-cli-interface/00
 
 Observed proof: [delivery verification](../../docs/verification/agent-cli-2026-10-02/README.md).
 
+Experimental workflow: keep protocol PR #38 draft and consume its exact
+`feat/agent-cli-interface` commit through the external harness submodule.
+The researcher authorized these experiments without waiting for a protocol merge
+or upstream F1–F7 approval. Remaining approval requirements below apply to upstream
+acceptance and release, not permission to run the pinned experimental conditions.
+
 
 Status: **approved** 2026-10-01. Target repository: `ARA-Labs/Agent-Native-Research-Artifact`. Parent: [agent CLI interface plan](../agent-cli-interface.md). Series: [PR index and shared gates](README.md). Dependencies: none; this proposal can proceed alongside [01-read-model.md](../../docs/agent-cli-interface/01-read-model.md) and [02-read-commands.md](../../docs/agent-cli-interface/02-read-commands.md).
 

@@ -20,7 +20,11 @@ recorded. Historical reproduction and human protocol approval remain distinct ga
 
 Actual browser and installed-agent smokes are recorded in the verification report.
 The final CLI PR targets main and must use a merge commit, preserving the integration
-branch history. The owning protocol repository has its own branch/PR. No PR is merged,
-tagged, or released by this delivery task.
+branch history. Protocol [PR #38](https://github.com/ARA-Labs/Agent-Native-Research-Artifact/pull/38)
+stays draft; experiments use its `feat/agent-cli-interface` branch pinned to an
+exact commit in the external harness submodule. Protocol merge and upstream F1–F7
+approval are not prerequisites for these experimental conditions. Original baseline
+archives, historical-source checks and scored-registration requirements still apply.
+No PR is merged, tagged, or released by this delivery task.
 Public Rust source changes and additive optional JSON compatibility are distinguished;
 the minor/major integration release decision stays pending.

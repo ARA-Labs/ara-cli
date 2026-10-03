@@ -13,6 +13,11 @@ The local code implements five creation kinds, typed identities, mutability exce
 
 Protocol approval remains pending. Local executable proof does not approve F1–F7 or settle baseline source contradictions.
 
+Protocol PR #38 remains draft. The researcher authorized experiments directly
+against its `feat/agent-cli-interface` branch, pinned by the harness submodule's
+exact commit. Upstream F1–F7 approval and a protocol merge are not prerequisites
+for these experimental conditions; neither permission is claimed as release approval.
+
 ## Code and proof boundaries
 
 Implementation: `../Agent-Native-Research-Artifact/docs/agent-cli-contracts.md; evaluation/agent-cli/protocol-decisions.json`.

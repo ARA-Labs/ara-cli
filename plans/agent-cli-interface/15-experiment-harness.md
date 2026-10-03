@@ -19,6 +19,22 @@ Keep experiment code outside ara-cli. This plan changes no shipped binary or vie
 
 Within each comparison, fix model build, tools, tasks, starting artifacts, grader, total compute budget, deadlines and source revisions. Only the reviewed intervention differs. Enforce condition policy in the runner and record violations; do not silently convert CLI-only tasks to file access. The CLI remains offline and LLM-free. Model calls, shared-channel publication and any transport are external harness responsibilities, with costs attributed to the run. Follow the [shared gates](README.md) and review the external destination before implementation.
 
+### Which protocol revision experiments use
+
+Keep protocol [PR #38](https://github.com/ARA-Labs/Agent-Native-Research-Artifact/pull/38) in draft. Experiments consume `feat/agent-cli-interface` directly, without waiting for a protocol merge or upstream F1–F7 approval. This permission applies to experimental conditions and does not approve a protocol release. Keep the unchanged Files baselines and their archived source pin; using the draft treatment must not replace them.
+
+The current protocol pin is `03f19c7767ec993ae53a0698417b8b68040d7fee` from `https://github.com/ARA-Labs/Agent-Native-Research-Artifact.git`. When the external harness repository is created, add its protocol submodule at `vendor/ara-protocol` and record both the branch and this exact commit:
+
+```sh
+git submodule add -b feat/agent-cli-interface \
+  https://github.com/ARA-Labs/Agent-Native-Research-Artifact.git vendor/ara-protocol
+git -C vendor/ara-protocol fetch --depth 1 origin 03f19c7767ec993ae53a0698417b8b68040d7fee
+git -C vendor/ara-protocol checkout --detach 03f19c7767ec993ae53a0698417b8b68040d7fee
+git add .gitmodules vendor/ara-protocol
+```
+
+The superproject gitlink pins the source; `.gitmodules` records the branch for deliberate updates. Ordinary runs use the recorded gitlink, never `git submodule update --remote`. Record the protocol commit, lock-file digests and CLI binary checksum in each run manifest. A branch update creates a new run identity before collection; completed runs retain their old pin. Historical skill/task/grader availability and numeric registration still govern their own experiments.
+
 ## Proposed approach
 
 All paths in this paragraph are new proposed files in the proposed external repository. Add `pyproject.toml` with a reviewed locked runtime environment; `src/ara_agent_interface_eval/` with `manifest.py`, `runner.py`, `policy.py`, `metrics.py`, `grading.py`, `analysis.py`, and `shared_channel.py`; `configs/conditions.json`; `configs/experiments/`; `preregistration/`; `schemas/`; and `tests/`. Add `README.md` documenting the accepted procedure. The implementation first inspects any existing harness provided with the paper and reuses its task/grading loader where verified; these proposed modules do not imply that uninspected external APIs already exist.
