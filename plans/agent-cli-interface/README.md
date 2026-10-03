@@ -15,7 +15,7 @@ recorded. Historical reproduction and human protocol approval remain distinct ga
 | [12](12-pin-skill-contracts.md) | Verified live pin/archive; historical subset and baseline runtime gate unresolved |
 | [13](13-cli-backed-skills.md) | Independent static access review and installed reader/PM/compiler packaging smokes pass |
 | [14](14-shared-frontier-intentions.md) | Final-release two-process channel engineering smoke passes; scientific agent conditions deferred |
-| [15](15-experiment-harness.md) | Deferred by user; no E0–E6 experiment claimed |
+| [15](15-experiment-harness.md) | Harness/collection remain deferred; revised external-repo, three-submodule, and sharing-disabled-control plan pending review; no E0–E6 experiment claimed |
 | [16](16-local-semantic-search.md), [17](17-cli-write-enforcement.md) | Closed conditionals for this delivery; evidence gates have not fired |
 
 Actual browser and installed-agent smokes are recorded in the verification report.
