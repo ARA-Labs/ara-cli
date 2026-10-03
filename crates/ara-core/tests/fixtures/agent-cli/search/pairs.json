@@ -1,0 +1,30 @@
+{
+  "format": "ara.duplicate-calibration/v1",
+  "source_repository": "https://github.com/ARA-Labs/Agent-Native-Research-Artifact",
+  "source_artifact": "examples/the-ara-of-ara",
+  "source_copyright": "Orchestra Research 2026",
+  "corpus_revision": "e52a925e9d03b4ada3008653e72f99b04116fca2",
+  "corpus_license": "MIT",
+  "annotation_author": "KeywordSearch implementation agent",
+  "review_status": "proposed; no independent reviewer approval",
+  "measurement_status": "not evaluated",
+  "label_definition": "duplicate means the proposed entry restates the same finding, not merely related topic or supporting evidence; never authorizes equivalence",
+  "formula": "weighted set Jaccard over Unicode-lowercased alphanumeric title and substantive body tokens; equal field weights; weight(t)=ln(1+(N-df(t)+0.5)/(df(t)+0.5)); empty union scores zero",
+  "retrieval": "BM25 k1=1.2 b=0.75, at most 64 candidates per addition before overlap scoring",
+  "proposed_threshold": 0.8,
+  "proposed_acceptance": {"precision": 0.9, "recall": 0.8, "approval": "not approved; tune only development, then freeze before heldout; report misses and false warnings individually"},
+  "limitations": "Positive cases below are explicitly crafted replays of real entries, not observed historical duplicate nodes. Corpus pairs alone cannot establish generalization or calibrated probability. Add independently reviewed naturally occurring duplicate and deliberate verification-run pairs before publication.",
+  "development": [
+    {"left": "N12", "right": {"derived_from": "N12", "transform": "exact_title_and_substantive_body_replay"}, "label": "duplicate", "rationale": "An exact replay of the same pilot finding should be advisory-visible under a new identity; crafted control, not observed duplicate."},
+    {"left": "N12", "right": "N14", "label": "distinct", "rationale": "Shared information-gap methodology but three-paper pilot versus full 23-paper evaluation, different requirements and outcome."},
+    {"left": "N09", "right": "N24", "label": "distinct", "rationale": "Same evaluation framing topic, but N24 explicitly rejects and replaces N09's original three-tier decision."},
+    {"left": "N65", "right": "N66", "label": "distinct", "rationale": "Aggregate BAM condition comparison is not equivalent to the ARA-only detailed experiment and findings."}
+  ],
+  "heldout": [
+    {"left": "N120", "right": {"derived_from": "N120", "transform": "exact_title_and_substantive_body_replay"}, "label": "duplicate", "rationale": "An exact replay of the FTRL outcome is a second crafted positive control, not a historical duplicate."},
+    {"left": "N69", "right": "N70", "label": "distinct", "rationale": "Whole BBOX reproduction comparison and StrategyQA API subexperiment have related but different scope and findings."},
+    {"left": "N65", "right": "N120", "label": "distinct", "rationale": "Both reproduce papers but BAM and FTRL use different tasks, resources and outcomes."},
+    {"left": "N62", "right": "N115", "label": "distinct", "rationale": "Fresh parallel verification run versus the specific failure to reproduce the earlier baseline; overlapping measurements are not equivalence of the scope or outcome."},
+    {"left": "N06", "right": "N110", "label": "distinct", "rationale": "Historical three-level verification design is distinct from a later restriction of the compiler's in-loop verifier to level one."}
+  ]
+}

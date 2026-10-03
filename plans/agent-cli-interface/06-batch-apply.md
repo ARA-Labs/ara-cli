@@ -1,7 +1,12 @@
 # PR 06: atomic batches and complete pinned-skill write coverage
 **Date:** 2026-10-01
 
-Status: **approved** 2026-10-01. Repository: `ARA-Labs/ara-cli`. Parent: [agent CLI interface](../agent-cli-interface.md). Shared rollout and verification: [PR index](README.md). Depends on [PR 05](05-staging-and-sessions.md), the native engine in PR 03, approved relevant contracts in [PR 00](00-protocol-contracts.md), and the pinned operation inventory from [PR 12](12-pin-skill-contracts.md). [PR 07](07-same-as-links.md) is optional and does not block this PR.
+Implementation record: [06-batch-apply](../../docs/agent-cli-interface/06-batch-apply.md). Remaining acceptance: Unchanged historical replay needs a genuine import compatibility contract; creation/ancestor/leaf rules and five absent session records block it.
+
+Observed proof: [delivery verification](../../docs/verification/agent-cli-2026-10-02/README.md).
+
+
+Status: **approved** 2026-10-01. Repository: `ARA-Labs/ara-cli`. Parent: [agent CLI interface](../agent-cli-interface.md). Shared rollout and verification: [PR index](README.md). Depends on [PR 05](../../docs/agent-cli-interface/05-staging-and-sessions.md), the native engine in PR 03, approved relevant contracts in [PR 00](00-protocol-contracts.md), and the pinned operation inventory from [PR 12](12-pin-skill-contracts.md). [PR 07](../../docs/agent-cli-interface/07-same-as-links.md) is optional and does not block this PR.
 
 ## TL;DR
 

@@ -1,0 +1,20 @@
+{
+  "format": "ara.browser-smoke/v1",
+  "url": "http://127.0.0.1:18424/",
+  "binary_sha256": "174737f27fef5db5b62cd9c2215e27ef872fd8be491b832035bf06c087169e88",
+  "thinking_visible": true,
+  "experiment_result_visible": true,
+  "experiment_status_visible": true,
+  "native_concept_visible": true,
+  "native_concept_definition_visible": true,
+  "browser_errors": {
+    "entries": [],
+    "nextSeq": 0,
+    "dropped": 0
+  },
+  "screenshots": [
+    "thinking.webp",
+    "experiment.webp"
+  ],
+  "scientific_claim": false
+}

@@ -1,0 +1,21 @@
+{
+  "version": "0.1.23",
+  "sha256": "4c41323565d0b616d039e9651d513260f40674bd7c033dee22448ec05e81b6ef",
+  "bytes": 13807040,
+  "path": "/tmp/ara-integration-binary/ara-0.1.23-4c41323565d0b616",
+  "source_record_commit": "02f35b2adbdd2ea16dd23f6acb1d892f52c580c9",
+  "rustc": "1.94.1 (e408947bf 2026-03-25)",
+  "target": "aarch64-apple-darwin",
+  "llvm": "21.1.8",
+  "verification": {
+    "workspace_tests_passed": 835,
+    "workspace_suites": 36,
+    "ignored": 1,
+    "clippy": "workspace all-targets -D warnings",
+    "wasm": "native+wasm and pure wasm checks passed",
+    "embedded_viewer": "Manually regenerated after core parsing repairs; freshness hash ec6e9e51dc50bc8c1215dec85c0fda912beb4aa71519a18d9978ae93a125fdaf",
+    "acceptance_harness_unit_tests": 16,
+    "collective_channel_unit_tests": 16
+  },
+  "performance_procedure_note": "Real UI and PM/compiler/channel smokes precede the final complete acceptance run; no discarded warmups or cold-cache claim."
+}

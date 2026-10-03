@@ -128,32 +128,82 @@ pub fn fix_dir(dir: &Path) -> FixOutcome {
 /// [`FixOutcome::remaining`]. `ara check` uses this to honor the `select` /
 /// `ignore` / `fixable` / `unfixable` keys of `.ara-check.toml`. Native only.
 pub fn fix_dir_with(dir: &Path, allow: impl Fn(RuleCode) -> bool) -> FixOutcome {
-    let tree_path = dir.join("trace/exploration_tree.yaml");
-    let claims_path = dir.join("logic/claims.md");
-    let orig_tree = std::fs::read_to_string(&tree_path).unwrap_or_default();
-    let orig_claims = std::fs::read_to_string(&claims_path).ok();
+    // Same persistent lock and durable journal as agent writes. Recovery is
+    // complete before any preimage is read; the existing recovery-safe semantic
+    // guards below remain authoritative for format repairs.
+    let failure = |error: crate::write::WriteError| FixOutcome {
+        applied: Vec::new(),
+        skipped: Vec::new(),
+        remaining: crate::lint::check_dir(dir),
+        changed_files: Vec::new(),
+        errors: vec![(LintFile::Tree, error.to_string())],
+    };
+    let _lock = match crate::write::ArtifactLock::acquire(dir) {
+        Ok(lock) => lock,
+        Err(error) => return failure(error),
+    };
+    if let Err(error) = crate::write::journal::recover(dir) {
+        return failure(error);
+    }
+    let snapshot = match crate::write::ArtifactSnapshot::load(dir) {
+        Ok(snapshot) => snapshot,
+        Err(error) => return failure(error),
+    };
+    let text = |path: &str| -> Result<Option<&str>, crate::write::WriteError> {
+        snapshot
+            .files
+            .get(path)
+            .filter(|file| file.existed)
+            .map(|file| {
+                std::str::from_utf8(&file.bytes)
+                    .map_err(|error| crate::write::WriteError::io(format!("{path}: {error}")))
+            })
+            .transpose()
+    };
+    let orig_tree = match text("trace/exploration_tree.yaml") {
+        Ok(tree) => tree.unwrap_or_default().to_owned(),
+        Err(error) => return failure(error),
+    };
+    let orig_claims = match text("logic/claims.md") {
+        Ok(claims) => claims.map(str::to_owned),
+        Err(error) => return failure(error),
+    };
 
     let mut applier = Applier::new(orig_tree.clone(), orig_claims.clone());
     applier.run(&allow);
 
-    // Write back only the files that actually changed. A successful write is
-    // recorded in `changed_files`; a failed write is recorded in `errors` so the
-    // caller never mistakes an un-written file for clean.
+    let mut working = crate::write::WorkingArtifact::new(snapshot);
     let mut changed_files = Vec::new();
     let mut errors = Vec::new();
-    if applier.tree != orig_tree {
-        match std::fs::write(&tree_path, &applier.tree) {
-            Ok(()) => changed_files.push(LintFile::Tree),
-            Err(e) => errors.push((LintFile::Tree, e.to_string())),
+    let stage = (|| {
+        if applier.tree != orig_tree {
+            working.replace_document(
+                "trace/exploration_tree.yaml",
+                &applier.tree,
+                "recovery-safe format fixes",
+            )?;
+            changed_files.push(LintFile::Tree);
         }
-    }
-    if let Some(new_claims) = &applier.claims
-        && orig_claims.as_deref() != Some(new_claims.as_str())
-    {
-        match std::fs::write(&claims_path, new_claims) {
-            Ok(()) => changed_files.push(LintFile::Claims),
-            Err(e) => errors.push((LintFile::Claims, e.to_string())),
+        if let Some(claims) = &applier.claims
+            && orig_claims.as_deref() != Some(claims.as_str())
+        {
+            working.replace_document("logic/claims.md", claims, "recovery-safe format fixes")?;
+            changed_files.push(LintFile::Claims);
         }
+        if !changed_files.is_empty() {
+            working.include_operational_ignore()?;
+            // Do not invoke ordinary agent-write semantic validation: these
+            // format guards deliberately permit unrelated pre-existing errors.
+            crate::write::transaction::commit(&working)?;
+        }
+        Ok::<_, crate::write::WriteError>(())
+    })();
+    if let Err(error) = stage {
+        errors.push((
+            changed_files.first().copied().unwrap_or(LintFile::Tree),
+            error.to_string(),
+        ));
+        changed_files.clear();
     }
 
     // Re-detect on the final in-memory text: what remains is exactly the fixable
@@ -401,15 +451,22 @@ fn guard_ara001(base: &ParseOutcome, cand: &ParseOutcome) -> bool {
     }
 }
 
-/// ARA002/ARA003/ARA005–ARA007 targeted guard: after proving no new error
-/// occurrence appears, exactly one node's target field goes `None → Some`, and
-/// nothing else differs.
+/// Alias repairs introduce no new errors. ARA005–007 may preserve an already
+/// normalized native pivot value; other repairs recover exactly one absent body
+/// field without changing any other normalized data.
 fn guard_alias(base: &ParseOutcome, cand: &ParseOutcome, field: AliasField) -> bool {
     let (ParseOutcome::Normalized(mb, _), ParseOutcome::Normalized(mc, _)) = (base, cand) else {
         return false;
     };
     if !errors_subset(cand, base) {
         return false;
+    }
+    if matches!(
+        field,
+        AliasField::PriorDirection | AliasField::NewDirection | AliasField::PivotReason
+    ) && mb == mc
+    {
+        return true;
     }
     if mc.nodes.len() != mb.nodes.len() {
         return false;
@@ -1482,8 +1539,8 @@ tree:
                 "Human-authored optimizations compress GPT-2 124M training (val_loss ≤ 3.28) from 49.5 min to 3.1 min across 21 records, achieving a 16.1× wall-clock speedup on 8×H100."
             )
         );
-        // The two pivot `trigger:` aliases were recovered into `reason:`; clearing
-        // exactly those recovered fields must reproduce the base nodes.
+        // Native pivot aliases already normalize to the same value. The style
+        // repair must preserve every normalized node and edge.
         let recovered: Vec<&Node> = manifest
             .nodes
             .iter()
@@ -1498,13 +1555,7 @@ tree:
             })
             .collect();
         assert_eq!(recovered.len(), 2, "got: {recovered:?}");
-        let mut without_recovered = manifest.nodes.clone();
-        for node in &mut without_recovered {
-            if let NodeFields::Pivot { reason, .. } = &mut node.fields {
-                *reason = None;
-            }
-        }
-        assert_eq!(without_recovered, base.nodes);
+        assert_eq!(manifest.nodes, base.nodes);
         assert_eq!(manifest.links, base.links);
         assert!(manifest.bindings.iter().all(|binding| {
             manifest
@@ -1743,19 +1794,20 @@ tree:
         let dir = artifact(yaml, None);
         let tree_path = dir.path().join("trace/exploration_tree.yaml");
 
-        // Make the tree file read-only so the write-back fails (non-root).
-        let mut perms = std::fs::metadata(&tree_path).unwrap().permissions();
-        perms.set_mode(0o444);
-        std::fs::set_permissions(&tree_path, perms).unwrap();
-
-        // Probe whether we can still write despite the read-only bit (i.e. running
-        // as root, where the permission is bypassed); skip the assertion if so.
+        // Atomic replacement needs write permission on the parent directory.
+        let parent = tree_path.parent().unwrap();
+        let original_permissions = std::fs::metadata(parent).unwrap().permissions();
+        std::fs::set_permissions(parent, std::fs::Permissions::from_mode(0o555)).unwrap();
+        let probe = parent.join("permission-probe");
         if std::fs::OpenOptions::new()
             .write(true)
-            .open(&tree_path)
+            .create_new(true)
+            .open(&probe)
             .is_ok()
         {
-            eprintln!("skipping: write not denied (likely running as root)");
+            std::fs::remove_file(probe).unwrap();
+            std::fs::set_permissions(parent, original_permissions).unwrap();
+            eprintln!("skipping: parent creation not denied (likely running as root)");
             return;
         }
 
@@ -1772,10 +1824,7 @@ tree:
         assert!(!outcome.changed_files.contains(&LintFile::Tree));
         assert_eq!(read_tree(&dir), yaml, "on-disk file must be untouched");
 
-        // Restore write permission so TempDir cleanup succeeds.
-        let mut perms = std::fs::metadata(&tree_path).unwrap().permissions();
-        perms.set_mode(0o644);
-        std::fs::set_permissions(&tree_path, perms).unwrap();
+        std::fs::set_permissions(parent, original_permissions).unwrap();
     }
 
     #[test]

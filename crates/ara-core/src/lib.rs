@@ -10,10 +10,13 @@
 
 mod claims;
 pub mod figure;
+mod flat_yaml;
 pub mod layout;
 pub mod lint;
 pub mod manifest;
+pub mod markdown;
 mod parse;
+pub mod query;
 pub mod report;
 pub mod rules;
 mod schema;
@@ -25,17 +28,24 @@ mod fix;
 // native `parse_dir`; gating them keeps the wasm client build (which only
 // deserializes the already-built manifest) free of dead-code warnings.
 #[cfg(feature = "native")]
+mod agent_layers;
+#[cfg(feature = "native")]
 mod evidence;
+#[cfg(feature = "native")]
+pub mod merge;
 #[cfg(feature = "native")]
 mod paper;
 #[cfg(feature = "native")]
 mod sections;
+#[cfg(feature = "native")]
+pub mod write;
 
 pub use layout::{LayoutOptions, LayoutResult, NodePosition, Point, Rect};
 pub use manifest::{
-    Binding, BindingRole, BuiltOn, Claim, ClaimId, Concept, Exhibit, ExhibitKind, Link, LinkKind,
-    Manifest, Node, NodeArtifact, NodeExhibit, NodeFields, NodeId, NodeKind, PaperMeta, Problem,
-    Recipe, RelatedWork,
+    Binding, BindingRole, BuiltOn, Claim, ClaimId, Concept, Exhibit, ExhibitKind, ExperimentId,
+    ExperimentPlan, Heuristic, HeuristicId, Link, LinkKind, Manifest, Node, NodeArtifact,
+    NodeExhibit, NodeFields, NodeId, NodeKind, Observation, ObservationId, PaperMeta, Problem,
+    Recipe, RelatedWork, Session, SessionId, SourceField, SourceValue, TasteComment, TasteId,
 };
 pub use report::{Diagnostic, ParseReport, Severity};
 pub use rules::{RuleCode, RuleLayer, UnknownRuleCode};
@@ -48,8 +58,11 @@ pub use lint::{check_dir, check_sources};
 pub use fix::{AppliedFix, FixOutcome, SkippedFix, fix_dir, fix_dir_with};
 
 #[cfg(feature = "native")]
-pub use parse::parse_dir;
-pub use parse::parse_sources;
+pub use agent_layers::knowledge_paths;
+pub use flat_yaml::source_node_fields;
+#[cfg(feature = "native")]
+pub use parse::{LoadIssue, LoadIssueKind, NativeLoad, parse_dir, parse_dir_detailed};
+pub use parse::{parse_sources, parse_sources_with_claim_redirects};
 
 /// Parses and lays out an in-memory ARA artifact.
 ///

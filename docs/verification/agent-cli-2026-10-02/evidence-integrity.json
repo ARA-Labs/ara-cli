@@ -1,0 +1,7 @@
+{
+  "artifact": "acceptance.json.gz",
+  "uncompressed_bytes": 2407384177,
+  "uncompressed_sha256": "546423fb91b6f2254fdc067b3edb473e24a4ef29c101689abe3c544c09788174",
+  "gzip_sha256": "1f70284a4e09c4743000d294234e74eeefc4af8bb32a28ab337ddf1a7eda9284",
+  "scope": "Complete actual frozen-binary invocations/source/history/metrics; no experiment claim"
+}

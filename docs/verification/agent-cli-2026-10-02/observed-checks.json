@@ -1,0 +1,2352 @@
+{
+  "format": "ara.agent-cli-acceptance/v1",
+  "blockers": [
+    "Pinned protocol/skill contracts are pending upstream review; behavior measurements do not fabricate approval"
+  ],
+  "environment": {
+    "runner": "yf-mbp.local",
+    "platform": "macOS-27.0.1-arm64-arm-64bit",
+    "machine": "arm64",
+    "processor": "arm",
+    "cpu_count": 18,
+    "python": "3.9.6 (default, Aug 25 2026, 21:26:21) \n[Clang 21.0.0 (clang-2100.3.34.2)]",
+    "toolchain": "rustc 1.94.1 (e408947bf 2026-03-25); locked release 0.1.22; final manual viewer wasm-bindgen 0.2.126",
+    "binary": "/private/tmp/ara-integration-binary/ara-0.1.22-4786f4ce0ecc7c19",
+    "binary_sha256": "sha256:4786f4ce0ecc7c19d4c7d4a3b58f6bf908d10fdaef8caceb6ab5659a9d16d07e",
+    "rust_toolchain_source": "[toolchain]\n# Exact patch pin: a floating minor (e.g. \"1.94\") would let a rustc patch bump\n# silently change codegen/clippy output and break the byte-determinism invariant.\nchannel = \"1.94.1\"\ncomponents = [\"rustfmt\", \"clippy\"]\n# rustup auto-installs this target on `cargo build --target wasm32-unknown-unknown`.\ntargets = [\"wasm32-unknown-unknown\"]\n",
+    "hardware_probe": {
+      "argv": [
+        "sysctl",
+        "-n",
+        "hw.model",
+        "hw.memsize",
+        "machdep.cpu.brand_string"
+      ],
+      "exit": 1,
+      "stdout": "",
+      "stderr": "sysctl: sysctl fmt -1 1024 1: Operation not permitted\n"
+    },
+    "pyyaml": "6.0.3"
+  },
+  "acceptance_complete": true,
+  "passed": false,
+  "failures": [
+    {
+      "scenario": "reads.real.status",
+      "message": "Timing budget 100ms missed: ['status', '--json']: [319.729875, 16.996459, 14.744625, 14.325042, 14.313167]",
+      "exception": "AcceptanceFailure"
+    },
+    {
+      "scenario": "merge.10000.timing",
+      "message": "Timing budget 1000ms missed: ['merge', '--base', '/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-q1xn3qk1/merge-10000/base', '--theirs', '/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-q1xn3qk1/merge-10000/theirs', '--as', 'acceptance-fork', '--source-key', 'generated_fixture_bob', '--json']: [2318.137916, 2354.0565, 2341.620334, 2324.161583, 2341.046]",
+      "exception": "AcceptanceFailure"
+    },
+    {
+      "scenario": "merge.100000.dry_run",
+      "message": "Timeout after 30s: ['/private/tmp/ara-integration-binary/ara-0.1.22-4786f4ce0ecc7c19', '-C', '/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-q1xn3qk1/merge-100000/ours', 'merge', '--base', '/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-q1xn3qk1/merge-100000/base', '--theirs', '/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-q1xn3qk1/merge-100000/theirs', '--as', 'acceptance-fork', '--source-key', 'generated_fixture_bob', '--dry-run', '--json']",
+      "exception": "AcceptanceFailure"
+    },
+    {
+      "scenario": "merge.100000.timing",
+      "message": "Expected exit (0,), observed 1: ['/private/tmp/ara-integration-binary/ara-0.1.22-4786f4ce0ecc7c19', '-C', '/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-q1xn3qk1/merge-100000/sample-1', 'merge', '--base', '/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-q1xn3qk1/merge-100000/base', '--theirs', '/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-q1xn3qk1/merge-100000/theirs', '--as', 'acceptance-fork', '--source-key', 'generated_fixture_bob', '--json']; {\"error\":{\"code\":\"write.syntax\",\"details\":{\"code\":\"write.syntax\",\"evidence\":[{\"allowed\":[\"ours\",\"theirs\",\"base\"],\"base\":{\"bytes\":[123,34,116,114,101,101,34,58,91,123,34,105,100,34,58,34,78,48,49,34,44,34,116,121,112,101,34,58,34,113,117,101,115,116,105,111,110,34,44,34,116,105,116,108,101,34,58,34,83,121,110,116,104,101,116,105,99,32,98,97,115,101,32,78,48,49,34,44,34,116,105,109,101,115,116,97,109,112,34,58,34,50,48,50,54,45,49,48,45,48,49,84,49,48,58,48,48,34,44,34,112,114,111,118,101,110,97,110,99,101,34,58,34,97,105,45,101,120,101,99,117,116,101,100,34,44,34,100,101,115,99,114,105,112,116,105,111,110,34,58,34,83,121,110,116,104,101,116,105,99,32,98,97,115,101,32,112,97,121,108,111,97,100,32,78,48,49,34,125,44,123,34,105,100,34,58,34,78,48,50,34,44,34,116,121,112,101,34,58,34,100,101,99,105,115,105,111,110,34,44,34,116,105,116,108,101,34,58,34,83,121,110,116,104,101,11",
+      "exception": "AcceptanceFailure"
+    },
+    {
+      "scenario": "merge.100000.preservation_replay",
+      "message": "Timeout after 30s: ['/private/tmp/ara-integration-binary/ara-0.1.22-4786f4ce0ecc7c19', '-C', '/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-q1xn3qk1/merge-100000/ours', 'merge', '--base', '/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-q1xn3qk1/merge-100000/base', '--theirs', '/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-q1xn3qk1/merge-100000/theirs', '--as', 'acceptance-fork', '--source-key', 'generated_fixture_bob', '--json']",
+      "exception": "AcceptanceFailure"
+    },
+    {
+      "scenario": "git.100000.small.dry_run",
+      "message": "Timeout after 30s: ['/private/tmp/ara-integration-binary/ara-0.1.22-4786f4ce0ecc7c19', '-C', '/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-q1xn3qk1/git-100000-small/repository/ara', 'merge', '--git', 'theirs', '--source-key', 'generated_fixture_bob', '--as', 'acceptance-fork', '--no-duplicate-check', '--dry-run', '--json']",
+      "exception": "AcceptanceFailure"
+    },
+    {
+      "scenario": "git.100000.small.timing",
+      "message": "Expected exit (0,), observed 1: ['/private/tmp/ara-integration-binary/ara-0.1.22-4786f4ce0ecc7c19', '-C', '/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-q1xn3qk1/git-100000-small/sample-1/ara', 'merge', '--git', 'theirs', '--source-key', 'generated_fixture_bob', '--as', 'acceptance-fork', '--no-duplicate-check', '--json']; {\"error\":{\"code\":\"write.syntax\",\"details\":{\"code\":\"write.syntax\",\"evidence\":[{\"allowed\":[\"ours\",\"theirs\",\"base\"],\"base\":{\"bytes\":[123,34,116,114,101,101,34,58,91,123,34,105,100,34,58,34,78,48,49,34,44,34,116,121,112,101,34,58,34,113,117,101,115,116,105,111,110,34,44,34,116,105,116,108,101,34,58,34,83,121,110,116,104,101,116,105,99,32,98,97,115,101,32,78,48,49,34,44,34,116,105,109,101,115,116,97,109,112,34,58,34,50,48,50,54,45,49,48,45,48,49,84,49,48,58,48,48,34,44,34,112,114,111,118,101,110,97,110,99,101,34,58,34,97,105,45,101,120,101,99,117,116,101,100,34,44,34,100,101,115,99,114,105,112,116,105,111,110,34,58,34,83,121,110,116,104,101,116,105,99,32,98,97,115,101,32,112,97,121,108,111,97,100,32,78,48,49,34,125,44,123,34,105,100,34,58,34,78,48,50,34,44,34,116,121,112,101,34,58,34,100,101,99,105,115,105,111,110,34,44,34,116,105,116,108,101,34,58,34,83,121,110,116,104,101,116,105,99,32,98,97,115,101,32,78,48,50,34,44,34,116,105,109,101,115,116,97,109,112,34,58,34,50,48,50,54,45,49,48,45,48,49,84,49,48,58,48,48,34,44,34,112,114,111,118,101,1",
+      "exception": "AcceptanceFailure"
+    },
+    {
+      "scenario": "git.100000.small.equivalence_replay",
+      "message": "Timeout after 30s: ['/private/tmp/ara-integration-binary/ara-0.1.22-4786f4ce0ecc7c19', '-C', '/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-q1xn3qk1/git-100000-small/directory-result', 'merge', '--base', '/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-q1xn3qk1/git-100000-small/base', '--theirs', '/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-q1xn3qk1/git-100000-small/theirs', '--source-key', 'generated_fixture_bob', '--as', 'acceptance-fork', '--no-duplicate-check', '--json']",
+      "exception": "AcceptanceFailure"
+    },
+    {
+      "scenario": "git.100000.unrelated-tree.setup",
+      "message": "Git fixture setup failed: {\"argv\":[\"/usr/bin/git\",\"-c\",\"core.fsmonitor=false\",\"-c\",\"core.hooksPath=/dev/null\",\"-c\",\"core.attributesFile=/dev/null\",\"-c\",\"commit.gpgSign=false\",\"-c\",\"protocol.allow=never\",\"-c\",\"user.name=Synthetic Acceptance\",\"-c\",\"user.email=acceptance@example.invalid\",\"add\",\"--all\"],\"cwd\":\"/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-q1xn3qk1/git-100000-unrelated-tree/repository\",\"exit\":128,\"elapsed_ms\":175.844625,\"timed_out\":false,\"stdout\":\"\",\"stderr\":\"error: unable to create temporary file: Invalid argument\\nerror: unrelated/group-07/entry-0381.txt: failed to insert into database\\nerror: unable to index file 'unrelated/group-07/entry-0381.txt'\\nfatal: updating files failed\\n\",\"stdout_bytes\":0,\"stderr_bytes\":223}",
+      "exception": "AcceptanceFailure"
+    },
+    {
+      "scenario": "replay",
+      "message": "Expected exit (0,), observed 1: ['/private/tmp/ara-integration-binary/ara-0.1.22-4786f4ce0ecc7c19', '-C', '/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-q1xn3qk1/pinned-node-replay', 'apply', '-', '--json']; {\"error\":{\"code\":\"write.node\",\"details\":{\"code\":\"write.node\",\"field\":\"depends_on\",\"line\":55,\"message\":\"dependency on ancestor `N65` is redundant\"},\"line\":55,\"message\":\"dependency on ancestor `N65` is redundant\"},\"format\":\"ara.apply/v1\"}\n",
+      "exception": "AcceptanceFailure"
+    }
+  ],
+  "timings": [
+    {
+      "artifact": {
+        "path": "/Users/yfhe/repos/ara/ara-cli/crates/ara-core/tests/fixtures/agent-cli",
+        "bytes": 6800516,
+        "files": 337,
+        "inventory_sha256": "2659a35b84e5f77aebcf9bbd1a107a4e57abbab02e4be3846e516743bfb616da",
+        "knowledge_bytes": 411139
+      },
+      "command": [
+        "status",
+        "--json"
+      ],
+      "samples_ms": [
+        319.729875,
+        16.996459,
+        14.744625,
+        14.325042,
+        14.313167
+      ],
+      "min_ms": 14.313167,
+      "median_ms": 14.744625,
+      "mean_ms": 76.0218336,
+      "p95_ms": 319.729875,
+      "max_ms": 319.729875,
+      "budget_ms": 100,
+      "invocations": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/Users/yfhe/repos/ara/ara-cli/crates/ara-core/tests/fixtures/agent-cli",
+        "bytes": 6800516,
+        "files": 337,
+        "inventory_sha256": "2659a35b84e5f77aebcf9bbd1a107a4e57abbab02e4be3846e516743bfb616da",
+        "knowledge_bytes": 411139
+      },
+      "command": [
+        "ls",
+        "--type",
+        "dead_end",
+        "--under",
+        "N12",
+        "--json"
+      ],
+      "samples_ms": [
+        13.1135,
+        12.717333,
+        12.734833,
+        12.57525,
+        12.569333
+      ],
+      "min_ms": 12.569333,
+      "median_ms": 12.717333,
+      "mean_ms": 12.7420498,
+      "p95_ms": 13.1135,
+      "max_ms": 13.1135,
+      "budget_ms": 100,
+      "invocations": [
+        5,
+        6,
+        7,
+        8,
+        9
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/Users/yfhe/repos/ara/ara-cli/crates/ara-core/tests/fixtures/agent-cli",
+        "bytes": 6800516,
+        "files": 337,
+        "inventory_sha256": "2659a35b84e5f77aebcf9bbd1a107a4e57abbab02e4be3846e516743bfb616da",
+        "knowledge_bytes": 411139
+      },
+      "command": [
+        "show",
+        "N62",
+        "--with",
+        "parents,children,claims,sessions",
+        "--full",
+        "--json"
+      ],
+      "samples_ms": [
+        14.527542,
+        13.5905,
+        14.454958,
+        14.8165,
+        14.446042
+      ],
+      "min_ms": 13.5905,
+      "median_ms": 14.454958,
+      "mean_ms": 14.3671084,
+      "p95_ms": 14.8165,
+      "max_ms": 14.8165,
+      "budget_ms": 100,
+      "invocations": [
+        10,
+        11,
+        12,
+        13,
+        14
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/Users/yfhe/repos/ara/ara-cli/crates/ara-core/tests/fixtures/agent-cli",
+        "bytes": 6800516,
+        "files": 337,
+        "inventory_sha256": "2659a35b84e5f77aebcf9bbd1a107a4e57abbab02e4be3846e516743bfb616da",
+        "knowledge_bytes": 411139
+      },
+      "command": [
+        "path",
+        "N85",
+        "--json"
+      ],
+      "samples_ms": [
+        13.757042,
+        13.484166,
+        13.339291,
+        13.81175,
+        13.8185
+      ],
+      "min_ms": 13.339291,
+      "median_ms": 13.757042,
+      "mean_ms": 13.6421498,
+      "p95_ms": 13.8185,
+      "max_ms": 13.8185,
+      "budget_ms": 100,
+      "invocations": [
+        15,
+        16,
+        17,
+        18,
+        19
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/Users/yfhe/repos/ara/ara-cli/crates/ara-core/tests/fixtures/agent-cli",
+        "bytes": 6800516,
+        "files": 337,
+        "inventory_sha256": "2659a35b84e5f77aebcf9bbd1a107a4e57abbab02e4be3846e516743bfb616da",
+        "knowledge_bytes": 411139
+      },
+      "command": [
+        "refs",
+        "C05",
+        "--json"
+      ],
+      "samples_ms": [
+        16.792792,
+        16.378333,
+        16.37125,
+        16.986167,
+        17.052917
+      ],
+      "min_ms": 16.37125,
+      "median_ms": 16.792792,
+      "mean_ms": 16.7162918,
+      "p95_ms": 17.052917,
+      "max_ms": 17.052917,
+      "budget_ms": 100,
+      "invocations": [
+        20,
+        21,
+        22,
+        23,
+        24
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/Users/yfhe/repos/ara/ara-cli/crates/ara-core/tests/fixtures/agent-cli",
+        "bytes": 6800516,
+        "files": 337,
+        "inventory_sha256": "2659a35b84e5f77aebcf9bbd1a107a4e57abbab02e4be3846e516743bfb616da",
+        "knowledge_bytes": 411139
+      },
+      "command": [
+        "open",
+        "--json"
+      ],
+      "samples_ms": [
+        14.936834,
+        14.7365,
+        14.95975,
+        14.896125,
+        14.461583
+      ],
+      "min_ms": 14.461583,
+      "median_ms": 14.896125,
+      "mean_ms": 14.7981584,
+      "p95_ms": 14.95975,
+      "max_ms": 14.95975,
+      "budget_ms": 100,
+      "invocations": [
+        25,
+        26,
+        27,
+        28,
+        29
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/Users/yfhe/repos/ara/ara-cli/crates/ara-core/tests/fixtures/agent-cli",
+        "bytes": 6800516,
+        "files": 337,
+        "inventory_sha256": "2659a35b84e5f77aebcf9bbd1a107a4e57abbab02e4be3846e516743bfb616da",
+        "knowledge_bytes": 411139
+      },
+      "command": [
+        "find",
+        "tripartite cognitive physical exploration architecture",
+        "--limit",
+        "10",
+        "--json"
+      ],
+      "samples_ms": [
+        25.745292,
+        25.400375,
+        25.563042,
+        25.600708,
+        25.881834
+      ],
+      "min_ms": 25.400375,
+      "median_ms": 25.600708,
+      "mean_ms": 25.6382502,
+      "p95_ms": 25.881834,
+      "max_ms": 25.881834,
+      "budget_ms": 100,
+      "invocations": [
+        30,
+        31,
+        32,
+        33,
+        34
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-q1xn3qk1/read-broad-100",
+        "bytes": 35030,
+        "files": 18,
+        "inventory_sha256": "086c051fc8d16617ee99b21bb604a735a7dbb77f690675cb63349c4f93cfef87",
+        "knowledge_bytes": 34938
+      },
+      "command": [
+        "status",
+        "--json"
+      ],
+      "samples_ms": [
+        8.597,
+        7.528333,
+        6.419208,
+        5.926916,
+        5.9785
+      ],
+      "min_ms": 5.926916,
+      "median_ms": 6.419208,
+      "mean_ms": 6.8899914,
+      "p95_ms": 8.597,
+      "max_ms": 8.597,
+      "budget_ms": 1000,
+      "invocations": [
+        35,
+        36,
+        37,
+        38,
+        39
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-q1xn3qk1/read-broad-100",
+        "bytes": 35030,
+        "files": 18,
+        "inventory_sha256": "086c051fc8d16617ee99b21bb604a735a7dbb77f690675cb63349c4f93cfef87",
+        "knowledge_bytes": 34938
+      },
+      "command": [
+        "ls",
+        "--json"
+      ],
+      "samples_ms": [
+        6.682792,
+        6.787666,
+        6.902375,
+        6.8275,
+        6.785958
+      ],
+      "min_ms": 6.682792,
+      "median_ms": 6.787666,
+      "mean_ms": 6.7972582,
+      "p95_ms": 6.902375,
+      "max_ms": 6.902375,
+      "budget_ms": 1000,
+      "invocations": [
+        40,
+        41,
+        42,
+        43,
+        44
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-q1xn3qk1/read-broad-100",
+        "bytes": 35030,
+        "files": 18,
+        "inventory_sha256": "086c051fc8d16617ee99b21bb604a735a7dbb77f690675cb63349c4f93cfef87",
+        "knowledge_bytes": 34938
+      },
+      "command": [
+        "show",
+        "N100",
+        "--full",
+        "--json"
+      ],
+      "samples_ms": [
+        7.479458,
+        6.865083,
+        7.136458,
+        7.863209,
+        7.964584
+      ],
+      "min_ms": 6.865083,
+      "median_ms": 7.479458,
+      "mean_ms": 7.4617584,
+      "p95_ms": 7.964584,
+      "max_ms": 7.964584,
+      "budget_ms": 1000,
+      "invocations": [
+        45,
+        46,
+        47,
+        48,
+        49
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-q1xn3qk1/read-broad-100",
+        "bytes": 35030,
+        "files": 18,
+        "inventory_sha256": "086c051fc8d16617ee99b21bb604a735a7dbb77f690675cb63349c4f93cfef87",
+        "knowledge_bytes": 34938
+      },
+      "command": [
+        "path",
+        "N100",
+        "--json"
+      ],
+      "samples_ms": [
+        5.976291,
+        6.160583,
+        6.2355,
+        5.900458,
+        6.383083
+      ],
+      "min_ms": 5.900458,
+      "median_ms": 6.160583,
+      "mean_ms": 6.131183,
+      "p95_ms": 6.383083,
+      "max_ms": 6.383083,
+      "budget_ms": 1000,
+      "invocations": [
+        50,
+        51,
+        52,
+        53,
+        54
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-q1xn3qk1/read-broad-100",
+        "bytes": 35030,
+        "files": 18,
+        "inventory_sha256": "086c051fc8d16617ee99b21bb604a735a7dbb77f690675cb63349c4f93cfef87",
+        "knowledge_bytes": 34938
+      },
+      "command": [
+        "refs",
+        "C01",
+        "--json"
+      ],
+      "samples_ms": [
+        7.120042,
+        6.769208,
+        6.800917,
+        6.668209,
+        6.729208
+      ],
+      "min_ms": 6.668209,
+      "median_ms": 6.769208,
+      "mean_ms": 6.8175168,
+      "p95_ms": 7.120042,
+      "max_ms": 7.120042,
+      "budget_ms": 1000,
+      "invocations": [
+        55,
+        56,
+        57,
+        58,
+        59
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-q1xn3qk1/read-broad-100",
+        "bytes": 35030,
+        "files": 18,
+        "inventory_sha256": "086c051fc8d16617ee99b21bb604a735a7dbb77f690675cb63349c4f93cfef87",
+        "knowledge_bytes": 34938
+      },
+      "command": [
+        "open",
+        "--json"
+      ],
+      "samples_ms": [
+        6.499167,
+        6.62575,
+        6.460916,
+        6.185292,
+        6.193583
+      ],
+      "min_ms": 6.185292,
+      "median_ms": 6.460916,
+      "mean_ms": 6.3929416,
+      "p95_ms": 6.62575,
+      "max_ms": 6.62575,
+      "budget_ms": 1000,
+      "invocations": [
+        60,
+        61,
+        62,
+        63,
+        64
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-q1xn3qk1/read-broad-100",
+        "bytes": 35030,
+        "files": 18,
+        "inventory_sha256": "086c051fc8d16617ee99b21bb604a735a7dbb77f690675cb63349c4f93cfef87",
+        "knowledge_bytes": 34938
+      },
+      "command": [
+        "find",
+        "uniqueneedle",
+        "--limit",
+        "10",
+        "--json"
+      ],
+      "samples_ms": [
+        6.969875,
+        6.56,
+        6.7865,
+        6.277375,
+        6.498875
+      ],
+      "min_ms": 6.277375,
+      "median_ms": 6.56,
+      "mean_ms": 6.618525,
+      "p95_ms": 6.969875,
+      "max_ms": 6.969875,
+      "budget_ms": 1000,
+      "invocations": [
+        65,
+        66,
+        67,
+        68,
+        69
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-q1xn3qk1/read-broad-1000",
+        "bytes": 340087,
+        "files": 18,
+        "inventory_sha256": "699a042e6758e6c7163f8132a24645d35feaab16c9eef0dde52a9119089d23a7",
+        "knowledge_bytes": 339995
+      },
+      "command": [
+        "status",
+        "--json"
+      ],
+      "samples_ms": [
+        18.673792,
+        18.225375,
+        18.454375,
+        18.530709,
+        18.544417
+      ],
+      "min_ms": 18.225375,
+      "median_ms": 18.530709,
+      "mean_ms": 18.4857336,
+      "p95_ms": 18.673792,
+      "max_ms": 18.673792,
+      "budget_ms": 1000,
+      "invocations": [
+        70,
+        71,
+        72,
+        73,
+        74
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-q1xn3qk1/read-broad-1000",
+        "bytes": 340087,
+        "files": 18,
+        "inventory_sha256": "699a042e6758e6c7163f8132a24645d35feaab16c9eef0dde52a9119089d23a7",
+        "knowledge_bytes": 339995
+      },
+      "command": [
+        "ls",
+        "--json"
+      ],
+      "samples_ms": [
+        23.554833,
+        23.686083,
+        23.813208,
+        24.009833,
+        23.523541
+      ],
+      "min_ms": 23.523541,
+      "median_ms": 23.686083,
+      "mean_ms": 23.7174996,
+      "p95_ms": 24.009833,
+      "max_ms": 24.009833,
+      "budget_ms": 1000,
+      "invocations": [
+        75,
+        76,
+        77,
+        78,
+        79
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-q1xn3qk1/read-broad-1000",
+        "bytes": 340087,
+        "files": 18,
+        "inventory_sha256": "699a042e6758e6c7163f8132a24645d35feaab16c9eef0dde52a9119089d23a7",
+        "knowledge_bytes": 339995
+      },
+      "command": [
+        "show",
+        "N1000",
+        "--full",
+        "--json"
+      ],
+      "samples_ms": [
+        27.1715,
+        27.961583,
+        28.2195,
+        28.435375,
+        28.695959
+      ],
+      "min_ms": 27.1715,
+      "median_ms": 28.2195,
+      "mean_ms": 28.0967834,
+      "p95_ms": 28.695959,
+      "max_ms": 28.695959,
+      "budget_ms": 1000,
+      "invocations": [
+        80,
+        81,
+        82,
+        83,
+        84
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-q1xn3qk1/read-broad-1000",
+        "bytes": 340087,
+        "files": 18,
+        "inventory_sha256": "699a042e6758e6c7163f8132a24645d35feaab16c9eef0dde52a9119089d23a7",
+        "knowledge_bytes": 339995
+      },
+      "command": [
+        "path",
+        "N1000",
+        "--json"
+      ],
+      "samples_ms": [
+        20.141458,
+        19.8985,
+        19.580458,
+        19.520083,
+        19.383541
+      ],
+      "min_ms": 19.383541,
+      "median_ms": 19.580458,
+      "mean_ms": 19.704808,
+      "p95_ms": 20.141458,
+      "max_ms": 20.141458,
+      "budget_ms": 1000,
+      "invocations": [
+        85,
+        86,
+        87,
+        88,
+        89
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-q1xn3qk1/read-broad-1000",
+        "bytes": 340087,
+        "files": 18,
+        "inventory_sha256": "699a042e6758e6c7163f8132a24645d35feaab16c9eef0dde52a9119089d23a7",
+        "knowledge_bytes": 339995
+      },
+      "command": [
+        "refs",
+        "C01",
+        "--json"
+      ],
+      "samples_ms": [
+        25.835875,
+        25.618417,
+        26.079917,
+        25.531125,
+        25.809333
+      ],
+      "min_ms": 25.531125,
+      "median_ms": 25.809333,
+      "mean_ms": 25.7749334,
+      "p95_ms": 26.079917,
+      "max_ms": 26.079917,
+      "budget_ms": 1000,
+      "invocations": [
+        90,
+        91,
+        92,
+        93,
+        94
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-q1xn3qk1/read-broad-1000",
+        "bytes": 340087,
+        "files": 18,
+        "inventory_sha256": "699a042e6758e6c7163f8132a24645d35feaab16c9eef0dde52a9119089d23a7",
+        "knowledge_bytes": 339995
+      },
+      "command": [
+        "open",
+        "--json"
+      ],
+      "samples_ms": [
+        22.55875,
+        22.79875,
+        22.505208,
+        23.009958,
+        23.107709
+      ],
+      "min_ms": 22.505208,
+      "median_ms": 22.79875,
+      "mean_ms": 22.796075,
+      "p95_ms": 23.107709,
+      "max_ms": 23.107709,
+      "budget_ms": 1000,
+      "invocations": [
+        95,
+        96,
+        97,
+        98,
+        99
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-q1xn3qk1/read-broad-1000",
+        "bytes": 340087,
+        "files": 18,
+        "inventory_sha256": "699a042e6758e6c7163f8132a24645d35feaab16c9eef0dde52a9119089d23a7",
+        "knowledge_bytes": 339995
+      },
+      "command": [
+        "find",
+        "uniqueneedle",
+        "--limit",
+        "10",
+        "--json"
+      ],
+      "samples_ms": [
+        24.329625,
+        24.5125,
+        24.496208,
+        24.18725,
+        24.193208
+      ],
+      "min_ms": 24.18725,
+      "median_ms": 24.329625,
+      "mean_ms": 24.3437582,
+      "p95_ms": 24.5125,
+      "max_ms": 24.5125,
+      "budget_ms": 1000,
+      "invocations": [
+        100,
+        101,
+        102,
+        103,
+        104
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-q1xn3qk1/read-broad-10000",
+        "bytes": 3430214,
+        "files": 22,
+        "inventory_sha256": "a0e22747d3299cad0074b3abd690a6b0eec90cfdb4072353d9597791932dd105",
+        "knowledge_bytes": 3430122
+      },
+      "command": [
+        "status",
+        "--json"
+      ],
+      "samples_ms": [
+        185.01325,
+        186.520083,
+        199.679375,
+        197.430583,
+        196.93625
+      ],
+      "min_ms": 185.01325,
+      "median_ms": 196.93625,
+      "mean_ms": 193.1159082,
+      "p95_ms": 199.679375,
+      "max_ms": 199.679375,
+      "budget_ms": 1000,
+      "invocations": [
+        105,
+        106,
+        107,
+        108,
+        109
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-q1xn3qk1/read-broad-10000",
+        "bytes": 3430214,
+        "files": 22,
+        "inventory_sha256": "a0e22747d3299cad0074b3abd690a6b0eec90cfdb4072353d9597791932dd105",
+        "knowledge_bytes": 3430122
+      },
+      "command": [
+        "ls",
+        "--json"
+      ],
+      "samples_ms": [
+        237.781833,
+        248.39475,
+        249.255833,
+        244.82825,
+        241.240541
+      ],
+      "min_ms": 237.781833,
+      "median_ms": 244.82825,
+      "mean_ms": 244.3002414,
+      "p95_ms": 249.255833,
+      "max_ms": 249.255833,
+      "budget_ms": 1000,
+      "invocations": [
+        110,
+        111,
+        112,
+        113,
+        114
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-q1xn3qk1/read-broad-10000",
+        "bytes": 3430214,
+        "files": 22,
+        "inventory_sha256": "a0e22747d3299cad0074b3abd690a6b0eec90cfdb4072353d9597791932dd105",
+        "knowledge_bytes": 3430122
+      },
+      "command": [
+        "show",
+        "N10000",
+        "--full",
+        "--json"
+      ],
+      "samples_ms": [
+        284.042042,
+        283.405875,
+        265.790833,
+        278.690792,
+        278.940333
+      ],
+      "min_ms": 265.790833,
+      "median_ms": 278.940333,
+      "mean_ms": 278.173975,
+      "p95_ms": 284.042042,
+      "max_ms": 284.042042,
+      "budget_ms": 1000,
+      "invocations": [
+        115,
+        116,
+        117,
+        118,
+        119
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-q1xn3qk1/read-broad-10000",
+        "bytes": 3430214,
+        "files": 22,
+        "inventory_sha256": "a0e22747d3299cad0074b3abd690a6b0eec90cfdb4072353d9597791932dd105",
+        "knowledge_bytes": 3430122
+      },
+      "command": [
+        "path",
+        "N10000",
+        "--json"
+      ],
+      "samples_ms": [
+        196.860375,
+        185.909417,
+        187.401542,
+        194.96575,
+        195.431958
+      ],
+      "min_ms": 185.909417,
+      "median_ms": 194.96575,
+      "mean_ms": 192.1138084,
+      "p95_ms": 196.860375,
+      "max_ms": 196.860375,
+      "budget_ms": 1000,
+      "invocations": [
+        120,
+        121,
+        122,
+        123,
+        124
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-q1xn3qk1/read-broad-10000",
+        "bytes": 3430214,
+        "files": 22,
+        "inventory_sha256": "a0e22747d3299cad0074b3abd690a6b0eec90cfdb4072353d9597791932dd105",
+        "knowledge_bytes": 3430122
+      },
+      "command": [
+        "refs",
+        "C01",
+        "--json"
+      ],
+      "samples_ms": [
+        249.014667,
+        239.820083,
+        240.729709,
+        249.632291,
+        253.430875
+      ],
+      "min_ms": 239.820083,
+      "median_ms": 249.014667,
+      "mean_ms": 246.52552500000002,
+      "p95_ms": 253.430875,
+      "max_ms": 253.430875,
+      "budget_ms": 1000,
+      "invocations": [
+        125,
+        126,
+        127,
+        128,
+        129
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-q1xn3qk1/read-broad-10000",
+        "bytes": 3430214,
+        "files": 22,
+        "inventory_sha256": "a0e22747d3299cad0074b3abd690a6b0eec90cfdb4072353d9597791932dd105",
+        "knowledge_bytes": 3430122
+      },
+      "command": [
+        "open",
+        "--json"
+      ],
+      "samples_ms": [
+        222.125791,
+        215.756708,
+        221.588583,
+        223.968084,
+        224.162042
+      ],
+      "min_ms": 215.756708,
+      "median_ms": 222.125791,
+      "mean_ms": 221.5202416,
+      "p95_ms": 224.162042,
+      "max_ms": 224.162042,
+      "budget_ms": 1000,
+      "invocations": [
+        130,
+        131,
+        132,
+        133,
+        134
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-q1xn3qk1/read-broad-10000",
+        "bytes": 3430214,
+        "files": 22,
+        "inventory_sha256": "a0e22747d3299cad0074b3abd690a6b0eec90cfdb4072353d9597791932dd105",
+        "knowledge_bytes": 3430122
+      },
+      "command": [
+        "find",
+        "uniqueneedle",
+        "--limit",
+        "10",
+        "--json"
+      ],
+      "samples_ms": [
+        225.511625,
+        227.617375,
+        240.539334,
+        238.586333,
+        233.763333
+      ],
+      "min_ms": 225.511625,
+      "median_ms": 233.763333,
+      "mean_ms": 233.2036,
+      "p95_ms": 240.539334,
+      "max_ms": 240.539334,
+      "budget_ms": 1000,
+      "invocations": [
+        135,
+        136,
+        137,
+        138,
+        139
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-q1xn3qk1/read-deep-100",
+        "bytes": 33056,
+        "files": 18,
+        "inventory_sha256": "f63c1e78f5f7786626f4fa3e51cb29c17163747f8bf836e0bccb93e11760af3a",
+        "knowledge_bytes": 32964
+      },
+      "command": [
+        "status",
+        "--json"
+      ],
+      "samples_ms": [
+        9.474333,
+        8.085292,
+        7.900708,
+        7.665625,
+        7.711709
+      ],
+      "min_ms": 7.665625,
+      "median_ms": 7.900708,
+      "mean_ms": 8.1675334,
+      "p95_ms": 9.474333,
+      "max_ms": 9.474333,
+      "budget_ms": 1000,
+      "invocations": [
+        140,
+        141,
+        142,
+        143,
+        144
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-q1xn3qk1/read-deep-100",
+        "bytes": 33056,
+        "files": 18,
+        "inventory_sha256": "f63c1e78f5f7786626f4fa3e51cb29c17163747f8bf836e0bccb93e11760af3a",
+        "knowledge_bytes": 32964
+      },
+      "command": [
+        "ls",
+        "--json"
+      ],
+      "samples_ms": [
+        8.114958,
+        8.33125,
+        8.473459,
+        8.32575,
+        8.496333
+      ],
+      "min_ms": 8.114958,
+      "median_ms": 8.33125,
+      "mean_ms": 8.34835,
+      "p95_ms": 8.496333,
+      "max_ms": 8.496333,
+      "budget_ms": 1000,
+      "invocations": [
+        145,
+        146,
+        147,
+        148,
+        149
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-q1xn3qk1/read-deep-100",
+        "bytes": 33056,
+        "files": 18,
+        "inventory_sha256": "f63c1e78f5f7786626f4fa3e51cb29c17163747f8bf836e0bccb93e11760af3a",
+        "knowledge_bytes": 32964
+      },
+      "command": [
+        "show",
+        "N100",
+        "--full",
+        "--json"
+      ],
+      "samples_ms": [
+        8.483583,
+        8.347875,
+        8.37925,
+        8.469084,
+        8.369292
+      ],
+      "min_ms": 8.347875,
+      "median_ms": 8.37925,
+      "mean_ms": 8.4098168,
+      "p95_ms": 8.483583,
+      "max_ms": 8.483583,
+      "budget_ms": 1000,
+      "invocations": [
+        150,
+        151,
+        152,
+        153,
+        154
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-q1xn3qk1/read-deep-100",
+        "bytes": 33056,
+        "files": 18,
+        "inventory_sha256": "f63c1e78f5f7786626f4fa3e51cb29c17163747f8bf836e0bccb93e11760af3a",
+        "knowledge_bytes": 32964
+      },
+      "command": [
+        "path",
+        "N100",
+        "--json"
+      ],
+      "samples_ms": [
+        7.941916,
+        8.032792,
+        8.09375,
+        8.149542,
+        8.956083
+      ],
+      "min_ms": 7.941916,
+      "median_ms": 8.09375,
+      "mean_ms": 8.2348166,
+      "p95_ms": 8.956083,
+      "max_ms": 8.956083,
+      "budget_ms": 1000,
+      "invocations": [
+        155,
+        156,
+        157,
+        158,
+        159
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-q1xn3qk1/read-deep-100",
+        "bytes": 33056,
+        "files": 18,
+        "inventory_sha256": "f63c1e78f5f7786626f4fa3e51cb29c17163747f8bf836e0bccb93e11760af3a",
+        "knowledge_bytes": 32964
+      },
+      "command": [
+        "refs",
+        "C01",
+        "--json"
+      ],
+      "samples_ms": [
+        8.982708,
+        8.559417,
+        8.239458,
+        8.129208,
+        8.276833
+      ],
+      "min_ms": 8.129208,
+      "median_ms": 8.276833,
+      "mean_ms": 8.4375248,
+      "p95_ms": 8.982708,
+      "max_ms": 8.982708,
+      "budget_ms": 1000,
+      "invocations": [
+        160,
+        161,
+        162,
+        163,
+        164
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-q1xn3qk1/read-deep-100",
+        "bytes": 33056,
+        "files": 18,
+        "inventory_sha256": "f63c1e78f5f7786626f4fa3e51cb29c17163747f8bf836e0bccb93e11760af3a",
+        "knowledge_bytes": 32964
+      },
+      "command": [
+        "open",
+        "--json"
+      ],
+      "samples_ms": [
+        7.971375,
+        7.73175,
+        7.760417,
+        7.627541,
+        7.948292
+      ],
+      "min_ms": 7.627541,
+      "median_ms": 7.760417,
+      "mean_ms": 7.807875,
+      "p95_ms": 7.971375,
+      "max_ms": 7.971375,
+      "budget_ms": 1000,
+      "invocations": [
+        165,
+        166,
+        167,
+        168,
+        169
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-q1xn3qk1/read-deep-100",
+        "bytes": 33056,
+        "files": 18,
+        "inventory_sha256": "f63c1e78f5f7786626f4fa3e51cb29c17163747f8bf836e0bccb93e11760af3a",
+        "knowledge_bytes": 32964
+      },
+      "command": [
+        "find",
+        "uniqueneedle",
+        "--limit",
+        "10",
+        "--json"
+      ],
+      "samples_ms": [
+        8.825542,
+        8.6505,
+        8.645917,
+        8.665,
+        8.751292
+      ],
+      "min_ms": 8.645917,
+      "median_ms": 8.665,
+      "mean_ms": 8.7076502,
+      "p95_ms": 8.825542,
+      "max_ms": 8.825542,
+      "budget_ms": 1000,
+      "invocations": [
+        170,
+        171,
+        172,
+        173,
+        174
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-q1xn3qk1/read-deep-1000",
+        "bytes": 319841,
+        "files": 18,
+        "inventory_sha256": "9d43b6fe0a6e59e2ee6899422a5d4bb9daf58950c5605f85d8061685009e3864",
+        "knowledge_bytes": 319749
+      },
+      "command": [
+        "status",
+        "--json"
+      ],
+      "samples_ms": [
+        29.628292,
+        29.82375,
+        29.77775,
+        30.378583,
+        30.427334
+      ],
+      "min_ms": 29.628292,
+      "median_ms": 29.82375,
+      "mean_ms": 30.0071418,
+      "p95_ms": 30.427334,
+      "max_ms": 30.427334,
+      "budget_ms": 1000,
+      "invocations": [
+        175,
+        176,
+        177,
+        178,
+        179
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-q1xn3qk1/read-deep-1000",
+        "bytes": 319841,
+        "files": 18,
+        "inventory_sha256": "9d43b6fe0a6e59e2ee6899422a5d4bb9daf58950c5605f85d8061685009e3864",
+        "knowledge_bytes": 319749
+      },
+      "command": [
+        "ls",
+        "--json"
+      ],
+      "samples_ms": [
+        35.874292,
+        35.072208,
+        35.603042,
+        35.912458,
+        35.470958
+      ],
+      "min_ms": 35.072208,
+      "median_ms": 35.603042,
+      "mean_ms": 35.5865916,
+      "p95_ms": 35.912458,
+      "max_ms": 35.912458,
+      "budget_ms": 1000,
+      "invocations": [
+        180,
+        181,
+        182,
+        183,
+        184
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-q1xn3qk1/read-deep-1000",
+        "bytes": 319841,
+        "files": 18,
+        "inventory_sha256": "9d43b6fe0a6e59e2ee6899422a5d4bb9daf58950c5605f85d8061685009e3864",
+        "knowledge_bytes": 319749
+      },
+      "command": [
+        "show",
+        "N1000",
+        "--full",
+        "--json"
+      ],
+      "samples_ms": [
+        38.447292,
+        39.154375,
+        38.39575,
+        38.700709,
+        38.3835
+      ],
+      "min_ms": 38.3835,
+      "median_ms": 38.447292,
+      "mean_ms": 38.6163252,
+      "p95_ms": 39.154375,
+      "max_ms": 39.154375,
+      "budget_ms": 1000,
+      "invocations": [
+        185,
+        186,
+        187,
+        188,
+        189
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-q1xn3qk1/read-deep-1000",
+        "bytes": 319841,
+        "files": 18,
+        "inventory_sha256": "9d43b6fe0a6e59e2ee6899422a5d4bb9daf58950c5605f85d8061685009e3864",
+        "knowledge_bytes": 319749
+      },
+      "command": [
+        "path",
+        "N1000",
+        "--json"
+      ],
+      "samples_ms": [
+        33.542,
+        32.70525,
+        32.115459,
+        31.890041,
+        31.531
+      ],
+      "min_ms": 31.531,
+      "median_ms": 32.115459,
+      "mean_ms": 32.35675,
+      "p95_ms": 33.542,
+      "max_ms": 33.542,
+      "budget_ms": 1000,
+      "invocations": [
+        190,
+        191,
+        192,
+        193,
+        194
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-q1xn3qk1/read-deep-1000",
+        "bytes": 319841,
+        "files": 18,
+        "inventory_sha256": "9d43b6fe0a6e59e2ee6899422a5d4bb9daf58950c5605f85d8061685009e3864",
+        "knowledge_bytes": 319749
+      },
+      "command": [
+        "refs",
+        "C01",
+        "--json"
+      ],
+      "samples_ms": [
+        34.227167,
+        34.29725,
+        34.503791,
+        34.295,
+        33.563167
+      ],
+      "min_ms": 33.563167,
+      "median_ms": 34.295,
+      "mean_ms": 34.177275,
+      "p95_ms": 34.503791,
+      "max_ms": 34.503791,
+      "budget_ms": 1000,
+      "invocations": [
+        195,
+        196,
+        197,
+        198,
+        199
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-q1xn3qk1/read-deep-1000",
+        "bytes": 319841,
+        "files": 18,
+        "inventory_sha256": "9d43b6fe0a6e59e2ee6899422a5d4bb9daf58950c5605f85d8061685009e3864",
+        "knowledge_bytes": 319749
+      },
+      "command": [
+        "open",
+        "--json"
+      ],
+      "samples_ms": [
+        30.804083,
+        32.225291,
+        32.984208,
+        32.572541,
+        32.703958
+      ],
+      "min_ms": 30.804083,
+      "median_ms": 32.572541,
+      "mean_ms": 32.2580162,
+      "p95_ms": 32.984208,
+      "max_ms": 32.984208,
+      "budget_ms": 1000,
+      "invocations": [
+        200,
+        201,
+        202,
+        203,
+        204
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-q1xn3qk1/read-deep-1000",
+        "bytes": 319841,
+        "files": 18,
+        "inventory_sha256": "9d43b6fe0a6e59e2ee6899422a5d4bb9daf58950c5605f85d8061685009e3864",
+        "knowledge_bytes": 319749
+      },
+      "command": [
+        "find",
+        "uniqueneedle",
+        "--limit",
+        "10",
+        "--json"
+      ],
+      "samples_ms": [
+        34.48725,
+        34.20475,
+        34.432292,
+        35.375459,
+        34.178833
+      ],
+      "min_ms": 34.178833,
+      "median_ms": 34.432292,
+      "mean_ms": 34.535716799999996,
+      "p95_ms": 35.375459,
+      "max_ms": 35.375459,
+      "budget_ms": 1000,
+      "invocations": [
+        205,
+        206,
+        207,
+        208,
+        209
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-q1xn3qk1/read-deep-10000",
+        "bytes": 3227645,
+        "files": 22,
+        "inventory_sha256": "e340f2bd16891ed56373542c9d6420dae69357c100b2e626c2ab377f308c6a05",
+        "knowledge_bytes": 3227553
+      },
+      "command": [
+        "status",
+        "--json"
+      ],
+      "samples_ms": [
+        290.98175,
+        280.15075,
+        295.96675,
+        294.687791,
+        286.63825
+      ],
+      "min_ms": 280.15075,
+      "median_ms": 290.98175,
+      "mean_ms": 289.6850582,
+      "p95_ms": 295.96675,
+      "max_ms": 295.96675,
+      "budget_ms": 1000,
+      "invocations": [
+        210,
+        211,
+        212,
+        213,
+        214
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-q1xn3qk1/read-deep-10000",
+        "bytes": 3227645,
+        "files": 22,
+        "inventory_sha256": "e340f2bd16891ed56373542c9d6420dae69357c100b2e626c2ab377f308c6a05",
+        "knowledge_bytes": 3227553
+      },
+      "command": [
+        "ls",
+        "--json"
+      ],
+      "samples_ms": [
+        344.052042,
+        349.642333,
+        337.048042,
+        353.6865,
+        347.77
+      ],
+      "min_ms": 337.048042,
+      "median_ms": 347.77,
+      "mean_ms": 346.4397834,
+      "p95_ms": 353.6865,
+      "max_ms": 353.6865,
+      "budget_ms": 1000,
+      "invocations": [
+        215,
+        216,
+        217,
+        218,
+        219
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-q1xn3qk1/read-deep-10000",
+        "bytes": 3227645,
+        "files": 22,
+        "inventory_sha256": "e340f2bd16891ed56373542c9d6420dae69357c100b2e626c2ab377f308c6a05",
+        "knowledge_bytes": 3227553
+      },
+      "command": [
+        "show",
+        "N10000",
+        "--full",
+        "--json"
+      ],
+      "samples_ms": [
+        370.116417,
+        376.164792,
+        359.921791,
+        374.341833,
+        390.228208
+      ],
+      "min_ms": 359.921791,
+      "median_ms": 374.341833,
+      "mean_ms": 374.1546082,
+      "p95_ms": 390.228208,
+      "max_ms": 390.228208,
+      "budget_ms": 1000,
+      "invocations": [
+        220,
+        221,
+        222,
+        223,
+        224
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-q1xn3qk1/read-deep-10000",
+        "bytes": 3227645,
+        "files": 22,
+        "inventory_sha256": "e340f2bd16891ed56373542c9d6420dae69357c100b2e626c2ab377f308c6a05",
+        "knowledge_bytes": 3227553
+      },
+      "command": [
+        "path",
+        "N10000",
+        "--json"
+      ],
+      "samples_ms": [
+        320.290667,
+        323.373334,
+        339.606209,
+        324.586541,
+        327.973167
+      ],
+      "min_ms": 320.290667,
+      "median_ms": 324.586541,
+      "mean_ms": 327.1659836,
+      "p95_ms": 339.606209,
+      "max_ms": 339.606209,
+      "budget_ms": 1000,
+      "invocations": [
+        225,
+        226,
+        227,
+        228,
+        229
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-q1xn3qk1/read-deep-10000",
+        "bytes": 3227645,
+        "files": 22,
+        "inventory_sha256": "e340f2bd16891ed56373542c9d6420dae69357c100b2e626c2ab377f308c6a05",
+        "knowledge_bytes": 3227553
+      },
+      "command": [
+        "refs",
+        "C01",
+        "--json"
+      ],
+      "samples_ms": [
+        350.04825,
+        338.914833,
+        350.31625,
+        350.562125,
+        336.27475
+      ],
+      "min_ms": 336.27475,
+      "median_ms": 350.04825,
+      "mean_ms": 345.2232416,
+      "p95_ms": 350.562125,
+      "max_ms": 350.562125,
+      "budget_ms": 1000,
+      "invocations": [
+        230,
+        231,
+        232,
+        233,
+        234
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-q1xn3qk1/read-deep-10000",
+        "bytes": 3227645,
+        "files": 22,
+        "inventory_sha256": "e340f2bd16891ed56373542c9d6420dae69357c100b2e626c2ab377f308c6a05",
+        "knowledge_bytes": 3227553
+      },
+      "command": [
+        "open",
+        "--json"
+      ],
+      "samples_ms": [
+        320.03575,
+        320.777792,
+        309.117292,
+        320.801125,
+        319.621917
+      ],
+      "min_ms": 309.117292,
+      "median_ms": 320.03575,
+      "mean_ms": 318.0707752,
+      "p95_ms": 320.801125,
+      "max_ms": 320.801125,
+      "budget_ms": 1000,
+      "invocations": [
+        235,
+        236,
+        237,
+        238,
+        239
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-q1xn3qk1/read-deep-10000",
+        "bytes": 3227645,
+        "files": 22,
+        "inventory_sha256": "e340f2bd16891ed56373542c9d6420dae69357c100b2e626c2ab377f308c6a05",
+        "knowledge_bytes": 3227553
+      },
+      "command": [
+        "find",
+        "uniqueneedle",
+        "--limit",
+        "10",
+        "--json"
+      ],
+      "samples_ms": [
+        320.988,
+        332.965583,
+        336.669916,
+        324.422292,
+        336.018167
+      ],
+      "min_ms": 320.988,
+      "median_ms": 332.965583,
+      "mean_ms": 330.2127916,
+      "p95_ms": 336.669916,
+      "max_ms": 336.669916,
+      "budget_ms": 1000,
+      "invocations": [
+        240,
+        241,
+        242,
+        243,
+        244
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-q1xn3qk1/merge-100/ours",
+        "bytes": 33872,
+        "files": 19,
+        "inventory_sha256": "7342bd2b017fe7a9bf264e1b1d3151dcebe4168e0b5f0f66701fd9681a9a9b99",
+        "knowledge_bytes": 33780
+      },
+      "command": [
+        "merge",
+        "--base",
+        "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-q1xn3qk1/merge-100/base",
+        "--theirs",
+        "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-q1xn3qk1/merge-100/theirs",
+        "--as",
+        "acceptance-fork",
+        "--source-key",
+        "generated_fixture_bob",
+        "--json"
+      ],
+      "samples_ms": [
+        203.556333,
+        192.406917,
+        205.022292,
+        225.82675,
+        228.420375
+      ],
+      "min_ms": 192.406917,
+      "median_ms": 205.022292,
+      "mean_ms": 211.0465334,
+      "p95_ms": 228.420375,
+      "max_ms": 228.420375,
+      "budget_ms": null,
+      "invocations": [
+        470,
+        471,
+        472,
+        473,
+        474
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-q1xn3qk1/merge-1000/ours",
+        "bytes": 314226,
+        "files": 19,
+        "inventory_sha256": "e0525e1325183285defde09bbc157304864de8fa1d4d8a4bc76c5393c9547d1d",
+        "knowledge_bytes": 314134
+      },
+      "command": [
+        "merge",
+        "--base",
+        "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-q1xn3qk1/merge-1000/base",
+        "--theirs",
+        "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-q1xn3qk1/merge-1000/theirs",
+        "--as",
+        "acceptance-fork",
+        "--source-key",
+        "generated_fixture_bob",
+        "--json"
+      ],
+      "samples_ms": [
+        411.448542,
+        407.35075,
+        375.009875,
+        410.003375,
+        399.327458
+      ],
+      "min_ms": 375.009875,
+      "median_ms": 407.35075,
+      "mean_ms": 400.628,
+      "p95_ms": 411.448542,
+      "max_ms": 411.448542,
+      "budget_ms": null,
+      "invocations": [
+        479,
+        480,
+        481,
+        482,
+        483
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-q1xn3qk1/merge-10000/ours",
+        "bytes": 3164150,
+        "files": 22,
+        "inventory_sha256": "866852480b4369604334970e96f68c75419ed6c62325c58e538d04960747f067",
+        "knowledge_bytes": 3164058
+      },
+      "command": [
+        "merge",
+        "--base",
+        "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-q1xn3qk1/merge-10000/base",
+        "--theirs",
+        "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-q1xn3qk1/merge-10000/theirs",
+        "--as",
+        "acceptance-fork",
+        "--source-key",
+        "generated_fixture_bob",
+        "--json"
+      ],
+      "samples_ms": [
+        2318.137916,
+        2354.0565,
+        2341.620334,
+        2324.161583,
+        2341.046
+      ],
+      "min_ms": 2318.137916,
+      "median_ms": 2341.046,
+      "mean_ms": 2335.8044666,
+      "p95_ms": 2354.0565,
+      "max_ms": 2354.0565,
+      "budget_ms": 1000,
+      "invocations": [
+        488,
+        489,
+        490,
+        491,
+        492
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-q1xn3qk1/git-100-small/repository/ara",
+        "bytes": 33872,
+        "files": 19,
+        "inventory_sha256": "7342bd2b017fe7a9bf264e1b1d3151dcebe4168e0b5f0f66701fd9681a9a9b99",
+        "knowledge_bytes": 33780
+      },
+      "command": [
+        "merge",
+        "--git",
+        "theirs",
+        "--source-key",
+        "generated_fixture_bob",
+        "--as",
+        "acceptance-fork",
+        "--no-duplicate-check",
+        "--json"
+      ],
+      "samples_ms": [
+        318.135625,
+        324.899875,
+        288.754125,
+        273.696417,
+        306.477125
+      ],
+      "min_ms": 273.696417,
+      "median_ms": 306.477125,
+      "mean_ms": 302.3926334,
+      "p95_ms": 324.899875,
+      "max_ms": 324.899875,
+      "budget_ms": null,
+      "invocations": [
+        500,
+        501,
+        502,
+        503,
+        504
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-q1xn3qk1/git-100-unrelated-tree/repository/ara",
+        "bytes": 33872,
+        "files": 19,
+        "inventory_sha256": "7342bd2b017fe7a9bf264e1b1d3151dcebe4168e0b5f0f66701fd9681a9a9b99",
+        "knowledge_bytes": 33780
+      },
+      "command": [
+        "merge",
+        "--git",
+        "theirs",
+        "--source-key",
+        "generated_fixture_bob",
+        "--as",
+        "acceptance-fork",
+        "--no-duplicate-check",
+        "--json"
+      ],
+      "samples_ms": [
+        331.070334,
+        314.508125,
+        339.462333,
+        324.11125,
+        349.578709
+      ],
+      "min_ms": 314.508125,
+      "median_ms": 331.070334,
+      "mean_ms": 331.7461502,
+      "p95_ms": 349.578709,
+      "max_ms": 349.578709,
+      "budget_ms": null,
+      "invocations": [
+        510,
+        511,
+        512,
+        513,
+        514
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-q1xn3qk1/git-1000-small/repository/ara",
+        "bytes": 314226,
+        "files": 19,
+        "inventory_sha256": "e0525e1325183285defde09bbc157304864de8fa1d4d8a4bc76c5393c9547d1d",
+        "knowledge_bytes": 314134
+      },
+      "command": [
+        "merge",
+        "--git",
+        "theirs",
+        "--source-key",
+        "generated_fixture_bob",
+        "--as",
+        "acceptance-fork",
+        "--no-duplicate-check",
+        "--json"
+      ],
+      "samples_ms": [
+        466.83175,
+        522.127792,
+        472.794458,
+        493.176333,
+        495.529208
+      ],
+      "min_ms": 466.83175,
+      "median_ms": 493.176333,
+      "mean_ms": 490.0919082,
+      "p95_ms": 522.127792,
+      "max_ms": 522.127792,
+      "budget_ms": null,
+      "invocations": [
+        520,
+        521,
+        522,
+        523,
+        524
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-q1xn3qk1/git-1000-unrelated-tree/repository/ara",
+        "bytes": 314226,
+        "files": 19,
+        "inventory_sha256": "e0525e1325183285defde09bbc157304864de8fa1d4d8a4bc76c5393c9547d1d",
+        "knowledge_bytes": 314134
+      },
+      "command": [
+        "merge",
+        "--git",
+        "theirs",
+        "--source-key",
+        "generated_fixture_bob",
+        "--as",
+        "acceptance-fork",
+        "--no-duplicate-check",
+        "--json"
+      ],
+      "samples_ms": [
+        528.363917,
+        531.323959,
+        494.199417,
+        532.908083,
+        500.371
+      ],
+      "min_ms": 494.199417,
+      "median_ms": 528.363917,
+      "mean_ms": 517.4332752,
+      "p95_ms": 532.908083,
+      "max_ms": 532.908083,
+      "budget_ms": null,
+      "invocations": [
+        530,
+        531,
+        532,
+        533,
+        534
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-q1xn3qk1/git-10000-small/repository/ara",
+        "bytes": 3164150,
+        "files": 22,
+        "inventory_sha256": "866852480b4369604334970e96f68c75419ed6c62325c58e538d04960747f067",
+        "knowledge_bytes": 3164058
+      },
+      "command": [
+        "merge",
+        "--git",
+        "theirs",
+        "--source-key",
+        "generated_fixture_bob",
+        "--as",
+        "acceptance-fork",
+        "--no-duplicate-check",
+        "--json"
+      ],
+      "samples_ms": [
+        2176.087833,
+        2182.562125,
+        2210.600875,
+        2196.371083,
+        2190.085708
+      ],
+      "min_ms": 2176.087833,
+      "median_ms": 2190.085708,
+      "mean_ms": 2191.1415248,
+      "p95_ms": 2210.600875,
+      "max_ms": 2210.600875,
+      "budget_ms": null,
+      "invocations": [
+        540,
+        541,
+        542,
+        543,
+        544
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-q1xn3qk1/git-10000-unrelated-tree/repository/ara",
+        "bytes": 3164150,
+        "files": 22,
+        "inventory_sha256": "866852480b4369604334970e96f68c75419ed6c62325c58e538d04960747f067",
+        "knowledge_bytes": 3164058
+      },
+      "command": [
+        "merge",
+        "--git",
+        "theirs",
+        "--source-key",
+        "generated_fixture_bob",
+        "--as",
+        "acceptance-fork",
+        "--no-duplicate-check",
+        "--json"
+      ],
+      "samples_ms": [
+        2162.769625,
+        2168.292417,
+        2205.480292,
+        2165.95075,
+        2179.325584
+      ],
+      "min_ms": 2162.769625,
+      "median_ms": 2168.292417,
+      "mean_ms": 2176.3637336,
+      "p95_ms": 2205.480292,
+      "max_ms": 2205.480292,
+      "budget_ms": null,
+      "invocations": [
+        550,
+        551,
+        552,
+        553,
+        554
+      ]
+    }
+  ],
+  "coverage": {
+    "rows": 107,
+    "statuses": {
+      "passed": 88,
+      "exempt-direct-access-allowed": 17,
+      "exempt-output-only": 1,
+      "exempt-skill-reference-access": 1
+    }
+  },
+  "search": {
+    "relevance": {
+      "development": {
+        "recall_at_10": null,
+        "precision": null,
+        "recall": null,
+        "tp": null,
+        "fp": null,
+        "fn": null
+      },
+      "heldout": {
+        "recall_at_10": null,
+        "precision": null,
+        "recall": null,
+        "tp": null,
+        "fp": null,
+        "fn": null
+      }
+    },
+    "pairs": {
+      "development": {
+        "recall_at_10": null,
+        "precision": 1.0,
+        "recall": 1.0,
+        "tp": 1,
+        "fp": 0,
+        "fn": 0
+      },
+      "heldout": {
+        "recall_at_10": null,
+        "precision": 1.0,
+        "recall": 1.0,
+        "tp": 1,
+        "fp": 0,
+        "fn": 0
+      }
+    }
+  },
+  "replay": {
+    "dialect_observations": [
+      {
+        "id": "N68",
+        "source_node": {
+          "id": "N68",
+          "type": "experiment",
+          "title": "BAM ARA v2 (fix+reflection): 118/124 (95.2% raw), 93.6% weighted — ARA now leads",
+          "also_depends_on": [
+            "N65"
+          ],
+          "provenance": "ai-executed",
+          "timestamp": "2026-03-20T06:00",
+          "result": "Re-ran ARA condition after fix (hyperparams moved from evidence/ to src/configs/) and adding src/reproduction_notes.md with v1 lessons. 129 turns, 5.2h, 14.9M tokens. Raw: 118/124 (95.2%). Weighted: 235/251 (93.6%). Easy 98.6%, Medium 98.0%, Hard 88.2%. Key improvements over v1 (88.2% weighted):\n  T09 (posteriorDB, hard): 14/15 vs v1's 10/15 (+4.0) — agent installed posteriordb\n    package, ran ADVI comparison (v1 missed it), completed all 3 models\n  T02 (GSM, easy): 14.5/15 vs v1's 13/14 (+1.5)\n  T07 (non-Gaussian, medium): 14/14 vs v1's 13.5/14 (+0.5)\nStill missed: T08 s=0 varying-tail (7/10, same as v1), T09 only 5 seeds not 10. ARA v2 now beats baseline (93.2% weighted) by +0.4pp.\n",
+          "evidence": [
+            "C05",
+            "code/eval/reproduction/results/bam_ara_seed0/_judge_result.json"
+          ]
+        },
+        "children": [],
+        "reasons": [
+          "strict node.add rejects recorded ancestor dependencies: N65"
+        ]
+      },
+      {
+        "id": "N82",
+        "source_node": {
+          "id": "N82",
+          "type": "observation",
+          "title": "RL papers create a compute ceiling that equalizes ARA and baseline scores",
+          "provenance": "ai-suggested",
+          "timestamp": "2026-03-22T22:00",
+          "description": "FTRL is the first RL-heavy paper tested. Both conditions scored 0% on all 5 training-dependent subtasks (T02,T03,T05,T08,T10 = 65/129 requirements). This means 50% of the rubric is unreachable regardless of artifact quality. The ARA advantage (structured hyperparams, clear configs) only helps with implementation subtasks where it excels (T01: 90%, T07: 91%). For training subtasks, both need millions of RL steps that neither can complete in the time budget. This contrasts with papers like mechanistic-understanding (ARA 73% vs baseline 60%, +13pp) where training is lighter (GPU-based, shorter runs). Suggests ARA advantage scales inversely with training compute requirements.\n"
+        },
+        "children": [],
+        "reasons": [
+          "unsupported node.add type: observation"
+        ]
+      },
+      {
+        "id": "N84",
+        "source_node": {
+          "id": "N84",
+          "type": "observation",
+          "title": "ARA provides correct hyperparameter guidance but agent fails at loss calibration",
+          "provenance": "ai-suggested",
+          "timestamp": "2026-03-26T00:00",
+          "description": "ARA agent found n_embd=552 (vs optimal 554) — interpolation error only 0.0002, essentially perfect hyperparameter selection from ARA artifact's evidence/exploration trace. But predicted loss=3.28 (vs actual 3.64), a 0.356 error that dominated the score. If the agent had predicted 3.64, its score would have been 0.996 (near perfect). The baseline used the polished paper's explicit reference (n_embd≈992, max_iters≈26900) which is 2x off from optimal but had better-calibrated loss prediction (3.59 vs 3.71, error 0.12). This is a \"right answer, wrong confidence\" scenario for ARA.\n"
+        },
+        "children": [],
+        "reasons": [
+          "unsupported node.add type: observation"
+        ]
+      },
+      {
+        "id": "N88",
+        "source_node": {
+          "id": "N88",
+          "type": "pivot",
+          "title": "Custom 20-paper canonical corpus → PaperBench 23 papers exclusively",
+          "provenance": "user",
+          "timestamp": "2026-03-12",
+          "also_depends_on": [
+            "N08",
+            "N11"
+          ],
+          "prior_direction": "N08 established a curated 20-paper corpus of canonical AI papers (Transformer, GPT-2, DPO, etc.) spanning 13 subfields and 2014-2023. These were chosen for diversity and recognizability. The plan was to build ARA artifacts for all 20 and use them as the primary evaluation corpus.\n",
+          "new_direction": "Replaced the custom corpus entirely with PaperBench's 23 papers as the eval set. Extended to 7 RE-Bench tasks as the second benchmark.\n",
+          "reason": "PaperBench provides expert-authored hierarchical rubrics (8,921 leaf requirements) that serve triple duty: (1) ground truth for Cat B configuration-recovery questions (rubric-alignment format), (2) objective coverage analysis for the information-gap experiment, and (3) reproduction success metric. The custom 20-paper corpus had no rubrics — building them from scratch would have been weeks of work and introduced author bias. PaperBench also has companion GitHub repos for 15/23 papers, enabling reproduction experiments. The canonical papers (Transformer, GPT-2) were too well-known — agents have strong prior knowledge about them, which would confound the ARA-vs-PDF signal.\n",
+          "lesson": "Reuse existing rigorous benchmark infrastructure rather than building ground truth from scratch. If an existing benchmark provides rubrics, corpora, and baselines, adopt it even if it means giving up some control over paper selection. The custom corpus was redundant once PaperBench was available.\n",
+          "evidence": "ara/trace/sessions/2026-03-12_*.yaml; git commit 84083d5b (2026-03-14); N11 (RIC eval decision that first connected ARA to PaperBench rubrics)\n"
+        },
+        "children": [],
+        "reasons": [
+          "missing required unchanged source payload: from, to, trigger"
+        ]
+      },
+      {
+        "id": "N89",
+        "source_node": {
+          "id": "N89",
+          "type": "pivot",
+          "title": "3-layer architecture → 4-layer: Evidence separated from Exploration Graph",
+          "provenance": "user",
+          "timestamp": "2026-03-12",
+          "also_depends_on": [
+            "N04"
+          ],
+          "prior_direction": "N04 established three orthogonal layers: Cognitive (/logic), Physical (/src), and Exploration Graph (/trace). Evidence (raw numbers, tables, logs) was considered part of the Exploration Graph layer or implicitly part of /logic via claim proof pointers. The four-layer option was listed as an alternative and explicitly not chosen in N04.\n",
+          "new_direction": "Added Evidence as an independent 4th layer (/evidence) separate from /trace. The Exploration Graph retains the decision history and dead ends; /evidence holds raw empirical outputs (metric tables, training curves, evaluation logs).\n",
+          "reason": "Access control: a verification agent should be able to receive the code kernel and algorithm descriptions while /evidence is withheld, preventing fabrication by copying expected values. This separation also makes experiments.md (in /logic) meaningful: it specifies what to verify without revealing what to expect. Conflating evidence with the exploration graph means every agent reading the trace layer also sees the ground-truth numbers — collapsing the blind-reproduction guarantee that is one of ARA's core design properties. The separation also matches the agent's four fundamental needs: understand (/logic), reproduce (/src), learn from process (/trace), verify claims (/evidence).\n",
+          "lesson": "Access control is a first-class design constraint, not an afterthought. Any time a layer contains information that should be selectively withheld, it must be its own layer. The 3-layer design implicitly assumed a single access level; 4 layers allow fine-grained grants (logic+src for reproduction agents, +evidence for verification agents, +trace for extension agents).\n",
+          "evidence": "paper/sections/protocol.tex §3.2 — four-layer architecture description; paper/sections/protocol.tex — experiments.md design note on layered access control; N04 (original 3-layer decision, four-layer listed as rejected alternative)\n"
+        },
+        "children": [],
+        "reasons": [
+          "missing required unchanged source payload: from, to, trigger"
+        ]
+      },
+      {
+        "id": "N95",
+        "source_node": {
+          "id": "N95",
+          "type": "experiment",
+          "title": "Deep dive: ARA as a ready-to-use RL training environment (task + reward)",
+          "provenance": "user",
+          "timestamp": "2026-04-08",
+          "also_depends_on": [
+            "N04",
+            "N89"
+          ],
+          "exploration": "Developed an extended framing of ARA's Physical Layer as a structured RL training environment. Every ARA contains exactly what RL requires: a task (logic/experiments.md specifies what to verify), a reward (verifiable outcomes from evidence/ + preference signals from every accept, reject, and revision logged in the trajectory), and a policy initialization point (src/ kernel). Explored how this positions ARA as training data for research agents: the trace layer encodes human taste (every decision about what to pursue, refine, or discard) as structured signal, making the trajectory a learnable record of scientific judgment. Extended discussion: ARA artifacts aggregate into a training corpus where the signal is not \"what did the agent do?\" but \"what did the human-agent team consider valuable?\" — a sparse, high-quality reward signal distinct from RLHF's preference annotations.\n",
+          "outcome": "The RL environment framing was kept in the paper as a paragraph in the Physical Layer description (protocol.tex): \"Each artifact thus contains exactly what reinforcement learning requires: a task (/logic/experiments.md) and a reward (verifiable outcomes from /evidence plus preference signals from every accept, reject, and revision logged in the trajectory), making every ARA a ready-to-use training environment for research agents.\" The taste signal framing was added to the Storytelling Tax paragraph: \"the trajectory renders human taste, the scarce resource that becomes the binding constraint once agents shoulder the grunt work, as structured signal.\" git commit 8eda63fa (2026-04-08).\n",
+          "lesson": "The RL framing reframes ARA's value proposition beyond \"better documentation\" to \"training infrastructure\" — a much stronger position for an ML venue. It also explains why the trace layer is valuable even when agents don't consume it directly: it generates training signal as a side-effect of research. Keep this framing prominent in future versions; it speaks directly to the NeurIPS audience's primary interest.\n"
+        },
+        "children": [],
+        "reasons": [
+          "missing required unchanged source payload: result"
+        ]
+      },
+      {
+        "id": "N96",
+        "source_node": {
+          "id": "N96",
+          "type": "experiment",
+          "title": "Deep dive: 'Discussion and Limitations' restructured to forward-looking 'Future Work'",
+          "provenance": "user",
+          "timestamp": "2026-04-04",
+          "also_depends_on": [
+            "N04",
+            "N06",
+            "N30"
+          ],
+          "exploration": "Spent a significant session reconsidering the Discussion section's purpose. The original \"Discussion and Limitations\" (five numbered limitations + four analytical paragraphs) was defensive in tone — it spent most of its space on what ARA cannot do. The limitations addressed: Ingestor fidelity bounded by LLM capabilities; evaluation scale (30 papers insufficient for robustness claims); adoption requiring tooling investment; domain scope limited to CS; and the \"Semantic Traversal Tax\" (hierarchical traversal overhead). Deep exploration of whether each limitation was structural (cannot be fixed without changing the protocol) or incidental (will be addressed by better tooling/scale). Also explored: should we argue \"ARA is ready now\" or \"here is the roadmap\"? Does NeurIPS expect limitations or future directions?\n",
+          "outcome": "Restructured entirely as \"Future Work\" with three temporal horizons: near-term (lineage and self-maintaining ecosystems), medium-term (knowledge graph, collaborative discovery, continuous review), long-term (cross-disciplinary collective memory). The \"Semantic Traversal Tax\" limitation was CUT because the token data contradicted it (ARA uses FEWER tokens at Cat A: 86.3K vs 97.7K). The other limitations were moved to a standalone \"Limitations\" section. The forward-looking frame is stronger for NeurIPS: it argues ARA is a foundation for a new research ecosystem, not just a marginally better format. git commit 2ed9f228 (2026-04-04).\n",
+          "lesson": "Limitations sections are necessary but should not be the Discussion's dominant mode. Lead with the vision; acknowledge constraints in a bounded section. Any limitation that is contradicted by your own data should be cut immediately. The \"Semantic Traversal Tax\" is a cautionary example: always check the data before claiming a cost exists.\n"
+        },
+        "children": [],
+        "reasons": [
+          "missing required unchanged source payload: result"
+        ]
+      },
+      {
+        "id": "N88",
+        "kind": "legacy_or_explicit_source_field",
+        "field": "prior_direction",
+        "value": "N08 established a curated 20-paper corpus of canonical AI papers (Transformer, GPT-2, DPO, etc.) spanning 13 subfields and 2014-2023. These were chosen for diversity and recognizability. The plan was to build ARA artifacts for all 20 and use them as the primary evaluation corpus.\n"
+      },
+      {
+        "id": "N88",
+        "kind": "legacy_or_explicit_source_field",
+        "field": "new_direction",
+        "value": "Replaced the custom corpus entirely with PaperBench's 23 papers as the eval set. Extended to 7 RE-Bench tasks as the second benchmark.\n"
+      },
+      {
+        "id": "N88",
+        "kind": "legacy_or_explicit_source_field",
+        "field": "reason",
+        "value": "PaperBench provides expert-authored hierarchical rubrics (8,921 leaf requirements) that serve triple duty: (1) ground truth for Cat B configuration-recovery questions (rubric-alignment format), (2) objective coverage analysis for the information-gap experiment, and (3) reproduction success metric. The custom 20-paper corpus had no rubrics — building them from scratch would have been weeks of work and introduced author bias. PaperBench also has companion GitHub repos for 15/23 papers, enabling reproduction experiments. The canonical papers (Transformer, GPT-2) were too well-known — agents have strong prior knowledge about them, which would confound the ARA-vs-PDF signal.\n"
+      },
+      {
+        "id": "N89",
+        "kind": "legacy_or_explicit_source_field",
+        "field": "prior_direction",
+        "value": "N04 established three orthogonal layers: Cognitive (/logic), Physical (/src), and Exploration Graph (/trace). Evidence (raw numbers, tables, logs) was considered part of the Exploration Graph layer or implicitly part of /logic via claim proof pointers. The four-layer option was listed as an alternative and explicitly not chosen in N04.\n"
+      },
+      {
+        "id": "N89",
+        "kind": "legacy_or_explicit_source_field",
+        "field": "new_direction",
+        "value": "Added Evidence as an independent 4th layer (/evidence) separate from /trace. The Exploration Graph retains the decision history and dead ends; /evidence holds raw empirical outputs (metric tables, training curves, evaluation logs).\n"
+      },
+      {
+        "id": "N89",
+        "kind": "legacy_or_explicit_source_field",
+        "field": "reason",
+        "value": "Access control: a verification agent should be able to receive the code kernel and algorithm descriptions while /evidence is withheld, preventing fabrication by copying expected values. This separation also makes experiments.md (in /logic) meaningful: it specifies what to verify without revealing what to expect. Conflating evidence with the exploration graph means every agent reading the trace layer also sees the ground-truth numbers — collapsing the blind-reproduction guarantee that is one of ARA's core design properties. The separation also matches the agent's four fundamental needs: understand (/logic), reproduce (/src), learn from process (/trace), verify claims (/evidence).\n"
+      }
+    ],
+    "silently_skipped_nodes": 0,
+    "engineering_compatibility": "blocked: historical import contract required",
+    "experiment_E3": "deferred; this is deterministic engineering replay, not the paper experiment"
+  }
+}

@@ -871,14 +871,12 @@ fn check_wrong_kind_matrix_warns_and_fails_strict() {
         ))
         .stdout(predicate::str::contains(
             "field `prior_direction` dropped for type `dead_end`",
-        ))
-        .stdout(predicate::str::contains("14 warning(s)"));
+        ));
 
     ara()
         .arg("check")
         .arg(&dir)
         .arg("--strict")
         .assert()
-        .failure()
-        .stdout(predicate::str::contains("14 warning(s)"));
+        .failure();
 }

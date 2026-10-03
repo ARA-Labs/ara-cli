@@ -1,0 +1,12 @@
+{
+  "format": "ara.skill-variant-integrity/v1",
+  "status": "pass",
+  "variant_files": 21,
+  "source_pages": 13,
+  "operation_count": 107,
+  "collective_files": 13,
+  "cli_pin_status": "not-pinned",
+  "semantic_review_status": "pending-independent-access-review",
+  "runtime_proof_status": "not-observed",
+  "scope": "byte/closure/inventory integrity only; not semantic review, upstream approval, binary proof or experiment results"
+}

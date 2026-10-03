@@ -1,0 +1,3475 @@
+{
+  "format": "ara.complete-acceptance-summary/v1",
+  "binary_sha256": "fdda2cb6dc0cf54cd027ad8be205d4d81d7e623091954db3b7c3d00bd915f911",
+  "source_record_commit": "1f266bf9f9fb37e3c3b59df88661222a9335e2dd",
+  "raw_path": "/tmp/ara-delivery-final-0.1.23-fdda-acceptance.json",
+  "raw_bytes": 3407162171,
+  "acceptance_complete": true,
+  "passed": false,
+  "failure_scenarios": [
+    "merge.100000.dry_run",
+    "merge.100000.timing",
+    "merge.100000.preservation_replay",
+    "git.100000.small.dry_run",
+    "git.100000.small.timing",
+    "git.100000.small.equivalence_replay",
+    "git.100000.unrelated-tree.dry_run",
+    "git.100000.unrelated-tree.timing",
+    "git.100000.unrelated-tree.equivalence_replay",
+    "replay"
+  ],
+  "blockers": [
+    "Pinned protocol/skill contracts are pending upstream review; behavior measurements do not fabricate approval"
+  ],
+  "timings": [
+    {
+      "artifact": {
+        "path": "/Users/yfhe/repos/ara/ara-cli/crates/ara-core/tests/fixtures/agent-cli",
+        "bytes": 6800516,
+        "files": 337,
+        "inventory_sha256": "2659a35b84e5f77aebcf9bbd1a107a4e57abbab02e4be3846e516743bfb616da",
+        "knowledge_bytes": 411139
+      },
+      "command": [
+        "status",
+        "--json"
+      ],
+      "samples_ms": [
+        15.955458,
+        15.963167,
+        15.814625,
+        16.551459,
+        16.038208
+      ],
+      "min_ms": 15.814625,
+      "median_ms": 15.963167,
+      "mean_ms": 16.0645834,
+      "p95_ms": 16.551459,
+      "max_ms": 16.551459,
+      "budget_ms": 100,
+      "invocations": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/Users/yfhe/repos/ara/ara-cli/crates/ara-core/tests/fixtures/agent-cli",
+        "bytes": 6800516,
+        "files": 337,
+        "inventory_sha256": "2659a35b84e5f77aebcf9bbd1a107a4e57abbab02e4be3846e516743bfb616da",
+        "knowledge_bytes": 411139
+      },
+      "command": [
+        "ls",
+        "--type",
+        "dead_end",
+        "--under",
+        "N12",
+        "--json"
+      ],
+      "samples_ms": [
+        15.027584,
+        14.77875,
+        14.557125,
+        15.024291,
+        14.038334
+      ],
+      "min_ms": 14.038334,
+      "median_ms": 14.77875,
+      "mean_ms": 14.6852168,
+      "p95_ms": 15.027584,
+      "max_ms": 15.027584,
+      "budget_ms": 100,
+      "invocations": [
+        5,
+        6,
+        7,
+        8,
+        9
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/Users/yfhe/repos/ara/ara-cli/crates/ara-core/tests/fixtures/agent-cli",
+        "bytes": 6800516,
+        "files": 337,
+        "inventory_sha256": "2659a35b84e5f77aebcf9bbd1a107a4e57abbab02e4be3846e516743bfb616da",
+        "knowledge_bytes": 411139
+      },
+      "command": [
+        "show",
+        "N62",
+        "--with",
+        "parents,children,claims,sessions",
+        "--full",
+        "--json"
+      ],
+      "samples_ms": [
+        16.449542,
+        16.106667,
+        16.081709,
+        15.735291,
+        15.60025
+      ],
+      "min_ms": 15.60025,
+      "median_ms": 16.081709,
+      "mean_ms": 15.9946918,
+      "p95_ms": 16.449542,
+      "max_ms": 16.449542,
+      "budget_ms": 100,
+      "invocations": [
+        10,
+        11,
+        12,
+        13,
+        14
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/Users/yfhe/repos/ara/ara-cli/crates/ara-core/tests/fixtures/agent-cli",
+        "bytes": 6800516,
+        "files": 337,
+        "inventory_sha256": "2659a35b84e5f77aebcf9bbd1a107a4e57abbab02e4be3846e516743bfb616da",
+        "knowledge_bytes": 411139
+      },
+      "command": [
+        "path",
+        "N85",
+        "--json"
+      ],
+      "samples_ms": [
+        15.056083,
+        14.280416,
+        13.853708,
+        14.330541,
+        14.854375
+      ],
+      "min_ms": 13.853708,
+      "median_ms": 14.330541,
+      "mean_ms": 14.4750246,
+      "p95_ms": 15.056083,
+      "max_ms": 15.056083,
+      "budget_ms": 100,
+      "invocations": [
+        15,
+        16,
+        17,
+        18,
+        19
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/Users/yfhe/repos/ara/ara-cli/crates/ara-core/tests/fixtures/agent-cli",
+        "bytes": 6800516,
+        "files": 337,
+        "inventory_sha256": "2659a35b84e5f77aebcf9bbd1a107a4e57abbab02e4be3846e516743bfb616da",
+        "knowledge_bytes": 411139
+      },
+      "command": [
+        "refs",
+        "C05",
+        "--json"
+      ],
+      "samples_ms": [
+        17.693167,
+        17.801542,
+        18.012958,
+        18.136167,
+        16.896709
+      ],
+      "min_ms": 16.896709,
+      "median_ms": 17.801542,
+      "mean_ms": 17.7081086,
+      "p95_ms": 18.136167,
+      "max_ms": 18.136167,
+      "budget_ms": 100,
+      "invocations": [
+        20,
+        21,
+        22,
+        23,
+        24
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/Users/yfhe/repos/ara/ara-cli/crates/ara-core/tests/fixtures/agent-cli",
+        "bytes": 6800516,
+        "files": 337,
+        "inventory_sha256": "2659a35b84e5f77aebcf9bbd1a107a4e57abbab02e4be3846e516743bfb616da",
+        "knowledge_bytes": 411139
+      },
+      "command": [
+        "open",
+        "--json"
+      ],
+      "samples_ms": [
+        16.018417,
+        15.543708,
+        15.734542,
+        16.654291,
+        15.863459
+      ],
+      "min_ms": 15.543708,
+      "median_ms": 15.863459,
+      "mean_ms": 15.9628834,
+      "p95_ms": 16.654291,
+      "max_ms": 16.654291,
+      "budget_ms": 100,
+      "invocations": [
+        25,
+        26,
+        27,
+        28,
+        29
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/Users/yfhe/repos/ara/ara-cli/crates/ara-core/tests/fixtures/agent-cli",
+        "bytes": 6800516,
+        "files": 337,
+        "inventory_sha256": "2659a35b84e5f77aebcf9bbd1a107a4e57abbab02e4be3846e516743bfb616da",
+        "knowledge_bytes": 411139
+      },
+      "command": [
+        "find",
+        "tripartite cognitive physical exploration architecture",
+        "--limit",
+        "10",
+        "--json"
+      ],
+      "samples_ms": [
+        25.080042,
+        24.735375,
+        24.645958,
+        24.839917,
+        24.576625
+      ],
+      "min_ms": 24.576625,
+      "median_ms": 24.735375,
+      "mean_ms": 24.7755834,
+      "p95_ms": 25.080042,
+      "max_ms": 25.080042,
+      "budget_ms": 100,
+      "invocations": [
+        30,
+        31,
+        32,
+        33,
+        34
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-qypb6mkz/read-broad-100",
+        "bytes": 35030,
+        "files": 18,
+        "inventory_sha256": "086c051fc8d16617ee99b21bb604a735a7dbb77f690675cb63349c4f93cfef87",
+        "knowledge_bytes": 34938
+      },
+      "command": [
+        "status",
+        "--json"
+      ],
+      "samples_ms": [
+        6.664708,
+        5.395167,
+        5.330125,
+        5.847666,
+        6.271041
+      ],
+      "min_ms": 5.330125,
+      "median_ms": 5.847666,
+      "mean_ms": 5.9017414,
+      "p95_ms": 6.664708,
+      "max_ms": 6.664708,
+      "budget_ms": 1000,
+      "invocations": [
+        35,
+        36,
+        37,
+        38,
+        39
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-qypb6mkz/read-broad-100",
+        "bytes": 35030,
+        "files": 18,
+        "inventory_sha256": "086c051fc8d16617ee99b21bb604a735a7dbb77f690675cb63349c4f93cfef87",
+        "knowledge_bytes": 34938
+      },
+      "command": [
+        "ls",
+        "--json"
+      ],
+      "samples_ms": [
+        6.181,
+        5.730625,
+        6.1885,
+        6.199166,
+        6.1685
+      ],
+      "min_ms": 5.730625,
+      "median_ms": 6.181,
+      "mean_ms": 6.0935582,
+      "p95_ms": 6.199166,
+      "max_ms": 6.199166,
+      "budget_ms": 1000,
+      "invocations": [
+        40,
+        41,
+        42,
+        43,
+        44
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-qypb6mkz/read-broad-100",
+        "bytes": 35030,
+        "files": 18,
+        "inventory_sha256": "086c051fc8d16617ee99b21bb604a735a7dbb77f690675cb63349c4f93cfef87",
+        "knowledge_bytes": 34938
+      },
+      "command": [
+        "show",
+        "N100",
+        "--full",
+        "--json"
+      ],
+      "samples_ms": [
+        6.674375,
+        6.239209,
+        5.84975,
+        6.238625,
+        5.814
+      ],
+      "min_ms": 5.814,
+      "median_ms": 6.238625,
+      "mean_ms": 6.1631918,
+      "p95_ms": 6.674375,
+      "max_ms": 6.674375,
+      "budget_ms": 1000,
+      "invocations": [
+        45,
+        46,
+        47,
+        48,
+        49
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-qypb6mkz/read-broad-100",
+        "bytes": 35030,
+        "files": 18,
+        "inventory_sha256": "086c051fc8d16617ee99b21bb604a735a7dbb77f690675cb63349c4f93cfef87",
+        "knowledge_bytes": 34938
+      },
+      "command": [
+        "path",
+        "N100",
+        "--json"
+      ],
+      "samples_ms": [
+        6.055416,
+        5.166875,
+        5.322583,
+        5.94425,
+        5.28975
+      ],
+      "min_ms": 5.166875,
+      "median_ms": 5.322583,
+      "mean_ms": 5.5557748,
+      "p95_ms": 6.055416,
+      "max_ms": 6.055416,
+      "budget_ms": 1000,
+      "invocations": [
+        50,
+        51,
+        52,
+        53,
+        54
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-qypb6mkz/read-broad-100",
+        "bytes": 35030,
+        "files": 18,
+        "inventory_sha256": "086c051fc8d16617ee99b21bb604a735a7dbb77f690675cb63349c4f93cfef87",
+        "knowledge_bytes": 34938
+      },
+      "command": [
+        "refs",
+        "C01",
+        "--json"
+      ],
+      "samples_ms": [
+        6.165541,
+        6.457125,
+        5.893167,
+        5.826792,
+        5.900833
+      ],
+      "min_ms": 5.826792,
+      "median_ms": 5.900833,
+      "mean_ms": 6.0486916,
+      "p95_ms": 6.457125,
+      "max_ms": 6.457125,
+      "budget_ms": 1000,
+      "invocations": [
+        55,
+        56,
+        57,
+        58,
+        59
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-qypb6mkz/read-broad-100",
+        "bytes": 35030,
+        "files": 18,
+        "inventory_sha256": "086c051fc8d16617ee99b21bb604a735a7dbb77f690675cb63349c4f93cfef87",
+        "knowledge_bytes": 34938
+      },
+      "command": [
+        "open",
+        "--json"
+      ],
+      "samples_ms": [
+        5.310375,
+        5.883542,
+        5.491459,
+        5.431875,
+        5.643958
+      ],
+      "min_ms": 5.310375,
+      "median_ms": 5.491459,
+      "mean_ms": 5.5522418,
+      "p95_ms": 5.883542,
+      "max_ms": 5.883542,
+      "budget_ms": 1000,
+      "invocations": [
+        60,
+        61,
+        62,
+        63,
+        64
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-qypb6mkz/read-broad-100",
+        "bytes": 35030,
+        "files": 18,
+        "inventory_sha256": "086c051fc8d16617ee99b21bb604a735a7dbb77f690675cb63349c4f93cfef87",
+        "knowledge_bytes": 34938
+      },
+      "command": [
+        "find",
+        "uniqueneedle",
+        "--limit",
+        "10",
+        "--json"
+      ],
+      "samples_ms": [
+        6.348875,
+        5.626625,
+        5.631041,
+        6.672375,
+        6.603417
+      ],
+      "min_ms": 5.626625,
+      "median_ms": 6.348875,
+      "mean_ms": 6.1764665999999995,
+      "p95_ms": 6.672375,
+      "max_ms": 6.672375,
+      "budget_ms": 1000,
+      "invocations": [
+        65,
+        66,
+        67,
+        68,
+        69
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-qypb6mkz/read-broad-1000",
+        "bytes": 340087,
+        "files": 18,
+        "inventory_sha256": "699a042e6758e6c7163f8132a24645d35feaab16c9eef0dde52a9119089d23a7",
+        "knowledge_bytes": 339995
+      },
+      "command": [
+        "status",
+        "--json"
+      ],
+      "samples_ms": [
+        11.986208,
+        11.457833,
+        11.5965,
+        11.40675,
+        11.933959
+      ],
+      "min_ms": 11.40675,
+      "median_ms": 11.5965,
+      "mean_ms": 11.67625,
+      "p95_ms": 11.986208,
+      "max_ms": 11.986208,
+      "budget_ms": 1000,
+      "invocations": [
+        70,
+        71,
+        72,
+        73,
+        74
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-qypb6mkz/read-broad-1000",
+        "bytes": 340087,
+        "files": 18,
+        "inventory_sha256": "699a042e6758e6c7163f8132a24645d35feaab16c9eef0dde52a9119089d23a7",
+        "knowledge_bytes": 339995
+      },
+      "command": [
+        "ls",
+        "--json"
+      ],
+      "samples_ms": [
+        15.718792,
+        16.140333,
+        16.433125,
+        15.906333,
+        16.727416
+      ],
+      "min_ms": 15.718792,
+      "median_ms": 16.140333,
+      "mean_ms": 16.1851998,
+      "p95_ms": 16.727416,
+      "max_ms": 16.727416,
+      "budget_ms": 1000,
+      "invocations": [
+        75,
+        76,
+        77,
+        78,
+        79
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-qypb6mkz/read-broad-1000",
+        "bytes": 340087,
+        "files": 18,
+        "inventory_sha256": "699a042e6758e6c7163f8132a24645d35feaab16c9eef0dde52a9119089d23a7",
+        "knowledge_bytes": 339995
+      },
+      "command": [
+        "show",
+        "N1000",
+        "--full",
+        "--json"
+      ],
+      "samples_ms": [
+        19.438917,
+        19.66375,
+        19.950833,
+        20.597125,
+        20.202334
+      ],
+      "min_ms": 19.438917,
+      "median_ms": 19.950833,
+      "mean_ms": 19.9705918,
+      "p95_ms": 20.597125,
+      "max_ms": 20.597125,
+      "budget_ms": 1000,
+      "invocations": [
+        80,
+        81,
+        82,
+        83,
+        84
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-qypb6mkz/read-broad-1000",
+        "bytes": 340087,
+        "files": 18,
+        "inventory_sha256": "699a042e6758e6c7163f8132a24645d35feaab16c9eef0dde52a9119089d23a7",
+        "knowledge_bytes": 339995
+      },
+      "command": [
+        "path",
+        "N1000",
+        "--json"
+      ],
+      "samples_ms": [
+        11.66925,
+        11.878208,
+        11.832584,
+        11.239958,
+        11.697
+      ],
+      "min_ms": 11.239958,
+      "median_ms": 11.697,
+      "mean_ms": 11.6634,
+      "p95_ms": 11.878208,
+      "max_ms": 11.878208,
+      "budget_ms": 1000,
+      "invocations": [
+        85,
+        86,
+        87,
+        88,
+        89
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-qypb6mkz/read-broad-1000",
+        "bytes": 340087,
+        "files": 18,
+        "inventory_sha256": "699a042e6758e6c7163f8132a24645d35feaab16c9eef0dde52a9119089d23a7",
+        "knowledge_bytes": 339995
+      },
+      "command": [
+        "refs",
+        "C01",
+        "--json"
+      ],
+      "samples_ms": [
+        17.656167,
+        17.368125,
+        17.549291,
+        17.789125,
+        17.387666
+      ],
+      "min_ms": 17.368125,
+      "median_ms": 17.549291,
+      "mean_ms": 17.5500748,
+      "p95_ms": 17.789125,
+      "max_ms": 17.789125,
+      "budget_ms": 1000,
+      "invocations": [
+        90,
+        91,
+        92,
+        93,
+        94
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-qypb6mkz/read-broad-1000",
+        "bytes": 340087,
+        "files": 18,
+        "inventory_sha256": "699a042e6758e6c7163f8132a24645d35feaab16c9eef0dde52a9119089d23a7",
+        "knowledge_bytes": 339995
+      },
+      "command": [
+        "open",
+        "--json"
+      ],
+      "samples_ms": [
+        14.391042,
+        14.508625,
+        14.536292,
+        15.081875,
+        15.04175
+      ],
+      "min_ms": 14.391042,
+      "median_ms": 14.536292,
+      "mean_ms": 14.711916800000001,
+      "p95_ms": 15.081875,
+      "max_ms": 15.081875,
+      "budget_ms": 1000,
+      "invocations": [
+        95,
+        96,
+        97,
+        98,
+        99
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-qypb6mkz/read-broad-1000",
+        "bytes": 340087,
+        "files": 18,
+        "inventory_sha256": "699a042e6758e6c7163f8132a24645d35feaab16c9eef0dde52a9119089d23a7",
+        "knowledge_bytes": 339995
+      },
+      "command": [
+        "find",
+        "uniqueneedle",
+        "--limit",
+        "10",
+        "--json"
+      ],
+      "samples_ms": [
+        16.130833,
+        15.779583,
+        16.776958,
+        16.776916,
+        16.355875
+      ],
+      "min_ms": 15.779583,
+      "median_ms": 16.355875,
+      "mean_ms": 16.364033,
+      "p95_ms": 16.776958,
+      "max_ms": 16.776958,
+      "budget_ms": 1000,
+      "invocations": [
+        100,
+        101,
+        102,
+        103,
+        104
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-qypb6mkz/read-broad-10000",
+        "bytes": 3430214,
+        "files": 22,
+        "inventory_sha256": "a0e22747d3299cad0074b3abd690a6b0eec90cfdb4072353d9597791932dd105",
+        "knowledge_bytes": 3430122
+      },
+      "command": [
+        "status",
+        "--json"
+      ],
+      "samples_ms": [
+        109.830625,
+        109.358042,
+        110.891833,
+        111.023042,
+        112.564291
+      ],
+      "min_ms": 109.358042,
+      "median_ms": 110.891833,
+      "mean_ms": 110.7335666,
+      "p95_ms": 112.564291,
+      "max_ms": 112.564291,
+      "budget_ms": 1000,
+      "invocations": [
+        105,
+        106,
+        107,
+        108,
+        109
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-qypb6mkz/read-broad-10000",
+        "bytes": 3430214,
+        "files": 22,
+        "inventory_sha256": "a0e22747d3299cad0074b3abd690a6b0eec90cfdb4072353d9597791932dd105",
+        "knowledge_bytes": 3430122
+      },
+      "command": [
+        "ls",
+        "--json"
+      ],
+      "samples_ms": [
+        149.285708,
+        156.206834,
+        152.720084,
+        149.799333,
+        151.887542
+      ],
+      "min_ms": 149.285708,
+      "median_ms": 151.887542,
+      "mean_ms": 151.9799002,
+      "p95_ms": 156.206834,
+      "max_ms": 156.206834,
+      "budget_ms": 1000,
+      "invocations": [
+        110,
+        111,
+        112,
+        113,
+        114
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-qypb6mkz/read-broad-10000",
+        "bytes": 3430214,
+        "files": 22,
+        "inventory_sha256": "a0e22747d3299cad0074b3abd690a6b0eec90cfdb4072353d9597791932dd105",
+        "knowledge_bytes": 3430122
+      },
+      "command": [
+        "show",
+        "N10000",
+        "--full",
+        "--json"
+      ],
+      "samples_ms": [
+        190.342958,
+        190.274375,
+        196.954625,
+        192.084666,
+        188.265583
+      ],
+      "min_ms": 188.265583,
+      "median_ms": 190.342958,
+      "mean_ms": 191.5844414,
+      "p95_ms": 196.954625,
+      "max_ms": 196.954625,
+      "budget_ms": 1000,
+      "invocations": [
+        115,
+        116,
+        117,
+        118,
+        119
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-qypb6mkz/read-broad-10000",
+        "bytes": 3430214,
+        "files": 22,
+        "inventory_sha256": "a0e22747d3299cad0074b3abd690a6b0eec90cfdb4072353d9597791932dd105",
+        "knowledge_bytes": 3430122
+      },
+      "command": [
+        "path",
+        "N10000",
+        "--json"
+      ],
+      "samples_ms": [
+        111.573792,
+        108.659458,
+        109.994916,
+        109.974041,
+        116.07125
+      ],
+      "min_ms": 108.659458,
+      "median_ms": 109.994916,
+      "mean_ms": 111.2546914,
+      "p95_ms": 116.07125,
+      "max_ms": 116.07125,
+      "budget_ms": 1000,
+      "invocations": [
+        120,
+        121,
+        122,
+        123,
+        124
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-qypb6mkz/read-broad-10000",
+        "bytes": 3430214,
+        "files": 22,
+        "inventory_sha256": "a0e22747d3299cad0074b3abd690a6b0eec90cfdb4072353d9597791932dd105",
+        "knowledge_bytes": 3430122
+      },
+      "command": [
+        "refs",
+        "C01",
+        "--json"
+      ],
+      "samples_ms": [
+        168.5495,
+        168.442,
+        167.062625,
+        166.544833,
+        168.525834
+      ],
+      "min_ms": 166.544833,
+      "median_ms": 168.442,
+      "mean_ms": 167.8249584,
+      "p95_ms": 168.5495,
+      "max_ms": 168.5495,
+      "budget_ms": 1000,
+      "invocations": [
+        125,
+        126,
+        127,
+        128,
+        129
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-qypb6mkz/read-broad-10000",
+        "bytes": 3430214,
+        "files": 22,
+        "inventory_sha256": "a0e22747d3299cad0074b3abd690a6b0eec90cfdb4072353d9597791932dd105",
+        "knowledge_bytes": 3430122
+      },
+      "command": [
+        "open",
+        "--json"
+      ],
+      "samples_ms": [
+        133.739625,
+        136.159083,
+        136.132916,
+        134.013709,
+        136.435833
+      ],
+      "min_ms": 133.739625,
+      "median_ms": 136.132916,
+      "mean_ms": 135.2962332,
+      "p95_ms": 136.435833,
+      "max_ms": 136.435833,
+      "budget_ms": 1000,
+      "invocations": [
+        130,
+        131,
+        132,
+        133,
+        134
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-qypb6mkz/read-broad-10000",
+        "bytes": 3430214,
+        "files": 22,
+        "inventory_sha256": "a0e22747d3299cad0074b3abd690a6b0eec90cfdb4072353d9597791932dd105",
+        "knowledge_bytes": 3430122
+      },
+      "command": [
+        "find",
+        "uniqueneedle",
+        "--limit",
+        "10",
+        "--json"
+      ],
+      "samples_ms": [
+        158.894,
+        155.740458,
+        158.54975,
+        155.990667,
+        154.70275
+      ],
+      "min_ms": 154.70275,
+      "median_ms": 155.990667,
+      "mean_ms": 156.775525,
+      "p95_ms": 158.894,
+      "max_ms": 158.894,
+      "budget_ms": 1000,
+      "invocations": [
+        135,
+        136,
+        137,
+        138,
+        139
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-qypb6mkz/read-deep-100",
+        "bytes": 33056,
+        "files": 18,
+        "inventory_sha256": "f63c1e78f5f7786626f4fa3e51cb29c17163747f8bf836e0bccb93e11760af3a",
+        "knowledge_bytes": 32964
+      },
+      "command": [
+        "status",
+        "--json"
+      ],
+      "samples_ms": [
+        8.75375,
+        7.953708,
+        7.782875,
+        7.502083,
+        7.590542
+      ],
+      "min_ms": 7.502083,
+      "median_ms": 7.782875,
+      "mean_ms": 7.9165916,
+      "p95_ms": 8.75375,
+      "max_ms": 8.75375,
+      "budget_ms": 1000,
+      "invocations": [
+        140,
+        141,
+        142,
+        143,
+        144
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-qypb6mkz/read-deep-100",
+        "bytes": 33056,
+        "files": 18,
+        "inventory_sha256": "f63c1e78f5f7786626f4fa3e51cb29c17163747f8bf836e0bccb93e11760af3a",
+        "knowledge_bytes": 32964
+      },
+      "command": [
+        "ls",
+        "--json"
+      ],
+      "samples_ms": [
+        8.3525,
+        7.510667,
+        8.59825,
+        8.421833,
+        8.02125
+      ],
+      "min_ms": 7.510667,
+      "median_ms": 8.3525,
+      "mean_ms": 8.1809,
+      "p95_ms": 8.59825,
+      "max_ms": 8.59825,
+      "budget_ms": 1000,
+      "invocations": [
+        145,
+        146,
+        147,
+        148,
+        149
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-qypb6mkz/read-deep-100",
+        "bytes": 33056,
+        "files": 18,
+        "inventory_sha256": "f63c1e78f5f7786626f4fa3e51cb29c17163747f8bf836e0bccb93e11760af3a",
+        "knowledge_bytes": 32964
+      },
+      "command": [
+        "show",
+        "N100",
+        "--full",
+        "--json"
+      ],
+      "samples_ms": [
+        7.735208,
+        8.5045,
+        8.316083,
+        8.269833,
+        8.430375
+      ],
+      "min_ms": 7.735208,
+      "median_ms": 8.316083,
+      "mean_ms": 8.2511998,
+      "p95_ms": 8.5045,
+      "max_ms": 8.5045,
+      "budget_ms": 1000,
+      "invocations": [
+        150,
+        151,
+        152,
+        153,
+        154
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-qypb6mkz/read-deep-100",
+        "bytes": 33056,
+        "files": 18,
+        "inventory_sha256": "f63c1e78f5f7786626f4fa3e51cb29c17163747f8bf836e0bccb93e11760af3a",
+        "knowledge_bytes": 32964
+      },
+      "command": [
+        "path",
+        "N100",
+        "--json"
+      ],
+      "samples_ms": [
+        7.959,
+        8.601708,
+        7.390833,
+        7.387667,
+        7.640375
+      ],
+      "min_ms": 7.387667,
+      "median_ms": 7.640375,
+      "mean_ms": 7.7959166,
+      "p95_ms": 8.601708,
+      "max_ms": 8.601708,
+      "budget_ms": 1000,
+      "invocations": [
+        155,
+        156,
+        157,
+        158,
+        159
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-qypb6mkz/read-deep-100",
+        "bytes": 33056,
+        "files": 18,
+        "inventory_sha256": "f63c1e78f5f7786626f4fa3e51cb29c17163747f8bf836e0bccb93e11760af3a",
+        "knowledge_bytes": 32964
+      },
+      "command": [
+        "refs",
+        "C01",
+        "--json"
+      ],
+      "samples_ms": [
+        8.2215,
+        7.622292,
+        8.609542,
+        7.783584,
+        8.540583
+      ],
+      "min_ms": 7.622292,
+      "median_ms": 8.2215,
+      "mean_ms": 8.1555002,
+      "p95_ms": 8.609542,
+      "max_ms": 8.609542,
+      "budget_ms": 1000,
+      "invocations": [
+        160,
+        161,
+        162,
+        163,
+        164
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-qypb6mkz/read-deep-100",
+        "bytes": 33056,
+        "files": 18,
+        "inventory_sha256": "f63c1e78f5f7786626f4fa3e51cb29c17163747f8bf836e0bccb93e11760af3a",
+        "knowledge_bytes": 32964
+      },
+      "command": [
+        "open",
+        "--json"
+      ],
+      "samples_ms": [
+        7.229791,
+        8.166541,
+        7.786333,
+        8.074834,
+        8.011333
+      ],
+      "min_ms": 7.229791,
+      "median_ms": 8.011333,
+      "mean_ms": 7.8537664,
+      "p95_ms": 8.166541,
+      "max_ms": 8.166541,
+      "budget_ms": 1000,
+      "invocations": [
+        165,
+        166,
+        167,
+        168,
+        169
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-qypb6mkz/read-deep-100",
+        "bytes": 33056,
+        "files": 18,
+        "inventory_sha256": "f63c1e78f5f7786626f4fa3e51cb29c17163747f8bf836e0bccb93e11760af3a",
+        "knowledge_bytes": 32964
+      },
+      "command": [
+        "find",
+        "uniqueneedle",
+        "--limit",
+        "10",
+        "--json"
+      ],
+      "samples_ms": [
+        9.02825,
+        8.516292,
+        8.967041,
+        8.446958,
+        8.835042
+      ],
+      "min_ms": 8.446958,
+      "median_ms": 8.835042,
+      "mean_ms": 8.7587166,
+      "p95_ms": 9.02825,
+      "max_ms": 9.02825,
+      "budget_ms": 1000,
+      "invocations": [
+        170,
+        171,
+        172,
+        173,
+        174
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-qypb6mkz/read-deep-1000",
+        "bytes": 319841,
+        "files": 18,
+        "inventory_sha256": "9d43b6fe0a6e59e2ee6899422a5d4bb9daf58950c5605f85d8061685009e3864",
+        "knowledge_bytes": 319749
+      },
+      "command": [
+        "status",
+        "--json"
+      ],
+      "samples_ms": [
+        20.704416,
+        20.776875,
+        20.747125,
+        20.826958,
+        20.726125
+      ],
+      "min_ms": 20.704416,
+      "median_ms": 20.747125,
+      "mean_ms": 20.7562998,
+      "p95_ms": 20.826958,
+      "max_ms": 20.826958,
+      "budget_ms": 1000,
+      "invocations": [
+        175,
+        176,
+        177,
+        178,
+        179
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-qypb6mkz/read-deep-1000",
+        "bytes": 319841,
+        "files": 18,
+        "inventory_sha256": "9d43b6fe0a6e59e2ee6899422a5d4bb9daf58950c5605f85d8061685009e3864",
+        "knowledge_bytes": 319749
+      },
+      "command": [
+        "ls",
+        "--json"
+      ],
+      "samples_ms": [
+        24.647417,
+        25.256708,
+        26.067917,
+        24.736791,
+        25.415333
+      ],
+      "min_ms": 24.647417,
+      "median_ms": 25.256708,
+      "mean_ms": 25.2248332,
+      "p95_ms": 26.067917,
+      "max_ms": 26.067917,
+      "budget_ms": 1000,
+      "invocations": [
+        180,
+        181,
+        182,
+        183,
+        184
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-qypb6mkz/read-deep-1000",
+        "bytes": 319841,
+        "files": 18,
+        "inventory_sha256": "9d43b6fe0a6e59e2ee6899422a5d4bb9daf58950c5605f85d8061685009e3864",
+        "knowledge_bytes": 319749
+      },
+      "command": [
+        "show",
+        "N1000",
+        "--full",
+        "--json"
+      ],
+      "samples_ms": [
+        28.775542,
+        28.812208,
+        28.729667,
+        28.501875,
+        28.545667
+      ],
+      "min_ms": 28.501875,
+      "median_ms": 28.729667,
+      "mean_ms": 28.6729918,
+      "p95_ms": 28.812208,
+      "max_ms": 28.812208,
+      "budget_ms": 1000,
+      "invocations": [
+        185,
+        186,
+        187,
+        188,
+        189
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-qypb6mkz/read-deep-1000",
+        "bytes": 319841,
+        "files": 18,
+        "inventory_sha256": "9d43b6fe0a6e59e2ee6899422a5d4bb9daf58950c5605f85d8061685009e3864",
+        "knowledge_bytes": 319749
+      },
+      "command": [
+        "path",
+        "N1000",
+        "--json"
+      ],
+      "samples_ms": [
+        24.347708,
+        23.843917,
+        24.139292,
+        24.87075,
+        24.471459
+      ],
+      "min_ms": 23.843917,
+      "median_ms": 24.347708,
+      "mean_ms": 24.3346252,
+      "p95_ms": 24.87075,
+      "max_ms": 24.87075,
+      "budget_ms": 1000,
+      "invocations": [
+        190,
+        191,
+        192,
+        193,
+        194
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-qypb6mkz/read-deep-1000",
+        "bytes": 319841,
+        "files": 18,
+        "inventory_sha256": "9d43b6fe0a6e59e2ee6899422a5d4bb9daf58950c5605f85d8061685009e3864",
+        "knowledge_bytes": 319749
+      },
+      "command": [
+        "refs",
+        "C01",
+        "--json"
+      ],
+      "samples_ms": [
+        26.042584,
+        26.018667,
+        26.368625,
+        26.721583,
+        26.188875
+      ],
+      "min_ms": 26.018667,
+      "median_ms": 26.188875,
+      "mean_ms": 26.2680668,
+      "p95_ms": 26.721583,
+      "max_ms": 26.721583,
+      "budget_ms": 1000,
+      "invocations": [
+        195,
+        196,
+        197,
+        198,
+        199
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-qypb6mkz/read-deep-1000",
+        "bytes": 319841,
+        "files": 18,
+        "inventory_sha256": "9d43b6fe0a6e59e2ee6899422a5d4bb9daf58950c5605f85d8061685009e3864",
+        "knowledge_bytes": 319749
+      },
+      "command": [
+        "open",
+        "--json"
+      ],
+      "samples_ms": [
+        22.803667,
+        23.114542,
+        22.677416,
+        22.699833,
+        22.814958
+      ],
+      "min_ms": 22.677416,
+      "median_ms": 22.803667,
+      "mean_ms": 22.8220832,
+      "p95_ms": 23.114542,
+      "max_ms": 23.114542,
+      "budget_ms": 1000,
+      "invocations": [
+        200,
+        201,
+        202,
+        203,
+        204
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-qypb6mkz/read-deep-1000",
+        "bytes": 319841,
+        "files": 18,
+        "inventory_sha256": "9d43b6fe0a6e59e2ee6899422a5d4bb9daf58950c5605f85d8061685009e3864",
+        "knowledge_bytes": 319749
+      },
+      "command": [
+        "find",
+        "uniqueneedle",
+        "--limit",
+        "10",
+        "--json"
+      ],
+      "samples_ms": [
+        24.571292,
+        25.074375,
+        24.127625,
+        24.651083,
+        24.21275
+      ],
+      "min_ms": 24.127625,
+      "median_ms": 24.571292,
+      "mean_ms": 24.527425,
+      "p95_ms": 25.074375,
+      "max_ms": 25.074375,
+      "budget_ms": 1000,
+      "invocations": [
+        205,
+        206,
+        207,
+        208,
+        209
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-qypb6mkz/read-deep-10000",
+        "bytes": 3227645,
+        "files": 22,
+        "inventory_sha256": "e340f2bd16891ed56373542c9d6420dae69357c100b2e626c2ab377f308c6a05",
+        "knowledge_bytes": 3227553
+      },
+      "command": [
+        "status",
+        "--json"
+      ],
+      "samples_ms": [
+        209.094708,
+        200.878208,
+        202.682958,
+        203.742625,
+        199.286459
+      ],
+      "min_ms": 199.286459,
+      "median_ms": 202.682958,
+      "mean_ms": 203.13699160000002,
+      "p95_ms": 209.094708,
+      "max_ms": 209.094708,
+      "budget_ms": 1000,
+      "invocations": [
+        210,
+        211,
+        212,
+        213,
+        214
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-qypb6mkz/read-deep-10000",
+        "bytes": 3227645,
+        "files": 22,
+        "inventory_sha256": "e340f2bd16891ed56373542c9d6420dae69357c100b2e626c2ab377f308c6a05",
+        "knowledge_bytes": 3227553
+      },
+      "command": [
+        "ls",
+        "--json"
+      ],
+      "samples_ms": [
+        244.443208,
+        246.716666,
+        244.594,
+        243.695666,
+        250.504875
+      ],
+      "min_ms": 243.695666,
+      "median_ms": 244.594,
+      "mean_ms": 245.990883,
+      "p95_ms": 250.504875,
+      "max_ms": 250.504875,
+      "budget_ms": 1000,
+      "invocations": [
+        215,
+        216,
+        217,
+        218,
+        219
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-qypb6mkz/read-deep-10000",
+        "bytes": 3227645,
+        "files": 22,
+        "inventory_sha256": "e340f2bd16891ed56373542c9d6420dae69357c100b2e626c2ab377f308c6a05",
+        "knowledge_bytes": 3227553
+      },
+      "command": [
+        "show",
+        "N10000",
+        "--full",
+        "--json"
+      ],
+      "samples_ms": [
+        278.822334,
+        280.962542,
+        281.468583,
+        281.067542,
+        277.783041
+      ],
+      "min_ms": 277.783041,
+      "median_ms": 280.962542,
+      "mean_ms": 280.0208084,
+      "p95_ms": 281.468583,
+      "max_ms": 281.468583,
+      "budget_ms": 1000,
+      "invocations": [
+        220,
+        221,
+        222,
+        223,
+        224
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-qypb6mkz/read-deep-10000",
+        "bytes": 3227645,
+        "files": 22,
+        "inventory_sha256": "e340f2bd16891ed56373542c9d6420dae69357c100b2e626c2ab377f308c6a05",
+        "knowledge_bytes": 3227553
+      },
+      "command": [
+        "path",
+        "N10000",
+        "--json"
+      ],
+      "samples_ms": [
+        233.228167,
+        229.820834,
+        236.932417,
+        232.253667,
+        229.050333
+      ],
+      "min_ms": 229.050333,
+      "median_ms": 232.253667,
+      "mean_ms": 232.2570836,
+      "p95_ms": 236.932417,
+      "max_ms": 236.932417,
+      "budget_ms": 1000,
+      "invocations": [
+        225,
+        226,
+        227,
+        228,
+        229
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-qypb6mkz/read-deep-10000",
+        "bytes": 3227645,
+        "files": 22,
+        "inventory_sha256": "e340f2bd16891ed56373542c9d6420dae69357c100b2e626c2ab377f308c6a05",
+        "knowledge_bytes": 3227553
+      },
+      "command": [
+        "refs",
+        "C01",
+        "--json"
+      ],
+      "samples_ms": [
+        267.379708,
+        258.404458,
+        260.028959,
+        262.657917,
+        262.847458
+      ],
+      "min_ms": 258.404458,
+      "median_ms": 262.657917,
+      "mean_ms": 262.2637,
+      "p95_ms": 267.379708,
+      "max_ms": 267.379708,
+      "budget_ms": 1000,
+      "invocations": [
+        230,
+        231,
+        232,
+        233,
+        234
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-qypb6mkz/read-deep-10000",
+        "bytes": 3227645,
+        "files": 22,
+        "inventory_sha256": "e340f2bd16891ed56373542c9d6420dae69357c100b2e626c2ab377f308c6a05",
+        "knowledge_bytes": 3227553
+      },
+      "command": [
+        "open",
+        "--json"
+      ],
+      "samples_ms": [
+        231.428125,
+        226.199,
+        227.559375,
+        227.931791,
+        228.184459
+      ],
+      "min_ms": 226.199,
+      "median_ms": 227.931791,
+      "mean_ms": 228.26055,
+      "p95_ms": 231.428125,
+      "max_ms": 231.428125,
+      "budget_ms": 1000,
+      "invocations": [
+        235,
+        236,
+        237,
+        238,
+        239
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-qypb6mkz/read-deep-10000",
+        "bytes": 3227645,
+        "files": 22,
+        "inventory_sha256": "e340f2bd16891ed56373542c9d6420dae69357c100b2e626c2ab377f308c6a05",
+        "knowledge_bytes": 3227553
+      },
+      "command": [
+        "find",
+        "uniqueneedle",
+        "--limit",
+        "10",
+        "--json"
+      ],
+      "samples_ms": [
+        244.043416,
+        244.797333,
+        244.361375,
+        244.467875,
+        241.247375
+      ],
+      "min_ms": 241.247375,
+      "median_ms": 244.361375,
+      "mean_ms": 243.7834748,
+      "p95_ms": 244.797333,
+      "max_ms": 244.797333,
+      "budget_ms": 1000,
+      "invocations": [
+        240,
+        241,
+        242,
+        243,
+        244
+      ]
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-qypb6mkz/merge-100/ours",
+        "bytes": 33872,
+        "files": 19,
+        "inventory_sha256": "7342bd2b017fe7a9bf264e1b1d3151dcebe4168e0b5f0f66701fd9681a9a9b99",
+        "knowledge_bytes": 33780
+      },
+      "command": [
+        "merge",
+        "--base",
+        "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-qypb6mkz/merge-100/base",
+        "--theirs",
+        "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-qypb6mkz/merge-100/theirs",
+        "--as",
+        "acceptance-fork",
+        "--source-key",
+        "generated_fixture_bob",
+        "--json"
+      ],
+      "samples_ms": [
+        168.227959,
+        166.264917,
+        202.928625,
+        188.848,
+        182.558625
+      ],
+      "min_ms": 166.264917,
+      "median_ms": 182.558625,
+      "mean_ms": 181.76562520000002,
+      "p95_ms": 202.928625,
+      "max_ms": 202.928625,
+      "budget_ms": null,
+      "invocations": [
+        470,
+        471,
+        472,
+        473,
+        474
+      ],
+      "observed_cli_phases": {
+        "load_ms": {
+          "samples_ms": [
+            1.957333,
+            2.049333,
+            2.3554169999999996,
+            2.7308749999999997,
+            2.788792
+          ],
+          "min_ms": 1.957333,
+          "median_ms": 2.3554169999999996,
+          "mean_ms": 2.37635,
+          "p95_ms": 2.788792,
+          "max_ms": 2.788792
+        },
+        "planning_ms": {
+          "samples_ms": [
+            7.282375,
+            7.2165420000000005,
+            7.38875,
+            9.54275,
+            9.694583
+          ],
+          "min_ms": 7.2165420000000005,
+          "median_ms": 7.38875,
+          "mean_ms": 8.225,
+          "p95_ms": 9.694583,
+          "max_ms": 9.694583
+        },
+        "validation_ms": {
+          "samples_ms": [
+            1.5579999999999998,
+            1.5358749999999999,
+            1.59575,
+            1.953917,
+            1.91625
+          ],
+          "min_ms": 1.5358749999999999,
+          "median_ms": 1.59575,
+          "mean_ms": 1.7119583999999999,
+          "p95_ms": 1.953917,
+          "max_ms": 1.953917
+        },
+        "input_recheck_ms": {
+          "samples_ms": [
+            1.201,
+            1.087292,
+            1.196875,
+            1.4274170000000002,
+            1.351084
+          ],
+          "min_ms": 1.087292,
+          "median_ms": 1.201,
+          "mean_ms": 1.2527336,
+          "p95_ms": 1.4274170000000002,
+          "max_ms": 1.4274170000000002
+        },
+        "commit_ms": {
+          "samples_ms": [
+            146.10662499999998,
+            143.54262500000002,
+            177.255542,
+            158.883667,
+            153.05991699999998
+          ],
+          "min_ms": 143.54262500000002,
+          "median_ms": 153.05991699999998,
+          "mean_ms": 155.7696752,
+          "p95_ms": 177.255542,
+          "max_ms": 177.255542
+        },
+        "advisory_ms": {
+          "samples_ms": [
+            0.304416,
+            0.528917,
+            0.49025,
+            0.576125,
+            0.313625
+          ],
+          "min_ms": 0.304416,
+          "median_ms": 0.49025,
+          "mean_ms": 0.4426666,
+          "p95_ms": 0.576125,
+          "max_ms": 0.576125
+        },
+        "operation_ms": {
+          "samples_ms": [
+            158.773583,
+            156.35916699999999,
+            190.685667,
+            175.61874999999998,
+            169.547709
+          ],
+          "min_ms": 156.35916699999999,
+          "median_ms": 169.547709,
+          "mean_ms": 170.1969752,
+          "p95_ms": 190.685667,
+          "max_ms": 190.685667
+        }
+      },
+      "phase_interval_limit": "Native operation_ms ends before output serialization; Git tree/blob cumulative spans overlap with pipeline backpressure. Observed stages are not inferred or additive; process wall time is authoritative."
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-qypb6mkz/merge-1000/ours",
+        "bytes": 314226,
+        "files": 19,
+        "inventory_sha256": "e0525e1325183285defde09bbc157304864de8fa1d4d8a4bc76c5393c9547d1d",
+        "knowledge_bytes": 314134
+      },
+      "command": [
+        "merge",
+        "--base",
+        "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-qypb6mkz/merge-1000/base",
+        "--theirs",
+        "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-qypb6mkz/merge-1000/theirs",
+        "--as",
+        "acceptance-fork",
+        "--source-key",
+        "generated_fixture_bob",
+        "--json"
+      ],
+      "samples_ms": [
+        235.364333,
+        246.80375,
+        249.375833,
+        236.031083,
+        225.428458
+      ],
+      "min_ms": 225.428458,
+      "median_ms": 236.031083,
+      "mean_ms": 238.6006914,
+      "p95_ms": 249.375833,
+      "max_ms": 249.375833,
+      "budget_ms": null,
+      "invocations": [
+        479,
+        480,
+        481,
+        482,
+        483
+      ],
+      "observed_cli_phases": {
+        "load_ms": {
+          "samples_ms": [
+            2.390625,
+            2.70725,
+            2.725208,
+            3.045333,
+            2.3759580000000002
+          ],
+          "min_ms": 2.3759580000000002,
+          "median_ms": 2.70725,
+          "mean_ms": 2.6488748,
+          "p95_ms": 3.045333,
+          "max_ms": 3.045333
+        },
+        "planning_ms": {
+          "samples_ms": [
+            57.058333000000005,
+            57.975041,
+            58.108,
+            58.994125000000004,
+            55.257
+          ],
+          "min_ms": 55.257,
+          "median_ms": 57.975041,
+          "mean_ms": 57.4784998,
+          "p95_ms": 58.994125000000004,
+          "max_ms": 58.994125000000004
+        },
+        "validation_ms": {
+          "samples_ms": [
+            11.394375,
+            11.0755,
+            11.2,
+            11.410209,
+            11.055709
+          ],
+          "min_ms": 11.055709,
+          "median_ms": 11.2,
+          "mean_ms": 11.2271586,
+          "p95_ms": 11.410209,
+          "max_ms": 11.410209
+        },
+        "input_recheck_ms": {
+          "samples_ms": [
+            1.496083,
+            1.510042,
+            1.5417079999999999,
+            1.5211249999999998,
+            1.446041
+          ],
+          "min_ms": 1.446041,
+          "median_ms": 1.510042,
+          "mean_ms": 1.5029998,
+          "p95_ms": 1.5417079999999999,
+          "max_ms": 1.5417079999999999
+        },
+        "commit_ms": {
+          "samples_ms": [
+            147.191416,
+            156.320667,
+            158.142333,
+            144.252917,
+            139.723916
+          ],
+          "min_ms": 139.723916,
+          "median_ms": 147.191416,
+          "mean_ms": 149.1262498,
+          "p95_ms": 158.142333,
+          "max_ms": 158.142333
+        },
+        "advisory_ms": {
+          "samples_ms": [
+            4.236333,
+            4.104583,
+            4.11975,
+            4.226209,
+            4.187792
+          ],
+          "min_ms": 4.104583,
+          "median_ms": 4.187792,
+          "mean_ms": 4.1749334,
+          "p95_ms": 4.236333,
+          "max_ms": 4.236333
+        },
+        "operation_ms": {
+          "samples_ms": [
+            223.231042,
+            233.26529100000002,
+            235.444417,
+            222.863375,
+            213.447292
+          ],
+          "min_ms": 213.447292,
+          "median_ms": 223.231042,
+          "mean_ms": 225.6502834,
+          "p95_ms": 235.444417,
+          "max_ms": 235.444417
+        }
+      },
+      "phase_interval_limit": "Native operation_ms ends before output serialization; Git tree/blob cumulative spans overlap with pipeline backpressure. Observed stages are not inferred or additive; process wall time is authoritative."
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-qypb6mkz/merge-10000/ours",
+        "bytes": 3164150,
+        "files": 22,
+        "inventory_sha256": "866852480b4369604334970e96f68c75419ed6c62325c58e538d04960747f067",
+        "knowledge_bytes": 3164058
+      },
+      "command": [
+        "merge",
+        "--base",
+        "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-qypb6mkz/merge-10000/base",
+        "--theirs",
+        "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-qypb6mkz/merge-10000/theirs",
+        "--as",
+        "acceptance-fork",
+        "--source-key",
+        "generated_fixture_bob",
+        "--json"
+      ],
+      "samples_ms": [
+        868.978917,
+        877.567042,
+        869.726333,
+        860.766541,
+        879.3675
+      ],
+      "min_ms": 860.766541,
+      "median_ms": 869.726333,
+      "mean_ms": 871.2812666,
+      "p95_ms": 879.3675,
+      "max_ms": 879.3675,
+      "budget_ms": 1000,
+      "invocations": [
+        488,
+        489,
+        490,
+        491,
+        492
+      ],
+      "observed_cli_phases": {
+        "load_ms": {
+          "samples_ms": [
+            5.757541,
+            5.77075,
+            5.829625,
+            5.593291000000001,
+            5.697875
+          ],
+          "min_ms": 5.593291000000001,
+          "median_ms": 5.757541,
+          "mean_ms": 5.7298164,
+          "p95_ms": 5.829625,
+          "max_ms": 5.829625
+        },
+        "planning_ms": {
+          "samples_ms": [
+            448.72170900000003,
+            451.22024999999996,
+            454.902458,
+            449.433375,
+            450.760417
+          ],
+          "min_ms": 448.72170900000003,
+          "median_ms": 450.760417,
+          "mean_ms": 451.0076418,
+          "p95_ms": 454.902458,
+          "max_ms": 454.902458
+        },
+        "validation_ms": {
+          "samples_ms": [
+            150.1875,
+            145.921417,
+            146.847917,
+            146.07329199999998,
+            145.351417
+          ],
+          "min_ms": 145.351417,
+          "median_ms": 146.07329199999998,
+          "mean_ms": 146.8763086,
+          "p95_ms": 150.1875,
+          "max_ms": 150.1875
+        },
+        "input_recheck_ms": {
+          "samples_ms": [
+            4.036625,
+            3.665791,
+            3.647333,
+            3.534958,
+            4.09675
+          ],
+          "min_ms": 3.534958,
+          "median_ms": 3.665791,
+          "mean_ms": 3.7962914,
+          "p95_ms": 4.09675,
+          "max_ms": 4.09675
+        },
+        "commit_ms": {
+          "samples_ms": [
+            173.544084,
+            183.373959,
+            169.366042,
+            167.34954199999999,
+            180.53804200000002
+          ],
+          "min_ms": 167.34954199999999,
+          "median_ms": 173.544084,
+          "mean_ms": 174.8343338,
+          "p95_ms": 183.373959,
+          "max_ms": 183.373959
+        },
+        "advisory_ms": {
+          "samples_ms": [
+            103.632667,
+            103.839625,
+            102.258875,
+            102.35374999999999,
+            103.886042
+          ],
+          "min_ms": 102.258875,
+          "median_ms": 103.632667,
+          "mean_ms": 103.1941918,
+          "p95_ms": 103.886042,
+          "max_ms": 103.886042
+        },
+        "operation_ms": {
+          "samples_ms": [
+            826.168375,
+            833.057,
+            825.089833,
+            819.360375,
+            835.828
+          ],
+          "min_ms": 819.360375,
+          "median_ms": 826.168375,
+          "mean_ms": 827.9007166,
+          "p95_ms": 835.828,
+          "max_ms": 835.828
+        }
+      },
+      "phase_interval_limit": "Native operation_ms ends before output serialization; Git tree/blob cumulative spans overlap with pipeline backpressure. Observed stages are not inferred or additive; process wall time is authoritative."
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-qypb6mkz/git-100-small/repository/ara",
+        "bytes": 33872,
+        "files": 19,
+        "inventory_sha256": "7342bd2b017fe7a9bf264e1b1d3151dcebe4168e0b5f0f66701fd9681a9a9b99",
+        "knowledge_bytes": 33780
+      },
+      "command": [
+        "merge",
+        "--git",
+        "theirs",
+        "--source-key",
+        "generated_fixture_bob",
+        "--as",
+        "acceptance-fork",
+        "--no-duplicate-check",
+        "--json"
+      ],
+      "samples_ms": [
+        336.566416,
+        318.305334,
+        328.033791,
+        328.758959,
+        337.477708
+      ],
+      "min_ms": 318.305334,
+      "median_ms": 328.758959,
+      "mean_ms": 329.8284416,
+      "p95_ms": 337.477708,
+      "max_ms": 337.477708,
+      "budget_ms": null,
+      "invocations": [
+        500,
+        501,
+        502,
+        503,
+        504
+      ],
+      "observed_cli_phases": {
+        "load_ms": {
+          "samples_ms": [
+            131.252958,
+            125.641417,
+            129.4855,
+            129.218166,
+            125.71358399999998
+          ],
+          "min_ms": 125.641417,
+          "median_ms": 129.218166,
+          "mean_ms": 128.262325,
+          "p95_ms": 131.252958,
+          "max_ms": 131.252958
+        },
+        "planning_ms": {
+          "samples_ms": [
+            7.209292,
+            7.517625,
+            7.415583,
+            7.160792,
+            7.263375
+          ],
+          "min_ms": 7.160792,
+          "median_ms": 7.263375,
+          "mean_ms": 7.313333399999999,
+          "p95_ms": 7.517625,
+          "max_ms": 7.517625
+        },
+        "validation_ms": {
+          "samples_ms": [
+            1.549833,
+            1.552125,
+            1.555125,
+            1.5371670000000002,
+            1.5204579999999999
+          ],
+          "min_ms": 1.5204579999999999,
+          "median_ms": 1.549833,
+          "mean_ms": 1.5429416,
+          "p95_ms": 1.555125,
+          "max_ms": 1.555125
+        },
+        "input_recheck_ms": {
+          "samples_ms": [
+            18.211624999999998,
+            18.603042,
+            18.7675,
+            18.900292,
+            18.009833999999998
+          ],
+          "min_ms": 18.009833999999998,
+          "median_ms": 18.603042,
+          "mean_ms": 18.4984586,
+          "p95_ms": 18.900292,
+          "max_ms": 18.900292
+        },
+        "commit_ms": {
+          "samples_ms": [
+            152.277042,
+            139.242875,
+            146.550916,
+            144.652417,
+            158.709625
+          ],
+          "min_ms": 139.242875,
+          "median_ms": 146.550916,
+          "mean_ms": 148.286575,
+          "p95_ms": 158.709625,
+          "max_ms": 158.709625
+        },
+        "advisory_ms": {
+          "samples_ms": [
+            0.000167,
+            0.00029099999999999997,
+            0.000125,
+            0.000166,
+            0.000166
+          ],
+          "min_ms": 0.000125,
+          "median_ms": 0.000166,
+          "mean_ms": 0.000183,
+          "p95_ms": 0.00029099999999999997,
+          "max_ms": 0.00029099999999999997
+        },
+        "operation_ms": {
+          "samples_ms": [
+            310.924458,
+            293.01899999999995,
+            304.176125,
+            301.89887500000003,
+            311.636125
+          ],
+          "min_ms": 293.01899999999995,
+          "median_ms": 304.176125,
+          "mean_ms": 304.3309166,
+          "p95_ms": 311.636125,
+          "max_ms": 311.636125
+        },
+        "git.ref_resolution_ms": {
+          "samples_ms": [
+            16.181041999999998,
+            16.839083000000002,
+            16.546792,
+            15.949708,
+            16.848833
+          ],
+          "min_ms": 15.949708,
+          "median_ms": 16.546792,
+          "mean_ms": 16.4730916,
+          "p95_ms": 16.848833,
+          "max_ms": 16.848833
+        },
+        "git.merge_base_ms": {
+          "samples_ms": [
+            19.466084000000002,
+            16.899041999999998,
+            15.806875000000002,
+            16.389416,
+            16.748124999999998
+          ],
+          "min_ms": 15.806875000000002,
+          "median_ms": 16.748124999999998,
+          "mean_ms": 17.0619084,
+          "p95_ms": 19.466084000000002,
+          "max_ms": 19.466084000000002
+        },
+        "git.tree_capture_ms": {
+          "samples_ms": [
+            24.009083,
+            22.084458,
+            23.369917,
+            23.163792,
+            22.637375
+          ],
+          "min_ms": 22.084458,
+          "median_ms": 23.163792,
+          "mean_ms": 23.052925000000002,
+          "p95_ms": 24.009083,
+          "max_ms": 24.009083
+        },
+        "git.blob_materialize_ms": {
+          "samples_ms": [
+            21.761667000000003,
+            19.828417,
+            20.950666,
+            21.067125,
+            20.126375000000003
+          ],
+          "min_ms": 19.828417,
+          "median_ms": 20.950666,
+          "mean_ms": 20.746850000000002,
+          "p95_ms": 21.761667000000003,
+          "max_ms": 21.761667000000003
+        },
+        "git.total_materialize_ms": {
+          "samples_ms": [
+            24.66575,
+            22.704375,
+            24.056333,
+            23.8395,
+            23.288791
+          ],
+          "min_ms": 22.704375,
+          "median_ms": 23.8395,
+          "mean_ms": 23.710949799999998,
+          "p95_ms": 24.66575,
+          "max_ms": 24.66575
+        },
+        "git.total_setup_ms": {
+          "samples_ms": [
+            113.048958,
+            106.52425,
+            111.779666,
+            110.75075,
+            106.979583
+          ],
+          "min_ms": 106.52425,
+          "median_ms": 110.75075,
+          "mean_ms": 109.8166414,
+          "p95_ms": 113.048958,
+          "max_ms": 113.048958
+        }
+      },
+      "phase_interval_limit": "Native operation_ms ends before output serialization; Git tree/blob cumulative spans overlap with pipeline backpressure. Observed stages are not inferred or additive; process wall time is authoritative."
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-qypb6mkz/git-100-unrelated-tree/repository/ara",
+        "bytes": 33872,
+        "files": 19,
+        "inventory_sha256": "7342bd2b017fe7a9bf264e1b1d3151dcebe4168e0b5f0f66701fd9681a9a9b99",
+        "knowledge_bytes": 33780
+      },
+      "command": [
+        "merge",
+        "--git",
+        "theirs",
+        "--source-key",
+        "generated_fixture_bob",
+        "--as",
+        "acceptance-fork",
+        "--no-duplicate-check",
+        "--json"
+      ],
+      "samples_ms": [
+        321.706792,
+        334.309417,
+        319.2905,
+        344.354125,
+        319.870708
+      ],
+      "min_ms": 319.2905,
+      "median_ms": 321.706792,
+      "mean_ms": 327.9063084,
+      "p95_ms": 344.354125,
+      "max_ms": 344.354125,
+      "budget_ms": null,
+      "invocations": [
+        510,
+        511,
+        512,
+        513,
+        514
+      ],
+      "observed_cli_phases": {
+        "load_ms": {
+          "samples_ms": [
+            131.28216600000002,
+            135.03841699999998,
+            132.12279099999998,
+            135.202333,
+            130.19074999999998
+          ],
+          "min_ms": 130.19074999999998,
+          "median_ms": 132.12279099999998,
+          "mean_ms": 132.7672914,
+          "p95_ms": 135.202333,
+          "max_ms": 135.202333
+        },
+        "planning_ms": {
+          "samples_ms": [
+            7.387459,
+            7.23575,
+            7.217792,
+            7.345542,
+            7.23475
+          ],
+          "min_ms": 7.217792,
+          "median_ms": 7.23575,
+          "mean_ms": 7.2842586,
+          "p95_ms": 7.387459,
+          "max_ms": 7.387459
+        },
+        "validation_ms": {
+          "samples_ms": [
+            1.554208,
+            1.561458,
+            1.607458,
+            1.5468330000000001,
+            1.527833
+          ],
+          "min_ms": 1.527833,
+          "median_ms": 1.554208,
+          "mean_ms": 1.559558,
+          "p95_ms": 1.607458,
+          "max_ms": 1.607458
+        },
+        "input_recheck_ms": {
+          "samples_ms": [
+            18.733541,
+            19.140542,
+            18.3555,
+            19.207917000000002,
+            19.569209
+          ],
+          "min_ms": 18.3555,
+          "median_ms": 19.140542,
+          "mean_ms": 19.0013418,
+          "p95_ms": 19.569209,
+          "max_ms": 19.569209
+        },
+        "commit_ms": {
+          "samples_ms": [
+            138.705625,
+            144.920916,
+            135.434541,
+            155.515875,
+            136.796291
+          ],
+          "min_ms": 135.434541,
+          "median_ms": 138.705625,
+          "mean_ms": 142.2746496,
+          "p95_ms": 155.515875,
+          "max_ms": 155.515875
+        },
+        "advisory_ms": {
+          "samples_ms": [
+            0.000125,
+            0.000166,
+            0.000125,
+            0.000125,
+            0.000125
+          ],
+          "min_ms": 0.000125,
+          "median_ms": 0.000125,
+          "mean_ms": 0.0001332,
+          "p95_ms": 0.000166,
+          "max_ms": 0.000166
+        },
+        "operation_ms": {
+          "samples_ms": [
+            298.072791,
+            308.366584,
+            295.145625,
+            319.249625,
+            295.736542
+          ],
+          "min_ms": 295.145625,
+          "median_ms": 298.072791,
+          "mean_ms": 303.3142334,
+          "p95_ms": 319.249625,
+          "max_ms": 319.249625
+        },
+        "git.ref_resolution_ms": {
+          "samples_ms": [
+            17.660291,
+            16.563000000000002,
+            17.049792,
+            16.42575,
+            17.747583000000002
+          ],
+          "min_ms": 16.42575,
+          "median_ms": 17.049792,
+          "mean_ms": 17.0892832,
+          "p95_ms": 17.747583000000002,
+          "max_ms": 17.747583000000002
+        },
+        "git.merge_base_ms": {
+          "samples_ms": [
+            17.210791,
+            17.246541,
+            17.348041000000002,
+            18.02575,
+            17.678791999999998
+          ],
+          "min_ms": 17.210791,
+          "median_ms": 17.348041000000002,
+          "mean_ms": 17.501983,
+          "p95_ms": 18.02575,
+          "max_ms": 18.02575
+        },
+        "git.tree_capture_ms": {
+          "samples_ms": [
+            23.592042,
+            24.269167000000003,
+            23.787750000000003,
+            23.398791000000003,
+            22.633
+          ],
+          "min_ms": 22.633,
+          "median_ms": 23.592042,
+          "mean_ms": 23.536150000000003,
+          "p95_ms": 24.269167000000003,
+          "max_ms": 24.269167000000003
+        },
+        "git.blob_materialize_ms": {
+          "samples_ms": [
+            21.361207999999998,
+            22.007625,
+            21.419709,
+            21.122458,
+            20.484333
+          ],
+          "min_ms": 20.484333,
+          "median_ms": 21.361207999999998,
+          "mean_ms": 21.2790666,
+          "p95_ms": 22.007625,
+          "max_ms": 22.007625
+        },
+        "git.total_materialize_ms": {
+          "samples_ms": [
+            24.257250000000003,
+            24.952083,
+            24.458542,
+            24.06275,
+            23.281083000000002
+          ],
+          "min_ms": 23.281083000000002,
+          "median_ms": 24.257250000000003,
+          "mean_ms": 24.2023416,
+          "p95_ms": 24.952083,
+          "max_ms": 24.952083
+        },
+        "git.total_setup_ms": {
+          "samples_ms": [
+            112.370417,
+            114.593291,
+            112.39645900000001,
+            115.448458,
+            111.66437499999999
+          ],
+          "min_ms": 111.66437499999999,
+          "median_ms": 112.39645900000001,
+          "mean_ms": 113.2946,
+          "p95_ms": 115.448458,
+          "max_ms": 115.448458
+        }
+      },
+      "phase_interval_limit": "Native operation_ms ends before output serialization; Git tree/blob cumulative spans overlap with pipeline backpressure. Observed stages are not inferred or additive; process wall time is authoritative."
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-qypb6mkz/git-1000-small/repository/ara",
+        "bytes": 314226,
+        "files": 19,
+        "inventory_sha256": "e0525e1325183285defde09bbc157304864de8fa1d4d8a4bc76c5393c9547d1d",
+        "knowledge_bytes": 314134
+      },
+      "command": [
+        "merge",
+        "--git",
+        "theirs",
+        "--source-key",
+        "generated_fixture_bob",
+        "--as",
+        "acceptance-fork",
+        "--no-duplicate-check",
+        "--json"
+      ],
+      "samples_ms": [
+        403.019125,
+        412.904584,
+        384.152666,
+        409.300833,
+        405.263084
+      ],
+      "min_ms": 384.152666,
+      "median_ms": 405.263084,
+      "mean_ms": 402.9280584,
+      "p95_ms": 412.904584,
+      "max_ms": 412.904584,
+      "budget_ms": null,
+      "invocations": [
+        520,
+        521,
+        522,
+        523,
+        524
+      ],
+      "observed_cli_phases": {
+        "load_ms": {
+          "samples_ms": [
+            129.595167,
+            132.806125,
+            129.01637499999998,
+            130.306333,
+            131.857208
+          ],
+          "min_ms": 129.01637499999998,
+          "median_ms": 130.306333,
+          "mean_ms": 130.7162416,
+          "p95_ms": 132.806125,
+          "max_ms": 132.806125
+        },
+        "planning_ms": {
+          "samples_ms": [
+            56.293,
+            55.70975,
+            55.555542,
+            56.315208999999996,
+            54.952584
+          ],
+          "min_ms": 54.952584,
+          "median_ms": 55.70975,
+          "mean_ms": 55.765217,
+          "p95_ms": 56.315208999999996,
+          "max_ms": 56.315208999999996
+        },
+        "validation_ms": {
+          "samples_ms": [
+            11.127125,
+            11.147792,
+            11.196583,
+            11.274041,
+            11.025916
+          ],
+          "min_ms": 11.025916,
+          "median_ms": 11.147792,
+          "mean_ms": 11.1542914,
+          "p95_ms": 11.274041,
+          "max_ms": 11.274041
+        },
+        "input_recheck_ms": {
+          "samples_ms": [
+            27.833083000000002,
+            22.693292,
+            20.295167,
+            22.22175,
+            23.28175
+          ],
+          "min_ms": 20.295167,
+          "median_ms": 22.693292,
+          "mean_ms": 23.2650084,
+          "p95_ms": 27.833083000000002,
+          "max_ms": 27.833083000000002
+        },
+        "commit_ms": {
+          "samples_ms": [
+            145.202291,
+            157.224041,
+            137.145458,
+            156.451166,
+            152.232333
+          ],
+          "min_ms": 137.145458,
+          "median_ms": 152.232333,
+          "mean_ms": 149.6510578,
+          "p95_ms": 157.224041,
+          "max_ms": 157.224041
+        },
+        "advisory_ms": {
+          "samples_ms": [
+            0.000209,
+            0.000791,
+            0.000125,
+            0.000375,
+            0.00020800000000000001
+          ],
+          "min_ms": 0.000125,
+          "median_ms": 0.000209,
+          "mean_ms": 0.0003416,
+          "p95_ms": 0.000791,
+          "max_ms": 0.000791
+        },
+        "operation_ms": {
+          "samples_ms": [
+            373.738875,
+            383.694708,
+            356.915375,
+            380.384167,
+            377.378958
+          ],
+          "min_ms": 356.915375,
+          "median_ms": 377.378958,
+          "mean_ms": 374.4224166,
+          "p95_ms": 383.694708,
+          "max_ms": 383.694708
+        },
+        "git.ref_resolution_ms": {
+          "samples_ms": [
+            16.311959,
+            17.104416,
+            16.075625,
+            16.306082999999997,
+            17.140083
+          ],
+          "min_ms": 16.075625,
+          "median_ms": 16.311959,
+          "mean_ms": 16.5876332,
+          "p95_ms": 17.140083,
+          "max_ms": 17.140083
+        },
+        "git.merge_base_ms": {
+          "samples_ms": [
+            16.160292,
+            17.319667,
+            16.493750000000002,
+            16.999917,
+            17.348333
+          ],
+          "min_ms": 16.160292,
+          "median_ms": 16.999917,
+          "mean_ms": 16.8643918,
+          "p95_ms": 17.348333,
+          "max_ms": 17.348333
+        },
+        "git.tree_capture_ms": {
+          "samples_ms": [
+            23.35175,
+            24.772458,
+            24.126667,
+            23.790875,
+            23.492874999999998
+          ],
+          "min_ms": 23.35175,
+          "median_ms": 23.790875,
+          "mean_ms": 23.906925,
+          "p95_ms": 24.772458,
+          "max_ms": 24.772458
+        },
+        "git.blob_materialize_ms": {
+          "samples_ms": [
+            21.098791,
+            22.154375,
+            21.892374000000004,
+            21.623416,
+            21.329250000000002
+          ],
+          "min_ms": 21.098791,
+          "median_ms": 21.623416,
+          "mean_ms": 21.6196412,
+          "p95_ms": 22.154375,
+          "max_ms": 22.154375
+        },
+        "git.total_materialize_ms": {
+          "samples_ms": [
+            24.029708,
+            25.426792,
+            24.798750000000002,
+            24.484667,
+            24.142666
+          ],
+          "min_ms": 24.029708,
+          "median_ms": 24.484667,
+          "mean_ms": 24.5765166,
+          "p95_ms": 25.426792,
+          "max_ms": 25.426792
+        },
+        "git.total_setup_ms": {
+          "samples_ms": [
+            109.726833,
+            113.65887500000001,
+            109.520375,
+            110.716292,
+            111.755458
+          ],
+          "min_ms": 109.520375,
+          "median_ms": 110.716292,
+          "mean_ms": 111.0755666,
+          "p95_ms": 113.65887500000001,
+          "max_ms": 113.65887500000001
+        }
+      },
+      "phase_interval_limit": "Native operation_ms ends before output serialization; Git tree/blob cumulative spans overlap with pipeline backpressure. Observed stages are not inferred or additive; process wall time is authoritative."
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-qypb6mkz/git-1000-unrelated-tree/repository/ara",
+        "bytes": 314226,
+        "files": 19,
+        "inventory_sha256": "e0525e1325183285defde09bbc157304864de8fa1d4d8a4bc76c5393c9547d1d",
+        "knowledge_bytes": 314134
+      },
+      "command": [
+        "merge",
+        "--git",
+        "theirs",
+        "--source-key",
+        "generated_fixture_bob",
+        "--as",
+        "acceptance-fork",
+        "--no-duplicate-check",
+        "--json"
+      ],
+      "samples_ms": [
+        421.308583,
+        399.610917,
+        407.770917,
+        407.457875,
+        430.207625
+      ],
+      "min_ms": 399.610917,
+      "median_ms": 407.770917,
+      "mean_ms": 413.2711834,
+      "p95_ms": 430.207625,
+      "max_ms": 430.207625,
+      "budget_ms": null,
+      "invocations": [
+        530,
+        531,
+        532,
+        533,
+        534
+      ],
+      "observed_cli_phases": {
+        "load_ms": {
+          "samples_ms": [
+            130.036584,
+            134.238834,
+            128.597875,
+            130.64325,
+            130.123333
+          ],
+          "min_ms": 128.597875,
+          "median_ms": 130.123333,
+          "mean_ms": 130.7279752,
+          "p95_ms": 134.238834,
+          "max_ms": 134.238834
+        },
+        "planning_ms": {
+          "samples_ms": [
+            56.083124999999995,
+            56.215791,
+            55.970375000000004,
+            56.976875,
+            55.596083
+          ],
+          "min_ms": 55.596083,
+          "median_ms": 56.083124999999995,
+          "mean_ms": 56.1684498,
+          "p95_ms": 56.976875,
+          "max_ms": 56.976875
+        },
+        "validation_ms": {
+          "samples_ms": [
+            11.237499999999999,
+            11.174334,
+            11.352291000000001,
+            11.456208,
+            11.519292
+          ],
+          "min_ms": 11.174334,
+          "median_ms": 11.352291000000001,
+          "mean_ms": 11.347925,
+          "p95_ms": 11.519292,
+          "max_ms": 11.519292
+        },
+        "input_recheck_ms": {
+          "samples_ms": [
+            22.191917,
+            22.816416,
+            22.9135,
+            22.109417,
+            23.347084
+          ],
+          "min_ms": 22.109417,
+          "median_ms": 22.816416,
+          "mean_ms": 22.6756668,
+          "p95_ms": 23.347084,
+          "max_ms": 23.347084
+        },
+        "commit_ms": {
+          "samples_ms": [
+            168.40941700000002,
+            144.288,
+            156.365875,
+            155.418958,
+            177.509167
+          ],
+          "min_ms": 144.288,
+          "median_ms": 156.365875,
+          "mean_ms": 160.3982834,
+          "p95_ms": 177.509167,
+          "max_ms": 177.509167
+        },
+        "advisory_ms": {
+          "samples_ms": [
+            0.000584,
+            0.000125,
+            0.00020800000000000001,
+            0.000125,
+            0.000166
+          ],
+          "min_ms": 0.000125,
+          "median_ms": 0.000166,
+          "mean_ms": 0.0002416,
+          "p95_ms": 0.000584,
+          "max_ms": 0.000584
+        },
+        "operation_ms": {
+          "samples_ms": [
+            391.86462500000005,
+            372.458459,
+            379.19025,
+            380.5675,
+            401.991125
+          ],
+          "min_ms": 372.458459,
+          "median_ms": 380.5675,
+          "mean_ms": 385.2143918,
+          "p95_ms": 401.991125,
+          "max_ms": 401.991125
+        },
+        "git.ref_resolution_ms": {
+          "samples_ms": [
+            16.112667000000002,
+            20.048292,
+            16.790542,
+            16.403291,
+            16.680291999999998
+          ],
+          "min_ms": 16.112667000000002,
+          "median_ms": 16.680291999999998,
+          "mean_ms": 17.207016799999998,
+          "p95_ms": 20.048292,
+          "max_ms": 20.048292
+        },
+        "git.merge_base_ms": {
+          "samples_ms": [
+            16.29925,
+            17.617625,
+            17.552542000000003,
+            16.700458,
+            15.666958000000001
+          ],
+          "min_ms": 15.666958000000001,
+          "median_ms": 16.700458,
+          "mean_ms": 16.767366600000003,
+          "p95_ms": 17.617625,
+          "max_ms": 17.617625
+        },
+        "git.tree_capture_ms": {
+          "samples_ms": [
+            27.054833,
+            23.502416,
+            22.700583,
+            23.907583,
+            24.319792
+          ],
+          "min_ms": 22.700583,
+          "median_ms": 23.907583,
+          "mean_ms": 24.2970414,
+          "p95_ms": 27.054833,
+          "max_ms": 27.054833
+        },
+        "git.blob_materialize_ms": {
+          "samples_ms": [
+            24.494833,
+            21.18825,
+            20.533375,
+            21.110875,
+            22.015915999999997
+          ],
+          "min_ms": 20.533375,
+          "median_ms": 21.18825,
+          "mean_ms": 21.8686498,
+          "p95_ms": 24.494833,
+          "max_ms": 24.494833
+        },
+        "git.total_materialize_ms": {
+          "samples_ms": [
+            27.706791000000003,
+            24.182583,
+            23.341292,
+            24.587292,
+            24.979041
+          ],
+          "min_ms": 23.341292,
+          "median_ms": 24.587292,
+          "mean_ms": 24.9593998,
+          "p95_ms": 27.706791000000003,
+          "max_ms": 27.706791000000003
+        },
+        "git.total_setup_ms": {
+          "samples_ms": [
+            111.375083,
+            114.940084,
+            108.731916,
+            110.774625,
+            109.92866699999999
+          ],
+          "min_ms": 108.731916,
+          "median_ms": 110.774625,
+          "mean_ms": 111.150075,
+          "p95_ms": 114.940084,
+          "max_ms": 114.940084
+        }
+      },
+      "phase_interval_limit": "Native operation_ms ends before output serialization; Git tree/blob cumulative spans overlap with pipeline backpressure. Observed stages are not inferred or additive; process wall time is authoritative."
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-qypb6mkz/git-10000-small/repository/ara",
+        "bytes": 3164150,
+        "files": 22,
+        "inventory_sha256": "866852480b4369604334970e96f68c75419ed6c62325c58e538d04960747f067",
+        "knowledge_bytes": 3164058
+      },
+      "command": [
+        "merge",
+        "--git",
+        "theirs",
+        "--source-key",
+        "generated_fixture_bob",
+        "--as",
+        "acceptance-fork",
+        "--no-duplicate-check",
+        "--json"
+      ],
+      "samples_ms": [
+        1090.458042,
+        1079.911958,
+        1085.519084,
+        1082.708167,
+        1093.145917
+      ],
+      "min_ms": 1079.911958,
+      "median_ms": 1085.519084,
+      "mean_ms": 1086.3486336,
+      "p95_ms": 1093.145917,
+      "max_ms": 1093.145917,
+      "budget_ms": null,
+      "invocations": [
+        540,
+        541,
+        542,
+        543,
+        544
+      ],
+      "observed_cli_phases": {
+        "load_ms": {
+          "samples_ms": [
+            147.524166,
+            141.984583,
+            146.23025,
+            140.16595800000002,
+            136.24125
+          ],
+          "min_ms": 136.24125,
+          "median_ms": 141.984583,
+          "mean_ms": 142.4292414,
+          "p95_ms": 147.524166,
+          "max_ms": 147.524166
+        },
+        "planning_ms": {
+          "samples_ms": [
+            447.305209,
+            442.306875,
+            444.701709,
+            448.161917,
+            446.223291
+          ],
+          "min_ms": 442.306875,
+          "median_ms": 446.223291,
+          "mean_ms": 445.7398002,
+          "p95_ms": 448.161917,
+          "max_ms": 448.161917
+        },
+        "validation_ms": {
+          "samples_ms": [
+            143.207041,
+            143.574417,
+            144.156,
+            145.20408300000003,
+            144.11220899999998
+          ],
+          "min_ms": 143.207041,
+          "median_ms": 144.11220899999998,
+          "mean_ms": 144.05075,
+          "p95_ms": 145.20408300000003,
+          "max_ms": 145.20408300000003
+        },
+        "input_recheck_ms": {
+          "samples_ms": [
+            52.139083,
+            47.218042000000004,
+            42.786916,
+            42.075917,
+            52.380500000000005
+          ],
+          "min_ms": 42.075917,
+          "median_ms": 47.218042000000004,
+          "mean_ms": 47.3200916,
+          "p95_ms": 52.380500000000005,
+          "max_ms": 52.380500000000005
+        },
+        "commit_ms": {
+          "samples_ms": [
+            184.934584,
+            179.056375,
+            189.460542,
+            190.673375,
+            201.488
+          ],
+          "min_ms": 179.056375,
+          "median_ms": 189.460542,
+          "mean_ms": 189.1225752,
+          "p95_ms": 201.488,
+          "max_ms": 201.488
+        },
+        "advisory_ms": {
+          "samples_ms": [
+            0.000166,
+            0.0,
+            0.000125,
+            0.0,
+            0.00020800000000000001
+          ],
+          "min_ms": 0.0,
+          "median_ms": 0.000125,
+          "mean_ms": 9.98e-05,
+          "p95_ms": 0.00020800000000000001,
+          "max_ms": 0.00020800000000000001
+        },
+        "operation_ms": {
+          "samples_ms": [
+            1020.505458,
+            998.506083,
+            1012.384084,
+            1010.6300420000001,
+            1023.5709159999999
+          ],
+          "min_ms": 998.506083,
+          "median_ms": 1012.384084,
+          "mean_ms": 1013.1193166,
+          "p95_ms": 1023.5709159999999,
+          "max_ms": 1023.5709159999999
+        },
+        "git.ref_resolution_ms": {
+          "samples_ms": [
+            19.373333,
+            17.377625000000002,
+            17.616125,
+            17.962125,
+            16.845375
+          ],
+          "min_ms": 16.845375,
+          "median_ms": 17.616125,
+          "mean_ms": 17.8349166,
+          "p95_ms": 19.373333,
+          "max_ms": 19.373333
+        },
+        "git.merge_base_ms": {
+          "samples_ms": [
+            18.486666,
+            17.920624999999998,
+            18.191125,
+            16.250083,
+            16.653791000000002
+          ],
+          "min_ms": 16.250083,
+          "median_ms": 17.920624999999998,
+          "mean_ms": 17.500458,
+          "p95_ms": 18.486666,
+          "max_ms": 18.486666
+        },
+        "git.tree_capture_ms": {
+          "samples_ms": [
+            30.768125,
+            28.472166,
+            32.097125,
+            28.219626,
+            26.957957999999998
+          ],
+          "min_ms": 26.957957999999998,
+          "median_ms": 28.472166,
+          "mean_ms": 29.303,
+          "p95_ms": 32.097125,
+          "max_ms": 32.097125
+        },
+        "git.blob_materialize_ms": {
+          "samples_ms": [
+            28.377042,
+            26.232708000000002,
+            29.678167000000002,
+            25.915709,
+            24.913125
+          ],
+          "min_ms": 24.913125,
+          "median_ms": 26.232708000000002,
+          "mean_ms": 27.0233502,
+          "p95_ms": 29.678167000000002,
+          "max_ms": 29.678167000000002
+        },
+        "git.total_materialize_ms": {
+          "samples_ms": [
+            31.609834000000003,
+            29.129625,
+            32.890292,
+            28.922708,
+            27.704833
+          ],
+          "min_ms": 27.704833,
+          "median_ms": 29.129625,
+          "mean_ms": 30.0514584,
+          "p95_ms": 32.890292,
+          "max_ms": 32.890292
+        },
+        "git.total_setup_ms": {
+          "samples_ms": [
+            123.088959,
+            118.850584,
+            123.452542,
+            117.319042,
+            112.509625
+          ],
+          "min_ms": 112.509625,
+          "median_ms": 118.850584,
+          "mean_ms": 119.04415039999999,
+          "p95_ms": 123.452542,
+          "max_ms": 123.452542
+        }
+      },
+      "phase_interval_limit": "Native operation_ms ends before output serialization; Git tree/blob cumulative spans overlap with pipeline backpressure. Observed stages are not inferred or additive; process wall time is authoritative."
+    },
+    {
+      "artifact": {
+        "path": "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-qypb6mkz/git-10000-unrelated-tree/repository/ara",
+        "bytes": 3164150,
+        "files": 22,
+        "inventory_sha256": "866852480b4369604334970e96f68c75419ed6c62325c58e538d04960747f067",
+        "knowledge_bytes": 3164058
+      },
+      "command": [
+        "merge",
+        "--git",
+        "theirs",
+        "--source-key",
+        "generated_fixture_bob",
+        "--as",
+        "acceptance-fork",
+        "--no-duplicate-check",
+        "--json"
+      ],
+      "samples_ms": [
+        1060.222,
+        1080.002458,
+        1064.940875,
+        1078.675208,
+        1070.519
+      ],
+      "min_ms": 1060.222,
+      "median_ms": 1070.519,
+      "mean_ms": 1070.8719082,
+      "p95_ms": 1080.002458,
+      "max_ms": 1080.002458,
+      "budget_ms": null,
+      "invocations": [
+        550,
+        551,
+        552,
+        553,
+        554
+      ],
+      "observed_cli_phases": {
+        "load_ms": {
+          "samples_ms": [
+            141.499333,
+            145.29075,
+            135.670375,
+            138.679792,
+            141.101083
+          ],
+          "min_ms": 135.670375,
+          "median_ms": 141.101083,
+          "mean_ms": 140.4482666,
+          "p95_ms": 145.29075,
+          "max_ms": 145.29075
+        },
+        "planning_ms": {
+          "samples_ms": [
+            445.83516699999996,
+            448.943583,
+            443.901833,
+            449.181625,
+            443.893417
+          ],
+          "min_ms": 443.893417,
+          "median_ms": 445.83516699999996,
+          "mean_ms": 446.35112499999997,
+          "p95_ms": 449.181625,
+          "max_ms": 449.181625
+        },
+        "validation_ms": {
+          "samples_ms": [
+            143.718833,
+            145.590959,
+            144.181417,
+            143.703125,
+            143.688833
+          ],
+          "min_ms": 143.688833,
+          "median_ms": 143.718833,
+          "mean_ms": 144.1766334,
+          "p95_ms": 145.590959,
+          "max_ms": 145.590959
+        },
+        "input_recheck_ms": {
+          "samples_ms": [
+            41.748959,
+            43.924417,
+            43.1475,
+            44.217166,
+            42.348334
+          ],
+          "min_ms": 41.748959,
+          "median_ms": 43.1475,
+          "mean_ms": 43.0772752,
+          "p95_ms": 44.217166,
+          "max_ms": 44.217166
+        },
+        "commit_ms": {
+          "samples_ms": [
+            176.432875,
+            181.396417,
+            174.362458,
+            192.47687499999998,
+            189.34508399999999
+          ],
+          "min_ms": 174.362458,
+          "median_ms": 181.396417,
+          "mean_ms": 182.8027418,
+          "p95_ms": 192.47687499999998,
+          "max_ms": 192.47687499999998
+        },
+        "advisory_ms": {
+          "samples_ms": [
+            0.000166,
+            0.000125,
+            0.000125,
+            0.000209,
+            0.000125
+          ],
+          "min_ms": 0.000125,
+          "median_ms": 0.000125,
+          "mean_ms": 0.00015000000000000001,
+          "p95_ms": 0.000209,
+          "max_ms": 0.000209
+        },
+        "operation_ms": {
+          "samples_ms": [
+            992.482333,
+            1008.908708,
+            984.883458,
+            1012.4653750000001,
+            1003.893042
+          ],
+          "min_ms": 984.883458,
+          "median_ms": 1003.893042,
+          "mean_ms": 1000.5265832,
+          "p95_ms": 1012.4653750000001,
+          "max_ms": 1012.4653750000001
+        },
+        "git.ref_resolution_ms": {
+          "samples_ms": [
+            17.477166,
+            18.878125,
+            16.237458,
+            15.560541,
+            18.217167
+          ],
+          "min_ms": 15.560541,
+          "median_ms": 17.477166,
+          "mean_ms": 17.2740914,
+          "p95_ms": 18.878125,
+          "max_ms": 18.878125
+        },
+        "git.merge_base_ms": {
+          "samples_ms": [
+            17.420167,
+            17.718584,
+            17.192833,
+            16.048584,
+            17.406667000000002
+          ],
+          "min_ms": 16.048584,
+          "median_ms": 17.406667000000002,
+          "mean_ms": 17.157367,
+          "p95_ms": 17.718584,
+          "max_ms": 17.718584
+        },
+        "git.tree_capture_ms": {
+          "samples_ms": [
+            30.268499999999996,
+            28.2695,
+            26.918625,
+            29.831958999999998,
+            27.837875000000004
+          ],
+          "min_ms": 26.918625,
+          "median_ms": 28.2695,
+          "mean_ms": 28.6252918,
+          "p95_ms": 30.268499999999996,
+          "max_ms": 30.268499999999996
+        },
+        "git.blob_materialize_ms": {
+          "samples_ms": [
+            27.909999,
+            25.985167,
+            24.705876,
+            27.49775,
+            25.747083
+          ],
+          "min_ms": 24.705876,
+          "median_ms": 25.985167,
+          "mean_ms": 26.369175,
+          "p95_ms": 27.909999,
+          "max_ms": 27.909999
+        },
+        "git.total_materialize_ms": {
+          "samples_ms": [
+            30.953042,
+            28.986958,
+            27.624125,
+            30.514166,
+            28.527542
+          ],
+          "min_ms": 27.624125,
+          "median_ms": 28.986958,
+          "mean_ms": 29.3211666,
+          "p95_ms": 30.953042,
+          "max_ms": 30.953042
+        },
+        "git.total_setup_ms": {
+          "samples_ms": [
+            118.962542,
+            121.965125,
+            113.426125,
+            115.41341700000001,
+            117.370208
+          ],
+          "min_ms": 113.426125,
+          "median_ms": 117.370208,
+          "mean_ms": 117.4274834,
+          "p95_ms": 121.965125,
+          "max_ms": 121.965125
+        }
+      },
+      "phase_interval_limit": "Native operation_ms ends before output serialization; Git tree/blob cumulative spans overlap with pipeline backpressure. Observed stages are not inferred or additive; process wall time is authoritative."
+    }
+  ],
+  "scope": "Complete unchanged acceptance runner, five samples and no discarded warmup. Human review and historical reproduction are not implied."
+}

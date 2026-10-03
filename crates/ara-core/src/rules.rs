@@ -160,6 +160,15 @@ rules! {
     /// The `children:` + `also_depends_on:` graph has a cycle.
     DependencyCycle => ("ARA110", "dependency-cycle", Validate, Error, false,
         "`children:` + `also_depends_on:` edges form a cycle"),
+    /// An explicit resumed-branch parent is absent from the artifact.
+    UnknownParentNode => ("ARA111", "unknown-parent-node", Validate, Error, false,
+        "`parent` references a node that does not exist"),
+    /// A nested node contradicts its explicit resumed-branch parent.
+    ConflictingParent => ("ARA112", "conflicting-parent", Validate, Error, false,
+        "nested and explicit `parent` identities disagree"),
+    /// An audited claim identity history is corrupt or cannot reach a live claim.
+    InvalidClaimRedirect => ("ARA113", "invalid-claim-redirect", Validate, Error, false,
+        "claim identity history is invalid, unaudited, cyclic, or dangling"),
 
     // ---- ARA2xx: field/schema warnings (validate layer) ----
     /// Unrecognized top-level key in the tree document.
@@ -214,6 +223,28 @@ rules! {
     /// A figure image declaration is missing, unsafe, invalid, or ambiguous.
     InvalidFigureImage => ("ARA216", "invalid-figure-image", Validate, Warning, false,
         "a figure image declaration is missing, unsafe, invalid, or ambiguous"),
+    MalformedAgentLayer => ("ARA217", "malformed-agent-layer", Validate, Warning, false,
+        "an optional agent-layer document or entry has malformed content"),
+    DuplicateAgentId => ("ARA218", "duplicate-agent-id", Validate, Warning, false,
+        "an optional layer contains duplicate ids (all entries retained)"),
+    MalformedPromotionDestination => ("ARA219", "malformed-promotion-destination", Validate, Warning, false,
+        "a staged observation has a malformed promotion destination (retained)"),
+    DanglingSessionIndex => ("ARA220", "dangling-session-index", Validate, Warning, false,
+        "a session index row references an absent session record"),
+    UnreadableOptionalLayer => ("ARA221", "unreadable-optional-layer", Validate, Warning, false,
+        "an optional artifact file or directory cannot be read"),
+    MalformedSameAs => ("ARA222", "malformed-same-as", Validate, Warning, false,
+        "same_as must be a sequence of canonical node ids"),
+    DanglingSameAs => ("ARA223", "dangling-same-as", Validate, Warning, false,
+        "same_as references an absent node"),
+    SelfSameAs => ("ARA224", "self-same-as", Validate, Warning, false,
+        "same_as references its own node"),
+    SameAsCycle => ("ARA225", "same-as-cycle", Validate, Warning, false,
+        "directional same_as annotations form a cycle"),
+    MalformedNodeAnnotation => ("ARA226", "malformed-node-annotation", Validate, Warning, false,
+        "node artifacts or concepts have malformed content"),
+    UnknownNodeConcept => ("ARA227", "unknown-node-concept", Validate, Warning, false,
+        "a node concept link references an absent concept term"),
 }
 
 impl RuleCode {

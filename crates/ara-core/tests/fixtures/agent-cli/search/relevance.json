@@ -1,0 +1,25 @@
+{
+  "format": "ara.search-relevance/v1",
+  "source_repository": "https://github.com/ARA-Labs/Agent-Native-Research-Artifact",
+  "source_artifact": "examples/the-ara-of-ara",
+  "source_copyright": "Orchestra Research 2026",
+  "corpus_revision": "e52a925e9d03b4ada3008653e72f99b04116fca2",
+  "corpus_license": "MIT",
+  "annotation_author": "KeywordSearch implementation agent",
+  "review_status": "proposed; independent human review required",
+  "measurement_status": "not evaluated",
+  "metric": "macro mean recall@10: per query, labeled relevant identities returned in first ten divided by number of labeled relevant identities",
+  "proposed_acceptance": {"development_recall_at_10": 0.9, "heldout_recall_at_10": 0.8, "approval": "not approved; freeze criteria and tokenizer before evaluating heldout"},
+  "development": [
+    {"query": "tripartite cognitive physical exploration architecture", "relevant_ids": ["N04"], "rationale": "N04 chooses three orthogonal layers and explains their separate taxes."},
+    {"query": "stochastic interpolants PDF too large replaced self composing policies", "relevant_ids": ["N02"], "rationale": "N02 records the 27MB API limit and replacement paper."},
+    {"query": "530 requirements pilot sufficient partial absent", "relevant_ids": ["N12"], "rationale": "N12 reports the three-paper 530-leaf pilot and coverage categories."},
+    {"query": "Seal structural integrity information fidelity execution reproducibility", "relevant_ids": ["N06"], "rationale": "N06 defines the original progressive verification levels; this question intentionally asks about historical design."}
+  ],
+  "heldout": [
+    {"query": "FTRL NetHack Montezuma breadth first training loops", "relevant_ids": ["N120"], "rationale": "N120 contrasts breadth-first reproduction with baseline training timeouts."},
+    {"query": "BBOX API blocked requirements compress scoring gap", "relevant_ids": ["N69"], "rationale": "N69 records matched API-blocked requirements and the compressed overall comparison."},
+    {"query": "baseline 0.80 not reproduced 0.60", "relevant_ids": ["N115"], "rationale": "N115 explicitly records a deliberate rerun that did not reproduce the earlier result."},
+    {"query": "Compiler in loop verifier only Level 1 downstream review", "relevant_ids": ["N110"], "rationale": "N110 distinguishes compilation checks from downstream Seal evaluation."}
+  ]
+}
