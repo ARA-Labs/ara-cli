@@ -13,11 +13,10 @@ Researchers (human or agent) work in private ARA forks. When a result is ready, 
 
 | Plan | Implementation target | Status |
 |---|---|---|
-| [01-ara-snapshot](01-ara-snapshot.md) | `ara-cli`: snapshot command and shared capture rules | Approved; implementation pending |
+| [01-ara-snapshot](01-ara-snapshot.md) | `ara-cli`: snapshot command, shared capture rules, and an internal jj-lib version store hidden from agents | Capture rules approved; version-store revision pending re-approval and spike; implementation pending |
 | [02-contribution-workflow](02-contribution-workflow.md) | `Agent-Native-Research-Artifact` (contracts) and `ara-eval` (runner) | Approved design; staged here pending upstream routing |
 | [03-lara-integration](03-lara-integration.md) | `Agent-Native-Research-Artifact` (bindings), `ara-eval` (adapter), `Lara` (docs only) | Approved design; staged here pending upstream routing |
 | [04-peer-feedback-merge](04-peer-feedback-merge.md) | `ara-cli`: identity reconciliation and provenance transport | Approved; required before native peer imports |
-| [05-jj-version-store](05-jj-version-store.md) | `ara-cli`: internal jj-lib snapshot store, hidden from agents; amends 01's output path | Draft; awaiting review and spike |
 
 Plans 02 and 03 remain staged here, following the precedent of [plan 14](../agent-cli-interface/14-shared-frontier-intentions.md). D1 leaves their eventual repository placement deferred. Plan 04's portable provenance contract belongs to the protocol repository even though its implementation lives in `ara-cli`.
 
@@ -198,7 +197,7 @@ The developer approved these choices on 2026-10-03. Implementation evidence, ups
 | D1 | Where do plans 02 and 03 live long-term? | Placement remains deferred. Keep them staged here; each repository retains semantic ownership. |
 | D2 | Canonical writer | Many private contributors, one integration PM. Revisit only with evidence of a bottleneck. |
 | D3 | Lara on the core critical path | No. Develop Lara in parallel and join at phase 5. Lara remains in scope. |
-| D4 | `ara snapshot` | Adopt [01's decisions](01-ara-snapshot.md#approved-decisions): public command, lock, no source-key option, report-only diagnostics, caller-enforced direct-writer quiescence. |
+| D4 | `ara snapshot` | Adopt [01's decisions](01-ara-snapshot.md#approved-decisions): public command, lock, no source-key option, report-only diagnostics, caller-enforced direct-writer quiescence. Revision pending re-approval: an internal jj-lib store under `.ara/vcs/`, hidden from agents, and the `snapshot create`/`list`/`export` command shape ([01 pending decisions](01-ara-snapshot.md#decisions-pending-re-approval-revision)). |
 | D5 | Merge expected-revision flag | Rely on the integration PM's exclusive workspace ownership across review and commit. A new CLI flag is outside this series. |
 | D6 | Peer and canonical feedback | Support native imports and republication. Include [04](04-peer-feedback-merge.md), not a package-only restriction or provenance bypass. |
 | D7 | Contribution identity | Distinguish native revision, complete payload digest, and an envelope-bound contribution ID. Parents and verification target contribution IDs. |
