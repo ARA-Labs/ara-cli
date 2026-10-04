@@ -1,7 +1,7 @@
 # 02: Contributions, publication, frontier, and integration
 **Date:** 2026-10-03 (content from the 2026-10-02 draft)
 
-Status: **approved** by the human developer on 2026-10-03 after design review. Implementation pending. This plan remains staged in `ara-cli` until the upstream route is decided (README decision D1). Target repositories: `Agent-Native-Research-Artifact` for portable contracts (envelope, verification, roles, visibility), and `ara-eval` for the runner (capture, publication, briefing, receipts, recovery). Parent: [collaborative research plan series](README.md). CLI dependencies are [01: snapshot](01-ara-snapshot.md) and [04: peer-feedback merges](04-peer-feedback-merge.md). Approval covers this design; upstream contract adoption, paid runs, commits, and releases remain separate actions.
+Status: **approved** by the human developer on 2026-10-03 after design review. Implementation pending. This plan remains staged in `ara-cli` until the upstream route is decided (README decision D1). Target repositories: `Agent-Native-Research-Artifact` for portable contracts (envelope, verification, roles, visibility), and `ara-eval` for the runner (capture, publication, briefing, receipts, recovery). Parent: [collaborative research plan series](README.md). CLI dependencies are [01: snapshot](01-ara-snapshot.md) and [04: peer-feedback merges](../../docs/collaborative-research/peer-feedback-merge.md). Approval covers this design; upstream contract adoption, paid runs, commits, and releases remain separate actions.
 
 ## TL;DR
 
@@ -11,7 +11,7 @@ A finished piece of work becomes a *contribution*: a frozen native snapshot from
 
 - **Reads.** `status`, `ls`, `show`, `path`, `refs`, `open`, and `find` inspect one local artifact ([guide](../../docs/agent-cli.md)).
 - **Writes.** `apply` and the convenience commands allocate IDs, validate deltas, keep audit history, and commit through recoverable transactions.
-- **Merges.** Directory and local-Git `merge` preserve sources, relocate colliding identities, and keep conflicts along a source's linear history. Repeated imports are tracked per `--source-key`. Peer-feedback histories currently fail in the case recorded in [04](04-peer-feedback-merge.md#problem); that fix is required before enabling native peer imports in the runner.
+- **Merges.** Directory and local-Git `merge` preserve sources, relocate colliding identities, and keep conflicts along a source's linear history. Repeated imports are tracked per `--source-key`. Peer-feedback histories currently fail in the case recorded in [04](../../docs/collaborative-research/peer-feedback-merge.md#problem); that fix is required before enabling native peer imports in the runner.
 - **Shared channel.** The plan-14 collective extension has a same-host channel with sequencing, expected-revision checks, acknowledgments, logical-round expiry, and recovery.
 - **Runner.** `ara-eval` has pinned dependencies and a draft runner/community design. Its README claims no provider-backed harness yet.
 
@@ -118,7 +118,7 @@ The briefing separates five kinds of material:
 - active intentions;
 - stale intentions.
 
-Cross-artifact reading and native peer imports belong to the approved collective scope; the interface-only research-foresight skill stays limited to its own ARA. The runner enforces access through exact published snapshots, not unrestricted sibling-directory access. Native imports are enabled only after [04](04-peer-feedback-merge.md) passes its acceptance checks.
+Cross-artifact reading and native peer imports belong to the approved collective scope; the interface-only research-foresight skill stays limited to its own ARA. The runner enforces access through exact published snapshots, not unrestricted sibling-directory access. Native imports are enabled only after [04](../../docs/collaborative-research/peer-feedback-merge.md) passes its acceptance checks.
 
 | Briefing section | Based on | Lets a worker |
 |---|---|---|
@@ -153,14 +153,14 @@ Conflicting intentions show both actors and signatures. They don't grant ownersh
 
 ## How integration preserves source and meaning
 
-The integration PM imports a frozen snapshot with the source-aware merger, including the peer-feedback support in [04](04-peer-feedback-merge.md):
+The integration PM imports a frozen snapshot with the source-aware merger, including the peer-feedback support in [04](../../docs/collaborative-research/peer-feedback-merge.md):
 
 - **First import** from a seed-derived source verifies the shared seed as the base. A source forked from a later canonical or peer snapshot declares and preserves that exact starting snapshot; the runner verifies its parent contribution and native identity history instead of substituting the original seed.
 - **Later directory imports** under the same `--source-key` use the last imported source revision as the base, so every predecessor snapshot must be kept. Local-Git imports require the enrolled source's verified ancestry.
 - **Repeated import** of the latest source revision must not duplicate entries. For an older contribution already imported into this destination, the runner returns the retained receipt instead of asking the merger to regress the source. An unimported older revision follows the explicit source-order policy and must not silently replace the latest revision.
 - **Receipts** bind contribution ID, source key, source/base revisions, identity mapping, destination revisions before and after integration, merge report, and owning audit session. Later resolution receipts append to the import receipt. The contribution stays readable whether or not it was accepted.
 
-Workers may import exact peer or canonical knowledge into their own forks and publish again under the same stable fork identity. The runner retains every merge input and receipt. [04](04-peer-feedback-merge.md) must reconcile the same original entry arriving through different routes without duplicating it or dropping history. Package-only reading remains available, but is not a substitute for this required feedback loop.
+Workers may import exact peer or canonical knowledge into their own forks and publish again under the same stable fork identity. The runner retains every merge input and receipt. [04](../../docs/collaborative-research/peer-feedback-merge.md) must reconcile the same original entry arriving through different routes without duplicating it or dropping history. Package-only reading remains available, but is not a substitute for this required feedback loop.
 
 A clean structural merge isn't scientific agreement. An incoming clean edit can be applied without producing a conflict. If the integration PM disagrees, it records an explicit audited logic revision and the competing interpretation; it must not assume every disagreement has a `merge resolve` choice. Mutable conflicts keep their candidates. Protected-history violations block mutation and use the separate repair path. The envelope never overrides the merger.
 
@@ -216,7 +216,7 @@ Receipt, cache, and channel recovery never edits a frozen contribution. The coor
 
 | Repository | Reuses | Approved additions |
 |---|---|---|
-| `ara-cli` | `agent.rs`, `write.rs`, `merge.rs`, `merge/git.rs`; core `write/source.rs`, `merge/identity.rs`. | `ara snapshot` ([01](01-ara-snapshot.md)) and peer-feedback identity/provenance integration ([04](04-peer-feedback-merge.md)). No community or network commands. |
+| `ara-cli` | `agent.rs`, `write.rs`, `merge.rs`, `merge/git.rs`; core `write/source.rs`, `merge/identity.rs`. | `ara snapshot` ([01](01-ara-snapshot.md)) and peer-feedback identity/provenance integration ([04](../../docs/collaborative-research/peer-feedback-merge.md)). No community or network commands. |
 | `Agent-Native-Research-Artifact` | `skills/collective-research-cli/`, `collective-frontier-cli/`, `collective-intentions-cli/`, `evaluation/agent-cli/collective-contract.json`. | Contribution, verification, attribution, visibility, and role contracts; the intention schema revision; the Lara handoff contract. Interface-only skills and archived baselines unchanged. |
 | `ara-eval` | Draft runner/community, manifest, policy, accounting, and schema modules from its plan (proposed, not implemented). | Capture, publication, announcements, briefing, receipts, recovery, and the Lara adapter ([03](03-lara-integration.md)). |
 | Viewer/Obsidian | Artifact rendering, read-only notes. | Nothing in this series. A later view can consume the briefing; frontmatter edits must not bypass guarded writes. |
@@ -232,7 +232,7 @@ The [zero-cost contract](README.md#zero-cost-when-collaboration-is-unused) appli
 - **Unit, integration, and functional tests** target lost contributions, bad identity binding, stale visibility, wrong verdict precedence, malformed inventories, unsafe paths, and interrupted publication or recovery. Changing envelope attribution, lineage, or a native pointer must change the contribution ID; changing payload bytes or modes must change both payload and contribution identity. Retrying an accepted request with changed content rejects.
 - **Capture identity.** Publish two native packages differing only in mode. Their native fingerprints agree, their capture IDs and payload/contribution identities differ, and both retained packages reproduce their original modes. Rebuilding a predecessor by store export uses its capture ID, never a mode-blind fingerprint lookup.
 - **Non-collective use.** Exercise local CLI reads and writes without installed runner/Lara tools or community state, and with the channel unavailable. No discovery, polling, or initialization of those systems may occur. Apply the series zero-cost measurements to shared CLI changes.
-- **Real CLI.** Runner tests invoke the actual CLI for knowledge reads and writes. Reuse native merge regressions, including the new feedback regressions in [04](04-peer-feedback-merge.md), rather than replacing them with mock results.
+- **Real CLI.** Runner tests invoke the actual CLI for knowledge reads and writes. Reuse native merge regressions, including the new feedback regressions in [04](../../docs/collaborative-research/peer-feedback-merge.md), rather than replacing them with mock results.
 - **Smoke fixture**: one seed; two forks with colliding local identities; disjoint experiments; changed executable code and evidence; an incompatible shared-claim edit; an intentional verification; and a synthesis candidate.
 - **Smoke steps**, in order:
   1. Publish A1 and B1 and read both before integration.
