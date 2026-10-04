@@ -9,7 +9,7 @@ Policy: [zero-cost-measurement.md](../../../collaborative-research/zero-cost-mea
 
 Machine: macOS-27.0.1-arm64-arm-64bit, 18 CPUs, outside the Claude Code sandbox.
 
-**Result: PASS, gate-valid.** 67 cases, 0 confirmed regressions, 0 failed output or access checks, 0 infeasible items. The worst candidate/parent median ratio is 1.035
+**Result: PASS, gate-valid.** 67 cases, 0 confirmed regressions, 0 failed output or access checks, 0 infeasible items. The worst candidate/parent median ratio is 1.035.
 
 - **Existing imports:** the first import into M and the 41st linear import into F3 (plan 04's "existing simple and long linear-history imports") stay within tolerance and give byte-identical normalized output. No import metadata from another key is present in either, so the merger takes the unchanged path.
 - **Ordinary reads and writes:** outputs are identical under every store state, and `.ara/` changes only at `lock` and `transactions/`.
