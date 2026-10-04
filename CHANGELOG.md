@@ -12,7 +12,7 @@ All notable changes to this project are documented here. The format follows
   `snapshot.json`). The manifest binds the native merge fingerprint and a
   separate `capture_id` that also covers full file modes and diagnostics.
   Publication uses an atomic no-replace rename and rejects changed input with
-  `stale_snapshot_input`.
+  `stale_snapshot_input` (#101).
 - Agent CLI: native discovery, source/full reads, structural queries, keyword
   search, guarded writes, typed JSONL batches, staging/promotion and complete
   session/audit history.
@@ -83,7 +83,7 @@ All notable changes to this project are documented here. The format follows
 ### Fixed
 - Core: loaders apply one privacy predicate before descending, so nested
   `.git/`, `.ara/` and write temporaries inside knowledge directories are no
-  longer read by ordinary loads or Git materialization.
+  longer read by ordinary loads or Git materialization (#101).
 
 ## [0.1.16] - 2026-08-23
 
