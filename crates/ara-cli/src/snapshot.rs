@@ -408,9 +408,12 @@ fn rename_no_replace(from: &Path, to: &Path) -> std::io::Result<()> {
     use std::os::unix::ffi::OsStrExt;
     let from = std::ffi::CString::new(from.as_os_str().as_bytes())?;
     let to = std::ffi::CString::new(to.as_os_str().as_bytes())?;
+    // The raw syscall works with both glibc and musl, whose `libc` bindings
+    // differ in exposing the renameat2 wrapper.
     // SAFETY: both arguments are valid NUL-terminated paths for the call.
     let status = unsafe {
-        libc::renameat2(
+        libc::syscall(
+            libc::SYS_renameat2,
             libc::AT_FDCWD,
             from.as_ptr(),
             libc::AT_FDCWD,
