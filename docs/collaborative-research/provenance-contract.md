@@ -1,7 +1,7 @@
 # Peer-feedback provenance contract
 
 **Date:** 2026-10-04
-**Status:** frozen representation for plan 04 ([peer-feedback merge](../../plans/collaborative-research/04-peer-feedback-merge.md)), proposed for adoption by the protocol repository. This file is reviewed before the implementation that follows it.
+**Status:** frozen representation for plan 04 ([peer-feedback merge](peer-feedback-merge.md)), proposed for adoption by the protocol repository. This file is reviewed before the implementation that follows it.
 **Amended in phase 4 review (PR #104):** self facts prove identity only, never
 content; unshared foreign revisions cannot remap a held origin
 (`merge.unshared_origin_revision`); `revision` mappings are authoritative;
@@ -294,7 +294,7 @@ The independent review of PR #104 changed these rules before merge:
 ## Amendments (plan 04b)
 
 The ara-eval phase-4 runner found four defects in 0.1.25
-([plan 04b](../../plans/collaborative-research/04b-feedback-merge-defects.md)).
+([plan 04b](peer-feedback-merge.md#defects-found-by-the-integration-runner-plan-04b-fixed-in-0126)).
 The fixes change these rules; every fail-closed guarantee above still holds.
 
 1. Proof rules 5 and 6: external code and evidence, including an external

@@ -1,7 +1,7 @@
 # CLI-mediated parallel and collaborative ARA research
 **Date:** 2026-10-02 (revised and split 2026-10-03)
 
-Status: **approved** by the human developer on 2026-10-03, with the review revisions below. Implementation pending. The approval adopts this design and its implementation scope; this turn changes documentation only. It does not create a commit, start a paid run, deploy a service, approve an upstream protocol release, or waive owning-repository contract and evaluation gates. This series replaces `plans/collaborative-research-cli.md`.
+Status: **approved** by the human developer on 2026-10-03, with the review revisions below. **Implemented** through the stage PRs in the [delivery record](#delivery-record) (2026-10-04); the gates listed there remain open. The approval adopts this design and its implementation scope; this turn changes documentation only. It does not create a commit, start a paid run, deploy a service, approve an upstream protocol release, or waive owning-repository contract and evaluation gates. This series replaces `plans/collaborative-research-cli.md`.
 
 ## TL;DR
 
@@ -14,9 +14,9 @@ Researchers (human or agent) work in private ARA forks. When a result is ready, 
 | Plan | Implementation target | Status |
 |---|---|---|
 | [01-ara-snapshot](01-ara-snapshot.md) | `ara-cli`: snapshot command, shared capture rules, and an internal jj-lib version store hidden from agents | Directory-only `ara snapshot --output` delivered (#101). Spike evidence recorded (#102); the optional store waits on re-approval of D-S4, D-S6, and D-S8. |
-| [02-contribution-workflow](02-contribution-workflow.md) | `Agent-Native-Research-Artifact` (contracts) and `ara-eval` (runner) | Approved design; staged here pending upstream routing |
-| [03-lara-integration](03-lara-integration.md) | `Agent-Native-Research-Artifact` (bindings), `ara-eval` (adapter), `Lara` (docs only) | Approved design; staged here pending upstream routing |
-| [04-peer-feedback-merge](04-peer-feedback-merge.md) | `ara-cli`: identity reconciliation and provenance transport | Delivered in `ara-cli` (#103 contract, #104 implementation). Adoption of the contract in the protocol repository is pending. |
+| [02-contribution-workflow](02-contribution-workflow.md) | `Agent-Native-Research-Artifact` (contracts) and `ara-eval` (runner) | Implemented on each repository's `feat/collaborative-ara`: contracts in ANRA #39; runner in ara-eval #2–#5, #7, #8. The provider-backed smoke and the study wait on budget and registration approval. |
+| [03-lara-integration](03-lara-integration.md) | `Agent-Native-Research-Artifact` (bindings), `ara-eval` (adapter), `Lara` (docs only) | Implemented: L1 in ANRA #40, L2 in ara-eval #3. The checker pin is a provisional local build of Lara `a31299f`. |
+| 04-peer-feedback-merge, now the [design record](../../docs/collaborative-research/peer-feedback-merge.md) | `ara-cli`: identity reconciliation and provenance transport | **Done.** #103 (contract), #104 (0.1.25), #112 (0.1.26 defect fixes). Adopted by the protocol in Agent-Native-Research-Artifact#41. The plan file has moved to `docs/`. |
 
 Plans 02 and 03 remain staged here, following the precedent of [plan 14](../agent-cli-interface/14-shared-frontier-intentions.md). D1 leaves their eventual repository placement deferred. Plan 04's portable provenance contract belongs to the protocol repository even though its implementation lives in `ara-cli`.
 
@@ -178,7 +178,7 @@ The core track proves publication, visibility, and integration. Lara runs in par
 
 | Phase | Deliverable | Acceptance before proceeding |
 |---|---|---|
-| 1. Freeze contracts | Snapshot contract ([01](01-ara-snapshot.md)), contribution identity, roles, publication and external-evidence receipts ([02](02-contribution-workflow.md)), origin/import-history representation ([04](04-peer-feedback-merge.md)). | Covers negative results, missing evidence, envelope tampering, source advancement, feedback histories, and repetition. Owning repositories adopt versioned contracts separately from the interface-only skills. |
+| 1. Freeze contracts | Snapshot contract ([01](01-ara-snapshot.md)), contribution identity, roles, publication and external-evidence receipts ([02](02-contribution-workflow.md)), origin/import-history representation ([04](../../docs/collaborative-research/peer-feedback-merge.md)). | Covers negative results, missing evidence, envelope tampering, source advancement, feedback histories, and repetition. Owning repositories adopt versioned contracts separately from the interface-only skills. |
 | 2. Capture and publish | `ara snapshot`; runner quiescence, inventories, immutable contributions, recoverable announcements. | Two processes publish complete snapshots. Exercise unsafe output and output races, source mutation, pending transactions, missing objects, changed requests, lost acknowledgment, and restart. |
 | 3. Shared frontier | Briefing from CLI reads, intentions, contribution and integration receipts. | A peer sees a result before integration and retrieves its exact evidence. Incomplete views report truncation. Peer native imports remain gated on plan 04. |
 | 4. Integrate and verify | Peer-feedback merge support; audited integration; external-file acknowledgments; reproduction records; separately evaluated synthesis. | Publish, peer import, republish, canonical import, and canonical feedback all preserve original identities and histories. Latest replay and older receipt lookup do not duplicate entries. Protected edits reject; external evidence remains retrievable. |
@@ -234,7 +234,7 @@ The developer approved these choices on 2026-10-03. Implementation evidence, ups
 | D3 | Lara on the core critical path | No. Develop Lara in parallel and join at phase 5. Lara remains in scope. |
 | D4 | `ara snapshot` | Adopt [01's decisions](01-ara-snapshot.md#approved-decisions): public command, lock, no source-key option, report-only diagnostics, caller-enforced direct-writer quiescence. Revision pending re-approval: an internal jj-lib store under `.ara/vcs/`, hidden from agents, and the `snapshot create`/`list`/`export` command shape ([01 pending decisions](01-ara-snapshot.md#decisions-pending-re-approval-revision)). |
 | D5 | Merge expected-revision flag | Rely on the integration PM's exclusive workspace ownership across review and commit. A new CLI flag is outside this series. |
-| D6 | Peer and canonical feedback | Support native imports and republication. Include [04](04-peer-feedback-merge.md), not a package-only restriction or provenance bypass. |
+| D6 | Peer and canonical feedback | Support native imports and republication. Include [04](../../docs/collaborative-research/peer-feedback-merge.md), not a package-only restriction or provenance bypass. |
 | D7 | Contribution identity | Distinguish native merge revision, exact capture ID, complete payload digest, and envelope-bound contribution ID. Parents and verification target contribution IDs; store export targets capture IDs. |
 | D8 | Lara audit and scope | Authorized review separate from producer assertions; pinned setting identities; immutable later attachments and map revisions. Freeze concrete schemas in L1. |
 | D9 | Cost for nonusers | Require runtime and build/install pay-for-use, explicit snapshots only, and the zero-cost acceptance gates above. |
@@ -261,7 +261,7 @@ The behavioral review ran temporary fixtures with the actual `ara 0.1.23` binary
 
 | Finding | Approved revision |
 |---|---|
-| A peer's original identity can arrive through multiple forks, which the current merger cannot reconcile. | Added [04](04-peer-feedback-merge.md), including source-fact/import-event separation, diamond and canonical-feedback tests, and explicit CLI/core scope. |
+| A peer's original identity can arrive through multiple forks, which the current merger cannot reconcile. | Added [04](../../docs/collaborative-research/peer-feedback-merge.md), including source-fact/import-event separation, diamond and canonical-feedback tests, and explicit CLI/core scope. |
 | Normal code/evidence changes produce unresolved conflicts without scientific disagreement. | 02 defines audited external-file acknowledgments, source-owned inherited resolution, package-backed evidence reads, and completion criteria. |
 | A payload digest alone does not bind attribution, lineage, or verification targets. | 02 adds a canonical envelope-bound contribution ID and request-to-record idempotency. |
 | A checker verdict does not authenticate formalization review or establish shared experimental settings. | 03 defines reviewer authority, setting descriptors, audit coverage, and immutable attachment/map scopes. |
@@ -273,34 +273,41 @@ The later cost review found that `ara.artifact/v1` excludes modes but the propos
 
 ## Delivery record
 
-Stage PRs merged into `feat/collaborative-ara`:
+Every stage PR was squash-merged into its repository's `feat/collaborative-ara` branch. The ANRA branch starts from `feat/agent-cli-interface`, and the `ara-eval` branch from `main`. Cross-repository work was authorized by the developer on 2026-10-04.
 
-| Stage | PR | Content |
-|---|---|---|
-| 1a | #100 | `ara.snapshot/v1` contract; zero-cost measurement policy and harness (`scripts/collab-zero-cost.py`). |
-| 1b | #103 | Peer-feedback provenance contract (`docs/collaborative-research/provenance-contract.md`), amended in #104. |
-| 1c | this PR | Plan 02 contribution contracts adopted from `Agent-Native-Research-Artifact` [#39](https://github.com/ARA-Labs/Agent-Native-Research-Artifact/pull/39) at `36e6f89` (`evaluation/collaborative/`). The capture ID reproduces `ara.capture/v1` byte for byte on three real snapshots. |
-| L1 | this PR | Lara contracts adopted from `Agent-Native-Research-Artifact` [#40](https://github.com/ARA-Labs/Agent-Native-Research-Artifact/pull/40) at `e5179d9` (`evaluation/collaborative/lara/`). The checker pin is Lara `a31299f`, a local build with sha256 `dfbc5966…`, provisional until a release executable is pinned. |
-| L2 | this PR | Lara adapter, review attestations, composite maps, and verdict views in `ara-eval` [#3](https://github.com/ARA-Labs/ara-eval/pull/3) at `6e6d4e5`. It pins the protocol at `e5179d9` and Lara `a31299f`. 80 tests pass against the real `lara` and `ara`. |
-| 2a | #101 | `ara snapshot --output`, 0.1.24. Zero-cost PASS (`docs/verification/collaborative-research/phase-2a/`). |
-| 2 (runner) | this PR | Capture, freeze, and publication in `ara-eval` [#2](https://github.com/ARA-Labs/ara-eval/pull/2) at `71da192`. It pins ara-cli `da43bf6` and the protocol at `36e6f89`. 48 tests pass against the real binary, covering concurrent publishers, stale input, lost acknowledgment, announcement recovery, index rebuild, and mode-only identity. |
-| 3 | this PR | Shared frontier in `ara-eval` [#4](https://github.com/ARA-Labs/ara-eval/pull/4) at `3411f4c`: v2 intentions on the plan-14 channel, ordered announcements, and bounded briefings built only from CLI reads over exact packages, with digest-verified evidence fetch. 119 tests pass across phases 2, 3, and L2. |
-| 4 (runner) | this PR | Integration in `ara-eval` [#5](https://github.com/ARA-Labs/ara-eval/pull/5) at `f5a68a0`: exact-base imports with `--self-key`, sealed integration receipts, replay and older-receipt lookup, external-file acknowledgments with digest-verified fetch, audited logic revisions, and verification records. 154 tests pass. Two ara-cli defects found here (canonical feedback with the fork's own external files; same-day session collision) are tracked in a follow-up. |
-| 2b | #102 | jj-lib store spike evidence. The spike source sits on the unmerged branch `spike/jj-snapshot-store`. |
-| 4 | #104 | Peer-feedback identity reconciliation and `--self-key`, 0.1.25. Zero-cost PASS (`docs/verification/collaborative-research/phase-4/`). |
+| Stage | ara-cli PR | Owning-repository PR (merge commit) | Content |
+|---|---|---|---|
+| 1a | #100 | — | `ara.snapshot/v1` contract; zero-cost measurement policy and harness. |
+| 1b | #103 | — | Peer-feedback provenance contract, amended in #104 and #112. |
+| 1c | #106 | ANRA [#39](https://github.com/ARA-Labs/Agent-Native-Research-Artifact/pull/39) (`36e6f89`) | Contribution, inventory, publication, attachment, verification, integration-receipt, role, visibility, and intention-v2 contracts, with a stdlib reference implementation. |
+| 2a | #101 | — | `ara snapshot --output`, 0.1.24. Zero-cost PASS. |
+| 2b | #102 | — | jj-lib store spike evidence. The spike source sits on the unmerged branch `spike/jj-snapshot-store`. |
+| 2 (runner) | #108 | ara-eval [#2](https://github.com/ARA-Labs/ara-eval/pull/2) (`71da192`) | Capture, freeze, publication coordinator, and recovery. |
+| 3 | #110 | ara-eval [#4](https://github.com/ARA-Labs/ara-eval/pull/4) (`3411f4c`) | v2 intentions on the plan-14 channel, announcements, and briefings built from CLI reads. |
+| 4 | #104, #111 | ara-eval [#5](https://github.com/ARA-Labs/ara-eval/pull/5) (`f5a68a0`) | Peer-feedback merges (0.1.25); integration driver, receipts, acknowledgments, and verification records. |
+| 4b | #112 | — | Canonical-feedback defect fixes found by the runner (0.1.26). Zero-cost PASS. |
+| 4c | this PR | ara-eval [#7](https://github.com/ARA-Labs/ara-eval/pull/7) (`ce6d0a5`) | Runner pinned to 0.1.26; the former limits now pass as acceptance tests; crash-before-receipt recovery. 161 tests pass. |
+| L1 | #107 | ANRA [#40](https://github.com/ARA-Labs/Agent-Native-Research-Artifact/pull/40) (`e5179d9`) | Lara binding, review attestation, setting registry, argument-check, and map-revision contracts; checker pin. |
+| L2 | #109 | ara-eval [#3](https://github.com/ARA-Labs/ara-eval/pull/3) (`6e6d4e5`) | Lara adapter, attestations, composite maps, and verdict views. |
+| 5 | this PR | ara-eval [#8](https://github.com/ARA-Labs/ara-eval/pull/8) (`febb8d3`) | Scripted, model-free worker-loop smoke covering plan-02 steps 1–8 plus Lara, with `provider_calls: 0`. 171 tests pass. |
+| 6 | this PR | ara-eval [#6](https://github.com/ARA-Labs/ara-eval/pull/6) (`7a65b16`) | Draft collective-stack registration with a 12-item blocking checklist. It authorizes no collection. |
+| — | this PR | ANRA [#41](https://github.com/ARA-Labs/Agent-Native-Research-Artifact/pull/41) (`e42a242`) | Protocol pins the amended provenance contract at ara-cli `afd96b4`. |
 
-Not delivered, with the blocking decision for each:
+### Gates still open
 
-| Stage | Blocked on |
+These need decisions or approvals; no further engineering work can close them.
+
+| Gate | Needed |
 |---|---|
-| 2c optional store | The developer's re-approval of D-S4, D-S6, and D-S8 against the phase-2b numbers. |
-| 4 acceptance | ara-cli defects found by the runner (`merge.ambiguous_origin` on canonical feedback with the fork's own `src/`/`evidence/`, same-day `session import collision`) are being fixed. Then the runner's pin is bumped. |
-| 5 | Stages 2–4 and L2 on the runner side, plus separate budget approval for the provider-backed smoke. |
-| 6 | Stage 5, the reviewed `ara-eval` stack registration, and budget approval for collection. |
+| Optional snapshot store (plan 01, step 4) | The developer's re-approval of D-S4, D-S6, and D-S8 against the phase-2b numbers. |
+| Provider-backed phase-5 smoke | Budget approval. `ProviderWorker` refuses to run without an approval record, and no provider client exists. |
+| Phase-6 study collection | The registration's blocking checklist: Agora-R, the task set and held-out evaluator, prompts and models, budget, a Lara release pin, protocol adoption of the v2 channel transition, registration-enforcement code, a pilot, and reviewer approval. |
 
 ## Next Steps
 
-1. Freeze the versioned snapshot, contribution, and provenance contracts with their owning repositories, including exact capture IDs and the zero-cost measurement policy.
-2. Implement 01 and 04 with their regressions and real-binary acceptance checks; enable the runner's native peer imports only after 04 passes.
-3. Build 02's complete feedback/recovery loop and 03's parallel Lara track. Keep upstream placement D1 deferred until directed.
-4. Follow the stage PR instructions above, targeting `feat/collaborative-ara` for this repository. Obtain separate paid-smoke and scored-study approvals before provider-backed execution or collection. Do not create commits or PRs during this documentation revision.
+1. Review the phase-2b spike numbers and decide D-S4, D-S6, and D-S8. Approval unblocks the optional `ara-vcs` store behind the `snapshot-store` feature.
+2. Approve a budget for the provider-backed phase-5 smoke. That needs a provider adapter behind `ProviderWorker`.
+3. Work through the phase-6 registration checklist in `ara-eval/plans/registration-collective-stack.md` before any scored collection.
+4. Ask the protocol owner to adopt the v2 intention transition into the plan-14 channel. The runner currently wraps the channel.
+5. Re-pin a Lara release executable in place of the local build.
+6. When the integration branches merge to their default branches, follow each repository's release procedure. That is not authorized here.

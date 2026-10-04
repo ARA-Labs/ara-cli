@@ -1,7 +1,7 @@
 # 01: `ara snapshot`, an offline exact capture of an artifact
 **Date:** 2026-10-03 (revised: exact capture identity and opt-in storage)
 
-Status: **approved** by the human developer on 2026-10-03 for the capture rules, with the requested exact-identity and zero-cost revisions below. **Still pending re-approval and a spike:** the internal version-store backend and command shape (D-S4, D-S6, D-S8 to D-S10). Without that approval, implement the directory-only command `ara snapshot --output <dir>` with the corrected manifest contract; its earlier capture baseline is this file at commit `5fb8f3f`. D-S7 now requires explicit snapshots only. Implementation pending. Target repository: `ara-cli`. Parent: [collaborative research plan series](README.md). The other CLI/core work is [04: peer-feedback merges](04-peer-feedback-merge.md). This documentation revision performs no implementation or commit.
+Status: **approved** by the human developer on 2026-10-03 for the capture rules, with the requested exact-identity and zero-cost revisions below. **Still pending re-approval and a spike:** the internal version-store backend and command shape (D-S4, D-S6, D-S8 to D-S10). Without that approval, implement the directory-only command `ara snapshot --output <dir>` with the corrected manifest contract; its earlier capture baseline is this file at commit `5fb8f3f`. D-S7 now requires explicit snapshots only. Implementation pending. Target repository: `ara-cli`. Parent: [collaborative research plan series](README.md). The other CLI/core work is [04: peer-feedback merges](../../docs/collaborative-research/peer-feedback-merge.md). This documentation revision performs no implementation or commit.
 
 ## TL;DR
 
