@@ -810,6 +810,7 @@ fn quiet_report(report: &MergeReport) -> MergeReport {
             time: String::new(),
             git: None,
             predecessor: None,
+            self_key: None,
         },
         report.source_revision.clone(),
     )
@@ -2401,6 +2402,7 @@ pub(crate) fn apply(
     working: &mut WorkingArtifact,
     report: &mut MergeReport,
     pending: &[MergeConflict],
+    inherited: &super::origin::Inherited,
 ) -> Result<(), MergeError> {
     protected(base, ours, theirs, map, report)?;
     opaque_roots(base, ours, theirs, report)?;
@@ -2633,6 +2635,18 @@ pub(crate) fn apply(
                     .get(path)
                     .cloned()
                     .unwrap_or_else(|| format!("trace/sessions/{id}.yaml"));
+                if inherited.contains(native) && ours.docs.contains_key(&destination) {
+                    inherited_session(
+                        td,
+                        &ours.docs[&destination],
+                        &destination,
+                        id,
+                        inherited.yaml(native),
+                        map,
+                        report,
+                    )?;
+                    continue;
+                }
                 if working.exists(&destination) {
                     return Err(MergeError::content(
                         "merge.identity",
@@ -2671,6 +2685,9 @@ pub(crate) fn apply(
             .get(destination)
             .or_else(|| added_paths.get(destination))
             .ok_or_else(|| MergeError::content("merge.yaml", "missing destination document"))?;
+        // Inherited records already present in ours stay in place; their new
+        // incoming descendants are still imported under the destination parent.
+        let mut kept = BTreeSet::new();
         for native in &td.order {
             if base.records.contains_key(native) {
                 continue;
@@ -2679,7 +2696,7 @@ pub(crate) fn apply(
             if entry
                 .parent
                 .as_ref()
-                .is_some_and(|p| !base.records.contains_key(p))
+                .is_some_and(|p| !base.records.contains_key(p) && !kept.contains(p))
             {
                 continue;
             }
@@ -2690,6 +2707,24 @@ pub(crate) fn apply(
                 map.get(native).unwrap_or(native).clone()
             };
             if ours.records.contains_key(&id) {
+                if td.kind == Kind::Index && inherited.contains(native.trim_start_matches("index:"))
+                {
+                    // Derived from the inherited session itself.
+                    continue;
+                }
+                if inherited.contains(native) {
+                    inherited_record(
+                        theirs,
+                        native,
+                        ours,
+                        &id,
+                        inherited.yaml(native),
+                        map,
+                        report,
+                    )?;
+                    kept.insert(native.clone());
+                    continue;
+                }
                 return Err(MergeError::content(
                     "merge.identity",
                     format!("unmapped YAML identity collision {id}"),
@@ -3160,16 +3195,15 @@ pub(crate) fn restore_base(
     }
     verify_current(working, conflict)?;
     let mut map = IdentityMap::new();
-    for record in super::identity::load(&working.base)?.records {
-        if let super::identity::Record::Revision {
-            source_key,
-            mappings,
-            ..
-        } = record
-            && source_key == conflict.source_key
-        {
-            for mapping in mappings {
-                map.insert(mapping.original, mapping.target);
+    let ledger = super::identity::load(&working.base)?;
+    for fact in ledger
+        .records
+        .iter()
+        .filter_map(super::identity::Record::fact)
+    {
+        if fact.source_key == conflict.source_key {
+            for mapping in fact.mappings {
+                map.insert(mapping.original.clone(), mapping.target.clone());
             }
         }
     }
@@ -3182,6 +3216,7 @@ pub(crate) fn restore_base(
             time: String::new(),
             git: None,
             predecessor: None,
+            self_key: None,
         };
         let mut quiet = MergeReport::new(&options, conflict.source_revision.clone());
         if rewrite::yaml_value(
@@ -4417,6 +4452,159 @@ fn opaque_comments(
     }
 }
 
+/// Destination-namespace field values of a record, for comparing one entry that
+/// arrived through two routes.
+fn relocated_fields<'a>(
+    record: &'a Record,
+    destination_path: &str,
+    destination: &str,
+    map: &IdentityMap,
+    report: &mut MergeReport,
+) -> Result<BTreeMap<&'a str, Cow<'a, Field>>, MergeError> {
+    let mut result = BTreeMap::new();
+    for (name, field) in &record.fields {
+        let selector = match name.as_str() {
+            "from" => record.fields.get("from_selector"),
+            "to" => record.fields.get("to_selector"),
+            _ => None,
+        }
+        .filter(|_| destination_path == "trace/logic_mutations.yaml")
+        .map(|field| &field.node);
+        if let Some(value) = mapped_field(
+            Some(field),
+            destination_path,
+            destination,
+            name,
+            map,
+            report,
+            selector,
+        )? {
+            result.insert(name.as_str(), value);
+        }
+    }
+    Ok(result)
+}
+fn same_fields(
+    left: &BTreeMap<&str, Cow<'_, Field>>,
+    right: &BTreeMap<&str, Cow<'_, Field>>,
+    kind: Kind,
+    map: &IdentityMap,
+) -> bool {
+    left.keys().chain(right.keys()).all(|name| {
+        let key = if known_entry(kind, name) {
+            name
+        } else {
+            "opaque"
+        };
+        equal_mapped(
+            left.get(name).map(AsRef::as_ref),
+            right.get(name).map(AsRef::as_ref),
+            key,
+            map,
+        )
+    })
+}
+/// An incoming record whose proven origin already exists in ours. These layers
+/// are immutable history: an equal record or a destination-only change keeps
+/// ours; an incoming change relative to the shared source fact is rejected.
+fn inherited_record(
+    theirs: &Inventory,
+    native: &str,
+    ours: &Inventory,
+    destination: &str,
+    base: Option<(&Inventory, &str, &IdentityMap)>,
+    map: &IdentityMap,
+    report: &mut MergeReport,
+) -> Result<(), MergeError> {
+    let t = &theirs.records[native];
+    let o = &ours.records[destination];
+    let kind = ours.docs[&o.path].kind;
+    let mut quiet = quiet_report(report);
+    let incoming = relocated_fields(t, &o.path, destination, map, &mut quiet)?;
+    let current: BTreeMap<&str, Cow<'_, Field>> = o
+        .fields
+        .iter()
+        .map(|(name, field)| (name.as_str(), Cow::Borrowed(field)))
+        .collect();
+    let parent = t.parent.as_ref().map(|p| map.get(p).unwrap_or(p));
+    if parent == o.parent.as_ref() && same_fields(&incoming, &current, kind, map) {
+        return Ok(());
+    }
+    let base = base.and_then(|(view, original, base_map)| {
+        view.records
+            .get(original)
+            .map(|record| (view, record, base_map))
+    });
+    if let Some((_, b, base_map)) = base {
+        let shared = relocated_fields(b, &o.path, destination, base_map, &mut quiet)?;
+        if same_fields(&incoming, &shared, kind, map) {
+            return Ok(());
+        }
+    }
+    conflict(
+        report,
+        &o.path,
+        destination,
+        "entry",
+        "protected_inherited_entry",
+        base.map(|(view, b, _)| view.docs[&b.path].text[b.span.clone()].as_bytes()),
+        Some(ours.docs[&o.path].text[o.span.clone()].as_bytes()),
+        Some(theirs.docs[&t.path].text[t.span.clone()].as_bytes()),
+        ConflictLocator::Document,
+    );
+    Err(reject_protected(report))
+}
+/// Whole-session comparison for a session that arrived through two routes.
+fn inherited_session(
+    incoming: &Document,
+    current: &Document,
+    destination: &str,
+    id: &str,
+    base: Option<(&Inventory, &str, &IdentityMap)>,
+    map: &IdentityMap,
+    report: &mut MergeReport,
+) -> Result<(), MergeError> {
+    let mut quiet = quiet_report(report);
+    let relocated = rewrite_source(
+        &incoming.text,
+        &incoming.parsed.root,
+        0..incoming.text.len(),
+        destination,
+        id,
+        map,
+        &mut quiet,
+    )?;
+    if relocated == current.text {
+        return Ok(());
+    }
+    let shared = base
+        .and_then(|(view, original, _)| view.docs.get(&format!("trace/sessions/{original}.yaml")));
+    if let (Some(shared), Some((_, _, base_map))) = (shared, base)
+        && rewrite_source(
+            &shared.text,
+            &shared.parsed.root,
+            0..shared.text.len(),
+            destination,
+            id,
+            base_map,
+            &mut quiet,
+        )? == relocated
+    {
+        return Ok(());
+    }
+    conflict(
+        report,
+        destination,
+        id,
+        "entry",
+        "protected_inherited_entry",
+        shared.map(|doc| doc.text.as_bytes()),
+        Some(current.text.as_bytes()),
+        Some(incoming.text.as_bytes()),
+        ConflictLocator::Document,
+    );
+    Err(reject_protected(report))
+}
 pub(crate) fn mutation_origins(view: &Inventory) -> Result<Vec<EntryIdentity>, MergeError> {
     let rows = view
         .docs

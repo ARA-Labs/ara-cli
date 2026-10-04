@@ -48,6 +48,7 @@ fn options() -> MergeOptions {
         time: "2026-10-01T10:00".into(),
         git: None,
         predecessor: None,
+        self_key: None,
     }
 }
 fn plan(base: &ArtifactSnapshot, ours: &ArtifactSnapshot, theirs: &ArtifactSnapshot) -> MergePlan {

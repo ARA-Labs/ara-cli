@@ -742,6 +742,32 @@ pub(crate) fn inventory_document(path: &str, text: &str) -> Result<Inventory, Me
     insert_document(&mut result, path, text)?;
     Ok(result)
 }
+/// Rebuild every document in another identity namespace, for the 3-way base
+/// of an entry that reached the destination through another route.
+pub(crate) fn relocated(view: &Inventory, map: &IdentityMap) -> Result<Inventory, MergeError> {
+    let mut result = Inventory {
+        entries: Vec::new(),
+        paths: BTreeSet::new(),
+        docs: BTreeMap::new(),
+        addresses: BTreeMap::new(),
+    };
+    let mut quiet = MergeReport::new(
+        &MergeOptions {
+            source_key: String::new(),
+            label: String::new(),
+            time: String::new(),
+            git: None,
+            predecessor: None,
+            self_key: None,
+        },
+        String::new(),
+    );
+    for (path, document) in &view.docs {
+        let text = document.rewrite(0..document.text.len(), path, path, map, &mut quiet)?;
+        insert_document(&mut result, path, &text)?;
+    }
+    Ok(result)
+}
 fn insert_document(result: &mut Inventory, path: &str, text: &str) -> Result<(), MergeError> {
     let document = Document::parse(path, text.to_owned())?;
     result.paths.insert(path.into());
@@ -946,6 +972,7 @@ fn scratch(report: &MergeReport) -> MergeReport {
             time: String::new(),
             git: None,
             predecessor: None,
+            self_key: None,
         },
         report.source_revision.clone(),
     )
@@ -1236,6 +1263,7 @@ pub(crate) fn apply(
     map: &IdentityMap,
     working: &mut WorkingArtifact,
     report: &mut MergeReport,
+    inherited: &super::origin::Inherited,
 ) -> Result<(), MergeError> {
     let mut paths = base
         .paths
@@ -1468,17 +1496,52 @@ pub(crate) fn apply(
                         &mut comparison,
                         &mut patches,
                     )?;
-                } else if ours_doc.full(our_entry) != theirs_doc.full(entry) {
-                    entry_conflict(
+                } else if let Some((base_doc, base_entry)) = inherited
+                    .markdown(&entry.address)
+                    .and_then(|view| view.docs.get(&path))
+                    .and_then(|doc| doc.entry(&entry.address).map(|found| (doc, found)))
+                {
+                    // The same original reached ours by another route: merge
+                    // both routes against the shared source fact.
+                    merge_entry(
                         &path,
-                        target,
-                        "identity",
-                        None,
-                        Some((ours_doc, our_entry)),
-                        Some((theirs_doc, entry)),
+                        Some((base_doc, base_entry)),
+                        (ours_doc, our_entry),
+                        (theirs_doc, entry),
+                        map,
                         report,
-                    );
-                    imported_range = Some(entry.range.clone());
+                        &mut comparison,
+                        &mut patches,
+                    )?;
+                } else {
+                    // A proven origin without a rebuildable base must agree after
+                    // relocation; unproven colliding identities compare exactly.
+                    let differs = if inherited.contains(&entry.address) {
+                        comparison.rewritten.clear();
+                        comparison.needs_review.clear();
+                        ours_doc.full(our_entry)
+                            != theirs_doc.rewrite(
+                                entry.range.clone(),
+                                &path,
+                                &entry.address,
+                                map,
+                                &mut comparison,
+                            )?
+                    } else {
+                        ours_doc.full(our_entry) != theirs_doc.full(entry)
+                    };
+                    if differs {
+                        entry_conflict(
+                            &path,
+                            target,
+                            "identity",
+                            None,
+                            Some((ours_doc, our_entry)),
+                            Some((theirs_doc, entry)),
+                            report,
+                        );
+                        imported_range = Some(entry.range.clone());
+                    }
                 }
                 continue;
             }

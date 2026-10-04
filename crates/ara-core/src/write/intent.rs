@@ -268,6 +268,7 @@ mod tests {
                 time: "2026-10-01T12:00Z".into(),
                 git: None,
                 predecessor: None,
+                self_key: None,
             },
         )
         .unwrap()

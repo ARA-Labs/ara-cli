@@ -20,6 +20,10 @@ pub struct MergeOptions {
     pub git: Option<GitMergeProvenance>,
     #[serde(default)]
     pub predecessor: Option<String>,
+    /// This destination's own stable source key (`--self-key`). It is never
+    /// inferred; the first explicit use is recorded as `self_identity`.
+    #[serde(default)]
+    pub self_key: Option<String>,
 }
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]

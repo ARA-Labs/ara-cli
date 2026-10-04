@@ -170,6 +170,35 @@ Unknown/opaque source changes are evaluated explicitly rather than dropped from
 inventory or rewritten as regenerated normalized content. Ambiguous prose tokens
 and quoted historical values remain opaque and visible for review.
 
+Peer-feedback imports keep one identity for an entry that arrives by more than
+one route, for example fork A's claim imported by canonical directly and again
+inside fork B's later publication. An incoming entry reuses the destination's
+identity only when an incoming alias is backed by an incoming source revision
+and the destination holds the same source revision with byte-identical files.
+Unproven entries allocate fresh IDs as before. Repeated foreign provenance is
+compared by source facts (source key, fingerprint, files, original identities),
+not by another destination's import time, base, predecessor or Git context. A
+foreign source revision the destination lacks is recorded as an
+`inherited_revision`, which never joins that source's predecessor chain. Both
+routes editing the same entry give a normal mutable conflict against the shared
+source revision; YAML history changed on the peer route rejects as
+`protected_inherited_entry`. Forged or contradictory origins reject with
+`merge.alias_conflict`, `merge.foreign_mapping_conflict` or
+`merge.ambiguous_origin` before mutation.
+
+A destination recognizes its own entries coming back (worker B absorbing a
+canonical that integrated B, or canonical receiving its own claims from B) only
+through its explicit self key: `ara merge ... --self-key <key>`. The first use
+records `self_identity` in the ledger; later merges may omit the flag, and a
+different key or a key equal to `--source-key` rejects with
+`merge.self_identity_conflict`. An incoming alias under the self key, backed by
+an incoming source revision of that key, maps the entry back to the original
+here. The original must still exist with the same layer and path, otherwise
+`merge.self_origin_missing`. The incoming fact is the 3-way base, so an edit
+made only on the other side applies. Without a self key these entries are
+unproven. The record format is frozen in
+[the provenance contract](collaborative-research/provenance-contract.md).
+
 `merge resolve <conflict> --take ours|theirs|base` requires an owning session,
 next turn, signal and provenance. Protected conflicts use the separate audited
 `merge repair --conflict-file ... --decision reject_incoming|restore_base

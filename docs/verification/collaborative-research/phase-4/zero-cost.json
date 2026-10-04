@@ -1,0 +1,8245 @@
+{
+ "format": "ara.collab-zero-cost/v1",
+ "timestamp": "2026-10-04T07:52:03.845541+00:00",
+ "quick": false,
+ "gate_valid": true,
+ "notes": [],
+ "pass": true,
+ "failures": [],
+ "policy": {
+  "path": "<candidate-src>/docs/collaborative-research/zero-cost-measurement.md",
+  "sha256": "fdc31c732da18cd200d02384fc7f9ac37de7ab8b3d34ef8ea4169f1e31af6be7"
+ },
+ "binaries": {
+  "parent": {
+   "path": "/private$TMPDIR/bins/ara-parent-2b",
+   "sha256": "267f2c1a21bcfb0adeaa738c997e65e95608ce3cd4d6fd9df4d9fd6c2eec58d8",
+   "version": "ara 0.1.24"
+  },
+  "candidate": {
+   "path": "/private$TMPDIR/bins/ara-4",
+   "sha256": "b948708397eeca772e9eb2bba5d2f3b4bd906bec6c8e04d71d08ba12f0fa9e0e",
+   "version": "ara 0.1.25"
+  }
+ },
+ "machine": {
+  "platform": "macOS-27.0.1-arm64-arm-64bit",
+  "machine": "arm64",
+  "cpu_count": 18,
+  "python": "3.9.6"
+ },
+ "anra": {
+  "path": "<repos>/Agent-Native-Research-Artifact",
+  "commit": "03f19c7767ec993ae53a0698417b8b68040d7fee",
+  "pinned_commit": "03f19c7767ec993ae53a0698417b8b68040d7fee",
+  "pinned": true,
+  "example_clean": true
+ },
+ "seed": 20261003,
+ "repetitions": {
+  "warmup": 3,
+  "measured": 15,
+  "rss": 5
+ },
+ "statistics": {
+  "p90": "nearest rank",
+  "first_ms": "first invocation of each binary for the case (a warm-up)"
+ },
+ "normalization": [
+  "artifact_location values replaced by <removed>",
+  "absolute fixture/input paths (and their realpaths) replaced by placeholders",
+  "ISO-8601 date-time strings replaced by <ts>",
+  "binary version strings replaced by <version>",
+  "merge report phase clocks (\"*_ms\" numbers) replaced by <ms> (not named by the policy; they are wall clocks and differ on every run)"
+ ],
+ "deviations": [],
+ "infeasible": [],
+ "fixtures": [
+  "F1-S0",
+  "F1-S1",
+  "F1-S2",
+  "F1-S3",
+  "F2-S0",
+  "F2-S1",
+  "F2-S2",
+  "F2-S3",
+  "F3-S0"
+ ],
+ "cases": [
+  {
+   "command": "status --json",
+   "kind": "read",
+   "fixture": "F1",
+   "state": "S0",
+   "parent": {
+    "median_ms": 14.708083,
+    "p90_ms": 15.526083,
+    "first_ms": 19.107667,
+    "rss_bytes": 14499840
+   },
+   "candidate": {
+    "median_ms": 14.595167,
+    "p90_ms": 15.380292,
+    "first_ms": 15.619417,
+    "rss_bytes": 14516224
+   },
+   "timing_rounds": [
+    {
+     "parent": {
+      "median_ms": 14.708083,
+      "p90_ms": 15.526083,
+      "first_ms": 19.107667,
+      "samples_ms": [
+       14.850208,
+       16.39575,
+       14.98425,
+       14.708083,
+       15.158042,
+       15.526083,
+       14.46225,
+       14.764416,
+       14.59275,
+       14.62475,
+       14.654959,
+       14.614917,
+       14.608166,
+       14.456541,
+       14.826042
+      ]
+     },
+     "candidate": {
+      "median_ms": 14.595167,
+      "p90_ms": 15.380292,
+      "first_ms": 15.619417,
+      "samples_ms": [
+       16.692334,
+       15.380292,
+       14.655125,
+       15.048208,
+       14.595167,
+       14.679667,
+       14.4245,
+       14.589166,
+       14.422917,
+       14.424542,
+       14.442333,
+       14.475709,
+       14.649583,
+       14.435541,
+       15.283292
+      ]
+     }
+    }
+   ],
+   "rss_rounds": [
+    {
+     "parent": {
+      "rss_bytes": 14499840,
+      "samples_bytes": [
+       14499840,
+       14417920,
+       14516224,
+       14565376,
+       14434304
+      ]
+     },
+     "candidate": {
+      "rss_bytes": 14516224,
+      "samples_bytes": [
+       14548992,
+       14581760,
+       14516224,
+       14450688,
+       14450688
+      ]
+     }
+    }
+   ],
+   "verdict": "pass",
+   "output": {
+    "parent_equals_candidate": true,
+    "digest": {
+     "parent": [
+      "63d9f4a4c5e78f1f8608d0505e5e64761b7862837ade6886c5bb378809590890"
+     ],
+     "candidate": [
+      "63d9f4a4c5e78f1f8608d0505e5e64761b7862837ade6886c5bb378809590890"
+     ]
+    },
+    "exit": {
+     "parent": [
+      0
+     ],
+     "candidate": [
+      0
+     ]
+    },
+    "excerpt": {
+     "parent": "{\"artifact_location\":\"<removed>\",\"complete\":true,\"counts\":{\"claim\":16,\"dead_end\":21,\"decision\":45,\"experiment\":46,\"experiment_plan\":6,\"heuristic\":23,\"observation\":95,\"pivot\":2,\"session\":41},\"diagnostics\":{\"errors\":0,\"report\":{\"errors\":[],\"warnings\":[{\"message\":\"field `lesson` dropped for type `exper",
+     "candidate": "{\"artifact_location\":\"<removed>\",\"complete\":true,\"counts\":{\"claim\":16,\"dead_end\":21,\"decision\":45,\"experiment\":46,\"experiment_plan\":6,\"heuristic\":23,\"observation\":95,\"pivot\":2,\"session\":41},\"diagnostics\":{\"errors\":0,\"report\":{\"errors\":[],\"warnings\":[{\"message\":\"field `lesson` dropped for type `exper"
+    }
+   },
+   "access": {
+    "ok": true,
+    "violations": []
+   },
+   "failures": []
+  },
+  {
+   "command": "ls --json",
+   "kind": "read",
+   "fixture": "F1",
+   "state": "S0",
+   "parent": {
+    "median_ms": 15.614417,
+    "p90_ms": 15.809917,
+    "first_ms": 15.85675,
+    "rss_bytes": 17645568
+   },
+   "candidate": {
+    "median_ms": 15.547417,
+    "p90_ms": 16.171417,
+    "first_ms": 15.605666,
+    "rss_bytes": 17563648
+   },
+   "timing_rounds": [
+    {
+     "parent": {
+      "median_ms": 15.614417,
+      "p90_ms": 15.809917,
+      "first_ms": 15.85675,
+      "samples_ms": [
+       15.412833,
+       15.809917,
+       15.43125,
+       15.546917,
+       15.614417,
+       15.323208,
+       15.578625,
+       15.979083,
+       15.761375,
+       15.454334,
+       15.554083,
+       15.63775,
+       15.625,
+       15.794875,
+       15.705208
+      ]
+     },
+     "candidate": {
+      "median_ms": 15.547417,
+      "p90_ms": 16.171417,
+      "first_ms": 15.605666,
+      "samples_ms": [
+       15.652292,
+       15.443,
+       15.589042,
+       15.539875,
+       15.388666,
+       15.459208,
+       15.511208,
+       16.542917,
+       15.424,
+       15.629167,
+       15.547417,
+       15.662375,
+       15.309041,
+       16.171417,
+       15.650834
+      ]
+     }
+    }
+   ],
+   "rss_rounds": [
+    {
+     "parent": {
+      "rss_bytes": 17645568,
+      "samples_bytes": [
+       17547264,
+       17809408,
+       17645568,
+       17858560,
+       17596416
+      ]
+     },
+     "candidate": {
+      "rss_bytes": 17563648,
+      "samples_bytes": [
+       17596416,
+       17563648,
+       17612800,
+       17514496,
+       17547264
+      ]
+     }
+    }
+   ],
+   "verdict": "pass",
+   "output": {
+    "parent_equals_candidate": true,
+    "digest": {
+     "parent": [
+      "3ae613ee56acf80b7d7f7175ef6e852ec02a25e60b4cb72805d4c2352bdf7dd3"
+     ],
+     "candidate": [
+      "3ae613ee56acf80b7d7f7175ef6e852ec02a25e60b4cb72805d4c2352bdf7dd3"
+     ]
+    },
+    "exit": {
+     "parent": [
+      0
+     ],
+     "candidate": [
+      0
+     ]
+    },
+    "excerpt": {
+     "parent": "{\"diagnostics\":{\"errors\":[],\"warnings\":[{\"code\":\"ARA206\",\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N95]\",\"severity\":\"warning\"},{\"code\":\"ARA206\",\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N96]\",\"severity\":\"warning\"},{\"code\":\"ARA208\",\"message\":\"",
+     "candidate": "{\"diagnostics\":{\"errors\":[],\"warnings\":[{\"code\":\"ARA206\",\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N95]\",\"severity\":\"warning\"},{\"code\":\"ARA206\",\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N96]\",\"severity\":\"warning\"},{\"code\":\"ARA208\",\"message\":\""
+    }
+   },
+   "access": {
+    "ok": true,
+    "violations": []
+   },
+   "failures": []
+  },
+  {
+   "command": "show C01 --json",
+   "kind": "read",
+   "fixture": "F1",
+   "state": "S0",
+   "parent": {
+    "median_ms": 13.355333,
+    "p90_ms": 13.580375,
+    "first_ms": 13.67125,
+    "rss_bytes": 14204928
+   },
+   "candidate": {
+    "median_ms": 13.360916,
+    "p90_ms": 13.724416,
+    "first_ms": 13.564125,
+    "rss_bytes": 14254080
+   },
+   "timing_rounds": [
+    {
+     "parent": {
+      "median_ms": 13.355333,
+      "p90_ms": 13.580375,
+      "first_ms": 13.67125,
+      "samples_ms": [
+       13.355333,
+       13.355542,
+       13.348583,
+       13.316583,
+       13.077709,
+       13.417625,
+       13.253125,
+       13.344042,
+       13.215125,
+       13.186,
+       13.390541,
+       13.580375,
+       13.36575,
+       13.465541,
+       13.7125
+      ]
+     },
+     "candidate": {
+      "median_ms": 13.360916,
+      "p90_ms": 13.724416,
+      "first_ms": 13.564125,
+      "samples_ms": [
+       13.365125,
+       13.323459,
+       13.361833,
+       13.277792,
+       13.250458,
+       13.169541,
+       13.145292,
+       13.273667,
+       13.360916,
+       13.299292,
+       13.369166,
+       13.594208,
+       13.724416,
+       13.620709,
+       13.752292
+      ]
+     }
+    }
+   ],
+   "rss_rounds": [
+    {
+     "parent": {
+      "rss_bytes": 14204928,
+      "samples_bytes": [
+       14286848,
+       14336000,
+       14172160,
+       14139392,
+       14204928
+      ]
+     },
+     "candidate": {
+      "rss_bytes": 14254080,
+      "samples_bytes": [
+       14352384,
+       14270464,
+       14204928,
+       14254080,
+       14204928
+      ]
+     }
+    }
+   ],
+   "verdict": "pass",
+   "output": {
+    "parent_equals_candidate": true,
+    "digest": {
+     "parent": [
+      "30910eeff3dce1d153ce9b13f0c9551d29abdb6efa0cd30d6788757c9f80066b"
+     ],
+     "candidate": [
+      "30910eeff3dce1d153ce9b13f0c9551d29abdb6efa0cd30d6788757c9f80066b"
+     ]
+    },
+    "exit": {
+     "parent": [
+      0
+     ],
+     "candidate": [
+      0
+     ]
+    },
+    "excerpt": {
+     "parent": "{\"diagnostics\":{\"errors\":[],\"warnings\":[{\"code\":\"ARA206\",\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N95]\",\"severity\":\"warning\"},{\"code\":\"ARA206\",\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N96]\",\"severity\":\"warning\"},{\"code\":\"ARA208\",\"message\":\"",
+     "candidate": "{\"diagnostics\":{\"errors\":[],\"warnings\":[{\"code\":\"ARA206\",\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N95]\",\"severity\":\"warning\"},{\"code\":\"ARA206\",\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N96]\",\"severity\":\"warning\"},{\"code\":\"ARA208\",\"message\":\""
+    }
+   },
+   "access": {
+    "ok": true,
+    "violations": []
+   },
+   "failures": []
+  },
+  {
+   "command": "find \"method\" --json",
+   "kind": "read",
+   "fixture": "F1",
+   "state": "S0",
+   "parent": {
+    "median_ms": 24.411834,
+    "p90_ms": 24.882583,
+    "first_ms": 24.60375,
+    "rss_bytes": 18759680
+   },
+   "candidate": {
+    "median_ms": 24.409125,
+    "p90_ms": 24.791875,
+    "first_ms": 24.783834,
+    "rss_bytes": 18939904
+   },
+   "timing_rounds": [
+    {
+     "parent": {
+      "median_ms": 24.411834,
+      "p90_ms": 24.882583,
+      "first_ms": 24.60375,
+      "samples_ms": [
+       24.769,
+       24.714584,
+       24.379542,
+       24.512458,
+       24.882583,
+       24.525666,
+       24.5235,
+       25.121417,
+       24.246333,
+       24.183292,
+       24.411834,
+       24.324292,
+       24.246292,
+       24.235459,
+       24.189708
+      ]
+     },
+     "candidate": {
+      "median_ms": 24.409125,
+      "p90_ms": 24.791875,
+      "first_ms": 24.783834,
+      "samples_ms": [
+       24.791875,
+       24.395375,
+       24.510542,
+       25.052666,
+       24.653041,
+       24.75,
+       24.697084,
+       24.506667,
+       23.776375,
+       24.038666,
+       24.332167,
+       24.095792,
+       24.259917,
+       24.221125,
+       24.409125
+      ]
+     }
+    }
+   ],
+   "rss_rounds": [
+    {
+     "parent": {
+      "rss_bytes": 18759680,
+      "samples_bytes": [
+       18743296,
+       18759680,
+       18890752,
+       18710528,
+       18808832
+      ]
+     },
+     "candidate": {
+      "rss_bytes": 18939904,
+      "samples_bytes": [
+       18939904,
+       18825216,
+       18776064,
+       18939904,
+       18939904
+      ]
+     }
+    }
+   ],
+   "verdict": "pass",
+   "output": {
+    "parent_equals_candidate": true,
+    "digest": {
+     "parent": [
+      "740e94fe8281563347c9c649fd438655b6473fd43c9046c650786d04744438c2"
+     ],
+     "candidate": [
+      "740e94fe8281563347c9c649fd438655b6473fd43c9046c650786d04744438c2"
+     ]
+    },
+    "exit": {
+     "parent": [
+      0
+     ],
+     "candidate": [
+      0
+     ]
+    },
+    "excerpt": {
+     "parent": "{\"format\":\"ara.find/v1\",\"results\":[{\"excerpt\":\"\u2026rst behavior consumed 90%+ of the 26.7h runtime on a single method (scratch then BC) without advancing to other subtasks. ARA agent avoided this by running 20\u2026\",\"id\":\"O73\",\"kind\":\"observation\",\"score\":4.534326125450956,\"source\":\"staging/observations.ya",
+     "candidate": "{\"format\":\"ara.find/v1\",\"results\":[{\"excerpt\":\"\u2026rst behavior consumed 90%+ of the 26.7h runtime on a single method (scratch then BC) without advancing to other subtasks. ARA agent avoided this by running 20\u2026\",\"id\":\"O73\",\"kind\":\"observation\",\"score\":4.534326125450956,\"source\":\"staging/observations.ya"
+    }
+   },
+   "access": {
+    "ok": true,
+    "violations": []
+   },
+   "failures": []
+  },
+  {
+   "command": "validate <dir> --json",
+   "kind": "read",
+   "fixture": "F1",
+   "state": "S0",
+   "parent": {
+    "median_ms": 13.144708,
+    "p90_ms": 13.33175,
+    "first_ms": 13.555209,
+    "rss_bytes": 13746176
+   },
+   "candidate": {
+    "median_ms": 13.104542,
+    "p90_ms": 13.302875,
+    "first_ms": 13.045417,
+    "rss_bytes": 13860864
+   },
+   "timing_rounds": [
+    {
+     "parent": {
+      "median_ms": 13.144708,
+      "p90_ms": 13.33175,
+      "first_ms": 13.555209,
+      "samples_ms": [
+       13.333,
+       12.939583,
+       13.108292,
+       13.211625,
+       13.144708,
+       13.156625,
+       13.11025,
+       13.318167,
+       13.258833,
+       13.117334,
+       13.075333,
+       13.274209,
+       13.061042,
+       13.33175,
+       13.04975
+      ]
+     },
+     "candidate": {
+      "median_ms": 13.104542,
+      "p90_ms": 13.302875,
+      "first_ms": 13.045417,
+      "samples_ms": [
+       13.343291,
+       12.951208,
+       13.104542,
+       13.202208,
+       13.063959,
+       13.048792,
+       13.0635,
+       13.108709,
+       12.999416,
+       13.302875,
+       12.869042,
+       13.060125,
+       13.185583,
+       13.188459,
+       13.144083
+      ]
+     }
+    }
+   ],
+   "rss_rounds": [
+    {
+     "parent": {
+      "rss_bytes": 13746176,
+      "samples_bytes": [
+       13697024,
+       13746176,
+       13664256,
+       13795328,
+       13762560
+      ]
+     },
+     "candidate": {
+      "rss_bytes": 13860864,
+      "samples_bytes": [
+       13844480,
+       13893632,
+       13844480,
+       13860864,
+       13860864
+      ]
+     }
+    }
+   ],
+   "verdict": "pass",
+   "output": {
+    "parent_equals_candidate": true,
+    "digest": {
+     "parent": [
+      "5bc79d0d18ea7a60df102526c9ad9e1a60738203d6d551653f16a2f22c9a7ce6"
+     ],
+     "candidate": [
+      "5bc79d0d18ea7a60df102526c9ad9e1a60738203d6d551653f16a2f22c9a7ce6"
+     ]
+    },
+    "exit": {
+     "parent": [
+      0
+     ],
+     "candidate": [
+      0
+     ]
+    },
+    "excerpt": {
+     "parent": "{\n  \"errors\": [],\n  \"warnings\": [\n    {\n      \"severity\": \"warning\",\n      \"path\": \"nodes[N95]\",\n      \"message\": \"field `lesson` dropped for type `experiment`\"\n    },\n    {\n      \"severity\": \"warning\",\n      \"path\": \"nodes[N96]\",\n      \"message\": \"field `lesson` dropped for type `experiment`\"\n    }",
+     "candidate": "{\n  \"errors\": [],\n  \"warnings\": [\n    {\n      \"severity\": \"warning\",\n      \"path\": \"nodes[N95]\",\n      \"message\": \"field `lesson` dropped for type `experiment`\"\n    },\n    {\n      \"severity\": \"warning\",\n      \"path\": \"nodes[N96]\",\n      \"message\": \"field `lesson` dropped for type `experiment`\"\n    }"
+    }
+   },
+   "access": {
+    "ok": true,
+    "violations": []
+   },
+   "failures": []
+  },
+  {
+   "command": "check <dir>",
+   "kind": "read",
+   "fixture": "F1",
+   "state": "S0",
+   "parent": {
+    "median_ms": 13.577291,
+    "p90_ms": 13.859958,
+    "first_ms": 13.93575,
+    "rss_bytes": 13942784
+   },
+   "candidate": {
+    "median_ms": 13.512,
+    "p90_ms": 14.096708,
+    "first_ms": 13.719917,
+    "rss_bytes": 13991936
+   },
+   "timing_rounds": [
+    {
+     "parent": {
+      "median_ms": 13.577291,
+      "p90_ms": 13.859958,
+      "first_ms": 13.93575,
+      "samples_ms": [
+       13.105875,
+       13.395084,
+       13.855833,
+       13.517667,
+       13.859958,
+       13.371084,
+       13.415084,
+       13.790625,
+       13.658375,
+       13.589875,
+       13.729708,
+       13.559375,
+       13.262584,
+       13.876667,
+       13.577291
+      ]
+     },
+     "candidate": {
+      "median_ms": 13.512,
+      "p90_ms": 14.096708,
+      "first_ms": 13.719917,
+      "samples_ms": [
+       13.814958,
+       13.48075,
+       13.69275,
+       13.91425,
+       13.332667,
+       13.477875,
+       14.098667,
+       13.356167,
+       13.25025,
+       14.02875,
+       13.400875,
+       13.512,
+       14.096708,
+       13.655375,
+       13.441833
+      ]
+     }
+    }
+   ],
+   "rss_rounds": [
+    {
+     "parent": {
+      "rss_bytes": 13942784,
+      "samples_bytes": [
+       13942784,
+       13828096,
+       13828096,
+       13991936,
+       13959168
+      ]
+     },
+     "candidate": {
+      "rss_bytes": 13991936,
+      "samples_bytes": [
+       14041088,
+       13991936,
+       13877248,
+       13991936,
+       14008320
+      ]
+     }
+    }
+   ],
+   "verdict": "pass",
+   "output": {
+    "parent_equals_candidate": true,
+    "digest": {
+     "parent": [
+      "85ffc67e9ee9d74e854d86a05c233bc657b168c0e6a01d5dcddfaed0fb19b268"
+     ],
+     "candidate": [
+      "85ffc67e9ee9d74e854d86a05c233bc657b168c0e6a01d5dcddfaed0fb19b268"
+     ]
+    },
+    "exit": {
+     "parent": [
+      0
+     ],
+     "candidate": [
+      0
+     ]
+    },
+    "excerpt": {
+     "parent": "ARA206 warning: nodes[N95]: field `lesson` dropped for type `experiment`\nARA206 warning: nodes[N96]: field `lesson` dropped for type `experiment`\nARA208 warning: nodes[N68].also_depends_on[0]: redundant `also_depends_on` on ancestor `N65` (already nested under it)\nARA215 warning: evidence[Per-task s",
+     "candidate": "ARA206 warning: nodes[N95]: field `lesson` dropped for type `experiment`\nARA206 warning: nodes[N96]: field `lesson` dropped for type `experiment`\nARA208 warning: nodes[N68].also_depends_on[0]: redundant `also_depends_on` on ancestor `N65` (already nested under it)\nARA215 warning: evidence[Per-task s"
+    }
+   },
+   "access": {
+    "ok": true,
+    "violations": []
+   },
+   "failures": []
+  },
+  {
+   "command": "status --json",
+   "kind": "read",
+   "fixture": "F1",
+   "state": "S1",
+   "parent": {
+    "median_ms": 14.929917,
+    "p90_ms": 15.25725,
+    "first_ms": 20.376792,
+    "rss_bytes": 14516224
+   },
+   "candidate": {
+    "median_ms": 14.896875,
+    "p90_ms": 15.230542,
+    "first_ms": 14.610375,
+    "rss_bytes": 14450688
+   },
+   "timing_rounds": [
+    {
+     "parent": {
+      "median_ms": 14.929917,
+      "p90_ms": 15.25725,
+      "first_ms": 20.376792,
+      "samples_ms": [
+       15.08225,
+       14.769625,
+       15.365041,
+       14.69075,
+       15.25725,
+       14.808958,
+       14.862333,
+       14.8345,
+       15.025458,
+       15.225,
+       14.951541,
+       14.929917,
+       14.75825,
+       14.955875,
+       14.823541
+      ]
+     },
+     "candidate": {
+      "median_ms": 14.896875,
+      "p90_ms": 15.230542,
+      "first_ms": 14.610375,
+      "samples_ms": [
+       14.765,
+       14.798333,
+       14.937042,
+       14.85375,
+       15.082333,
+       14.811042,
+       15.230542,
+       15.1865,
+       14.810416,
+       15.019875,
+       14.896875,
+       15.032084,
+       14.54425,
+       15.445167,
+       14.824667
+      ]
+     }
+    }
+   ],
+   "rss_rounds": [
+    {
+     "parent": {
+      "rss_bytes": 14516224,
+      "samples_bytes": [
+       14352384,
+       14548992,
+       14385152,
+       14516224,
+       14516224
+      ]
+     },
+     "candidate": {
+      "rss_bytes": 14450688,
+      "samples_bytes": [
+       14532608,
+       14385152,
+       14499840,
+       14450688,
+       14450688
+      ]
+     }
+    }
+   ],
+   "verdict": "pass",
+   "output": {
+    "parent_equals_candidate": true,
+    "digest": {
+     "parent": [
+      "63d9f4a4c5e78f1f8608d0505e5e64761b7862837ade6886c5bb378809590890"
+     ],
+     "candidate": [
+      "63d9f4a4c5e78f1f8608d0505e5e64761b7862837ade6886c5bb378809590890"
+     ]
+    },
+    "exit": {
+     "parent": [
+      0
+     ],
+     "candidate": [
+      0
+     ]
+    },
+    "excerpt": {
+     "parent": "{\"artifact_location\":\"<removed>\",\"complete\":true,\"counts\":{\"claim\":16,\"dead_end\":21,\"decision\":45,\"experiment\":46,\"experiment_plan\":6,\"heuristic\":23,\"observation\":95,\"pivot\":2,\"session\":41},\"diagnostics\":{\"errors\":0,\"report\":{\"errors\":[],\"warnings\":[{\"message\":\"field `lesson` dropped for type `exper",
+     "candidate": "{\"artifact_location\":\"<removed>\",\"complete\":true,\"counts\":{\"claim\":16,\"dead_end\":21,\"decision\":45,\"experiment\":46,\"experiment_plan\":6,\"heuristic\":23,\"observation\":95,\"pivot\":2,\"session\":41},\"diagnostics\":{\"errors\":0,\"report\":{\"errors\":[],\"warnings\":[{\"message\":\"field `lesson` dropped for type `exper"
+    },
+    "equals_S0": {
+     "parent": true,
+     "candidate": true
+    }
+   },
+   "access": {
+    "ok": true,
+    "violations": []
+   },
+   "failures": []
+  },
+  {
+   "command": "ls --json",
+   "kind": "read",
+   "fixture": "F1",
+   "state": "S1",
+   "parent": {
+    "median_ms": 15.706375,
+    "p90_ms": 16.619166,
+    "first_ms": 15.739083,
+    "rss_bytes": 17661952
+   },
+   "candidate": {
+    "median_ms": 15.586042,
+    "p90_ms": 16.228792,
+    "first_ms": 15.784459,
+    "rss_bytes": 17514496
+   },
+   "timing_rounds": [
+    {
+     "parent": {
+      "median_ms": 15.706375,
+      "p90_ms": 16.619166,
+      "first_ms": 15.739083,
+      "samples_ms": [
+       16.6885,
+       16.619166,
+       15.983625,
+       15.81575,
+       15.560209,
+       15.930875,
+       16.277834,
+       15.423,
+       15.417208,
+       15.488666,
+       15.485417,
+       15.369333,
+       15.584916,
+       15.82775,
+       15.706375
+      ]
+     },
+     "candidate": {
+      "median_ms": 15.586042,
+      "p90_ms": 16.228792,
+      "first_ms": 15.784459,
+      "samples_ms": [
+       16.426708,
+       16.228792,
+       15.772042,
+       15.565666,
+       15.620625,
+       15.660875,
+       16.017959,
+       15.398875,
+       15.282792,
+       15.320167,
+       15.51375,
+       15.4765,
+       16.003417,
+       15.423416,
+       15.586042
+      ]
+     }
+    }
+   ],
+   "rss_rounds": [
+    {
+     "parent": {
+      "rss_bytes": 17661952,
+      "samples_bytes": [
+       17645568,
+       17661952,
+       17793024,
+       17825792,
+       17629184
+      ]
+     },
+     "candidate": {
+      "rss_bytes": 17514496,
+      "samples_bytes": [
+       17383424,
+       17416192,
+       17629184,
+       17514496,
+       17645568
+      ]
+     }
+    }
+   ],
+   "verdict": "pass",
+   "output": {
+    "parent_equals_candidate": true,
+    "digest": {
+     "parent": [
+      "3ae613ee56acf80b7d7f7175ef6e852ec02a25e60b4cb72805d4c2352bdf7dd3"
+     ],
+     "candidate": [
+      "3ae613ee56acf80b7d7f7175ef6e852ec02a25e60b4cb72805d4c2352bdf7dd3"
+     ]
+    },
+    "exit": {
+     "parent": [
+      0
+     ],
+     "candidate": [
+      0
+     ]
+    },
+    "excerpt": {
+     "parent": "{\"diagnostics\":{\"errors\":[],\"warnings\":[{\"code\":\"ARA206\",\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N95]\",\"severity\":\"warning\"},{\"code\":\"ARA206\",\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N96]\",\"severity\":\"warning\"},{\"code\":\"ARA208\",\"message\":\"",
+     "candidate": "{\"diagnostics\":{\"errors\":[],\"warnings\":[{\"code\":\"ARA206\",\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N95]\",\"severity\":\"warning\"},{\"code\":\"ARA206\",\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N96]\",\"severity\":\"warning\"},{\"code\":\"ARA208\",\"message\":\""
+    },
+    "equals_S0": {
+     "parent": true,
+     "candidate": true
+    }
+   },
+   "access": {
+    "ok": true,
+    "violations": []
+   },
+   "failures": []
+  },
+  {
+   "command": "show C01 --json",
+   "kind": "read",
+   "fixture": "F1",
+   "state": "S1",
+   "parent": {
+    "median_ms": 13.2605,
+    "p90_ms": 13.452291,
+    "first_ms": 13.637166,
+    "rss_bytes": 14254080
+   },
+   "candidate": {
+    "median_ms": 13.250291,
+    "p90_ms": 13.37675,
+    "first_ms": 13.531958,
+    "rss_bytes": 14270464
+   },
+   "timing_rounds": [
+    {
+     "parent": {
+      "median_ms": 13.2605,
+      "p90_ms": 13.452291,
+      "first_ms": 13.637166,
+      "samples_ms": [
+       13.385333,
+       13.276125,
+       13.234666,
+       13.174042,
+       13.452291,
+       13.221375,
+       13.221166,
+       13.150833,
+       13.2605,
+       13.058041,
+       13.411333,
+       13.27825,
+       13.409375,
+       13.2495,
+       13.54675
+      ]
+     },
+     "candidate": {
+      "median_ms": 13.250291,
+      "p90_ms": 13.37675,
+      "first_ms": 13.531958,
+      "samples_ms": [
+       13.574209,
+       13.298292,
+       13.159458,
+       13.237041,
+       13.37675,
+       13.300625,
+       13.189625,
+       13.097667,
+       13.102209,
+       13.370417,
+       13.190708,
+       13.233541,
+       13.337041,
+       13.31875,
+       13.250291
+      ]
+     }
+    }
+   ],
+   "rss_rounds": [
+    {
+     "parent": {
+      "rss_bytes": 14254080,
+      "samples_bytes": [
+       14336000,
+       14336000,
+       14123008,
+       14254080,
+       14123008
+      ]
+     },
+     "candidate": {
+      "rss_bytes": 14270464,
+      "samples_bytes": [
+       14270464,
+       14172160,
+       14204928,
+       14270464,
+       14270464
+      ]
+     }
+    }
+   ],
+   "verdict": "pass",
+   "output": {
+    "parent_equals_candidate": true,
+    "digest": {
+     "parent": [
+      "30910eeff3dce1d153ce9b13f0c9551d29abdb6efa0cd30d6788757c9f80066b"
+     ],
+     "candidate": [
+      "30910eeff3dce1d153ce9b13f0c9551d29abdb6efa0cd30d6788757c9f80066b"
+     ]
+    },
+    "exit": {
+     "parent": [
+      0
+     ],
+     "candidate": [
+      0
+     ]
+    },
+    "excerpt": {
+     "parent": "{\"diagnostics\":{\"errors\":[],\"warnings\":[{\"code\":\"ARA206\",\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N95]\",\"severity\":\"warning\"},{\"code\":\"ARA206\",\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N96]\",\"severity\":\"warning\"},{\"code\":\"ARA208\",\"message\":\"",
+     "candidate": "{\"diagnostics\":{\"errors\":[],\"warnings\":[{\"code\":\"ARA206\",\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N95]\",\"severity\":\"warning\"},{\"code\":\"ARA206\",\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N96]\",\"severity\":\"warning\"},{\"code\":\"ARA208\",\"message\":\""
+    },
+    "equals_S0": {
+     "parent": true,
+     "candidate": true
+    }
+   },
+   "access": {
+    "ok": true,
+    "violations": []
+   },
+   "failures": []
+  },
+  {
+   "command": "find \"method\" --json",
+   "kind": "read",
+   "fixture": "F1",
+   "state": "S1",
+   "parent": {
+    "median_ms": 24.282541,
+    "p90_ms": 24.40675,
+    "first_ms": 24.280708,
+    "rss_bytes": 18759680
+   },
+   "candidate": {
+    "median_ms": 24.240417,
+    "p90_ms": 24.708625,
+    "first_ms": 24.289875,
+    "rss_bytes": 18874368
+   },
+   "timing_rounds": [
+    {
+     "parent": {
+      "median_ms": 24.282541,
+      "p90_ms": 24.40675,
+      "first_ms": 24.280708,
+      "samples_ms": [
+       24.269791,
+       24.384167,
+       24.60775,
+       24.058416,
+       24.204375,
+       24.014834,
+       24.242542,
+       24.306416,
+       24.40675,
+       24.324417,
+       24.288458,
+       23.986042,
+       24.282541,
+       24.219125,
+       24.328959
+      ]
+     },
+     "candidate": {
+      "median_ms": 24.240417,
+      "p90_ms": 24.708625,
+      "first_ms": 24.289875,
+      "samples_ms": [
+       23.895125,
+       24.409042,
+       24.040375,
+       23.942167,
+       24.299333,
+       24.269,
+       24.708625,
+       24.033208,
+       24.356666,
+       24.0805,
+       24.788,
+       24.240417,
+       24.147583,
+       24.054542,
+       24.30775
+      ]
+     }
+    }
+   ],
+   "rss_rounds": [
+    {
+     "parent": {
+      "rss_bytes": 18759680,
+      "samples_bytes": [
+       18759680,
+       18759680,
+       18726912,
+       18874368,
+       18759680
+      ]
+     },
+     "candidate": {
+      "rss_bytes": 18874368,
+      "samples_bytes": [
+       18939904,
+       18825216,
+       18874368,
+       18874368,
+       18939904
+      ]
+     }
+    }
+   ],
+   "verdict": "pass",
+   "output": {
+    "parent_equals_candidate": true,
+    "digest": {
+     "parent": [
+      "740e94fe8281563347c9c649fd438655b6473fd43c9046c650786d04744438c2"
+     ],
+     "candidate": [
+      "740e94fe8281563347c9c649fd438655b6473fd43c9046c650786d04744438c2"
+     ]
+    },
+    "exit": {
+     "parent": [
+      0
+     ],
+     "candidate": [
+      0
+     ]
+    },
+    "excerpt": {
+     "parent": "{\"format\":\"ara.find/v1\",\"results\":[{\"excerpt\":\"\u2026rst behavior consumed 90%+ of the 26.7h runtime on a single method (scratch then BC) without advancing to other subtasks. ARA agent avoided this by running 20\u2026\",\"id\":\"O73\",\"kind\":\"observation\",\"score\":4.534326125450956,\"source\":\"staging/observations.ya",
+     "candidate": "{\"format\":\"ara.find/v1\",\"results\":[{\"excerpt\":\"\u2026rst behavior consumed 90%+ of the 26.7h runtime on a single method (scratch then BC) without advancing to other subtasks. ARA agent avoided this by running 20\u2026\",\"id\":\"O73\",\"kind\":\"observation\",\"score\":4.534326125450956,\"source\":\"staging/observations.ya"
+    },
+    "equals_S0": {
+     "parent": true,
+     "candidate": true
+    }
+   },
+   "access": {
+    "ok": true,
+    "violations": []
+   },
+   "failures": []
+  },
+  {
+   "command": "validate <dir> --json",
+   "kind": "read",
+   "fixture": "F1",
+   "state": "S1",
+   "parent": {
+    "median_ms": 13.40975,
+    "p90_ms": 13.622041,
+    "first_ms": 13.724042,
+    "rss_bytes": 13762560
+   },
+   "candidate": {
+    "median_ms": 13.382291,
+    "p90_ms": 13.913791,
+    "first_ms": 13.239208,
+    "rss_bytes": 13860864
+   },
+   "timing_rounds": [
+    {
+     "parent": {
+      "median_ms": 13.40975,
+      "p90_ms": 13.622041,
+      "first_ms": 13.724042,
+      "samples_ms": [
+       13.169917,
+       13.118125,
+       13.282125,
+       12.968833,
+       13.49275,
+       13.355667,
+       13.21525,
+       13.923,
+       13.479166,
+       13.604334,
+       13.405416,
+       13.483292,
+       13.425416,
+       13.622041,
+       13.40975
+      ]
+     },
+     "candidate": {
+      "median_ms": 13.382291,
+      "p90_ms": 13.913791,
+      "first_ms": 13.239208,
+      "samples_ms": [
+       12.805042,
+       13.225084,
+       13.374083,
+       13.371834,
+       13.143958,
+       13.289375,
+       13.508,
+       13.913791,
+       13.546167,
+       13.444584,
+       13.44475,
+       13.243709,
+       13.382291,
+       13.679083,
+       14.252417
+      ]
+     }
+    }
+   ],
+   "rss_rounds": [
+    {
+     "parent": {
+      "rss_bytes": 13762560,
+      "samples_bytes": [
+       13926400,
+       13762560,
+       13910016,
+       13762560,
+       13713408
+      ]
+     },
+     "candidate": {
+      "rss_bytes": 13860864,
+      "samples_bytes": [
+       13860864,
+       13778944,
+       13975552,
+       13926400,
+       13828096
+      ]
+     }
+    }
+   ],
+   "verdict": "pass",
+   "output": {
+    "parent_equals_candidate": true,
+    "digest": {
+     "parent": [
+      "5bc79d0d18ea7a60df102526c9ad9e1a60738203d6d551653f16a2f22c9a7ce6"
+     ],
+     "candidate": [
+      "5bc79d0d18ea7a60df102526c9ad9e1a60738203d6d551653f16a2f22c9a7ce6"
+     ]
+    },
+    "exit": {
+     "parent": [
+      0
+     ],
+     "candidate": [
+      0
+     ]
+    },
+    "excerpt": {
+     "parent": "{\n  \"errors\": [],\n  \"warnings\": [\n    {\n      \"severity\": \"warning\",\n      \"path\": \"nodes[N95]\",\n      \"message\": \"field `lesson` dropped for type `experiment`\"\n    },\n    {\n      \"severity\": \"warning\",\n      \"path\": \"nodes[N96]\",\n      \"message\": \"field `lesson` dropped for type `experiment`\"\n    }",
+     "candidate": "{\n  \"errors\": [],\n  \"warnings\": [\n    {\n      \"severity\": \"warning\",\n      \"path\": \"nodes[N95]\",\n      \"message\": \"field `lesson` dropped for type `experiment`\"\n    },\n    {\n      \"severity\": \"warning\",\n      \"path\": \"nodes[N96]\",\n      \"message\": \"field `lesson` dropped for type `experiment`\"\n    }"
+    },
+    "equals_S0": {
+     "parent": true,
+     "candidate": true
+    }
+   },
+   "access": {
+    "ok": true,
+    "violations": []
+   },
+   "failures": []
+  },
+  {
+   "command": "check <dir>",
+   "kind": "read",
+   "fixture": "F1",
+   "state": "S1",
+   "parent": {
+    "median_ms": 13.91225,
+    "p90_ms": 14.281625,
+    "first_ms": 13.97875,
+    "rss_bytes": 13778944
+   },
+   "candidate": {
+    "median_ms": 13.847625,
+    "p90_ms": 14.067791,
+    "first_ms": 13.594583,
+    "rss_bytes": 13959168
+   },
+   "timing_rounds": [
+    {
+     "parent": {
+      "median_ms": 13.91225,
+      "p90_ms": 14.281625,
+      "first_ms": 13.97875,
+      "samples_ms": [
+       13.91225,
+       14.06725,
+       14.281625,
+       14.306875,
+       13.973584,
+       13.702125,
+       13.768875,
+       13.868875,
+       13.947792,
+       13.823666,
+       13.971958,
+       13.562,
+       14.193041,
+       13.867708,
+       13.606625
+      ]
+     },
+     "candidate": {
+      "median_ms": 13.847625,
+      "p90_ms": 14.067791,
+      "first_ms": 13.594583,
+      "samples_ms": [
+       13.847625,
+       14.442875,
+       13.994875,
+       13.983334,
+       13.815083,
+       13.9005,
+       13.405125,
+       14.004958,
+       13.840208,
+       13.968542,
+       13.697834,
+       13.834916,
+       14.067791,
+       13.735792,
+       13.610875
+      ]
+     }
+    }
+   ],
+   "rss_rounds": [
+    {
+     "parent": {
+      "rss_bytes": 13778944,
+      "samples_bytes": [
+       13762560,
+       13778944,
+       13762560,
+       14008320,
+       14024704
+      ]
+     },
+     "candidate": {
+      "rss_bytes": 13959168,
+      "samples_bytes": [
+       13910016,
+       13959168,
+       13910016,
+       13991936,
+       14008320
+      ]
+     }
+    }
+   ],
+   "verdict": "pass",
+   "output": {
+    "parent_equals_candidate": true,
+    "digest": {
+     "parent": [
+      "85ffc67e9ee9d74e854d86a05c233bc657b168c0e6a01d5dcddfaed0fb19b268"
+     ],
+     "candidate": [
+      "85ffc67e9ee9d74e854d86a05c233bc657b168c0e6a01d5dcddfaed0fb19b268"
+     ]
+    },
+    "exit": {
+     "parent": [
+      0
+     ],
+     "candidate": [
+      0
+     ]
+    },
+    "excerpt": {
+     "parent": "ARA206 warning: nodes[N95]: field `lesson` dropped for type `experiment`\nARA206 warning: nodes[N96]: field `lesson` dropped for type `experiment`\nARA208 warning: nodes[N68].also_depends_on[0]: redundant `also_depends_on` on ancestor `N65` (already nested under it)\nARA215 warning: evidence[Per-task s",
+     "candidate": "ARA206 warning: nodes[N95]: field `lesson` dropped for type `experiment`\nARA206 warning: nodes[N96]: field `lesson` dropped for type `experiment`\nARA208 warning: nodes[N68].also_depends_on[0]: redundant `also_depends_on` on ancestor `N65` (already nested under it)\nARA215 warning: evidence[Per-task s"
+    },
+    "equals_S0": {
+     "parent": true,
+     "candidate": true
+    }
+   },
+   "access": {
+    "ok": true,
+    "violations": []
+   },
+   "failures": []
+  },
+  {
+   "command": "status --json",
+   "kind": "read",
+   "fixture": "F1",
+   "state": "S2",
+   "parent": {
+    "median_ms": 14.685125,
+    "p90_ms": 15.840417,
+    "first_ms": 20.130417,
+    "rss_bytes": 14548992
+   },
+   "candidate": {
+    "median_ms": 14.749875,
+    "p90_ms": 15.473167,
+    "first_ms": 14.836792,
+    "rss_bytes": 14548992
+   },
+   "timing_rounds": [
+    {
+     "parent": {
+      "median_ms": 14.685125,
+      "p90_ms": 15.840417,
+      "first_ms": 20.130417,
+      "samples_ms": [
+       14.544208,
+       14.685125,
+       14.427375,
+       14.607833,
+       14.95325,
+       14.5715,
+       15.840417,
+       16.166958,
+       15.260917,
+       14.988167,
+       14.882667,
+       14.534875,
+       14.987791,
+       14.667625,
+       14.500042
+      ]
+     },
+     "candidate": {
+      "median_ms": 14.749875,
+      "p90_ms": 15.473167,
+      "first_ms": 14.836792,
+      "samples_ms": [
+       14.760792,
+       14.5445,
+       14.464,
+       15.130875,
+       14.548833,
+       14.749875,
+       16.225459,
+       15.473167,
+       15.151042,
+       15.162917,
+       14.573958,
+       14.81925,
+       14.667125,
+       14.509334,
+       14.630875
+      ]
+     }
+    }
+   ],
+   "rss_rounds": [
+    {
+     "parent": {
+      "rss_bytes": 14548992,
+      "samples_bytes": [
+       14647296,
+       14499840,
+       14581760,
+       14516224,
+       14548992
+      ]
+     },
+     "candidate": {
+      "rss_bytes": 14548992,
+      "samples_bytes": [
+       14565376,
+       14598144,
+       14385152,
+       14434304,
+       14548992
+      ]
+     }
+    }
+   ],
+   "verdict": "pass",
+   "output": {
+    "parent_equals_candidate": true,
+    "digest": {
+     "parent": [
+      "63d9f4a4c5e78f1f8608d0505e5e64761b7862837ade6886c5bb378809590890"
+     ],
+     "candidate": [
+      "63d9f4a4c5e78f1f8608d0505e5e64761b7862837ade6886c5bb378809590890"
+     ]
+    },
+    "exit": {
+     "parent": [
+      0
+     ],
+     "candidate": [
+      0
+     ]
+    },
+    "excerpt": {
+     "parent": "{\"artifact_location\":\"<removed>\",\"complete\":true,\"counts\":{\"claim\":16,\"dead_end\":21,\"decision\":45,\"experiment\":46,\"experiment_plan\":6,\"heuristic\":23,\"observation\":95,\"pivot\":2,\"session\":41},\"diagnostics\":{\"errors\":0,\"report\":{\"errors\":[],\"warnings\":[{\"message\":\"field `lesson` dropped for type `exper",
+     "candidate": "{\"artifact_location\":\"<removed>\",\"complete\":true,\"counts\":{\"claim\":16,\"dead_end\":21,\"decision\":45,\"experiment\":46,\"experiment_plan\":6,\"heuristic\":23,\"observation\":95,\"pivot\":2,\"session\":41},\"diagnostics\":{\"errors\":0,\"report\":{\"errors\":[],\"warnings\":[{\"message\":\"field `lesson` dropped for type `exper"
+    },
+    "equals_S0": {
+     "parent": true,
+     "candidate": true
+    }
+   },
+   "access": {
+    "ok": true,
+    "violations": []
+   },
+   "failures": []
+  },
+  {
+   "command": "ls --json",
+   "kind": "read",
+   "fixture": "F1",
+   "state": "S2",
+   "parent": {
+    "median_ms": 16.0935,
+    "p90_ms": 16.341875,
+    "first_ms": 15.983417,
+    "rss_bytes": 17825792
+   },
+   "candidate": {
+    "median_ms": 16.149375,
+    "p90_ms": 16.351542,
+    "first_ms": 15.863291,
+    "rss_bytes": 17596416
+   },
+   "timing_rounds": [
+    {
+     "parent": {
+      "median_ms": 16.0935,
+      "p90_ms": 16.341875,
+      "first_ms": 15.983417,
+      "samples_ms": [
+       16.287958,
+       16.341875,
+       16.108333,
+       16.244334,
+       16.162584,
+       16.626459,
+       16.0935,
+       16.011041,
+       16.030625,
+       16.041,
+       16.033166,
+       15.876833,
+       16.004208,
+       15.857334,
+       16.208708
+      ]
+     },
+     "candidate": {
+      "median_ms": 16.149375,
+      "p90_ms": 16.351542,
+      "first_ms": 15.863291,
+      "samples_ms": [
+       15.911166,
+       16.089958,
+       16.194458,
+       15.807,
+       16.190583,
+       16.344541,
+       15.860792,
+       16.318875,
+       16.396791,
+       15.908625,
+       15.980041,
+       16.351542,
+       15.873833,
+       16.161458,
+       16.149375
+      ]
+     }
+    }
+   ],
+   "rss_rounds": [
+    {
+     "parent": {
+      "rss_bytes": 17825792,
+      "samples_bytes": [
+       17825792,
+       17563648,
+       17612800,
+       17858560,
+       17825792
+      ]
+     },
+     "candidate": {
+      "rss_bytes": 17596416,
+      "samples_bytes": [
+       17661952,
+       17416192,
+       17596416,
+       17563648,
+       17596416
+      ]
+     }
+    }
+   ],
+   "verdict": "pass",
+   "output": {
+    "parent_equals_candidate": true,
+    "digest": {
+     "parent": [
+      "3ae613ee56acf80b7d7f7175ef6e852ec02a25e60b4cb72805d4c2352bdf7dd3"
+     ],
+     "candidate": [
+      "3ae613ee56acf80b7d7f7175ef6e852ec02a25e60b4cb72805d4c2352bdf7dd3"
+     ]
+    },
+    "exit": {
+     "parent": [
+      0
+     ],
+     "candidate": [
+      0
+     ]
+    },
+    "excerpt": {
+     "parent": "{\"diagnostics\":{\"errors\":[],\"warnings\":[{\"code\":\"ARA206\",\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N95]\",\"severity\":\"warning\"},{\"code\":\"ARA206\",\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N96]\",\"severity\":\"warning\"},{\"code\":\"ARA208\",\"message\":\"",
+     "candidate": "{\"diagnostics\":{\"errors\":[],\"warnings\":[{\"code\":\"ARA206\",\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N95]\",\"severity\":\"warning\"},{\"code\":\"ARA206\",\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N96]\",\"severity\":\"warning\"},{\"code\":\"ARA208\",\"message\":\""
+    },
+    "equals_S0": {
+     "parent": true,
+     "candidate": true
+    }
+   },
+   "access": {
+    "ok": true,
+    "violations": []
+   },
+   "failures": []
+  },
+  {
+   "command": "show C01 --json",
+   "kind": "read",
+   "fixture": "F1",
+   "state": "S2",
+   "parent": {
+    "median_ms": 13.34475,
+    "p90_ms": 13.913125,
+    "first_ms": 13.999375,
+    "rss_bytes": 14155776
+   },
+   "candidate": {
+    "median_ms": 13.330291,
+    "p90_ms": 13.630666,
+    "first_ms": 13.794625,
+    "rss_bytes": 14139392
+   },
+   "timing_rounds": [
+    {
+     "parent": {
+      "median_ms": 13.34475,
+      "p90_ms": 13.913125,
+      "first_ms": 13.999375,
+      "samples_ms": [
+       14.13325,
+       13.913125,
+       13.500917,
+       12.9925,
+       13.280125,
+       13.310666,
+       13.351125,
+       13.101708,
+       13.34475,
+       13.376125,
+       13.3945,
+       13.318375,
+       13.246291,
+       13.095708,
+       13.380583
+      ]
+     },
+     "candidate": {
+      "median_ms": 13.330291,
+      "p90_ms": 13.630666,
+      "first_ms": 13.794625,
+      "samples_ms": [
+       13.630666,
+       13.401709,
+       13.62225,
+       13.311834,
+       13.330291,
+       13.313,
+       13.184167,
+       13.470375,
+       13.671167,
+       13.509041,
+       13.332666,
+       13.205166,
+       13.05725,
+       13.254541,
+       13.275958
+      ]
+     }
+    }
+   ],
+   "rss_rounds": [
+    {
+     "parent": {
+      "rss_bytes": 14155776,
+      "samples_bytes": [
+       14123008,
+       14106624,
+       14352384,
+       14319616,
+       14155776
+      ]
+     },
+     "candidate": {
+      "rss_bytes": 14139392,
+      "samples_bytes": [
+       14237696,
+       14139392,
+       14123008,
+       14106624,
+       14188544
+      ]
+     }
+    }
+   ],
+   "verdict": "pass",
+   "output": {
+    "parent_equals_candidate": true,
+    "digest": {
+     "parent": [
+      "30910eeff3dce1d153ce9b13f0c9551d29abdb6efa0cd30d6788757c9f80066b"
+     ],
+     "candidate": [
+      "30910eeff3dce1d153ce9b13f0c9551d29abdb6efa0cd30d6788757c9f80066b"
+     ]
+    },
+    "exit": {
+     "parent": [
+      0
+     ],
+     "candidate": [
+      0
+     ]
+    },
+    "excerpt": {
+     "parent": "{\"diagnostics\":{\"errors\":[],\"warnings\":[{\"code\":\"ARA206\",\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N95]\",\"severity\":\"warning\"},{\"code\":\"ARA206\",\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N96]\",\"severity\":\"warning\"},{\"code\":\"ARA208\",\"message\":\"",
+     "candidate": "{\"diagnostics\":{\"errors\":[],\"warnings\":[{\"code\":\"ARA206\",\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N95]\",\"severity\":\"warning\"},{\"code\":\"ARA206\",\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N96]\",\"severity\":\"warning\"},{\"code\":\"ARA208\",\"message\":\""
+    },
+    "equals_S0": {
+     "parent": true,
+     "candidate": true
+    }
+   },
+   "access": {
+    "ok": true,
+    "violations": []
+   },
+   "failures": []
+  },
+  {
+   "command": "find \"method\" --json",
+   "kind": "read",
+   "fixture": "F1",
+   "state": "S2",
+   "parent": {
+    "median_ms": 24.214042,
+    "p90_ms": 24.392583,
+    "first_ms": 24.284625,
+    "rss_bytes": 18743296
+   },
+   "candidate": {
+    "median_ms": 24.222958,
+    "p90_ms": 24.568542,
+    "first_ms": 23.925417,
+    "rss_bytes": 18874368
+   },
+   "timing_rounds": [
+    {
+     "parent": {
+      "median_ms": 24.214042,
+      "p90_ms": 24.392583,
+      "first_ms": 24.284625,
+      "samples_ms": [
+       24.214042,
+       23.952166,
+       24.224125,
+       24.288083,
+       24.392583,
+       24.127291,
+       24.095584,
+       23.945917,
+       24.258375,
+       24.059084,
+       24.053541,
+       24.374083,
+       24.20125,
+       24.316417,
+       24.44025
+      ]
+     },
+     "candidate": {
+      "median_ms": 24.222958,
+      "p90_ms": 24.568542,
+      "first_ms": 23.925417,
+      "samples_ms": [
+       24.119,
+       24.568542,
+       24.117042,
+       24.191708,
+       24.2335,
+       24.228458,
+       24.218625,
+       24.222958,
+       24.231292,
+       24.129625,
+       24.26475,
+       24.151208,
+       24.214042,
+       24.719708,
+       24.327375
+      ]
+     }
+    }
+   ],
+   "rss_rounds": [
+    {
+     "parent": {
+      "rss_bytes": 18743296,
+      "samples_bytes": [
+       18710528,
+       18825216,
+       18726912,
+       18743296,
+       18776064
+      ]
+     },
+     "candidate": {
+      "rss_bytes": 18874368,
+      "samples_bytes": [
+       18874368,
+       18907136,
+       18874368,
+       18759680,
+       18874368
+      ]
+     }
+    }
+   ],
+   "verdict": "pass",
+   "output": {
+    "parent_equals_candidate": true,
+    "digest": {
+     "parent": [
+      "740e94fe8281563347c9c649fd438655b6473fd43c9046c650786d04744438c2"
+     ],
+     "candidate": [
+      "740e94fe8281563347c9c649fd438655b6473fd43c9046c650786d04744438c2"
+     ]
+    },
+    "exit": {
+     "parent": [
+      0
+     ],
+     "candidate": [
+      0
+     ]
+    },
+    "excerpt": {
+     "parent": "{\"format\":\"ara.find/v1\",\"results\":[{\"excerpt\":\"\u2026rst behavior consumed 90%+ of the 26.7h runtime on a single method (scratch then BC) without advancing to other subtasks. ARA agent avoided this by running 20\u2026\",\"id\":\"O73\",\"kind\":\"observation\",\"score\":4.534326125450956,\"source\":\"staging/observations.ya",
+     "candidate": "{\"format\":\"ara.find/v1\",\"results\":[{\"excerpt\":\"\u2026rst behavior consumed 90%+ of the 26.7h runtime on a single method (scratch then BC) without advancing to other subtasks. ARA agent avoided this by running 20\u2026\",\"id\":\"O73\",\"kind\":\"observation\",\"score\":4.534326125450956,\"source\":\"staging/observations.ya"
+    },
+    "equals_S0": {
+     "parent": true,
+     "candidate": true
+    }
+   },
+   "access": {
+    "ok": true,
+    "violations": []
+   },
+   "failures": []
+  },
+  {
+   "command": "validate <dir> --json",
+   "kind": "read",
+   "fixture": "F1",
+   "state": "S2",
+   "parent": {
+    "median_ms": 13.0935,
+    "p90_ms": 13.355709,
+    "first_ms": 13.560917,
+    "rss_bytes": 13828096
+   },
+   "candidate": {
+    "median_ms": 13.083333,
+    "p90_ms": 13.322667,
+    "first_ms": 13.269917,
+    "rss_bytes": 13877248
+   },
+   "timing_rounds": [
+    {
+     "parent": {
+      "median_ms": 13.0935,
+      "p90_ms": 13.355709,
+      "first_ms": 13.560917,
+      "samples_ms": [
+       13.35625,
+       13.065,
+       13.355709,
+       12.864084,
+       13.186542,
+       13.0935,
+       13.073208,
+       13.021792,
+       13.117208,
+       12.854834,
+       13.095208,
+       12.911875,
+       13.120375,
+       13.048583,
+       13.17275
+      ]
+     },
+     "candidate": {
+      "median_ms": 13.083333,
+      "p90_ms": 13.322667,
+      "first_ms": 13.269917,
+      "samples_ms": [
+       13.136792,
+       13.322667,
+       13.419125,
+       13.118292,
+       13.163375,
+       13.218042,
+       12.882666,
+       12.928416,
+       12.83875,
+       13.0465,
+       12.985958,
+       12.947625,
+       13.079458,
+       13.083333,
+       13.162834
+      ]
+     }
+    }
+   ],
+   "rss_rounds": [
+    {
+     "parent": {
+      "rss_bytes": 13828096,
+      "samples_bytes": [
+       13811712,
+       13844480,
+       13697024,
+       13828096,
+       13910016
+      ]
+     },
+     "candidate": {
+      "rss_bytes": 13877248,
+      "samples_bytes": [
+       13877248,
+       13877248,
+       13910016,
+       13860864,
+       13795328
+      ]
+     }
+    }
+   ],
+   "verdict": "pass",
+   "output": {
+    "parent_equals_candidate": true,
+    "digest": {
+     "parent": [
+      "5bc79d0d18ea7a60df102526c9ad9e1a60738203d6d551653f16a2f22c9a7ce6"
+     ],
+     "candidate": [
+      "5bc79d0d18ea7a60df102526c9ad9e1a60738203d6d551653f16a2f22c9a7ce6"
+     ]
+    },
+    "exit": {
+     "parent": [
+      0
+     ],
+     "candidate": [
+      0
+     ]
+    },
+    "excerpt": {
+     "parent": "{\n  \"errors\": [],\n  \"warnings\": [\n    {\n      \"severity\": \"warning\",\n      \"path\": \"nodes[N95]\",\n      \"message\": \"field `lesson` dropped for type `experiment`\"\n    },\n    {\n      \"severity\": \"warning\",\n      \"path\": \"nodes[N96]\",\n      \"message\": \"field `lesson` dropped for type `experiment`\"\n    }",
+     "candidate": "{\n  \"errors\": [],\n  \"warnings\": [\n    {\n      \"severity\": \"warning\",\n      \"path\": \"nodes[N95]\",\n      \"message\": \"field `lesson` dropped for type `experiment`\"\n    },\n    {\n      \"severity\": \"warning\",\n      \"path\": \"nodes[N96]\",\n      \"message\": \"field `lesson` dropped for type `experiment`\"\n    }"
+    },
+    "equals_S0": {
+     "parent": true,
+     "candidate": true
+    }
+   },
+   "access": {
+    "ok": true,
+    "violations": []
+   },
+   "failures": []
+  },
+  {
+   "command": "check <dir>",
+   "kind": "read",
+   "fixture": "F1",
+   "state": "S2",
+   "parent": {
+    "median_ms": 13.407166,
+    "p90_ms": 13.675125,
+    "first_ms": 13.549667,
+    "rss_bytes": 13844480
+   },
+   "candidate": {
+    "median_ms": 13.381375,
+    "p90_ms": 13.490958,
+    "first_ms": 13.215875,
+    "rss_bytes": 13910016
+   },
+   "timing_rounds": [
+    {
+     "parent": {
+      "median_ms": 13.407166,
+      "p90_ms": 13.675125,
+      "first_ms": 13.549667,
+      "samples_ms": [
+       13.491583,
+       13.2855,
+       13.975791,
+       13.481417,
+       13.415375,
+       13.284125,
+       13.407166,
+       13.382667,
+       13.142541,
+       13.422208,
+       13.353208,
+       13.675125,
+       13.219292,
+       13.281584,
+       13.435708
+      ]
+     },
+     "candidate": {
+      "median_ms": 13.381375,
+      "p90_ms": 13.490958,
+      "first_ms": 13.215875,
+      "samples_ms": [
+       13.212583,
+       13.643917,
+       13.430084,
+       13.243667,
+       13.312917,
+       13.485916,
+       13.397541,
+       13.41625,
+       13.352291,
+       13.312291,
+       13.490958,
+       13.347917,
+       13.305666,
+       13.381375,
+       13.463583
+      ]
+     }
+    }
+   ],
+   "rss_rounds": [
+    {
+     "parent": {
+      "rss_bytes": 13844480,
+      "samples_bytes": [
+       14024704,
+       13844480,
+       14090240,
+       13844480,
+       13795328
+      ]
+     },
+     "candidate": {
+      "rss_bytes": 13910016,
+      "samples_bytes": [
+       13860864,
+       13959168,
+       13959168,
+       13910016,
+       13877248
+      ]
+     }
+    }
+   ],
+   "verdict": "pass",
+   "output": {
+    "parent_equals_candidate": true,
+    "digest": {
+     "parent": [
+      "85ffc67e9ee9d74e854d86a05c233bc657b168c0e6a01d5dcddfaed0fb19b268"
+     ],
+     "candidate": [
+      "85ffc67e9ee9d74e854d86a05c233bc657b168c0e6a01d5dcddfaed0fb19b268"
+     ]
+    },
+    "exit": {
+     "parent": [
+      0
+     ],
+     "candidate": [
+      0
+     ]
+    },
+    "excerpt": {
+     "parent": "ARA206 warning: nodes[N95]: field `lesson` dropped for type `experiment`\nARA206 warning: nodes[N96]: field `lesson` dropped for type `experiment`\nARA208 warning: nodes[N68].also_depends_on[0]: redundant `also_depends_on` on ancestor `N65` (already nested under it)\nARA215 warning: evidence[Per-task s",
+     "candidate": "ARA206 warning: nodes[N95]: field `lesson` dropped for type `experiment`\nARA206 warning: nodes[N96]: field `lesson` dropped for type `experiment`\nARA208 warning: nodes[N68].also_depends_on[0]: redundant `also_depends_on` on ancestor `N65` (already nested under it)\nARA215 warning: evidence[Per-task s"
+    },
+    "equals_S0": {
+     "parent": true,
+     "candidate": true
+    }
+   },
+   "access": {
+    "ok": true,
+    "violations": []
+   },
+   "failures": []
+  },
+  {
+   "command": "status --json",
+   "kind": "read",
+   "fixture": "F1",
+   "state": "S3",
+   "parent": {
+    "median_ms": 15.452,
+    "p90_ms": 15.950167,
+    "first_ms": 21.784583,
+    "rss_bytes": 14499840
+   },
+   "candidate": {
+    "median_ms": 15.441,
+    "p90_ms": 15.734042,
+    "first_ms": 15.397542,
+    "rss_bytes": 14483456
+   },
+   "timing_rounds": [
+    {
+     "parent": {
+      "median_ms": 15.452,
+      "p90_ms": 15.950167,
+      "first_ms": 21.784583,
+      "samples_ms": [
+       15.380292,
+       15.540042,
+       15.316917,
+       15.09925,
+       15.475459,
+       15.522625,
+       15.27125,
+       15.558209,
+       15.699083,
+       15.950167,
+       15.145542,
+       16.37425,
+       15.300333,
+       15.452,
+       15.254208
+      ]
+     },
+     "candidate": {
+      "median_ms": 15.441,
+      "p90_ms": 15.734042,
+      "first_ms": 15.397542,
+      "samples_ms": [
+       15.540041,
+       15.295542,
+       15.208791,
+       15.496917,
+       15.305042,
+       15.441,
+       15.760542,
+       15.275708,
+       15.450417,
+       15.366917,
+       15.055625,
+       15.734042,
+       15.7005,
+       15.445542,
+       15.429417
+      ]
+     }
+    }
+   ],
+   "rss_rounds": [
+    {
+     "parent": {
+      "rss_bytes": 14499840,
+      "samples_bytes": [
+       14385152,
+       14598144,
+       14499840,
+       14417920,
+       14696448
+      ]
+     },
+     "candidate": {
+      "rss_bytes": 14483456,
+      "samples_bytes": [
+       14483456,
+       14450688,
+       14385152,
+       14516224,
+       14483456
+      ]
+     }
+    }
+   ],
+   "verdict": "pass",
+   "output": {
+    "parent_equals_candidate": true,
+    "digest": {
+     "parent": [
+      "63d9f4a4c5e78f1f8608d0505e5e64761b7862837ade6886c5bb378809590890"
+     ],
+     "candidate": [
+      "63d9f4a4c5e78f1f8608d0505e5e64761b7862837ade6886c5bb378809590890"
+     ]
+    },
+    "exit": {
+     "parent": [
+      0
+     ],
+     "candidate": [
+      0
+     ]
+    },
+    "excerpt": {
+     "parent": "{\"artifact_location\":\"<removed>\",\"complete\":true,\"counts\":{\"claim\":16,\"dead_end\":21,\"decision\":45,\"experiment\":46,\"experiment_plan\":6,\"heuristic\":23,\"observation\":95,\"pivot\":2,\"session\":41},\"diagnostics\":{\"errors\":0,\"report\":{\"errors\":[],\"warnings\":[{\"message\":\"field `lesson` dropped for type `exper",
+     "candidate": "{\"artifact_location\":\"<removed>\",\"complete\":true,\"counts\":{\"claim\":16,\"dead_end\":21,\"decision\":45,\"experiment\":46,\"experiment_plan\":6,\"heuristic\":23,\"observation\":95,\"pivot\":2,\"session\":41},\"diagnostics\":{\"errors\":0,\"report\":{\"errors\":[],\"warnings\":[{\"message\":\"field `lesson` dropped for type `exper"
+    },
+    "equals_S0": {
+     "parent": true,
+     "candidate": true
+    }
+   },
+   "access": {
+    "ok": true,
+    "violations": []
+   },
+   "failures": []
+  },
+  {
+   "command": "ls --json",
+   "kind": "read",
+   "fixture": "F1",
+   "state": "S3",
+   "parent": {
+    "median_ms": 16.388542,
+    "p90_ms": 16.702166,
+    "first_ms": 16.341541,
+    "rss_bytes": 17661952
+   },
+   "candidate": {
+    "median_ms": 16.298083,
+    "p90_ms": 16.819833,
+    "first_ms": 16.600458,
+    "rss_bytes": 17563648
+   },
+   "timing_rounds": [
+    {
+     "parent": {
+      "median_ms": 16.388542,
+      "p90_ms": 16.702166,
+      "first_ms": 16.341541,
+      "samples_ms": [
+       16.463917,
+       16.661833,
+       16.233834,
+       16.19975,
+       16.129625,
+       16.143208,
+       16.014958,
+       16.625834,
+       16.388542,
+       16.49525,
+       16.702166,
+       16.863125,
+       16.591,
+       16.039125,
+       16.276
+      ]
+     },
+     "candidate": {
+      "median_ms": 16.298083,
+      "p90_ms": 16.819833,
+      "first_ms": 16.600458,
+      "samples_ms": [
+       16.298083,
+       16.351458,
+       16.088917,
+       16.359667,
+       16.293125,
+       16.272917,
+       16.221583,
+       16.276,
+       16.571584,
+       16.183833,
+       16.128,
+       17.035209,
+       16.819833,
+       16.308834,
+       16.437583
+      ]
+     }
+    }
+   ],
+   "rss_rounds": [
+    {
+     "parent": {
+      "rss_bytes": 17661952,
+      "samples_bytes": [
+       17580032,
+       17596416,
+       17776640,
+       17661952,
+       17743872
+      ]
+     },
+     "candidate": {
+      "rss_bytes": 17563648,
+      "samples_bytes": [
+       17563648,
+       17514496,
+       17547264,
+       17612800,
+       17580032
+      ]
+     }
+    }
+   ],
+   "verdict": "pass",
+   "output": {
+    "parent_equals_candidate": true,
+    "digest": {
+     "parent": [
+      "3ae613ee56acf80b7d7f7175ef6e852ec02a25e60b4cb72805d4c2352bdf7dd3"
+     ],
+     "candidate": [
+      "3ae613ee56acf80b7d7f7175ef6e852ec02a25e60b4cb72805d4c2352bdf7dd3"
+     ]
+    },
+    "exit": {
+     "parent": [
+      0
+     ],
+     "candidate": [
+      0
+     ]
+    },
+    "excerpt": {
+     "parent": "{\"diagnostics\":{\"errors\":[],\"warnings\":[{\"code\":\"ARA206\",\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N95]\",\"severity\":\"warning\"},{\"code\":\"ARA206\",\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N96]\",\"severity\":\"warning\"},{\"code\":\"ARA208\",\"message\":\"",
+     "candidate": "{\"diagnostics\":{\"errors\":[],\"warnings\":[{\"code\":\"ARA206\",\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N95]\",\"severity\":\"warning\"},{\"code\":\"ARA206\",\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N96]\",\"severity\":\"warning\"},{\"code\":\"ARA208\",\"message\":\""
+    },
+    "equals_S0": {
+     "parent": true,
+     "candidate": true
+    }
+   },
+   "access": {
+    "ok": true,
+    "violations": []
+   },
+   "failures": []
+  },
+  {
+   "command": "show C01 --json",
+   "kind": "read",
+   "fixture": "F1",
+   "state": "S3",
+   "parent": {
+    "median_ms": 14.18775,
+    "p90_ms": 14.500958,
+    "first_ms": 14.372625,
+    "rss_bytes": 14172160
+   },
+   "candidate": {
+    "median_ms": 14.113084,
+    "p90_ms": 14.342583,
+    "first_ms": 14.012167,
+    "rss_bytes": 14155776
+   },
+   "timing_rounds": [
+    {
+     "parent": {
+      "median_ms": 14.18775,
+      "p90_ms": 14.500958,
+      "first_ms": 14.372625,
+      "samples_ms": [
+       14.237459,
+       14.500958,
+       14.27325,
+       14.12575,
+       14.0545,
+       14.26475,
+       13.98525,
+       14.18775,
+       14.058208,
+       14.267667,
+       14.398125,
+       14.029042,
+       14.633917,
+       13.978208,
+       14.037334
+      ]
+     },
+     "candidate": {
+      "median_ms": 14.113084,
+      "p90_ms": 14.342583,
+      "first_ms": 14.012167,
+      "samples_ms": [
+       14.342583,
+       13.994125,
+       13.951958,
+       14.239958,
+       14.02425,
+       14.136084,
+       13.917167,
+       14.154792,
+       13.953958,
+       15.124792,
+       14.197041,
+       14.231208,
+       14.113084,
+       14.1095,
+       14.017042
+      ]
+     }
+    }
+   ],
+   "rss_rounds": [
+    {
+     "parent": {
+      "rss_bytes": 14172160,
+      "samples_bytes": [
+       14221312,
+       14106624,
+       14204928,
+       14172160,
+       14123008
+      ]
+     },
+     "candidate": {
+      "rss_bytes": 14155776,
+      "samples_bytes": [
+       14106624,
+       14270464,
+       14188544,
+       14106624,
+       14155776
+      ]
+     }
+    }
+   ],
+   "verdict": "pass",
+   "output": {
+    "parent_equals_candidate": true,
+    "digest": {
+     "parent": [
+      "30910eeff3dce1d153ce9b13f0c9551d29abdb6efa0cd30d6788757c9f80066b"
+     ],
+     "candidate": [
+      "30910eeff3dce1d153ce9b13f0c9551d29abdb6efa0cd30d6788757c9f80066b"
+     ]
+    },
+    "exit": {
+     "parent": [
+      0
+     ],
+     "candidate": [
+      0
+     ]
+    },
+    "excerpt": {
+     "parent": "{\"diagnostics\":{\"errors\":[],\"warnings\":[{\"code\":\"ARA206\",\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N95]\",\"severity\":\"warning\"},{\"code\":\"ARA206\",\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N96]\",\"severity\":\"warning\"},{\"code\":\"ARA208\",\"message\":\"",
+     "candidate": "{\"diagnostics\":{\"errors\":[],\"warnings\":[{\"code\":\"ARA206\",\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N95]\",\"severity\":\"warning\"},{\"code\":\"ARA206\",\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N96]\",\"severity\":\"warning\"},{\"code\":\"ARA208\",\"message\":\""
+    },
+    "equals_S0": {
+     "parent": true,
+     "candidate": true
+    }
+   },
+   "access": {
+    "ok": true,
+    "violations": []
+   },
+   "failures": []
+  },
+  {
+   "command": "find \"method\" --json",
+   "kind": "read",
+   "fixture": "F1",
+   "state": "S3",
+   "parent": {
+    "median_ms": 24.862125,
+    "p90_ms": 25.81125,
+    "first_ms": 24.1845,
+    "rss_bytes": 18710528
+   },
+   "candidate": {
+    "median_ms": 24.807583,
+    "p90_ms": 25.884041,
+    "first_ms": 24.821042,
+    "rss_bytes": 18890752
+   },
+   "timing_rounds": [
+    {
+     "parent": {
+      "median_ms": 24.862125,
+      "p90_ms": 25.81125,
+      "first_ms": 24.1845,
+      "samples_ms": [
+       24.928875,
+       24.880416,
+       24.643125,
+       24.525875,
+       24.462667,
+       24.938209,
+       24.601625,
+       24.773458,
+       24.418167,
+       24.862125,
+       24.856958,
+       25.341459,
+       26.638625,
+       25.81125,
+       24.947
+      ]
+     },
+     "candidate": {
+      "median_ms": 24.807583,
+      "p90_ms": 25.884041,
+      "first_ms": 24.821042,
+      "samples_ms": [
+       24.491125,
+       25.092541,
+       24.738708,
+       24.88075,
+       24.792875,
+       24.824584,
+       24.52475,
+       24.850541,
+       24.673666,
+       24.807583,
+       24.543958,
+       25.5575,
+       26.192167,
+       25.884041,
+       24.684416
+      ]
+     }
+    }
+   ],
+   "rss_rounds": [
+    {
+     "parent": {
+      "rss_bytes": 18710528,
+      "samples_bytes": [
+       18710528,
+       18743296,
+       18710528,
+       18694144,
+       18759680
+      ]
+     },
+     "candidate": {
+      "rss_bytes": 18890752,
+      "samples_bytes": [
+       18890752,
+       18907136,
+       18874368,
+       18890752,
+       18776064
+      ]
+     }
+    }
+   ],
+   "verdict": "pass",
+   "output": {
+    "parent_equals_candidate": true,
+    "digest": {
+     "parent": [
+      "740e94fe8281563347c9c649fd438655b6473fd43c9046c650786d04744438c2"
+     ],
+     "candidate": [
+      "740e94fe8281563347c9c649fd438655b6473fd43c9046c650786d04744438c2"
+     ]
+    },
+    "exit": {
+     "parent": [
+      0
+     ],
+     "candidate": [
+      0
+     ]
+    },
+    "excerpt": {
+     "parent": "{\"format\":\"ara.find/v1\",\"results\":[{\"excerpt\":\"\u2026rst behavior consumed 90%+ of the 26.7h runtime on a single method (scratch then BC) without advancing to other subtasks. ARA agent avoided this by running 20\u2026\",\"id\":\"O73\",\"kind\":\"observation\",\"score\":4.534326125450956,\"source\":\"staging/observations.ya",
+     "candidate": "{\"format\":\"ara.find/v1\",\"results\":[{\"excerpt\":\"\u2026rst behavior consumed 90%+ of the 26.7h runtime on a single method (scratch then BC) without advancing to other subtasks. ARA agent avoided this by running 20\u2026\",\"id\":\"O73\",\"kind\":\"observation\",\"score\":4.534326125450956,\"source\":\"staging/observations.ya"
+    },
+    "equals_S0": {
+     "parent": true,
+     "candidate": true
+    }
+   },
+   "access": {
+    "ok": true,
+    "violations": []
+   },
+   "failures": []
+  },
+  {
+   "command": "validate <dir> --json",
+   "kind": "read",
+   "fixture": "F1",
+   "state": "S3",
+   "parent": {
+    "median_ms": 13.8365,
+    "p90_ms": 14.279834,
+    "first_ms": 13.948083,
+    "rss_bytes": 13910016
+   },
+   "candidate": {
+    "median_ms": 13.910166,
+    "p90_ms": 14.167958,
+    "first_ms": 13.881041,
+    "rss_bytes": 13926400
+   },
+   "timing_rounds": [
+    {
+     "parent": {
+      "median_ms": 13.8365,
+      "p90_ms": 14.279834,
+      "first_ms": 13.948083,
+      "samples_ms": [
+       14.265042,
+       14.74875,
+       14.279834,
+       13.856167,
+       13.695958,
+       13.711958,
+       14.0685,
+       13.575125,
+       13.87425,
+       13.805375,
+       13.8365,
+       13.93075,
+       13.715916,
+       13.721875,
+       13.771625
+      ]
+     },
+     "candidate": {
+      "median_ms": 13.910166,
+      "p90_ms": 14.167958,
+      "first_ms": 13.881041,
+      "samples_ms": [
+       13.97975,
+       14.136583,
+       14.178083,
+       14.051708,
+       14.167958,
+       13.910166,
+       13.91125,
+       13.742417,
+       13.845375,
+       13.702917,
+       13.7195,
+       13.889708,
+       13.981417,
+       13.802667,
+       13.79825
+      ]
+     }
+    }
+   ],
+   "rss_rounds": [
+    {
+     "parent": {
+      "rss_bytes": 13910016,
+      "samples_bytes": [
+       13959168,
+       13959168,
+       13811712,
+       13647872,
+       13910016
+      ]
+     },
+     "candidate": {
+      "rss_bytes": 13926400,
+      "samples_bytes": [
+       14008320,
+       13926400,
+       13762560,
+       13942784,
+       13844480
+      ]
+     }
+    }
+   ],
+   "verdict": "pass",
+   "output": {
+    "parent_equals_candidate": true,
+    "digest": {
+     "parent": [
+      "5bc79d0d18ea7a60df102526c9ad9e1a60738203d6d551653f16a2f22c9a7ce6"
+     ],
+     "candidate": [
+      "5bc79d0d18ea7a60df102526c9ad9e1a60738203d6d551653f16a2f22c9a7ce6"
+     ]
+    },
+    "exit": {
+     "parent": [
+      0
+     ],
+     "candidate": [
+      0
+     ]
+    },
+    "excerpt": {
+     "parent": "{\n  \"errors\": [],\n  \"warnings\": [\n    {\n      \"severity\": \"warning\",\n      \"path\": \"nodes[N95]\",\n      \"message\": \"field `lesson` dropped for type `experiment`\"\n    },\n    {\n      \"severity\": \"warning\",\n      \"path\": \"nodes[N96]\",\n      \"message\": \"field `lesson` dropped for type `experiment`\"\n    }",
+     "candidate": "{\n  \"errors\": [],\n  \"warnings\": [\n    {\n      \"severity\": \"warning\",\n      \"path\": \"nodes[N95]\",\n      \"message\": \"field `lesson` dropped for type `experiment`\"\n    },\n    {\n      \"severity\": \"warning\",\n      \"path\": \"nodes[N96]\",\n      \"message\": \"field `lesson` dropped for type `experiment`\"\n    }"
+    },
+    "equals_S0": {
+     "parent": true,
+     "candidate": true
+    }
+   },
+   "access": {
+    "ok": true,
+    "violations": []
+   },
+   "failures": []
+  },
+  {
+   "command": "check <dir>",
+   "kind": "read",
+   "fixture": "F1",
+   "state": "S3",
+   "parent": {
+    "median_ms": 14.358792,
+    "p90_ms": 14.675542,
+    "first_ms": 13.975667,
+    "rss_bytes": 13926400
+   },
+   "candidate": {
+    "median_ms": 14.241125,
+    "p90_ms": 14.668667,
+    "first_ms": 13.955875,
+    "rss_bytes": 13959168
+   },
+   "timing_rounds": [
+    {
+     "parent": {
+      "median_ms": 14.358792,
+      "p90_ms": 14.675542,
+      "first_ms": 13.975667,
+      "samples_ms": [
+       14.087167,
+       14.454917,
+       14.358792,
+       15.020709,
+       14.401875,
+       14.654958,
+       14.337709,
+       14.472417,
+       14.315041,
+       14.675542,
+       14.231625,
+       14.271542,
+       14.41725,
+       14.156208,
+       14.024625
+      ]
+     },
+     "candidate": {
+      "median_ms": 14.241125,
+      "p90_ms": 14.668667,
+      "first_ms": 13.955875,
+      "samples_ms": [
+       14.292125,
+       14.006083,
+       14.668667,
+       15.225417,
+       14.183625,
+       14.565083,
+       14.241125,
+       14.301083,
+       14.626875,
+       14.195625,
+       14.172792,
+       13.986125,
+       14.422666,
+       14.048083,
+       14.129125
+      ]
+     }
+    }
+   ],
+   "rss_rounds": [
+    {
+     "parent": {
+      "rss_bytes": 13926400,
+      "samples_bytes": [
+       13926400,
+       13844480,
+       13942784,
+       13926400,
+       13959168
+      ]
+     },
+     "candidate": {
+      "rss_bytes": 13959168,
+      "samples_bytes": [
+       13959168,
+       14073856,
+       14008320,
+       13860864,
+       13893632
+      ]
+     }
+    }
+   ],
+   "verdict": "pass",
+   "output": {
+    "parent_equals_candidate": true,
+    "digest": {
+     "parent": [
+      "85ffc67e9ee9d74e854d86a05c233bc657b168c0e6a01d5dcddfaed0fb19b268"
+     ],
+     "candidate": [
+      "85ffc67e9ee9d74e854d86a05c233bc657b168c0e6a01d5dcddfaed0fb19b268"
+     ]
+    },
+    "exit": {
+     "parent": [
+      0
+     ],
+     "candidate": [
+      0
+     ]
+    },
+    "excerpt": {
+     "parent": "ARA206 warning: nodes[N95]: field `lesson` dropped for type `experiment`\nARA206 warning: nodes[N96]: field `lesson` dropped for type `experiment`\nARA208 warning: nodes[N68].also_depends_on[0]: redundant `also_depends_on` on ancestor `N65` (already nested under it)\nARA215 warning: evidence[Per-task s",
+     "candidate": "ARA206 warning: nodes[N95]: field `lesson` dropped for type `experiment`\nARA206 warning: nodes[N96]: field `lesson` dropped for type `experiment`\nARA208 warning: nodes[N68].also_depends_on[0]: redundant `also_depends_on` on ancestor `N65` (already nested under it)\nARA215 warning: evidence[Per-task s"
+    },
+    "equals_S0": {
+     "parent": true,
+     "candidate": true
+    }
+   },
+   "access": {
+    "ok": true,
+    "violations": []
+   },
+   "failures": []
+  },
+  {
+   "command": "status --json",
+   "kind": "read",
+   "fixture": "F2",
+   "state": "S0",
+   "parent": {
+    "median_ms": 15.379334,
+    "p90_ms": 16.31575,
+    "first_ms": 20.670375,
+    "rss_bytes": 14827520
+   },
+   "candidate": {
+    "median_ms": 15.408709,
+    "p90_ms": 16.455875,
+    "first_ms": 15.66275,
+    "rss_bytes": 14876672
+   },
+   "timing_rounds": [
+    {
+     "parent": {
+      "median_ms": 15.379334,
+      "p90_ms": 16.31575,
+      "first_ms": 20.670375,
+      "samples_ms": [
+       16.076625,
+       16.31575,
+       16.075208,
+       16.135708,
+       16.326,
+       16.070833,
+       15.589917,
+       15.237625,
+       14.943625,
+       15.245,
+       15.148791,
+       15.107834,
+       15.379334,
+       15.219292,
+       15.168958
+      ]
+     },
+     "candidate": {
+      "median_ms": 15.408709,
+      "p90_ms": 16.455875,
+      "first_ms": 15.66275,
+      "samples_ms": [
+       16.750042,
+       16.248167,
+       16.327083,
+       16.455875,
+       15.785,
+       15.676083,
+       15.354625,
+       15.198667,
+       15.408709,
+       15.271833,
+       15.412333,
+       15.098791,
+       15.061042,
+       15.28175,
+       15.400833
+      ]
+     }
+    }
+   ],
+   "rss_rounds": [
+    {
+     "parent": {
+      "rss_bytes": 14827520,
+      "samples_bytes": [
+       14778368,
+       15024128,
+       14827520,
+       14925824,
+       14745600
+      ]
+     },
+     "candidate": {
+      "rss_bytes": 14876672,
+      "samples_bytes": [
+       14860288,
+       14925824,
+       14925824,
+       14876672,
+       14843904
+      ]
+     }
+    }
+   ],
+   "verdict": "pass",
+   "output": {
+    "parent_equals_candidate": true,
+    "digest": {
+     "parent": [
+      "c9d6b97790f34ef07d523c55343b7303084582b262d3c1c40dae4cc8c3eecc93"
+     ],
+     "candidate": [
+      "c9d6b97790f34ef07d523c55343b7303084582b262d3c1c40dae4cc8c3eecc93"
+     ]
+    },
+    "exit": {
+     "parent": [
+      0
+     ],
+     "candidate": [
+      0
+     ]
+    },
+    "excerpt": {
+     "parent": "{\"artifact_location\":\"<removed>\",\"complete\":true,\"counts\":{\"claim\":16,\"dead_end\":21,\"decision\":45,\"experiment\":46,\"experiment_plan\":6,\"heuristic\":23,\"observation\":95,\"pivot\":2,\"session\":41},\"diagnostics\":{\"errors\":0,\"report\":{\"errors\":[],\"warnings\":[{\"message\":\"field `lesson` dropped for type `exper",
+     "candidate": "{\"artifact_location\":\"<removed>\",\"complete\":true,\"counts\":{\"claim\":16,\"dead_end\":21,\"decision\":45,\"experiment\":46,\"experiment_plan\":6,\"heuristic\":23,\"observation\":95,\"pivot\":2,\"session\":41},\"diagnostics\":{\"errors\":0,\"report\":{\"errors\":[],\"warnings\":[{\"message\":\"field `lesson` dropped for type `exper"
+    }
+   },
+   "access": {
+    "ok": true,
+    "violations": []
+   },
+   "failures": []
+  },
+  {
+   "command": "ls --json",
+   "kind": "read",
+   "fixture": "F2",
+   "state": "S0",
+   "parent": {
+    "median_ms": 15.661208,
+    "p90_ms": 16.635167,
+    "first_ms": 16.292125,
+    "rss_bytes": 17596416
+   },
+   "candidate": {
+    "median_ms": 15.617125,
+    "p90_ms": 16.442041,
+    "first_ms": 15.897208,
+    "rss_bytes": 17563648
+   },
+   "timing_rounds": [
+    {
+     "parent": {
+      "median_ms": 15.661208,
+      "p90_ms": 16.635167,
+      "first_ms": 16.292125,
+      "samples_ms": [
+       15.653458,
+       15.754083,
+       15.489166,
+       15.661208,
+       15.64175,
+       15.6205,
+       15.677083,
+       15.477541,
+       15.367417,
+       17.04175,
+       16.635167,
+       15.743459,
+       15.473667,
+       16.163958,
+       15.738042
+      ]
+     },
+     "candidate": {
+      "median_ms": 15.617125,
+      "p90_ms": 16.442041,
+      "first_ms": 15.897208,
+      "samples_ms": [
+       15.64,
+       15.405,
+       15.504458,
+       15.508417,
+       15.493542,
+       15.374334,
+       15.635625,
+       15.617125,
+       16.442041,
+       17.143375,
+       15.814167,
+       15.618583,
+       15.71825,
+       15.481625,
+       15.553375
+      ]
+     }
+    }
+   ],
+   "rss_rounds": [
+    {
+     "parent": {
+      "rss_bytes": 17596416,
+      "samples_bytes": [
+       17580032,
+       17547264,
+       17629184,
+       17661952,
+       17596416
+      ]
+     },
+     "candidate": {
+      "rss_bytes": 17563648,
+      "samples_bytes": [
+       17563648,
+       17465344,
+       17596416,
+       17612800,
+       17350656
+      ]
+     }
+    }
+   ],
+   "verdict": "pass",
+   "output": {
+    "parent_equals_candidate": true,
+    "digest": {
+     "parent": [
+      "3ae613ee56acf80b7d7f7175ef6e852ec02a25e60b4cb72805d4c2352bdf7dd3"
+     ],
+     "candidate": [
+      "3ae613ee56acf80b7d7f7175ef6e852ec02a25e60b4cb72805d4c2352bdf7dd3"
+     ]
+    },
+    "exit": {
+     "parent": [
+      0
+     ],
+     "candidate": [
+      0
+     ]
+    },
+    "excerpt": {
+     "parent": "{\"diagnostics\":{\"errors\":[],\"warnings\":[{\"code\":\"ARA206\",\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N95]\",\"severity\":\"warning\"},{\"code\":\"ARA206\",\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N96]\",\"severity\":\"warning\"},{\"code\":\"ARA208\",\"message\":\"",
+     "candidate": "{\"diagnostics\":{\"errors\":[],\"warnings\":[{\"code\":\"ARA206\",\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N95]\",\"severity\":\"warning\"},{\"code\":\"ARA206\",\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N96]\",\"severity\":\"warning\"},{\"code\":\"ARA208\",\"message\":\""
+    }
+   },
+   "access": {
+    "ok": true,
+    "violations": []
+   },
+   "failures": []
+  },
+  {
+   "command": "show C01 --json",
+   "kind": "read",
+   "fixture": "F2",
+   "state": "S0",
+   "parent": {
+    "median_ms": 13.331792,
+    "p90_ms": 14.07925,
+    "first_ms": 13.617291,
+    "rss_bytes": 14188544
+   },
+   "candidate": {
+    "median_ms": 13.326084,
+    "p90_ms": 13.617667,
+    "first_ms": 13.665542,
+    "rss_bytes": 14204928
+   },
+   "timing_rounds": [
+    {
+     "parent": {
+      "median_ms": 13.331792,
+      "p90_ms": 14.07925,
+      "first_ms": 13.617291,
+      "samples_ms": [
+       13.3445,
+       13.331792,
+       13.463083,
+       13.229083,
+       13.045583,
+       13.380042,
+       13.278792,
+       13.348542,
+       13.283667,
+       13.47925,
+       13.090875,
+       13.326708,
+       14.947125,
+       14.07925,
+       13.2685
+      ]
+     },
+     "candidate": {
+      "median_ms": 13.326084,
+      "p90_ms": 13.617667,
+      "first_ms": 13.665542,
+      "samples_ms": [
+       13.326084,
+       13.240209,
+       13.21375,
+       13.308166,
+       13.313709,
+       13.081625,
+       13.370583,
+       13.460916,
+       13.349792,
+       13.328333,
+       13.263125,
+       13.617667,
+       14.435416,
+       13.137583,
+       13.432375
+      ]
+     }
+    }
+   ],
+   "rss_rounds": [
+    {
+     "parent": {
+      "rss_bytes": 14188544,
+      "samples_bytes": [
+       14172160,
+       14221312,
+       14188544,
+       14155776,
+       14204928
+      ]
+     },
+     "candidate": {
+      "rss_bytes": 14204928,
+      "samples_bytes": [
+       14270464,
+       14106624,
+       14172160,
+       14204928,
+       14270464
+      ]
+     }
+    }
+   ],
+   "verdict": "pass",
+   "output": {
+    "parent_equals_candidate": true,
+    "digest": {
+     "parent": [
+      "30910eeff3dce1d153ce9b13f0c9551d29abdb6efa0cd30d6788757c9f80066b"
+     ],
+     "candidate": [
+      "30910eeff3dce1d153ce9b13f0c9551d29abdb6efa0cd30d6788757c9f80066b"
+     ]
+    },
+    "exit": {
+     "parent": [
+      0
+     ],
+     "candidate": [
+      0
+     ]
+    },
+    "excerpt": {
+     "parent": "{\"diagnostics\":{\"errors\":[],\"warnings\":[{\"code\":\"ARA206\",\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N95]\",\"severity\":\"warning\"},{\"code\":\"ARA206\",\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N96]\",\"severity\":\"warning\"},{\"code\":\"ARA208\",\"message\":\"",
+     "candidate": "{\"diagnostics\":{\"errors\":[],\"warnings\":[{\"code\":\"ARA206\",\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N95]\",\"severity\":\"warning\"},{\"code\":\"ARA206\",\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N96]\",\"severity\":\"warning\"},{\"code\":\"ARA208\",\"message\":\""
+    }
+   },
+   "access": {
+    "ok": true,
+    "violations": []
+   },
+   "failures": []
+  },
+  {
+   "command": "find \"method\" --json",
+   "kind": "read",
+   "fixture": "F2",
+   "state": "S0",
+   "parent": {
+    "median_ms": 23.927333,
+    "p90_ms": 24.348958,
+    "first_ms": 24.420375,
+    "rss_bytes": 18759680
+   },
+   "candidate": {
+    "median_ms": 23.985875,
+    "p90_ms": 24.190375,
+    "first_ms": 24.136542,
+    "rss_bytes": 18874368
+   },
+   "timing_rounds": [
+    {
+     "parent": {
+      "median_ms": 23.927333,
+      "p90_ms": 24.348958,
+      "first_ms": 24.420375,
+      "samples_ms": [
+       24.348958,
+       23.915083,
+       23.927333,
+       24.408584,
+       23.898208,
+       24.17875,
+       23.726167,
+       23.856292,
+       23.956875,
+       23.879459,
+       23.951,
+       23.646584,
+       24.06325,
+       24.003917,
+       23.667
+      ]
+     },
+     "candidate": {
+      "median_ms": 23.985875,
+      "p90_ms": 24.190375,
+      "first_ms": 24.136542,
+      "samples_ms": [
+       23.985875,
+       23.858584,
+       24.165625,
+       24.039209,
+       24.012416,
+       23.609625,
+       23.886292,
+       23.930541,
+       24.149458,
+       23.806542,
+       23.683333,
+       24.222667,
+       24.190375,
+       24.185417,
+       23.953708
+      ]
+     }
+    }
+   ],
+   "rss_rounds": [
+    {
+     "parent": {
+      "rss_bytes": 18759680,
+      "samples_bytes": [
+       18743296,
+       18825216,
+       18677760,
+       18874368,
+       18759680
+      ]
+     },
+     "candidate": {
+      "rss_bytes": 18874368,
+      "samples_bytes": [
+       18890752,
+       18825216,
+       18825216,
+       18874368,
+       18874368
+      ]
+     }
+    }
+   ],
+   "verdict": "pass",
+   "output": {
+    "parent_equals_candidate": true,
+    "digest": {
+     "parent": [
+      "740e94fe8281563347c9c649fd438655b6473fd43c9046c650786d04744438c2"
+     ],
+     "candidate": [
+      "740e94fe8281563347c9c649fd438655b6473fd43c9046c650786d04744438c2"
+     ]
+    },
+    "exit": {
+     "parent": [
+      0
+     ],
+     "candidate": [
+      0
+     ]
+    },
+    "excerpt": {
+     "parent": "{\"format\":\"ara.find/v1\",\"results\":[{\"excerpt\":\"\u2026rst behavior consumed 90%+ of the 26.7h runtime on a single method (scratch then BC) without advancing to other subtasks. ARA agent avoided this by running 20\u2026\",\"id\":\"O73\",\"kind\":\"observation\",\"score\":4.534326125450956,\"source\":\"staging/observations.ya",
+     "candidate": "{\"format\":\"ara.find/v1\",\"results\":[{\"excerpt\":\"\u2026rst behavior consumed 90%+ of the 26.7h runtime on a single method (scratch then BC) without advancing to other subtasks. ARA agent avoided this by running 20\u2026\",\"id\":\"O73\",\"kind\":\"observation\",\"score\":4.534326125450956,\"source\":\"staging/observations.ya"
+    }
+   },
+   "access": {
+    "ok": true,
+    "violations": []
+   },
+   "failures": []
+  },
+  {
+   "command": "validate <dir> --json",
+   "kind": "read",
+   "fixture": "F2",
+   "state": "S0",
+   "parent": {
+    "median_ms": 13.156125,
+    "p90_ms": 13.409458,
+    "first_ms": 13.548417,
+    "rss_bytes": 13860864
+   },
+   "candidate": {
+    "median_ms": 13.202667,
+    "p90_ms": 13.649125,
+    "first_ms": 13.155208,
+    "rss_bytes": 13942784
+   },
+   "timing_rounds": [
+    {
+     "parent": {
+      "median_ms": 13.156125,
+      "p90_ms": 13.409458,
+      "first_ms": 13.548417,
+      "samples_ms": [
+       13.14875,
+       12.898167,
+       13.289,
+       13.156125,
+       13.069,
+       13.095083,
+       13.409458,
+       13.368583,
+       13.144083,
+       13.089542,
+       13.559083,
+       13.276417,
+       13.35,
+       13.10075,
+       13.237583
+      ]
+     },
+     "candidate": {
+      "median_ms": 13.202667,
+      "p90_ms": 13.649125,
+      "first_ms": 13.155208,
+      "samples_ms": [
+       13.309083,
+       13.386,
+       13.418208,
+       13.037,
+       13.561792,
+       13.109958,
+       13.825458,
+       13.202667,
+       13.410833,
+       13.132208,
+       13.117417,
+       12.920667,
+       13.649125,
+       13.157834,
+       12.862125
+      ]
+     }
+    }
+   ],
+   "rss_rounds": [
+    {
+     "parent": {
+      "rss_bytes": 13860864,
+      "samples_bytes": [
+       13860864,
+       13811712,
+       13860864,
+       13959168,
+       13844480
+      ]
+     },
+     "candidate": {
+      "rss_bytes": 13942784,
+      "samples_bytes": [
+       13893632,
+       13975552,
+       13942784,
+       13844480,
+       13942784
+      ]
+     }
+    }
+   ],
+   "verdict": "pass",
+   "output": {
+    "parent_equals_candidate": true,
+    "digest": {
+     "parent": [
+      "5bc79d0d18ea7a60df102526c9ad9e1a60738203d6d551653f16a2f22c9a7ce6"
+     ],
+     "candidate": [
+      "5bc79d0d18ea7a60df102526c9ad9e1a60738203d6d551653f16a2f22c9a7ce6"
+     ]
+    },
+    "exit": {
+     "parent": [
+      0
+     ],
+     "candidate": [
+      0
+     ]
+    },
+    "excerpt": {
+     "parent": "{\n  \"errors\": [],\n  \"warnings\": [\n    {\n      \"severity\": \"warning\",\n      \"path\": \"nodes[N95]\",\n      \"message\": \"field `lesson` dropped for type `experiment`\"\n    },\n    {\n      \"severity\": \"warning\",\n      \"path\": \"nodes[N96]\",\n      \"message\": \"field `lesson` dropped for type `experiment`\"\n    }",
+     "candidate": "{\n  \"errors\": [],\n  \"warnings\": [\n    {\n      \"severity\": \"warning\",\n      \"path\": \"nodes[N95]\",\n      \"message\": \"field `lesson` dropped for type `experiment`\"\n    },\n    {\n      \"severity\": \"warning\",\n      \"path\": \"nodes[N96]\",\n      \"message\": \"field `lesson` dropped for type `experiment`\"\n    }"
+    }
+   },
+   "access": {
+    "ok": true,
+    "violations": []
+   },
+   "failures": []
+  },
+  {
+   "command": "check <dir>",
+   "kind": "read",
+   "fixture": "F2",
+   "state": "S0",
+   "parent": {
+    "median_ms": 13.404916,
+    "p90_ms": 13.639125,
+    "first_ms": 13.689625,
+    "rss_bytes": 13844480
+   },
+   "candidate": {
+    "median_ms": 13.410125,
+    "p90_ms": 13.554584,
+    "first_ms": 13.244125,
+    "rss_bytes": 13877248
+   },
+   "timing_rounds": [
+    {
+     "parent": {
+      "median_ms": 13.404916,
+      "p90_ms": 13.639125,
+      "first_ms": 13.689625,
+      "samples_ms": [
+       13.683125,
+       13.422083,
+       13.313792,
+       13.404916,
+       13.213,
+       13.583375,
+       13.430292,
+       13.346125,
+       13.319625,
+       13.513917,
+       13.639125,
+       13.278917,
+       13.238875,
+       13.4525,
+       13.235667
+      ]
+     },
+     "candidate": {
+      "median_ms": 13.410125,
+      "p90_ms": 13.554584,
+      "first_ms": 13.244125,
+      "samples_ms": [
+       13.386416,
+       13.305917,
+       13.410125,
+       13.345459,
+       13.370375,
+       13.435625,
+       13.616792,
+       13.474667,
+       13.2845,
+       13.47375,
+       13.389292,
+       13.541083,
+       13.330625,
+       13.538083,
+       13.554584
+      ]
+     }
+    }
+   ],
+   "rss_rounds": [
+    {
+     "parent": {
+      "rss_bytes": 13844480,
+      "samples_bytes": [
+       14024704,
+       13844480,
+       13795328,
+       13762560,
+       14024704
+      ]
+     },
+     "candidate": {
+      "rss_bytes": 13877248,
+      "samples_bytes": [
+       13942784,
+       13877248,
+       13844480,
+       13877248,
+       13975552
+      ]
+     }
+    }
+   ],
+   "verdict": "pass",
+   "output": {
+    "parent_equals_candidate": true,
+    "digest": {
+     "parent": [
+      "85ffc67e9ee9d74e854d86a05c233bc657b168c0e6a01d5dcddfaed0fb19b268"
+     ],
+     "candidate": [
+      "85ffc67e9ee9d74e854d86a05c233bc657b168c0e6a01d5dcddfaed0fb19b268"
+     ]
+    },
+    "exit": {
+     "parent": [
+      0
+     ],
+     "candidate": [
+      0
+     ]
+    },
+    "excerpt": {
+     "parent": "ARA206 warning: nodes[N95]: field `lesson` dropped for type `experiment`\nARA206 warning: nodes[N96]: field `lesson` dropped for type `experiment`\nARA208 warning: nodes[N68].also_depends_on[0]: redundant `also_depends_on` on ancestor `N65` (already nested under it)\nARA215 warning: evidence[Per-task s",
+     "candidate": "ARA206 warning: nodes[N95]: field `lesson` dropped for type `experiment`\nARA206 warning: nodes[N96]: field `lesson` dropped for type `experiment`\nARA208 warning: nodes[N68].also_depends_on[0]: redundant `also_depends_on` on ancestor `N65` (already nested under it)\nARA215 warning: evidence[Per-task s"
+    }
+   },
+   "access": {
+    "ok": true,
+    "violations": []
+   },
+   "failures": []
+  },
+  {
+   "command": "status --json",
+   "kind": "read",
+   "fixture": "F2",
+   "state": "S1",
+   "parent": {
+    "median_ms": 15.306666,
+    "p90_ms": 16.227084,
+    "first_ms": 20.377958,
+    "rss_bytes": 14745600
+   },
+   "candidate": {
+    "median_ms": 15.264875,
+    "p90_ms": 15.489375,
+    "first_ms": 14.879875,
+    "rss_bytes": 14827520
+   },
+   "timing_rounds": [
+    {
+     "parent": {
+      "median_ms": 15.306666,
+      "p90_ms": 16.227084,
+      "first_ms": 20.377958,
+      "samples_ms": [
+       15.26775,
+       15.321,
+       15.177334,
+       15.393875,
+       15.300334,
+       16.338625,
+       15.322333,
+       15.306666,
+       16.227084,
+       15.264042,
+       15.281875,
+       15.543042,
+       15.233334,
+       15.409167,
+       15.262416
+      ]
+     },
+     "candidate": {
+      "median_ms": 15.264875,
+      "p90_ms": 15.489375,
+      "first_ms": 14.879875,
+      "samples_ms": [
+       15.19925,
+       15.26275,
+       15.301375,
+       15.249708,
+       15.350583,
+       14.969042,
+       15.206208,
+       15.212292,
+       15.568583,
+       15.489375,
+       15.284375,
+       15.21225,
+       15.264875,
+       15.267375,
+       15.393417
+      ]
+     }
+    }
+   ],
+   "rss_rounds": [
+    {
+     "parent": {
+      "rss_bytes": 14745600,
+      "samples_bytes": [
+       14827520,
+       14729216,
+       14712832,
+       14827520,
+       14745600
+      ]
+     },
+     "candidate": {
+      "rss_bytes": 14827520,
+      "samples_bytes": [
+       14827520,
+       14811136,
+       14942208,
+       14827520,
+       14712832
+      ]
+     }
+    }
+   ],
+   "verdict": "pass",
+   "output": {
+    "parent_equals_candidate": true,
+    "digest": {
+     "parent": [
+      "c9d6b97790f34ef07d523c55343b7303084582b262d3c1c40dae4cc8c3eecc93"
+     ],
+     "candidate": [
+      "c9d6b97790f34ef07d523c55343b7303084582b262d3c1c40dae4cc8c3eecc93"
+     ]
+    },
+    "exit": {
+     "parent": [
+      0
+     ],
+     "candidate": [
+      0
+     ]
+    },
+    "excerpt": {
+     "parent": "{\"artifact_location\":\"<removed>\",\"complete\":true,\"counts\":{\"claim\":16,\"dead_end\":21,\"decision\":45,\"experiment\":46,\"experiment_plan\":6,\"heuristic\":23,\"observation\":95,\"pivot\":2,\"session\":41},\"diagnostics\":{\"errors\":0,\"report\":{\"errors\":[],\"warnings\":[{\"message\":\"field `lesson` dropped for type `exper",
+     "candidate": "{\"artifact_location\":\"<removed>\",\"complete\":true,\"counts\":{\"claim\":16,\"dead_end\":21,\"decision\":45,\"experiment\":46,\"experiment_plan\":6,\"heuristic\":23,\"observation\":95,\"pivot\":2,\"session\":41},\"diagnostics\":{\"errors\":0,\"report\":{\"errors\":[],\"warnings\":[{\"message\":\"field `lesson` dropped for type `exper"
+    },
+    "equals_S0": {
+     "parent": true,
+     "candidate": true
+    }
+   },
+   "access": {
+    "ok": true,
+    "violations": []
+   },
+   "failures": []
+  },
+  {
+   "command": "ls --json",
+   "kind": "read",
+   "fixture": "F2",
+   "state": "S1",
+   "parent": {
+    "median_ms": 15.43975,
+    "p90_ms": 15.666709,
+    "first_ms": 14.961625,
+    "rss_bytes": 17743872
+   },
+   "candidate": {
+    "median_ms": 15.48325,
+    "p90_ms": 15.676292,
+    "first_ms": 15.786625,
+    "rss_bytes": 17432576
+   },
+   "timing_rounds": [
+    {
+     "parent": {
+      "median_ms": 15.43975,
+      "p90_ms": 15.666709,
+      "first_ms": 14.961625,
+      "samples_ms": [
+       15.240041,
+       15.126291,
+       15.366584,
+       16.062958,
+       15.662,
+       15.563291,
+       15.43975,
+       15.3685,
+       15.457458,
+       15.601875,
+       15.546333,
+       15.376167,
+       15.395542,
+       15.251667,
+       15.666709
+      ]
+     },
+     "candidate": {
+      "median_ms": 15.48325,
+      "p90_ms": 15.676292,
+      "first_ms": 15.786625,
+      "samples_ms": [
+       15.48325,
+       15.273917,
+       15.277916,
+       15.676292,
+       15.665542,
+       15.502791,
+       15.376583,
+       15.330458,
+       15.458958,
+       15.661458,
+       15.16175,
+       15.439334,
+       15.483459,
+       15.639625,
+       15.681208
+      ]
+     }
+    }
+   ],
+   "rss_rounds": [
+    {
+     "parent": {
+      "rss_bytes": 17743872,
+      "samples_bytes": [
+       17825792,
+       17743872,
+       17776640,
+       17645568,
+       17678336
+      ]
+     },
+     "candidate": {
+      "rss_bytes": 17432576,
+      "samples_bytes": [
+       17383424,
+       17514496,
+       17596416,
+       17432576,
+       17416192
+      ]
+     }
+    }
+   ],
+   "verdict": "pass",
+   "output": {
+    "parent_equals_candidate": true,
+    "digest": {
+     "parent": [
+      "3ae613ee56acf80b7d7f7175ef6e852ec02a25e60b4cb72805d4c2352bdf7dd3"
+     ],
+     "candidate": [
+      "3ae613ee56acf80b7d7f7175ef6e852ec02a25e60b4cb72805d4c2352bdf7dd3"
+     ]
+    },
+    "exit": {
+     "parent": [
+      0
+     ],
+     "candidate": [
+      0
+     ]
+    },
+    "excerpt": {
+     "parent": "{\"diagnostics\":{\"errors\":[],\"warnings\":[{\"code\":\"ARA206\",\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N95]\",\"severity\":\"warning\"},{\"code\":\"ARA206\",\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N96]\",\"severity\":\"warning\"},{\"code\":\"ARA208\",\"message\":\"",
+     "candidate": "{\"diagnostics\":{\"errors\":[],\"warnings\":[{\"code\":\"ARA206\",\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N95]\",\"severity\":\"warning\"},{\"code\":\"ARA206\",\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N96]\",\"severity\":\"warning\"},{\"code\":\"ARA208\",\"message\":\""
+    },
+    "equals_S0": {
+     "parent": true,
+     "candidate": true
+    }
+   },
+   "access": {
+    "ok": true,
+    "violations": []
+   },
+   "failures": []
+  },
+  {
+   "command": "show C01 --json",
+   "kind": "read",
+   "fixture": "F2",
+   "state": "S1",
+   "parent": {
+    "median_ms": 13.340208,
+    "p90_ms": 13.455625,
+    "first_ms": 13.715042,
+    "rss_bytes": 14188544
+   },
+   "candidate": {
+    "median_ms": 13.2995,
+    "p90_ms": 13.551375,
+    "first_ms": 13.384083,
+    "rss_bytes": 14204928
+   },
+   "timing_rounds": [
+    {
+     "parent": {
+      "median_ms": 13.340208,
+      "p90_ms": 13.455625,
+      "first_ms": 13.715042,
+      "samples_ms": [
+       13.455625,
+       13.202416,
+       13.303375,
+       13.454542,
+       13.126833,
+       13.586875,
+       13.315959,
+       13.360791,
+       13.295542,
+       13.20525,
+       13.350833,
+       13.397667,
+       13.428041,
+       13.32075,
+       13.340208
+      ]
+     },
+     "candidate": {
+      "median_ms": 13.2995,
+      "p90_ms": 13.551375,
+      "first_ms": 13.384083,
+      "samples_ms": [
+       13.210209,
+       13.255375,
+       13.541083,
+       13.084417,
+       13.228625,
+       13.326333,
+       13.349542,
+       13.335333,
+       12.966,
+       13.56175,
+       13.551375,
+       13.277125,
+       13.2995,
+       13.074,
+       13.312083
+      ]
+     }
+    }
+   ],
+   "rss_rounds": [
+    {
+     "parent": {
+      "rss_bytes": 14188544,
+      "samples_bytes": [
+       14254080,
+       14237696,
+       14155776,
+       14172160,
+       14188544
+      ]
+     },
+     "candidate": {
+      "rss_bytes": 14204928,
+      "samples_bytes": [
+       14254080,
+       14188544,
+       14270464,
+       14204928,
+       14172160
+      ]
+     }
+    }
+   ],
+   "verdict": "pass",
+   "output": {
+    "parent_equals_candidate": true,
+    "digest": {
+     "parent": [
+      "30910eeff3dce1d153ce9b13f0c9551d29abdb6efa0cd30d6788757c9f80066b"
+     ],
+     "candidate": [
+      "30910eeff3dce1d153ce9b13f0c9551d29abdb6efa0cd30d6788757c9f80066b"
+     ]
+    },
+    "exit": {
+     "parent": [
+      0
+     ],
+     "candidate": [
+      0
+     ]
+    },
+    "excerpt": {
+     "parent": "{\"diagnostics\":{\"errors\":[],\"warnings\":[{\"code\":\"ARA206\",\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N95]\",\"severity\":\"warning\"},{\"code\":\"ARA206\",\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N96]\",\"severity\":\"warning\"},{\"code\":\"ARA208\",\"message\":\"",
+     "candidate": "{\"diagnostics\":{\"errors\":[],\"warnings\":[{\"code\":\"ARA206\",\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N95]\",\"severity\":\"warning\"},{\"code\":\"ARA206\",\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N96]\",\"severity\":\"warning\"},{\"code\":\"ARA208\",\"message\":\""
+    },
+    "equals_S0": {
+     "parent": true,
+     "candidate": true
+    }
+   },
+   "access": {
+    "ok": true,
+    "violations": []
+   },
+   "failures": []
+  },
+  {
+   "command": "find \"method\" --json",
+   "kind": "read",
+   "fixture": "F2",
+   "state": "S1",
+   "parent": {
+    "median_ms": 23.924292,
+    "p90_ms": 24.309125,
+    "first_ms": 23.706916,
+    "rss_bytes": 18694144
+   },
+   "candidate": {
+    "median_ms": 23.894833,
+    "p90_ms": 24.071083,
+    "first_ms": 24.067083,
+    "rss_bytes": 18907136
+   },
+   "timing_rounds": [
+    {
+     "parent": {
+      "median_ms": 23.924292,
+      "p90_ms": 24.309125,
+      "first_ms": 23.706916,
+      "samples_ms": [
+       24.162208,
+       23.909959,
+       24.047833,
+       24.309125,
+       23.887791,
+       23.924292,
+       23.829166,
+       23.926875,
+       23.957833,
+       23.653834,
+       24.421084,
+       23.709042,
+       23.736167,
+       23.96675,
+       23.867125
+      ]
+     },
+     "candidate": {
+      "median_ms": 23.894833,
+      "p90_ms": 24.071083,
+      "first_ms": 24.067083,
+      "samples_ms": [
+       24.206708,
+       23.998333,
+       23.764625,
+       23.954958,
+       23.768125,
+       23.63275,
+       23.74925,
+       23.940333,
+       24.068416,
+       23.894833,
+       23.963542,
+       23.483334,
+       24.071083,
+       23.730375,
+       23.758917
+      ]
+     }
+    }
+   ],
+   "rss_rounds": [
+    {
+     "parent": {
+      "rss_bytes": 18694144,
+      "samples_bytes": [
+       18694144,
+       18694144,
+       18792448,
+       18661376,
+       18857984
+      ]
+     },
+     "candidate": {
+      "rss_bytes": 18907136,
+      "samples_bytes": [
+       18874368,
+       18907136,
+       18874368,
+       18907136,
+       18907136
+      ]
+     }
+    }
+   ],
+   "verdict": "pass",
+   "output": {
+    "parent_equals_candidate": true,
+    "digest": {
+     "parent": [
+      "740e94fe8281563347c9c649fd438655b6473fd43c9046c650786d04744438c2"
+     ],
+     "candidate": [
+      "740e94fe8281563347c9c649fd438655b6473fd43c9046c650786d04744438c2"
+     ]
+    },
+    "exit": {
+     "parent": [
+      0
+     ],
+     "candidate": [
+      0
+     ]
+    },
+    "excerpt": {
+     "parent": "{\"format\":\"ara.find/v1\",\"results\":[{\"excerpt\":\"\u2026rst behavior consumed 90%+ of the 26.7h runtime on a single method (scratch then BC) without advancing to other subtasks. ARA agent avoided this by running 20\u2026\",\"id\":\"O73\",\"kind\":\"observation\",\"score\":4.534326125450956,\"source\":\"staging/observations.ya",
+     "candidate": "{\"format\":\"ara.find/v1\",\"results\":[{\"excerpt\":\"\u2026rst behavior consumed 90%+ of the 26.7h runtime on a single method (scratch then BC) without advancing to other subtasks. ARA agent avoided this by running 20\u2026\",\"id\":\"O73\",\"kind\":\"observation\",\"score\":4.534326125450956,\"source\":\"staging/observations.ya"
+    },
+    "equals_S0": {
+     "parent": true,
+     "candidate": true
+    }
+   },
+   "access": {
+    "ok": true,
+    "violations": []
+   },
+   "failures": []
+  },
+  {
+   "command": "validate <dir> --json",
+   "kind": "read",
+   "fixture": "F2",
+   "state": "S1",
+   "parent": {
+    "median_ms": 13.169,
+    "p90_ms": 13.365292,
+    "first_ms": 13.810083,
+    "rss_bytes": 13811712
+   },
+   "candidate": {
+    "median_ms": 13.282208,
+    "p90_ms": 13.498917,
+    "first_ms": 13.266625,
+    "rss_bytes": 13877248
+   },
+   "timing_rounds": [
+    {
+     "parent": {
+      "median_ms": 13.169,
+      "p90_ms": 13.365292,
+      "first_ms": 13.810083,
+      "samples_ms": [
+       13.327125,
+       13.359916,
+       13.365292,
+       13.446625,
+       13.0865,
+       13.169,
+       13.070375,
+       13.200125,
+       13.086291,
+       13.012166,
+       13.209417,
+       13.147625,
+       13.341,
+       13.069917,
+       13.105833
+      ]
+     },
+     "candidate": {
+      "median_ms": 13.282208,
+      "p90_ms": 13.498917,
+      "first_ms": 13.266625,
+      "samples_ms": [
+       13.429375,
+       13.558833,
+       13.282208,
+       13.208417,
+       13.126167,
+       13.462208,
+       13.213166,
+       13.422417,
+       13.073125,
+       13.344334,
+       13.102541,
+       13.154,
+       13.498917,
+       13.471542,
+       13.231458
+      ]
+     }
+    }
+   ],
+   "rss_rounds": [
+    {
+     "parent": {
+      "rss_bytes": 13811712,
+      "samples_bytes": [
+       13795328,
+       13729792,
+       13877248,
+       13811712,
+       13828096
+      ]
+     },
+     "candidate": {
+      "rss_bytes": 13877248,
+      "samples_bytes": [
+       13942784,
+       13844480,
+       13959168,
+       13762560,
+       13877248
+      ]
+     }
+    }
+   ],
+   "verdict": "pass",
+   "output": {
+    "parent_equals_candidate": true,
+    "digest": {
+     "parent": [
+      "5bc79d0d18ea7a60df102526c9ad9e1a60738203d6d551653f16a2f22c9a7ce6"
+     ],
+     "candidate": [
+      "5bc79d0d18ea7a60df102526c9ad9e1a60738203d6d551653f16a2f22c9a7ce6"
+     ]
+    },
+    "exit": {
+     "parent": [
+      0
+     ],
+     "candidate": [
+      0
+     ]
+    },
+    "excerpt": {
+     "parent": "{\n  \"errors\": [],\n  \"warnings\": [\n    {\n      \"severity\": \"warning\",\n      \"path\": \"nodes[N95]\",\n      \"message\": \"field `lesson` dropped for type `experiment`\"\n    },\n    {\n      \"severity\": \"warning\",\n      \"path\": \"nodes[N96]\",\n      \"message\": \"field `lesson` dropped for type `experiment`\"\n    }",
+     "candidate": "{\n  \"errors\": [],\n  \"warnings\": [\n    {\n      \"severity\": \"warning\",\n      \"path\": \"nodes[N95]\",\n      \"message\": \"field `lesson` dropped for type `experiment`\"\n    },\n    {\n      \"severity\": \"warning\",\n      \"path\": \"nodes[N96]\",\n      \"message\": \"field `lesson` dropped for type `experiment`\"\n    }"
+    },
+    "equals_S0": {
+     "parent": true,
+     "candidate": true
+    }
+   },
+   "access": {
+    "ok": true,
+    "violations": []
+   },
+   "failures": []
+  },
+  {
+   "command": "check <dir>",
+   "kind": "read",
+   "fixture": "F2",
+   "state": "S1",
+   "parent": {
+    "median_ms": 13.557125,
+    "p90_ms": 13.892542,
+    "first_ms": 13.509042,
+    "rss_bytes": 13910016
+   },
+   "candidate": {
+    "median_ms": 13.515458,
+    "p90_ms": 13.782292,
+    "first_ms": 13.387334,
+    "rss_bytes": 13959168
+   },
+   "timing_rounds": [
+    {
+     "parent": {
+      "median_ms": 13.557125,
+      "p90_ms": 13.892542,
+      "first_ms": 13.509042,
+      "samples_ms": [
+       13.862666,
+       13.64275,
+       13.416542,
+       13.460583,
+       13.516542,
+       13.825209,
+       13.557125,
+       13.315291,
+       13.714083,
+       13.892542,
+       13.553,
+       13.54975,
+       13.791875,
+       14.4085,
+       13.522667
+      ]
+     },
+     "candidate": {
+      "median_ms": 13.515458,
+      "p90_ms": 13.782292,
+      "first_ms": 13.387334,
+      "samples_ms": [
+       13.782292,
+       13.77075,
+       13.18525,
+       13.163458,
+       13.401959,
+       13.563125,
+       13.403667,
+       13.423542,
+       13.35025,
+       13.763625,
+       13.515458,
+       13.651,
+       13.821709,
+       13.595916,
+       13.506
+      ]
+     }
+    }
+   ],
+   "rss_rounds": [
+    {
+     "parent": {
+      "rss_bytes": 13910016,
+      "samples_bytes": [
+       13910016,
+       13844480,
+       13910016,
+       14041088,
+       13877248
+      ]
+     },
+     "candidate": {
+      "rss_bytes": 13959168,
+      "samples_bytes": [
+       13991936,
+       13959168,
+       13860864,
+       13844480,
+       13975552
+      ]
+     }
+    }
+   ],
+   "verdict": "pass",
+   "output": {
+    "parent_equals_candidate": true,
+    "digest": {
+     "parent": [
+      "85ffc67e9ee9d74e854d86a05c233bc657b168c0e6a01d5dcddfaed0fb19b268"
+     ],
+     "candidate": [
+      "85ffc67e9ee9d74e854d86a05c233bc657b168c0e6a01d5dcddfaed0fb19b268"
+     ]
+    },
+    "exit": {
+     "parent": [
+      0
+     ],
+     "candidate": [
+      0
+     ]
+    },
+    "excerpt": {
+     "parent": "ARA206 warning: nodes[N95]: field `lesson` dropped for type `experiment`\nARA206 warning: nodes[N96]: field `lesson` dropped for type `experiment`\nARA208 warning: nodes[N68].also_depends_on[0]: redundant `also_depends_on` on ancestor `N65` (already nested under it)\nARA215 warning: evidence[Per-task s",
+     "candidate": "ARA206 warning: nodes[N95]: field `lesson` dropped for type `experiment`\nARA206 warning: nodes[N96]: field `lesson` dropped for type `experiment`\nARA208 warning: nodes[N68].also_depends_on[0]: redundant `also_depends_on` on ancestor `N65` (already nested under it)\nARA215 warning: evidence[Per-task s"
+    },
+    "equals_S0": {
+     "parent": true,
+     "candidate": true
+    }
+   },
+   "access": {
+    "ok": true,
+    "violations": []
+   },
+   "failures": []
+  },
+  {
+   "command": "status --json",
+   "kind": "read",
+   "fixture": "F2",
+   "state": "S2",
+   "parent": {
+    "median_ms": 15.276333,
+    "p90_ms": 15.576583,
+    "first_ms": 21.218042,
+    "rss_bytes": 14827520
+   },
+   "candidate": {
+    "median_ms": 15.202625,
+    "p90_ms": 15.5095,
+    "first_ms": 15.065959,
+    "rss_bytes": 14811136
+   },
+   "timing_rounds": [
+    {
+     "parent": {
+      "median_ms": 15.276333,
+      "p90_ms": 15.576583,
+      "first_ms": 21.218042,
+      "samples_ms": [
+       15.238583,
+       15.078458,
+       15.576583,
+       15.388125,
+       15.066375,
+       15.355708,
+       16.218459,
+       15.252209,
+       15.345417,
+       15.235,
+       15.419917,
+       15.434042,
+       15.228042,
+       15.090583,
+       15.276333
+      ]
+     },
+     "candidate": {
+      "median_ms": 15.202625,
+      "p90_ms": 15.5095,
+      "first_ms": 15.065959,
+      "samples_ms": [
+       15.578792,
+       15.246916,
+       15.248167,
+       15.122583,
+       15.202625,
+       15.200583,
+       15.495584,
+       15.371584,
+       15.254542,
+       15.5095,
+       15.169791,
+       15.192792,
+       15.084792,
+       15.15775,
+       15.080833
+      ]
+     }
+    }
+   ],
+   "rss_rounds": [
+    {
+     "parent": {
+      "rss_bytes": 14827520,
+      "samples_bytes": [
+       14827520,
+       14712832,
+       14811136,
+       14958592,
+       14843904
+      ]
+     },
+     "candidate": {
+      "rss_bytes": 14811136,
+      "samples_bytes": [
+       14745600,
+       14860288,
+       14811136,
+       14712832,
+       14958592
+      ]
+     }
+    }
+   ],
+   "verdict": "pass",
+   "output": {
+    "parent_equals_candidate": true,
+    "digest": {
+     "parent": [
+      "c9d6b97790f34ef07d523c55343b7303084582b262d3c1c40dae4cc8c3eecc93"
+     ],
+     "candidate": [
+      "c9d6b97790f34ef07d523c55343b7303084582b262d3c1c40dae4cc8c3eecc93"
+     ]
+    },
+    "exit": {
+     "parent": [
+      0
+     ],
+     "candidate": [
+      0
+     ]
+    },
+    "excerpt": {
+     "parent": "{\"artifact_location\":\"<removed>\",\"complete\":true,\"counts\":{\"claim\":16,\"dead_end\":21,\"decision\":45,\"experiment\":46,\"experiment_plan\":6,\"heuristic\":23,\"observation\":95,\"pivot\":2,\"session\":41},\"diagnostics\":{\"errors\":0,\"report\":{\"errors\":[],\"warnings\":[{\"message\":\"field `lesson` dropped for type `exper",
+     "candidate": "{\"artifact_location\":\"<removed>\",\"complete\":true,\"counts\":{\"claim\":16,\"dead_end\":21,\"decision\":45,\"experiment\":46,\"experiment_plan\":6,\"heuristic\":23,\"observation\":95,\"pivot\":2,\"session\":41},\"diagnostics\":{\"errors\":0,\"report\":{\"errors\":[],\"warnings\":[{\"message\":\"field `lesson` dropped for type `exper"
+    },
+    "equals_S0": {
+     "parent": true,
+     "candidate": true
+    }
+   },
+   "access": {
+    "ok": true,
+    "violations": []
+   },
+   "failures": []
+  },
+  {
+   "command": "ls --json",
+   "kind": "read",
+   "fixture": "F2",
+   "state": "S2",
+   "parent": {
+    "median_ms": 15.482416,
+    "p90_ms": 15.675458,
+    "first_ms": 15.504584,
+    "rss_bytes": 17645568
+   },
+   "candidate": {
+    "median_ms": 15.485125,
+    "p90_ms": 15.663459,
+    "first_ms": 15.527042,
+    "rss_bytes": 17580032
+   },
+   "timing_rounds": [
+    {
+     "parent": {
+      "median_ms": 15.482416,
+      "p90_ms": 15.675458,
+      "first_ms": 15.504584,
+      "samples_ms": [
+       15.566083,
+       15.527417,
+       15.586542,
+       15.675458,
+       15.255542,
+       15.441291,
+       15.513334,
+       16.213958,
+       15.386958,
+       15.058167,
+       15.328334,
+       15.635375,
+       15.356584,
+       15.436958,
+       15.482416
+      ]
+     },
+     "candidate": {
+      "median_ms": 15.485125,
+      "p90_ms": 15.663459,
+      "first_ms": 15.527042,
+      "samples_ms": [
+       15.496417,
+       15.355042,
+       15.488666,
+       15.336208,
+       15.654292,
+       15.663459,
+       15.528375,
+       15.708417,
+       15.276458,
+       15.294916,
+       15.507708,
+       15.226583,
+       15.220167,
+       15.485125,
+       15.317625
+      ]
+     }
+    }
+   ],
+   "rss_rounds": [
+    {
+     "parent": {
+      "rss_bytes": 17645568,
+      "samples_bytes": [
+       17629184,
+       17596416,
+       17809408,
+       17645568,
+       17743872
+      ]
+     },
+     "candidate": {
+      "rss_bytes": 17580032,
+      "samples_bytes": [
+       17612800,
+       17547264,
+       17580032,
+       17661952,
+       17580032
+      ]
+     }
+    }
+   ],
+   "verdict": "pass",
+   "output": {
+    "parent_equals_candidate": true,
+    "digest": {
+     "parent": [
+      "3ae613ee56acf80b7d7f7175ef6e852ec02a25e60b4cb72805d4c2352bdf7dd3"
+     ],
+     "candidate": [
+      "3ae613ee56acf80b7d7f7175ef6e852ec02a25e60b4cb72805d4c2352bdf7dd3"
+     ]
+    },
+    "exit": {
+     "parent": [
+      0
+     ],
+     "candidate": [
+      0
+     ]
+    },
+    "excerpt": {
+     "parent": "{\"diagnostics\":{\"errors\":[],\"warnings\":[{\"code\":\"ARA206\",\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N95]\",\"severity\":\"warning\"},{\"code\":\"ARA206\",\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N96]\",\"severity\":\"warning\"},{\"code\":\"ARA208\",\"message\":\"",
+     "candidate": "{\"diagnostics\":{\"errors\":[],\"warnings\":[{\"code\":\"ARA206\",\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N95]\",\"severity\":\"warning\"},{\"code\":\"ARA206\",\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N96]\",\"severity\":\"warning\"},{\"code\":\"ARA208\",\"message\":\""
+    },
+    "equals_S0": {
+     "parent": true,
+     "candidate": true
+    }
+   },
+   "access": {
+    "ok": true,
+    "violations": []
+   },
+   "failures": []
+  },
+  {
+   "command": "show C01 --json",
+   "kind": "read",
+   "fixture": "F2",
+   "state": "S2",
+   "parent": {
+    "median_ms": 13.288917,
+    "p90_ms": 13.664375,
+    "first_ms": 13.27525,
+    "rss_bytes": 14155776
+   },
+   "candidate": {
+    "median_ms": 13.24925,
+    "p90_ms": 13.553083,
+    "first_ms": 13.26075,
+    "rss_bytes": 14155776
+   },
+   "timing_rounds": [
+    {
+     "parent": {
+      "median_ms": 13.288917,
+      "p90_ms": 13.664375,
+      "first_ms": 13.27525,
+      "samples_ms": [
+       14.073458,
+       13.346791,
+       13.233125,
+       13.664375,
+       13.358708,
+       13.183084,
+       13.2615,
+       13.066625,
+       13.636625,
+       13.344208,
+       13.213416,
+       13.351125,
+       13.0235,
+       13.288917,
+       13.273125
+      ]
+     },
+     "candidate": {
+      "median_ms": 13.24925,
+      "p90_ms": 13.553083,
+      "first_ms": 13.26075,
+      "samples_ms": [
+       13.567875,
+       13.553083,
+       13.24925,
+       13.373833,
+       13.050292,
+       12.913375,
+       13.417708,
+       13.468167,
+       13.179167,
+       13.465875,
+       13.02275,
+       13.1715,
+       13.225833,
+       13.43675,
+       13.2015
+      ]
+     }
+    }
+   ],
+   "rss_rounds": [
+    {
+     "parent": {
+      "rss_bytes": 14155776,
+      "samples_bytes": [
+       14155776,
+       14139392,
+       14204928,
+       14188544,
+       14073856
+      ]
+     },
+     "candidate": {
+      "rss_bytes": 14155776,
+      "samples_bytes": [
+       14221312,
+       14155776,
+       14221312,
+       14106624,
+       14123008
+      ]
+     }
+    }
+   ],
+   "verdict": "pass",
+   "output": {
+    "parent_equals_candidate": true,
+    "digest": {
+     "parent": [
+      "30910eeff3dce1d153ce9b13f0c9551d29abdb6efa0cd30d6788757c9f80066b"
+     ],
+     "candidate": [
+      "30910eeff3dce1d153ce9b13f0c9551d29abdb6efa0cd30d6788757c9f80066b"
+     ]
+    },
+    "exit": {
+     "parent": [
+      0
+     ],
+     "candidate": [
+      0
+     ]
+    },
+    "excerpt": {
+     "parent": "{\"diagnostics\":{\"errors\":[],\"warnings\":[{\"code\":\"ARA206\",\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N95]\",\"severity\":\"warning\"},{\"code\":\"ARA206\",\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N96]\",\"severity\":\"warning\"},{\"code\":\"ARA208\",\"message\":\"",
+     "candidate": "{\"diagnostics\":{\"errors\":[],\"warnings\":[{\"code\":\"ARA206\",\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N95]\",\"severity\":\"warning\"},{\"code\":\"ARA206\",\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N96]\",\"severity\":\"warning\"},{\"code\":\"ARA208\",\"message\":\""
+    },
+    "equals_S0": {
+     "parent": true,
+     "candidate": true
+    }
+   },
+   "access": {
+    "ok": true,
+    "violations": []
+   },
+   "failures": []
+  },
+  {
+   "command": "find \"method\" --json",
+   "kind": "read",
+   "fixture": "F2",
+   "state": "S2",
+   "parent": {
+    "median_ms": 23.897083,
+    "p90_ms": 24.151583,
+    "first_ms": 23.970958,
+    "rss_bytes": 18776064
+   },
+   "candidate": {
+    "median_ms": 23.754208,
+    "p90_ms": 23.889,
+    "first_ms": 24.889667,
+    "rss_bytes": 18841600
+   },
+   "timing_rounds": [
+    {
+     "parent": {
+      "median_ms": 23.897083,
+      "p90_ms": 24.151583,
+      "first_ms": 23.970958,
+      "samples_ms": [
+       23.897083,
+       24.151583,
+       23.681417,
+       23.994791,
+       23.873542,
+       23.804875,
+       23.983833,
+       23.873459,
+       23.998833,
+       23.888083,
+       23.889042,
+       23.587333,
+       24.357916,
+       23.971375,
+       23.898125
+      ]
+     },
+     "candidate": {
+      "median_ms": 23.754208,
+      "p90_ms": 23.889,
+      "first_ms": 24.889667,
+      "samples_ms": [
+       23.660791,
+       23.835125,
+       23.62625,
+       23.641666,
+       23.754208,
+       24.709583,
+       23.242333,
+       23.874417,
+       23.638833,
+       23.7295,
+       23.777291,
+       23.623,
+       23.871042,
+       23.889,
+       23.822458
+      ]
+     }
+    }
+   ],
+   "rss_rounds": [
+    {
+     "parent": {
+      "rss_bytes": 18776064,
+      "samples_bytes": [
+       18808832,
+       18743296,
+       18759680,
+       18792448,
+       18776064
+      ]
+     },
+     "candidate": {
+      "rss_bytes": 18841600,
+      "samples_bytes": [
+       18890752,
+       18874368,
+       18759680,
+       18841600,
+       18825216
+      ]
+     }
+    }
+   ],
+   "verdict": "pass",
+   "output": {
+    "parent_equals_candidate": true,
+    "digest": {
+     "parent": [
+      "740e94fe8281563347c9c649fd438655b6473fd43c9046c650786d04744438c2"
+     ],
+     "candidate": [
+      "740e94fe8281563347c9c649fd438655b6473fd43c9046c650786d04744438c2"
+     ]
+    },
+    "exit": {
+     "parent": [
+      0
+     ],
+     "candidate": [
+      0
+     ]
+    },
+    "excerpt": {
+     "parent": "{\"format\":\"ara.find/v1\",\"results\":[{\"excerpt\":\"\u2026rst behavior consumed 90%+ of the 26.7h runtime on a single method (scratch then BC) without advancing to other subtasks. ARA agent avoided this by running 20\u2026\",\"id\":\"O73\",\"kind\":\"observation\",\"score\":4.534326125450956,\"source\":\"staging/observations.ya",
+     "candidate": "{\"format\":\"ara.find/v1\",\"results\":[{\"excerpt\":\"\u2026rst behavior consumed 90%+ of the 26.7h runtime on a single method (scratch then BC) without advancing to other subtasks. ARA agent avoided this by running 20\u2026\",\"id\":\"O73\",\"kind\":\"observation\",\"score\":4.534326125450956,\"source\":\"staging/observations.ya"
+    },
+    "equals_S0": {
+     "parent": true,
+     "candidate": true
+    }
+   },
+   "access": {
+    "ok": true,
+    "violations": []
+   },
+   "failures": []
+  },
+  {
+   "command": "validate <dir> --json",
+   "kind": "read",
+   "fixture": "F2",
+   "state": "S2",
+   "parent": {
+    "median_ms": 13.219125,
+    "p90_ms": 13.653167,
+    "first_ms": 13.340083,
+    "rss_bytes": 13828096
+   },
+   "candidate": {
+    "median_ms": 13.2715,
+    "p90_ms": 13.671833,
+    "first_ms": 13.02525,
+    "rss_bytes": 13877248
+   },
+   "timing_rounds": [
+    {
+     "parent": {
+      "median_ms": 13.219125,
+      "p90_ms": 13.653167,
+      "first_ms": 13.340083,
+      "samples_ms": [
+       13.4365,
+       13.707333,
+       13.653167,
+       13.217125,
+       13.112584,
+       13.219125,
+       13.035583,
+       13.284333,
+       13.145583,
+       12.921583,
+       13.417958,
+       13.00875,
+       12.834083,
+       13.312417,
+       13.351834
+      ]
+     },
+     "candidate": {
+      "median_ms": 13.2715,
+      "p90_ms": 13.671833,
+      "first_ms": 13.02525,
+      "samples_ms": [
+       13.962458,
+       13.671833,
+       13.287834,
+       12.907042,
+       13.077416,
+       13.059625,
+       13.449667,
+       13.346916,
+       13.2715,
+       13.05825,
+       13.063125,
+       13.074625,
+       13.14325,
+       13.352666,
+       13.388916
+      ]
+     }
+    }
+   ],
+   "rss_rounds": [
+    {
+     "parent": {
+      "rss_bytes": 13828096,
+      "samples_bytes": [
+       13828096,
+       13828096,
+       13959168,
+       13795328,
+       13697024
+      ]
+     },
+     "candidate": {
+      "rss_bytes": 13877248,
+      "samples_bytes": [
+       13942784,
+       13828096,
+       13877248,
+       13877248,
+       13926400
+      ]
+     }
+    }
+   ],
+   "verdict": "pass",
+   "output": {
+    "parent_equals_candidate": true,
+    "digest": {
+     "parent": [
+      "5bc79d0d18ea7a60df102526c9ad9e1a60738203d6d551653f16a2f22c9a7ce6"
+     ],
+     "candidate": [
+      "5bc79d0d18ea7a60df102526c9ad9e1a60738203d6d551653f16a2f22c9a7ce6"
+     ]
+    },
+    "exit": {
+     "parent": [
+      0
+     ],
+     "candidate": [
+      0
+     ]
+    },
+    "excerpt": {
+     "parent": "{\n  \"errors\": [],\n  \"warnings\": [\n    {\n      \"severity\": \"warning\",\n      \"path\": \"nodes[N95]\",\n      \"message\": \"field `lesson` dropped for type `experiment`\"\n    },\n    {\n      \"severity\": \"warning\",\n      \"path\": \"nodes[N96]\",\n      \"message\": \"field `lesson` dropped for type `experiment`\"\n    }",
+     "candidate": "{\n  \"errors\": [],\n  \"warnings\": [\n    {\n      \"severity\": \"warning\",\n      \"path\": \"nodes[N95]\",\n      \"message\": \"field `lesson` dropped for type `experiment`\"\n    },\n    {\n      \"severity\": \"warning\",\n      \"path\": \"nodes[N96]\",\n      \"message\": \"field `lesson` dropped for type `experiment`\"\n    }"
+    },
+    "equals_S0": {
+     "parent": true,
+     "candidate": true
+    }
+   },
+   "access": {
+    "ok": true,
+    "violations": []
+   },
+   "failures": []
+  },
+  {
+   "command": "check <dir>",
+   "kind": "read",
+   "fixture": "F2",
+   "state": "S2",
+   "parent": {
+    "median_ms": 13.415292,
+    "p90_ms": 13.780666,
+    "first_ms": 13.518625,
+    "rss_bytes": 13893632
+   },
+   "candidate": {
+    "median_ms": 13.397125,
+    "p90_ms": 13.680833,
+    "first_ms": 13.388417,
+    "rss_bytes": 13844480
+   },
+   "timing_rounds": [
+    {
+     "parent": {
+      "median_ms": 13.415292,
+      "p90_ms": 13.780666,
+      "first_ms": 13.518625,
+      "samples_ms": [
+       13.1175,
+       13.588125,
+       13.781084,
+       13.196042,
+       13.411625,
+       13.780666,
+       13.525,
+       13.288625,
+       13.388709,
+       13.415292,
+       13.604458,
+       13.236208,
+       13.52575,
+       13.728125,
+       13.1445
+      ]
+     },
+     "candidate": {
+      "median_ms": 13.397125,
+      "p90_ms": 13.680833,
+      "first_ms": 13.388417,
+      "samples_ms": [
+       13.203416,
+       13.669708,
+       13.422125,
+       13.358,
+       13.832459,
+       13.347208,
+       13.112709,
+       13.397125,
+       13.680833,
+       13.483833,
+       13.359584,
+       13.34525,
+       13.421708,
+       13.403667,
+       13.089708
+      ]
+     }
+    }
+   ],
+   "rss_rounds": [
+    {
+     "parent": {
+      "rss_bytes": 13893632,
+      "samples_bytes": [
+       14024704,
+       13959168,
+       13811712,
+       13877248,
+       13893632
+      ]
+     },
+     "candidate": {
+      "rss_bytes": 13844480,
+      "samples_bytes": [
+       13811712,
+       13877248,
+       13844480,
+       13959168,
+       13828096
+      ]
+     }
+    }
+   ],
+   "verdict": "pass",
+   "output": {
+    "parent_equals_candidate": true,
+    "digest": {
+     "parent": [
+      "85ffc67e9ee9d74e854d86a05c233bc657b168c0e6a01d5dcddfaed0fb19b268"
+     ],
+     "candidate": [
+      "85ffc67e9ee9d74e854d86a05c233bc657b168c0e6a01d5dcddfaed0fb19b268"
+     ]
+    },
+    "exit": {
+     "parent": [
+      0
+     ],
+     "candidate": [
+      0
+     ]
+    },
+    "excerpt": {
+     "parent": "ARA206 warning: nodes[N95]: field `lesson` dropped for type `experiment`\nARA206 warning: nodes[N96]: field `lesson` dropped for type `experiment`\nARA208 warning: nodes[N68].also_depends_on[0]: redundant `also_depends_on` on ancestor `N65` (already nested under it)\nARA215 warning: evidence[Per-task s",
+     "candidate": "ARA206 warning: nodes[N95]: field `lesson` dropped for type `experiment`\nARA206 warning: nodes[N96]: field `lesson` dropped for type `experiment`\nARA208 warning: nodes[N68].also_depends_on[0]: redundant `also_depends_on` on ancestor `N65` (already nested under it)\nARA215 warning: evidence[Per-task s"
+    },
+    "equals_S0": {
+     "parent": true,
+     "candidate": true
+    }
+   },
+   "access": {
+    "ok": true,
+    "violations": []
+   },
+   "failures": []
+  },
+  {
+   "command": "status --json",
+   "kind": "read",
+   "fixture": "F2",
+   "state": "S3",
+   "parent": {
+    "median_ms": 16.119916,
+    "p90_ms": 16.487875,
+    "first_ms": 23.238125,
+    "rss_bytes": 14811136
+   },
+   "candidate": {
+    "median_ms": 15.868958,
+    "p90_ms": 16.144875,
+    "first_ms": 15.53875,
+    "rss_bytes": 14909440
+   },
+   "timing_rounds": [
+    {
+     "parent": {
+      "median_ms": 16.119916,
+      "p90_ms": 16.487875,
+      "first_ms": 23.238125,
+      "samples_ms": [
+       16.272333,
+       16.02325,
+       16.084542,
+       15.9885,
+       16.119916,
+       16.495916,
+       16.487875,
+       16.159083,
+       16.351708,
+       16.142291,
+       15.924167,
+       15.703375,
+       15.950375,
+       16.1225,
+       15.987958
+      ]
+     },
+     "candidate": {
+      "median_ms": 15.868958,
+      "p90_ms": 16.144875,
+      "first_ms": 15.53875,
+      "samples_ms": [
+       15.808542,
+       16.144875,
+       15.836916,
+       15.549375,
+       15.912666,
+       15.933333,
+       15.868958,
+       15.987333,
+       15.862959,
+       15.837,
+       15.646125,
+       16.245458,
+       16.14375,
+       15.930708,
+       15.809709
+      ]
+     }
+    }
+   ],
+   "rss_rounds": [
+    {
+     "parent": {
+      "rss_bytes": 14811136,
+      "samples_bytes": [
+       14925824,
+       14811136,
+       14843904,
+       14729216,
+       14761984
+      ]
+     },
+     "candidate": {
+      "rss_bytes": 14909440,
+      "samples_bytes": [
+       14925824,
+       14909440,
+       14876672,
+       14909440,
+       14893056
+      ]
+     }
+    }
+   ],
+   "verdict": "pass",
+   "output": {
+    "parent_equals_candidate": true,
+    "digest": {
+     "parent": [
+      "c9d6b97790f34ef07d523c55343b7303084582b262d3c1c40dae4cc8c3eecc93"
+     ],
+     "candidate": [
+      "c9d6b97790f34ef07d523c55343b7303084582b262d3c1c40dae4cc8c3eecc93"
+     ]
+    },
+    "exit": {
+     "parent": [
+      0
+     ],
+     "candidate": [
+      0
+     ]
+    },
+    "excerpt": {
+     "parent": "{\"artifact_location\":\"<removed>\",\"complete\":true,\"counts\":{\"claim\":16,\"dead_end\":21,\"decision\":45,\"experiment\":46,\"experiment_plan\":6,\"heuristic\":23,\"observation\":95,\"pivot\":2,\"session\":41},\"diagnostics\":{\"errors\":0,\"report\":{\"errors\":[],\"warnings\":[{\"message\":\"field `lesson` dropped for type `exper",
+     "candidate": "{\"artifact_location\":\"<removed>\",\"complete\":true,\"counts\":{\"claim\":16,\"dead_end\":21,\"decision\":45,\"experiment\":46,\"experiment_plan\":6,\"heuristic\":23,\"observation\":95,\"pivot\":2,\"session\":41},\"diagnostics\":{\"errors\":0,\"report\":{\"errors\":[],\"warnings\":[{\"message\":\"field `lesson` dropped for type `exper"
+    },
+    "equals_S0": {
+     "parent": true,
+     "candidate": true
+    }
+   },
+   "access": {
+    "ok": true,
+    "violations": []
+   },
+   "failures": []
+  },
+  {
+   "command": "ls --json",
+   "kind": "read",
+   "fixture": "F2",
+   "state": "S3",
+   "parent": {
+    "median_ms": 15.944,
+    "p90_ms": 16.406167,
+    "first_ms": 15.848042,
+    "rss_bytes": 17563648
+   },
+   "candidate": {
+    "median_ms": 15.835375,
+    "p90_ms": 16.317958,
+    "first_ms": 16.188917,
+    "rss_bytes": 17563648
+   },
+   "timing_rounds": [
+    {
+     "parent": {
+      "median_ms": 15.944,
+      "p90_ms": 16.406167,
+      "first_ms": 15.848042,
+      "samples_ms": [
+       15.7645,
+       16.18375,
+       16.620542,
+       16.18825,
+       16.051167,
+       16.406167,
+       15.865875,
+       16.181542,
+       15.944,
+       15.973584,
+       15.887458,
+       15.870292,
+       15.9045,
+       15.626416,
+       15.762625
+      ]
+     },
+     "candidate": {
+      "median_ms": 15.835375,
+      "p90_ms": 16.317958,
+      "first_ms": 16.188917,
+      "samples_ms": [
+       15.751375,
+       16.796,
+       15.917458,
+       16.064166,
+       15.82175,
+       16.24025,
+       16.240542,
+       15.834958,
+       16.317958,
+       16.231917,
+       15.835375,
+       15.822333,
+       15.673916,
+       15.797791,
+       15.821333
+      ]
+     }
+    }
+   ],
+   "rss_rounds": [
+    {
+     "parent": {
+      "rss_bytes": 17563648,
+      "samples_bytes": [
+       17694720,
+       17563648,
+       17776640,
+       17563648,
+       17498112
+      ]
+     },
+     "candidate": {
+      "rss_bytes": 17563648,
+      "samples_bytes": [
+       17661952,
+       17661952,
+       17563648,
+       17514496,
+       17530880
+      ]
+     }
+    }
+   ],
+   "verdict": "pass",
+   "output": {
+    "parent_equals_candidate": true,
+    "digest": {
+     "parent": [
+      "3ae613ee56acf80b7d7f7175ef6e852ec02a25e60b4cb72805d4c2352bdf7dd3"
+     ],
+     "candidate": [
+      "3ae613ee56acf80b7d7f7175ef6e852ec02a25e60b4cb72805d4c2352bdf7dd3"
+     ]
+    },
+    "exit": {
+     "parent": [
+      0
+     ],
+     "candidate": [
+      0
+     ]
+    },
+    "excerpt": {
+     "parent": "{\"diagnostics\":{\"errors\":[],\"warnings\":[{\"code\":\"ARA206\",\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N95]\",\"severity\":\"warning\"},{\"code\":\"ARA206\",\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N96]\",\"severity\":\"warning\"},{\"code\":\"ARA208\",\"message\":\"",
+     "candidate": "{\"diagnostics\":{\"errors\":[],\"warnings\":[{\"code\":\"ARA206\",\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N95]\",\"severity\":\"warning\"},{\"code\":\"ARA206\",\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N96]\",\"severity\":\"warning\"},{\"code\":\"ARA208\",\"message\":\""
+    },
+    "equals_S0": {
+     "parent": true,
+     "candidate": true
+    }
+   },
+   "access": {
+    "ok": true,
+    "violations": []
+   },
+   "failures": []
+  },
+  {
+   "command": "show C01 --json",
+   "kind": "read",
+   "fixture": "F2",
+   "state": "S3",
+   "parent": {
+    "median_ms": 13.9395,
+    "p90_ms": 14.237709,
+    "first_ms": 14.158375,
+    "rss_bytes": 14221312
+   },
+   "candidate": {
+    "median_ms": 13.981041,
+    "p90_ms": 14.29475,
+    "first_ms": 13.755834,
+    "rss_bytes": 14188544
+   },
+   "timing_rounds": [
+    {
+     "parent": {
+      "median_ms": 13.9395,
+      "p90_ms": 14.237709,
+      "first_ms": 14.158375,
+      "samples_ms": [
+       14.398708,
+       14.108833,
+       14.187125,
+       14.0735,
+       13.893167,
+       13.841,
+       14.237709,
+       13.9395,
+       13.844625,
+       13.92375,
+       13.757542,
+       13.776583,
+       13.963083,
+       13.948167,
+       13.756458
+      ]
+     },
+     "candidate": {
+      "median_ms": 13.981041,
+      "p90_ms": 14.29475,
+      "first_ms": 13.755834,
+      "samples_ms": [
+       14.369542,
+       14.179833,
+       14.217875,
+       14.092917,
+       13.513709,
+       14.023792,
+       13.800125,
+       13.981041,
+       13.937084,
+       14.113875,
+       13.813167,
+       13.9605,
+       14.29475,
+       13.805917,
+       13.961916
+      ]
+     }
+    }
+   ],
+   "rss_rounds": [
+    {
+     "parent": {
+      "rss_bytes": 14221312,
+      "samples_bytes": [
+       14270464,
+       14188544,
+       14221312,
+       14155776,
+       14385152
+      ]
+     },
+     "candidate": {
+      "rss_bytes": 14188544,
+      "samples_bytes": [
+       14188544,
+       14155776,
+       14254080,
+       14139392,
+       14188544
+      ]
+     }
+    }
+   ],
+   "verdict": "pass",
+   "output": {
+    "parent_equals_candidate": true,
+    "digest": {
+     "parent": [
+      "30910eeff3dce1d153ce9b13f0c9551d29abdb6efa0cd30d6788757c9f80066b"
+     ],
+     "candidate": [
+      "30910eeff3dce1d153ce9b13f0c9551d29abdb6efa0cd30d6788757c9f80066b"
+     ]
+    },
+    "exit": {
+     "parent": [
+      0
+     ],
+     "candidate": [
+      0
+     ]
+    },
+    "excerpt": {
+     "parent": "{\"diagnostics\":{\"errors\":[],\"warnings\":[{\"code\":\"ARA206\",\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N95]\",\"severity\":\"warning\"},{\"code\":\"ARA206\",\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N96]\",\"severity\":\"warning\"},{\"code\":\"ARA208\",\"message\":\"",
+     "candidate": "{\"diagnostics\":{\"errors\":[],\"warnings\":[{\"code\":\"ARA206\",\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N95]\",\"severity\":\"warning\"},{\"code\":\"ARA206\",\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N96]\",\"severity\":\"warning\"},{\"code\":\"ARA208\",\"message\":\""
+    },
+    "equals_S0": {
+     "parent": true,
+     "candidate": true
+    }
+   },
+   "access": {
+    "ok": true,
+    "violations": []
+   },
+   "failures": []
+  },
+  {
+   "command": "find \"method\" --json",
+   "kind": "read",
+   "fixture": "F2",
+   "state": "S3",
+   "parent": {
+    "median_ms": 24.400208,
+    "p90_ms": 24.666125,
+    "first_ms": 24.337417,
+    "rss_bytes": 18743296
+   },
+   "candidate": {
+    "median_ms": 24.365208,
+    "p90_ms": 25.325958,
+    "first_ms": 24.313292,
+    "rss_bytes": 18874368
+   },
+   "timing_rounds": [
+    {
+     "parent": {
+      "median_ms": 24.400208,
+      "p90_ms": 24.666125,
+      "first_ms": 24.337417,
+      "samples_ms": [
+       24.492125,
+       24.250583,
+       24.530416,
+       24.666125,
+       24.385958,
+       24.570833,
+       24.305166,
+       24.400208,
+       24.519875,
+       24.4,
+       24.349333,
+       24.609167,
+       24.246458,
+       24.713041,
+       24.232417
+      ]
+     },
+     "candidate": {
+      "median_ms": 24.365208,
+      "p90_ms": 25.325958,
+      "first_ms": 24.313292,
+      "samples_ms": [
+       24.188166,
+       24.0545,
+       24.3975,
+       24.51975,
+       24.1815,
+       24.247417,
+       24.334708,
+       24.365208,
+       24.277667,
+       24.656958,
+       25.3845,
+       24.501667,
+       25.325958,
+       24.360833,
+       24.65675
+      ]
+     }
+    }
+   ],
+   "rss_rounds": [
+    {
+     "parent": {
+      "rss_bytes": 18743296,
+      "samples_bytes": [
+       18743296,
+       18726912,
+       18874368,
+       18759680,
+       18661376
+      ]
+     },
+     "candidate": {
+      "rss_bytes": 18874368,
+      "samples_bytes": [
+       18825216,
+       18939904,
+       18890752,
+       18874368,
+       18776064
+      ]
+     }
+    }
+   ],
+   "verdict": "pass",
+   "output": {
+    "parent_equals_candidate": true,
+    "digest": {
+     "parent": [
+      "740e94fe8281563347c9c649fd438655b6473fd43c9046c650786d04744438c2"
+     ],
+     "candidate": [
+      "740e94fe8281563347c9c649fd438655b6473fd43c9046c650786d04744438c2"
+     ]
+    },
+    "exit": {
+     "parent": [
+      0
+     ],
+     "candidate": [
+      0
+     ]
+    },
+    "excerpt": {
+     "parent": "{\"format\":\"ara.find/v1\",\"results\":[{\"excerpt\":\"\u2026rst behavior consumed 90%+ of the 26.7h runtime on a single method (scratch then BC) without advancing to other subtasks. ARA agent avoided this by running 20\u2026\",\"id\":\"O73\",\"kind\":\"observation\",\"score\":4.534326125450956,\"source\":\"staging/observations.ya",
+     "candidate": "{\"format\":\"ara.find/v1\",\"results\":[{\"excerpt\":\"\u2026rst behavior consumed 90%+ of the 26.7h runtime on a single method (scratch then BC) without advancing to other subtasks. ARA agent avoided this by running 20\u2026\",\"id\":\"O73\",\"kind\":\"observation\",\"score\":4.534326125450956,\"source\":\"staging/observations.ya"
+    },
+    "equals_S0": {
+     "parent": true,
+     "candidate": true
+    }
+   },
+   "access": {
+    "ok": true,
+    "violations": []
+   },
+   "failures": []
+  },
+  {
+   "command": "validate <dir> --json",
+   "kind": "read",
+   "fixture": "F2",
+   "state": "S3",
+   "parent": {
+    "median_ms": 13.780833,
+    "p90_ms": 14.269917,
+    "first_ms": 13.736917,
+    "rss_bytes": 13811712
+   },
+   "candidate": {
+    "median_ms": 13.734209,
+    "p90_ms": 14.267,
+    "first_ms": 14.440583,
+    "rss_bytes": 13910016
+   },
+   "timing_rounds": [
+    {
+     "parent": {
+      "median_ms": 13.780833,
+      "p90_ms": 14.269917,
+      "first_ms": 13.736917,
+      "samples_ms": [
+       13.6615,
+       13.73175,
+       14.269917,
+       13.778667,
+       13.594166,
+       13.60025,
+       13.860333,
+       13.780833,
+       13.939375,
+       13.566375,
+       14.27575,
+       13.697125,
+       13.790208,
+       13.91525,
+       14.266416
+      ]
+     },
+     "candidate": {
+      "median_ms": 13.734209,
+      "p90_ms": 14.267,
+      "first_ms": 14.440583,
+      "samples_ms": [
+       13.797208,
+       14.267,
+       13.734209,
+       14.325083,
+       13.675541,
+       13.706208,
+       13.729084,
+       13.6295,
+       13.6785,
+       13.841125,
+       13.721125,
+       13.636375,
+       13.933125,
+       14.152083,
+       13.825042
+      ]
+     }
+    }
+   ],
+   "rss_rounds": [
+    {
+     "parent": {
+      "rss_bytes": 13811712,
+      "samples_bytes": [
+       13844480,
+       13811712,
+       13762560,
+       13860864,
+       13746176
+      ]
+     },
+     "candidate": {
+      "rss_bytes": 13910016,
+      "samples_bytes": [
+       13795328,
+       13910016,
+       13844480,
+       13942784,
+       13942784
+      ]
+     }
+    }
+   ],
+   "verdict": "pass",
+   "output": {
+    "parent_equals_candidate": true,
+    "digest": {
+     "parent": [
+      "5bc79d0d18ea7a60df102526c9ad9e1a60738203d6d551653f16a2f22c9a7ce6"
+     ],
+     "candidate": [
+      "5bc79d0d18ea7a60df102526c9ad9e1a60738203d6d551653f16a2f22c9a7ce6"
+     ]
+    },
+    "exit": {
+     "parent": [
+      0
+     ],
+     "candidate": [
+      0
+     ]
+    },
+    "excerpt": {
+     "parent": "{\n  \"errors\": [],\n  \"warnings\": [\n    {\n      \"severity\": \"warning\",\n      \"path\": \"nodes[N95]\",\n      \"message\": \"field `lesson` dropped for type `experiment`\"\n    },\n    {\n      \"severity\": \"warning\",\n      \"path\": \"nodes[N96]\",\n      \"message\": \"field `lesson` dropped for type `experiment`\"\n    }",
+     "candidate": "{\n  \"errors\": [],\n  \"warnings\": [\n    {\n      \"severity\": \"warning\",\n      \"path\": \"nodes[N95]\",\n      \"message\": \"field `lesson` dropped for type `experiment`\"\n    },\n    {\n      \"severity\": \"warning\",\n      \"path\": \"nodes[N96]\",\n      \"message\": \"field `lesson` dropped for type `experiment`\"\n    }"
+    },
+    "equals_S0": {
+     "parent": true,
+     "candidate": true
+    }
+   },
+   "access": {
+    "ok": true,
+    "violations": []
+   },
+   "failures": []
+  },
+  {
+   "command": "check <dir>",
+   "kind": "read",
+   "fixture": "F2",
+   "state": "S3",
+   "parent": {
+    "median_ms": 14.079041,
+    "p90_ms": 14.317542,
+    "first_ms": 14.022417,
+    "rss_bytes": 13778944
+   },
+   "candidate": {
+    "median_ms": 14.091875,
+    "p90_ms": 14.26075,
+    "first_ms": 14.312625,
+    "rss_bytes": 13860864
+   },
+   "timing_rounds": [
+    {
+     "parent": {
+      "median_ms": 14.079041,
+      "p90_ms": 14.317542,
+      "first_ms": 14.022417,
+      "samples_ms": [
+       13.840208,
+       14.302167,
+       13.851667,
+       14.077833,
+       14.317542,
+       13.88525,
+       14.206959,
+       13.864666,
+       14.5575,
+       14.10925,
+       14.021666,
+       14.30875,
+       13.977791,
+       14.079041,
+       14.083584
+      ]
+     },
+     "candidate": {
+      "median_ms": 14.091875,
+      "p90_ms": 14.26075,
+      "first_ms": 14.312625,
+      "samples_ms": [
+       13.849875,
+       14.23675,
+       13.862667,
+       14.207459,
+       13.941959,
+       13.924542,
+       14.199084,
+       14.104166,
+       13.751334,
+       14.26075,
+       13.908416,
+       14.435916,
+       14.091875,
+       13.993541,
+       14.228417
+      ]
+     }
+    }
+   ],
+   "rss_rounds": [
+    {
+     "parent": {
+      "rss_bytes": 13778944,
+      "samples_bytes": [
+       13910016,
+       13778944,
+       13762560,
+       13910016,
+       13746176
+      ]
+     },
+     "candidate": {
+      "rss_bytes": 13860864,
+      "samples_bytes": [
+       13991936,
+       13795328,
+       13959168,
+       13860864,
+       13828096
+      ]
+     }
+    }
+   ],
+   "verdict": "pass",
+   "output": {
+    "parent_equals_candidate": true,
+    "digest": {
+     "parent": [
+      "85ffc67e9ee9d74e854d86a05c233bc657b168c0e6a01d5dcddfaed0fb19b268"
+     ],
+     "candidate": [
+      "85ffc67e9ee9d74e854d86a05c233bc657b168c0e6a01d5dcddfaed0fb19b268"
+     ]
+    },
+    "exit": {
+     "parent": [
+      0
+     ],
+     "candidate": [
+      0
+     ]
+    },
+    "excerpt": {
+     "parent": "ARA206 warning: nodes[N95]: field `lesson` dropped for type `experiment`\nARA206 warning: nodes[N96]: field `lesson` dropped for type `experiment`\nARA208 warning: nodes[N68].also_depends_on[0]: redundant `also_depends_on` on ancestor `N65` (already nested under it)\nARA215 warning: evidence[Per-task s",
+     "candidate": "ARA206 warning: nodes[N95]: field `lesson` dropped for type `experiment`\nARA206 warning: nodes[N96]: field `lesson` dropped for type `experiment`\nARA208 warning: nodes[N68].also_depends_on[0]: redundant `also_depends_on` on ancestor `N65` (already nested under it)\nARA215 warning: evidence[Per-task s"
+    },
+    "equals_S0": {
+     "parent": true,
+     "candidate": true
+    }
+   },
+   "access": {
+    "ok": true,
+    "violations": []
+   },
+   "failures": []
+  },
+  {
+   "command": "status --json",
+   "kind": "read",
+   "fixture": "F3",
+   "state": "S0",
+   "parent": {
+    "median_ms": 4.458,
+    "p90_ms": 4.542292,
+    "first_ms": 5.1805,
+    "rss_bytes": 10584064
+   },
+   "candidate": {
+    "median_ms": 4.51675,
+    "p90_ms": 4.667125,
+    "first_ms": 5.0545,
+    "rss_bytes": 10633216
+   },
+   "timing_rounds": [
+    {
+     "parent": {
+      "median_ms": 4.458,
+      "p90_ms": 4.542292,
+      "first_ms": 5.1805,
+      "samples_ms": [
+       4.610709,
+       4.490084,
+       4.411916,
+       4.382875,
+       4.467542,
+       4.542292,
+       4.465541,
+       4.141167,
+       4.458,
+       4.457792,
+       4.397583,
+       4.273583,
+       4.287792,
+       4.539333,
+       4.475416
+      ]
+     },
+     "candidate": {
+      "median_ms": 4.51675,
+      "p90_ms": 4.667125,
+      "first_ms": 5.0545,
+      "samples_ms": [
+       4.53275,
+       4.743333,
+       4.4345,
+       4.51675,
+       4.4345,
+       4.602875,
+       4.384666,
+       4.667125,
+       4.08725,
+       4.4515,
+       4.516833,
+       4.390791,
+       4.571541,
+       4.47975,
+       4.587625
+      ]
+     }
+    }
+   ],
+   "rss_rounds": [
+    {
+     "parent": {
+      "rss_bytes": 10584064,
+      "samples_bytes": [
+       10567680,
+       10584064,
+       10584064,
+       10584064,
+       10633216
+      ]
+     },
+     "candidate": {
+      "rss_bytes": 10633216,
+      "samples_bytes": [
+       10633216,
+       10633216,
+       10682368,
+       10665984,
+       10633216
+      ]
+     }
+    }
+   ],
+   "verdict": "pass",
+   "output": {
+    "parent_equals_candidate": true,
+    "digest": {
+     "parent": [
+      "cb3194e1ed210e8d011c6f766780a300b74e5681e80ae4b471014cd25ee44fb3"
+     ],
+     "candidate": [
+      "cb3194e1ed210e8d011c6f766780a300b74e5681e80ae4b471014cd25ee44fb3"
+     ]
+    },
+    "exit": {
+     "parent": [
+      0
+     ],
+     "candidate": [
+      0
+     ]
+    },
+    "excerpt": {
+     "parent": "{\"artifact_location\":\"<removed>\",\"complete\":true,\"counts\":{\"claim\":10,\"question\":60},\"diagnostics\":{\"errors\":0,\"report\":{\"errors\":[],\"warnings\":[]},\"warnings\":0},\"file_count\":10,\"files\":[{\"bytes\":6,\"kind\":\"file\",\"path\":\".gitignore\"},{\"bytes\":65536,\"kind\":\"file\",\"path\":\"evidence/seed-0000.bin\"},{\"byt",
+     "candidate": "{\"artifact_location\":\"<removed>\",\"complete\":true,\"counts\":{\"claim\":10,\"question\":60},\"diagnostics\":{\"errors\":0,\"report\":{\"errors\":[],\"warnings\":[]},\"warnings\":0},\"file_count\":10,\"files\":[{\"bytes\":6,\"kind\":\"file\",\"path\":\".gitignore\"},{\"bytes\":65536,\"kind\":\"file\",\"path\":\"evidence/seed-0000.bin\"},{\"byt"
+    }
+   },
+   "access": {
+    "ok": true,
+    "violations": []
+   },
+   "failures": []
+  },
+  {
+   "command": "ls --json",
+   "kind": "read",
+   "fixture": "F3",
+   "state": "S0",
+   "parent": {
+    "median_ms": 4.448833,
+    "p90_ms": 5.289083,
+    "first_ms": 4.313875,
+    "rss_bytes": 10731520
+   },
+   "candidate": {
+    "median_ms": 4.535,
+    "p90_ms": 4.745584,
+    "first_ms": 4.2655,
+    "rss_bytes": 10911744
+   },
+   "timing_rounds": [
+    {
+     "parent": {
+      "median_ms": 4.448833,
+      "p90_ms": 5.289083,
+      "first_ms": 4.313875,
+      "samples_ms": [
+       4.448833,
+       4.245625,
+       4.364167,
+       4.430458,
+       4.398791,
+       5.4505,
+       5.289083,
+       4.584041,
+       4.591125,
+       4.598875,
+       4.475625,
+       4.4235,
+       4.483667,
+       4.349125,
+       4.428667
+      ]
+     },
+     "candidate": {
+      "median_ms": 4.535,
+      "p90_ms": 4.745584,
+      "first_ms": 4.2655,
+      "samples_ms": [
+       4.480083,
+       4.391042,
+       4.5685,
+       4.412708,
+       4.535,
+       5.13025,
+       4.722667,
+       4.745584,
+       4.585917,
+       4.47075,
+       4.569209,
+       4.471959,
+       4.307958,
+       4.431875,
+       4.549
+      ]
+     }
+    }
+   ],
+   "rss_rounds": [
+    {
+     "parent": {
+      "rss_bytes": 10731520,
+      "samples_bytes": [
+       10715136,
+       10764288,
+       10731520,
+       10731520,
+       10698752
+      ]
+     },
+     "candidate": {
+      "rss_bytes": 10911744,
+      "samples_bytes": [
+       10928128,
+       10911744,
+       10911744,
+       10813440,
+       10911744
+      ]
+     }
+    }
+   ],
+   "verdict": "pass",
+   "output": {
+    "parent_equals_candidate": true,
+    "digest": {
+     "parent": [
+      "ce68b516b04e5806ada9fe5230e40199b26885c4efde25d5f97639e404770d5a"
+     ],
+     "candidate": [
+      "ce68b516b04e5806ada9fe5230e40199b26885c4efde25d5f97639e404770d5a"
+     ]
+    },
+    "exit": {
+     "parent": [
+      0
+     ],
+     "candidate": [
+      0
+     ]
+    },
+    "excerpt": {
+     "parent": "{\"diagnostics\":{\"errors\":[],\"warnings\":[]},\"entries\":[{\"description\":\"Deterministic merge fixture node 1.\",\"evidence_notes\":[],\"fields\":\"question\",\"id\":\"N01\",\"kind\":\"question\",\"label\":\"Seed question 1\",\"source\":\"trace/exploration_tree.yaml\",\"source_refs\":[],\"support_level\":null,\"title\":\"Seed questio",
+     "candidate": "{\"diagnostics\":{\"errors\":[],\"warnings\":[]},\"entries\":[{\"description\":\"Deterministic merge fixture node 1.\",\"evidence_notes\":[],\"fields\":\"question\",\"id\":\"N01\",\"kind\":\"question\",\"label\":\"Seed question 1\",\"source\":\"trace/exploration_tree.yaml\",\"source_refs\":[],\"support_level\":null,\"title\":\"Seed questio"
+    }
+   },
+   "access": {
+    "ok": true,
+    "violations": []
+   },
+   "failures": []
+  },
+  {
+   "command": "show C01 --json",
+   "kind": "read",
+   "fixture": "F3",
+   "state": "S0",
+   "parent": {
+    "median_ms": 4.29775,
+    "p90_ms": 4.407625,
+    "first_ms": 4.553084,
+    "rss_bytes": 10534912
+   },
+   "candidate": {
+    "median_ms": 4.298333,
+    "p90_ms": 4.471542,
+    "first_ms": 4.074917,
+    "rss_bytes": 10665984
+   },
+   "timing_rounds": [
+    {
+     "parent": {
+      "median_ms": 4.29775,
+      "p90_ms": 4.407625,
+      "first_ms": 4.553084,
+      "samples_ms": [
+       4.457,
+       4.267959,
+       3.981333,
+       4.250708,
+       4.014292,
+       4.367708,
+       4.395917,
+       4.386791,
+       4.04575,
+       4.300375,
+       4.049916,
+       4.351125,
+       4.29775,
+       4.1975,
+       4.407625
+      ]
+     },
+     "candidate": {
+      "median_ms": 4.298333,
+      "p90_ms": 4.471542,
+      "first_ms": 4.074917,
+      "samples_ms": [
+       4.471542,
+       4.222,
+       4.234417,
+       4.298333,
+       3.945875,
+       4.256042,
+       4.378208,
+       4.258208,
+       4.357417,
+       4.259792,
+       4.363209,
+       4.160166,
+       4.33625,
+       4.396375,
+       4.5335
+      ]
+     }
+    }
+   ],
+   "rss_rounds": [
+    {
+     "parent": {
+      "rss_bytes": 10534912,
+      "samples_bytes": [
+       10551296,
+       10518528,
+       10534912,
+       10551296,
+       10436608
+      ]
+     },
+     "candidate": {
+      "rss_bytes": 10665984,
+      "samples_bytes": [
+       10633216,
+       10682368,
+       10665984,
+       10649600,
+       10665984
+      ]
+     }
+    }
+   ],
+   "verdict": "pass",
+   "output": {
+    "parent_equals_candidate": true,
+    "digest": {
+     "parent": [
+      "47c3df2bca95d97ab983841bdab4e312265579df800966e0f7a7da75069955e7"
+     ],
+     "candidate": [
+      "47c3df2bca95d97ab983841bdab4e312265579df800966e0f7a7da75069955e7"
+     ]
+    },
+    "exit": {
+     "parent": [
+      0
+     ],
+     "candidate": [
+      0
+     ]
+    },
+    "excerpt": {
+     "parent": "{\"diagnostics\":{\"errors\":[],\"warnings\":[]},\"entries\":[{\"body\":\"## C01: Seed claim 1 - **Statement**: Fixture statement 1. - **Status**: hypothesis\",\"deps\":[],\"id\":\"C01\",\"kind\":\"claim\",\"proof\":[],\"source\":\"logic/claims.md\",\"source_fields\":[{\"name\":\"Statement\",\"value\":\"Fixture statement 1.\"},{\"name\":\"",
+     "candidate": "{\"diagnostics\":{\"errors\":[],\"warnings\":[]},\"entries\":[{\"body\":\"## C01: Seed claim 1 - **Statement**: Fixture statement 1. - **Status**: hypothesis\",\"deps\":[],\"id\":\"C01\",\"kind\":\"claim\",\"proof\":[],\"source\":\"logic/claims.md\",\"source_fields\":[{\"name\":\"Statement\",\"value\":\"Fixture statement 1.\"},{\"name\":\""
+    }
+   },
+   "access": {
+    "ok": true,
+    "violations": []
+   },
+   "failures": []
+  },
+  {
+   "command": "find \"method\" --json",
+   "kind": "read",
+   "fixture": "F3",
+   "state": "S0",
+   "parent": {
+    "median_ms": 4.456709,
+    "p90_ms": 4.695958,
+    "first_ms": 4.929416,
+    "rss_bytes": 10813440
+   },
+   "candidate": {
+    "median_ms": 4.479625,
+    "p90_ms": 4.596667,
+    "first_ms": 5.414166,
+    "rss_bytes": 10895360
+   },
+   "timing_rounds": [
+    {
+     "parent": {
+      "median_ms": 4.456709,
+      "p90_ms": 4.695958,
+      "first_ms": 4.929416,
+      "samples_ms": [
+       4.695958,
+       4.38075,
+       4.772125,
+       4.571125,
+       4.456709,
+       4.301834,
+       4.244667,
+       4.491167,
+       4.391916,
+       4.198333,
+       4.502417,
+       4.586792,
+       4.42725,
+       4.470958,
+       4.398917
+      ]
+     },
+     "candidate": {
+      "median_ms": 4.479625,
+      "p90_ms": 4.596667,
+      "first_ms": 5.414166,
+      "samples_ms": [
+       4.325917,
+       4.479625,
+       4.254084,
+       4.521333,
+       4.647458,
+       4.587541,
+       4.533125,
+       4.525334,
+       4.467208,
+       4.426625,
+       4.596667,
+       4.596042,
+       4.243042,
+       4.181458,
+       4.286958
+      ]
+     }
+    }
+   ],
+   "rss_rounds": [
+    {
+     "parent": {
+      "rss_bytes": 10813440,
+      "samples_bytes": [
+       10813440,
+       10846208,
+       10780672,
+       10813440,
+       10780672
+      ]
+     },
+     "candidate": {
+      "rss_bytes": 10895360,
+      "samples_bytes": [
+       10960896,
+       10895360,
+       10928128,
+       10878976,
+       10895360
+      ]
+     }
+    }
+   ],
+   "verdict": "pass",
+   "output": {
+    "parent_equals_candidate": true,
+    "digest": {
+     "parent": [
+      "f0a4bb0f73de792806b29815314845f5a4a77960dbe62b7931822e8a8a810578"
+     ],
+     "candidate": [
+      "f0a4bb0f73de792806b29815314845f5a4a77960dbe62b7931822e8a8a810578"
+     ]
+    },
+    "exit": {
+     "parent": [
+      0
+     ],
+     "candidate": [
+      0
+     ]
+    },
+    "excerpt": {
+     "parent": "{\"format\":\"ara.find/v1\",\"results\":[]}\n",
+     "candidate": "{\"format\":\"ara.find/v1\",\"results\":[]}\n"
+    }
+   },
+   "access": {
+    "ok": true,
+    "violations": []
+   },
+   "failures": []
+  },
+  {
+   "command": "validate <dir> --json",
+   "kind": "read",
+   "fixture": "F3",
+   "state": "S0",
+   "parent": {
+    "median_ms": 4.229458,
+    "p90_ms": 4.544625,
+    "first_ms": 4.49025,
+    "rss_bytes": 10108928
+   },
+   "candidate": {
+    "median_ms": 4.229791,
+    "p90_ms": 4.511666,
+    "first_ms": 4.138417,
+    "rss_bytes": 10240000
+   },
+   "timing_rounds": [
+    {
+     "parent": {
+      "median_ms": 4.229458,
+      "p90_ms": 4.544625,
+      "first_ms": 4.49025,
+      "samples_ms": [
+       4.218416,
+       3.941333,
+       4.598375,
+       4.544625,
+       3.973875,
+       3.994292,
+       4.487584,
+       4.125458,
+       4.176583,
+       4.233458,
+       4.417084,
+       4.33425,
+       4.229458,
+       3.966458,
+       4.271667
+      ]
+     },
+     "candidate": {
+      "median_ms": 4.229791,
+      "p90_ms": 4.511666,
+      "first_ms": 4.138417,
+      "samples_ms": [
+       4.229791,
+       4.0885,
+       4.960042,
+       4.511666,
+       4.250167,
+       4.166459,
+       4.482792,
+       4.295833,
+       3.989209,
+       4.356042,
+       4.157958,
+       4.221792,
+       3.907042,
+       4.256125,
+       4.156708
+      ]
+     }
+    }
+   ],
+   "rss_rounds": [
+    {
+     "parent": {
+      "rss_bytes": 10108928,
+      "samples_bytes": [
+       10141696,
+       10125312,
+       10092544,
+       10092544,
+       10108928
+      ]
+     },
+     "candidate": {
+      "rss_bytes": 10240000,
+      "samples_bytes": [
+       10223616,
+       10240000,
+       10272768,
+       10272768,
+       10240000
+      ]
+     }
+    }
+   ],
+   "verdict": "pass",
+   "output": {
+    "parent_equals_candidate": true,
+    "digest": {
+     "parent": [
+      "45a6626b80664da4ad10e599ff5fc80b87fd72aab54859d774f2aa480fd75f4a"
+     ],
+     "candidate": [
+      "45a6626b80664da4ad10e599ff5fc80b87fd72aab54859d774f2aa480fd75f4a"
+     ]
+    },
+    "exit": {
+     "parent": [
+      0
+     ],
+     "candidate": [
+      0
+     ]
+    },
+    "excerpt": {
+     "parent": "{\n  \"errors\": [],\n  \"warnings\": []\n}\n",
+     "candidate": "{\n  \"errors\": [],\n  \"warnings\": []\n}\n"
+    }
+   },
+   "access": {
+    "ok": true,
+    "violations": []
+   },
+   "failures": []
+  },
+  {
+   "command": "check <dir>",
+   "kind": "read",
+   "fixture": "F3",
+   "state": "S0",
+   "parent": {
+    "median_ms": 4.329917,
+    "p90_ms": 4.43175,
+    "first_ms": 4.169708,
+    "rss_bytes": 10289152
+   },
+   "candidate": {
+    "median_ms": 4.341542,
+    "p90_ms": 4.439375,
+    "first_ms": 4.157,
+    "rss_bytes": 10403840
+   },
+   "timing_rounds": [
+    {
+     "parent": {
+      "median_ms": 4.329917,
+      "p90_ms": 4.43175,
+      "first_ms": 4.169708,
+      "samples_ms": [
+       4.17475,
+       4.1625,
+       4.528458,
+       4.347292,
+       4.362291,
+       4.43175,
+       4.01975,
+       4.037166,
+       4.367583,
+       4.378041,
+       4.3955,
+       4.211584,
+       4.329917,
+       4.237042,
+       4.312125
+      ]
+     },
+     "candidate": {
+      "median_ms": 4.341542,
+      "p90_ms": 4.439375,
+      "first_ms": 4.157,
+      "samples_ms": [
+       4.348625,
+       4.343,
+       4.366084,
+       4.341542,
+       4.231333,
+       4.406708,
+       4.096875,
+       4.439375,
+       4.115791,
+       4.298,
+       4.397875,
+       4.271,
+       4.458291,
+       4.28825,
+       4.124208
+      ]
+     }
+    }
+   ],
+   "rss_rounds": [
+    {
+     "parent": {
+      "rss_bytes": 10289152,
+      "samples_bytes": [
+       10338304,
+       10240000,
+       10256384,
+       10289152,
+       10289152
+      ]
+     },
+     "candidate": {
+      "rss_bytes": 10403840,
+      "samples_bytes": [
+       10420224,
+       10403840,
+       10403840,
+       10452992,
+       10403840
+      ]
+     }
+    }
+   ],
+   "verdict": "pass",
+   "output": {
+    "parent_equals_candidate": true,
+    "digest": {
+     "parent": [
+      "0a2d8961fbecd884c1c3dae49f18f7a92ad037b587c3107100f20d7472b67914"
+     ],
+     "candidate": [
+      "0a2d8961fbecd884c1c3dae49f18f7a92ad037b587c3107100f20d7472b67914"
+     ]
+    },
+    "exit": {
+     "parent": [
+      0
+     ],
+     "candidate": [
+      0
+     ]
+    },
+    "excerpt": {
+     "parent": "<root>: PASS \u2014 0 error(s), 0 warning(s), 0 fixable issue(s)\n",
+     "candidate": "<root>: PASS \u2014 0 error(s), 0 warning(s), 0 fixable issue(s)\n"
+    }
+   },
+   "access": {
+    "ok": true,
+    "violations": []
+   },
+   "failures": []
+  },
+  {
+   "command": "add node",
+   "kind": "write",
+   "fixture": "F1",
+   "state": "S0",
+   "parent": {
+    "median_ms": 61.75125,
+    "p90_ms": 68.717583,
+    "first_ms": 68.552208,
+    "rss_bytes": 17678336
+   },
+   "candidate": {
+    "median_ms": 62.172917,
+    "p90_ms": 65.821458,
+    "first_ms": 66.667584,
+    "rss_bytes": 17629184
+   },
+   "timing_rounds": [
+    {
+     "parent": {
+      "median_ms": 61.75125,
+      "p90_ms": 68.717583,
+      "first_ms": 68.552208,
+      "samples_ms": [
+       59.857041,
+       66.873542,
+       61.75125,
+       60.916417,
+       68.849458,
+       64.424125,
+       61.443458,
+       61.300416,
+       60.521708,
+       68.717583,
+       65.672958,
+       64.215834,
+       62.616167,
+       57.387834,
+       60.625708
+      ]
+     },
+     "candidate": {
+      "median_ms": 62.172917,
+      "p90_ms": 65.821458,
+      "first_ms": 66.667584,
+      "samples_ms": [
+       63.790958,
+       65.821458,
+       63.268125,
+       70.662833,
+       62.052292,
+       60.7175,
+       62.172917,
+       63.477125,
+       60.6545,
+       65.385584,
+       60.356208,
+       58.876833,
+       59.173625,
+       58.778083,
+       62.600166
+      ]
+     }
+    }
+   ],
+   "rss_rounds": [
+    {
+     "parent": {
+      "rss_bytes": 17678336,
+      "samples_bytes": [
+       17563648,
+       17612800,
+       17694720,
+       17711104,
+       17678336
+      ]
+     },
+     "candidate": {
+      "rss_bytes": 17629184,
+      "samples_bytes": [
+       17694720,
+       17661952,
+       17580032,
+       17530880,
+       17629184
+      ]
+     }
+    }
+   ],
+   "verdict": "pass",
+   "output": {
+    "parent_equals_candidate": true,
+    "digest": {
+     "parent": [
+      "c8c0dadc4fa2c7b2ee198e4683d1b3710b35b7eafa42f241cf7062778c158b4f"
+     ],
+     "candidate": [
+      "c8c0dadc4fa2c7b2ee198e4683d1b3710b35b7eafa42f241cf7062778c158b4f"
+     ]
+    },
+    "exit": {
+     "parent": [
+      0
+     ],
+     "candidate": [
+      0
+     ]
+    },
+    "excerpt": {
+     "parent": "{\"bindings\":{},\"changed_paths\":[\".gitignore\",\"trace/exploration_tree.yaml\"],\"committed\":true,\"diagnostics\":[{\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N95]\",\"severity\":\"warning\"},{\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N96]\",\"severity\":\"wa",
+     "candidate": "{\"bindings\":{},\"changed_paths\":[\".gitignore\",\"trace/exploration_tree.yaml\"],\"committed\":true,\"diagnostics\":[{\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N95]\",\"severity\":\"warning\"},{\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N96]\",\"severity\":\"wa"
+    }
+   },
+   "access": {
+    "ok": true,
+    "violations": []
+   },
+   "failures": []
+  },
+  {
+   "command": "apply",
+   "kind": "write",
+   "fixture": "F1",
+   "state": "S0",
+   "parent": {
+    "median_ms": 61.289041,
+    "p90_ms": 64.317625,
+    "first_ms": 61.46475,
+    "rss_bytes": 17629184
+   },
+   "candidate": {
+    "median_ms": 60.798708,
+    "p90_ms": 63.621375,
+    "first_ms": 59.249,
+    "rss_bytes": 17629184
+   },
+   "timing_rounds": [
+    {
+     "parent": {
+      "median_ms": 61.289041,
+      "p90_ms": 64.317625,
+      "first_ms": 61.46475,
+      "samples_ms": [
+       59.72675,
+       59.479292,
+       59.141333,
+       60.096125,
+       61.558209,
+       61.718459,
+       61.289041,
+       61.12625,
+       64.317625,
+       62.902916,
+       63.393334,
+       60.130625,
+       61.404334,
+       70.910625,
+       60.196333
+      ]
+     },
+     "candidate": {
+      "median_ms": 60.798708,
+      "p90_ms": 63.621375,
+      "first_ms": 59.249,
+      "samples_ms": [
+       61.767666,
+       59.754667,
+       60.129292,
+       61.09825,
+       60.798708,
+       60.18225,
+       59.977792,
+       60.260458,
+       58.445458,
+       62.42725,
+       67.489292,
+       62.077709,
+       61.831166,
+       59.699667,
+       63.621375
+      ]
+     }
+    }
+   ],
+   "rss_rounds": [
+    {
+     "parent": {
+      "rss_bytes": 17629184,
+      "samples_bytes": [
+       17629184,
+       17645568,
+       17629184,
+       17596416,
+       17661952
+      ]
+     },
+     "candidate": {
+      "rss_bytes": 17629184,
+      "samples_bytes": [
+       17612800,
+       17629184,
+       17694720,
+       17727488,
+       17629184
+      ]
+     }
+    }
+   ],
+   "verdict": "pass",
+   "output": {
+    "parent_equals_candidate": true,
+    "digest": {
+     "parent": [
+      "2ecf9746c7c0441bc66b22d69611eb264d798be423e78f0fb6cb3355d1eac4d7"
+     ],
+     "candidate": [
+      "2ecf9746c7c0441bc66b22d69611eb264d798be423e78f0fb6cb3355d1eac4d7"
+     ]
+    },
+    "exit": {
+     "parent": [
+      0
+     ],
+     "candidate": [
+      0
+     ]
+    },
+    "excerpt": {
+     "parent": "{\"bindings\":{\"$probe\":\"N124\"},\"changed_paths\":[\".gitignore\",\"trace/exploration_tree.yaml\"],\"committed\":true,\"diagnostics\":[{\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N95]\",\"severity\":\"warning\"},{\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N96]\"",
+     "candidate": "{\"bindings\":{\"$probe\":\"N124\"},\"changed_paths\":[\".gitignore\",\"trace/exploration_tree.yaml\"],\"committed\":true,\"diagnostics\":[{\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N95]\",\"severity\":\"warning\"},{\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N96]\""
+    }
+   },
+   "access": {
+    "ok": true,
+    "violations": []
+   },
+   "failures": []
+  },
+  {
+   "command": "add node",
+   "kind": "write",
+   "fixture": "F1",
+   "state": "S1",
+   "parent": {
+    "median_ms": 63.56675,
+    "p90_ms": 70.540208,
+    "first_ms": 65.611541,
+    "rss_bytes": 17612800
+   },
+   "candidate": {
+    "median_ms": 63.629209,
+    "p90_ms": 65.668875,
+    "first_ms": 78.581292,
+    "rss_bytes": 17596416
+   },
+   "timing_rounds": [
+    {
+     "parent": {
+      "median_ms": 63.56675,
+      "p90_ms": 70.540208,
+      "first_ms": 65.611541,
+      "samples_ms": [
+       60.029875,
+       63.56675,
+       60.155042,
+       63.406042,
+       58.696709,
+       65.561125,
+       66.6465,
+       65.354333,
+       62.321875,
+       63.797167,
+       60.996875,
+       64.338791,
+       70.556333,
+       70.540208,
+       61.0315
+      ]
+     },
+     "candidate": {
+      "median_ms": 63.629209,
+      "p90_ms": 65.668875,
+      "first_ms": 78.581292,
+      "samples_ms": [
+       65.493792,
+       64.360167,
+       62.577292,
+       64.607167,
+       59.050542,
+       63.561208,
+       61.555666,
+       63.388917,
+       63.629209,
+       65.668875,
+       63.373041,
+       63.789,
+       71.707833,
+       63.838375,
+       62.55575
+      ]
+     }
+    }
+   ],
+   "rss_rounds": [
+    {
+     "parent": {
+      "rss_bytes": 17612800,
+      "samples_bytes": [
+       17645568,
+       17612800,
+       17645568,
+       17530880,
+       17547264
+      ]
+     },
+     "candidate": {
+      "rss_bytes": 17596416,
+      "samples_bytes": [
+       17580032,
+       17596416,
+       17596416,
+       17661952,
+       17645568
+      ]
+     }
+    }
+   ],
+   "verdict": "pass",
+   "output": {
+    "parent_equals_candidate": true,
+    "digest": {
+     "parent": [
+      "c8c0dadc4fa2c7b2ee198e4683d1b3710b35b7eafa42f241cf7062778c158b4f"
+     ],
+     "candidate": [
+      "c8c0dadc4fa2c7b2ee198e4683d1b3710b35b7eafa42f241cf7062778c158b4f"
+     ]
+    },
+    "exit": {
+     "parent": [
+      0
+     ],
+     "candidate": [
+      0
+     ]
+    },
+    "excerpt": {
+     "parent": "{\"bindings\":{},\"changed_paths\":[\".gitignore\",\"trace/exploration_tree.yaml\"],\"committed\":true,\"diagnostics\":[{\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N95]\",\"severity\":\"warning\"},{\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N96]\",\"severity\":\"wa",
+     "candidate": "{\"bindings\":{},\"changed_paths\":[\".gitignore\",\"trace/exploration_tree.yaml\"],\"committed\":true,\"diagnostics\":[{\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N95]\",\"severity\":\"warning\"},{\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N96]\",\"severity\":\"wa"
+    },
+    "equals_S0": {
+     "parent": true,
+     "candidate": true
+    }
+   },
+   "access": {
+    "ok": true,
+    "violations": []
+   },
+   "failures": []
+  },
+  {
+   "command": "apply",
+   "kind": "write",
+   "fixture": "F1",
+   "state": "S1",
+   "parent": {
+    "median_ms": 61.516041,
+    "p90_ms": 65.54925,
+    "first_ms": 57.910083,
+    "rss_bytes": 17694720
+   },
+   "candidate": {
+    "median_ms": 64.301334,
+    "p90_ms": 67.486959,
+    "first_ms": 62.437292,
+    "rss_bytes": 17645568
+   },
+   "timing_rounds": [
+    {
+     "parent": {
+      "median_ms": 61.516041,
+      "p90_ms": 65.54925,
+      "first_ms": 57.910083,
+      "samples_ms": [
+       61.737792,
+       59.517334,
+       60.311584,
+       60.206542,
+       63.501792,
+       61.516041,
+       64.640208,
+       61.773167,
+       63.693,
+       60.399084,
+       65.589833,
+       60.07075,
+       60.113709,
+       60.258334,
+       65.54925
+      ]
+     },
+     "candidate": {
+      "median_ms": 64.301334,
+      "p90_ms": 67.486959,
+      "first_ms": 62.437292,
+      "samples_ms": [
+       64.765833,
+       67.486959,
+       64.301334,
+       62.585208,
+       63.0385,
+       63.566875,
+       63.813625,
+       64.871208,
+       65.771292,
+       63.244292,
+       64.374917,
+       69.486958,
+       60.538542,
+       63.465667,
+       64.654708
+      ]
+     }
+    }
+   ],
+   "rss_rounds": [
+    {
+     "parent": {
+      "rss_bytes": 17694720,
+      "samples_bytes": [
+       17727488,
+       17711104,
+       17678336,
+       17661952,
+       17694720
+      ]
+     },
+     "candidate": {
+      "rss_bytes": 17645568,
+      "samples_bytes": [
+       17694720,
+       17678336,
+       17612800,
+       17645568,
+       17596416
+      ]
+     }
+    }
+   ],
+   "verdict": "pass",
+   "output": {
+    "parent_equals_candidate": true,
+    "digest": {
+     "parent": [
+      "2ecf9746c7c0441bc66b22d69611eb264d798be423e78f0fb6cb3355d1eac4d7"
+     ],
+     "candidate": [
+      "2ecf9746c7c0441bc66b22d69611eb264d798be423e78f0fb6cb3355d1eac4d7"
+     ]
+    },
+    "exit": {
+     "parent": [
+      0
+     ],
+     "candidate": [
+      0
+     ]
+    },
+    "excerpt": {
+     "parent": "{\"bindings\":{\"$probe\":\"N124\"},\"changed_paths\":[\".gitignore\",\"trace/exploration_tree.yaml\"],\"committed\":true,\"diagnostics\":[{\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N95]\",\"severity\":\"warning\"},{\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N96]\"",
+     "candidate": "{\"bindings\":{\"$probe\":\"N124\"},\"changed_paths\":[\".gitignore\",\"trace/exploration_tree.yaml\"],\"committed\":true,\"diagnostics\":[{\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N95]\",\"severity\":\"warning\"},{\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N96]\""
+    },
+    "equals_S0": {
+     "parent": true,
+     "candidate": true
+    }
+   },
+   "access": {
+    "ok": true,
+    "violations": []
+   },
+   "failures": []
+  },
+  {
+   "command": "add node",
+   "kind": "write",
+   "fixture": "F1",
+   "state": "S2",
+   "parent": {
+    "median_ms": 59.901667,
+    "p90_ms": 62.005666,
+    "first_ms": 60.30425,
+    "rss_bytes": 17563648
+   },
+   "candidate": {
+    "median_ms": 60.400875,
+    "p90_ms": 63.547208,
+    "first_ms": 64.48375,
+    "rss_bytes": 17612800
+   },
+   "timing_rounds": [
+    {
+     "parent": {
+      "median_ms": 59.901667,
+      "p90_ms": 62.005666,
+      "first_ms": 60.30425,
+      "samples_ms": [
+       62.873709,
+       61.513125,
+       58.77,
+       56.94825,
+       58.757333,
+       59.333709,
+       60.708708,
+       61.564542,
+       60.359042,
+       58.756083,
+       58.741042,
+       59.901667,
+       62.005666,
+       59.787125,
+       60.366209
+      ]
+     },
+     "candidate": {
+      "median_ms": 60.400875,
+      "p90_ms": 63.547208,
+      "first_ms": 64.48375,
+      "samples_ms": [
+       68.627791,
+       58.931333,
+       60.342291,
+       57.935958,
+       60.096208,
+       60.147,
+       61.136375,
+       63.547208,
+       59.874125,
+       61.589667,
+       59.928958,
+       60.422125,
+       60.724583,
+       63.065584,
+       60.400875
+      ]
+     }
+    }
+   ],
+   "rss_rounds": [
+    {
+     "parent": {
+      "rss_bytes": 17563648,
+      "samples_bytes": [
+       17661952,
+       17563648,
+       17530880,
+       17530880,
+       17563648
+      ]
+     },
+     "candidate": {
+      "rss_bytes": 17612800,
+      "samples_bytes": [
+       17498112,
+       17448960,
+       17612800,
+       17678336,
+       17678336
+      ]
+     }
+    }
+   ],
+   "verdict": "pass",
+   "output": {
+    "parent_equals_candidate": true,
+    "digest": {
+     "parent": [
+      "c8c0dadc4fa2c7b2ee198e4683d1b3710b35b7eafa42f241cf7062778c158b4f"
+     ],
+     "candidate": [
+      "c8c0dadc4fa2c7b2ee198e4683d1b3710b35b7eafa42f241cf7062778c158b4f"
+     ]
+    },
+    "exit": {
+     "parent": [
+      0
+     ],
+     "candidate": [
+      0
+     ]
+    },
+    "excerpt": {
+     "parent": "{\"bindings\":{},\"changed_paths\":[\".gitignore\",\"trace/exploration_tree.yaml\"],\"committed\":true,\"diagnostics\":[{\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N95]\",\"severity\":\"warning\"},{\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N96]\",\"severity\":\"wa",
+     "candidate": "{\"bindings\":{},\"changed_paths\":[\".gitignore\",\"trace/exploration_tree.yaml\"],\"committed\":true,\"diagnostics\":[{\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N95]\",\"severity\":\"warning\"},{\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N96]\",\"severity\":\"wa"
+    },
+    "equals_S0": {
+     "parent": true,
+     "candidate": true
+    }
+   },
+   "access": {
+    "ok": true,
+    "violations": []
+   },
+   "failures": []
+  },
+  {
+   "command": "apply",
+   "kind": "write",
+   "fixture": "F1",
+   "state": "S2",
+   "parent": {
+    "median_ms": 60.261625,
+    "p90_ms": 62.723792,
+    "first_ms": 60.861916,
+    "rss_bytes": 17711104
+   },
+   "candidate": {
+    "median_ms": 60.275417,
+    "p90_ms": 64.286167,
+    "first_ms": 61.180208,
+    "rss_bytes": 17612800
+   },
+   "timing_rounds": [
+    {
+     "parent": {
+      "median_ms": 60.261625,
+      "p90_ms": 62.723792,
+      "first_ms": 60.861916,
+      "samples_ms": [
+       61.70675,
+       60.634625,
+       60.322292,
+       61.326125,
+       62.51475,
+       63.046667,
+       62.723792,
+       59.621875,
+       58.01875,
+       59.504416,
+       59.650916,
+       58.561666,
+       59.708916,
+       60.261625,
+       59.673375
+      ]
+     },
+     "candidate": {
+      "median_ms": 60.275417,
+      "p90_ms": 64.286167,
+      "first_ms": 61.180208,
+      "samples_ms": [
+       58.349792,
+       59.256917,
+       59.740833,
+       62.240333,
+       59.644209,
+       64.286167,
+       61.576083,
+       59.158583,
+       59.598209,
+       60.847167,
+       60.275417,
+       64.485042,
+       61.751667,
+       61.713792,
+       59.218833
+      ]
+     }
+    }
+   ],
+   "rss_rounds": [
+    {
+     "parent": {
+      "rss_bytes": 17711104,
+      "samples_bytes": [
+       17711104,
+       17760256,
+       17645568,
+       17694720,
+       17743872
+      ]
+     },
+     "candidate": {
+      "rss_bytes": 17612800,
+      "samples_bytes": [
+       17645568,
+       17547264,
+       17612800,
+       17694720,
+       17563648
+      ]
+     }
+    }
+   ],
+   "verdict": "pass",
+   "output": {
+    "parent_equals_candidate": true,
+    "digest": {
+     "parent": [
+      "2ecf9746c7c0441bc66b22d69611eb264d798be423e78f0fb6cb3355d1eac4d7"
+     ],
+     "candidate": [
+      "2ecf9746c7c0441bc66b22d69611eb264d798be423e78f0fb6cb3355d1eac4d7"
+     ]
+    },
+    "exit": {
+     "parent": [
+      0
+     ],
+     "candidate": [
+      0
+     ]
+    },
+    "excerpt": {
+     "parent": "{\"bindings\":{\"$probe\":\"N124\"},\"changed_paths\":[\".gitignore\",\"trace/exploration_tree.yaml\"],\"committed\":true,\"diagnostics\":[{\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N95]\",\"severity\":\"warning\"},{\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N96]\"",
+     "candidate": "{\"bindings\":{\"$probe\":\"N124\"},\"changed_paths\":[\".gitignore\",\"trace/exploration_tree.yaml\"],\"committed\":true,\"diagnostics\":[{\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N95]\",\"severity\":\"warning\"},{\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N96]\""
+    },
+    "equals_S0": {
+     "parent": true,
+     "candidate": true
+    }
+   },
+   "access": {
+    "ok": true,
+    "violations": []
+   },
+   "failures": []
+  },
+  {
+   "command": "add node",
+   "kind": "write",
+   "fixture": "F1",
+   "state": "S3",
+   "parent": {
+    "median_ms": 80.50425,
+    "p90_ms": 82.490208,
+    "first_ms": 78.342208,
+    "rss_bytes": 17645568
+   },
+   "candidate": {
+    "median_ms": 79.209708,
+    "p90_ms": 86.559334,
+    "first_ms": 81.734875,
+    "rss_bytes": 17514496
+   },
+   "timing_rounds": [
+    {
+     "parent": {
+      "median_ms": 80.50425,
+      "p90_ms": 82.490208,
+      "first_ms": 78.342208,
+      "samples_ms": [
+       77.260167,
+       79.509917,
+       81.679584,
+       82.305291,
+       81.357375,
+       77.445375,
+       82.402708,
+       78.465459,
+       80.50425,
+       82.490208,
+       74.4095,
+       85.308625,
+       82.105375,
+       78.868375,
+       63.7005
+      ]
+     },
+     "candidate": {
+      "median_ms": 79.209708,
+      "p90_ms": 86.559334,
+      "first_ms": 81.734875,
+      "samples_ms": [
+       82.3515,
+       75.242625,
+       75.056375,
+       78.365375,
+       71.485042,
+       79.382375,
+       82.4985,
+       87.331709,
+       79.209708,
+       86.559334,
+       80.612083,
+       76.680292,
+       79.079416,
+       72.30975,
+       82.725833
+      ]
+     }
+    }
+   ],
+   "rss_rounds": [
+    {
+     "parent": {
+      "rss_bytes": 17645568,
+      "samples_bytes": [
+       17694720,
+       17645568,
+       17629184,
+       17629184,
+       17645568
+      ]
+     },
+     "candidate": {
+      "rss_bytes": 17514496,
+      "samples_bytes": [
+       17514496,
+       17448960,
+       17481728,
+       17612800,
+       17580032
+      ]
+     }
+    }
+   ],
+   "verdict": "pass",
+   "output": {
+    "parent_equals_candidate": true,
+    "digest": {
+     "parent": [
+      "c8c0dadc4fa2c7b2ee198e4683d1b3710b35b7eafa42f241cf7062778c158b4f"
+     ],
+     "candidate": [
+      "c8c0dadc4fa2c7b2ee198e4683d1b3710b35b7eafa42f241cf7062778c158b4f"
+     ]
+    },
+    "exit": {
+     "parent": [
+      0
+     ],
+     "candidate": [
+      0
+     ]
+    },
+    "excerpt": {
+     "parent": "{\"bindings\":{},\"changed_paths\":[\".gitignore\",\"trace/exploration_tree.yaml\"],\"committed\":true,\"diagnostics\":[{\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N95]\",\"severity\":\"warning\"},{\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N96]\",\"severity\":\"wa",
+     "candidate": "{\"bindings\":{},\"changed_paths\":[\".gitignore\",\"trace/exploration_tree.yaml\"],\"committed\":true,\"diagnostics\":[{\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N95]\",\"severity\":\"warning\"},{\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N96]\",\"severity\":\"wa"
+    },
+    "equals_S0": {
+     "parent": true,
+     "candidate": true
+    }
+   },
+   "access": {
+    "ok": true,
+    "violations": []
+   },
+   "failures": []
+  },
+  {
+   "command": "apply",
+   "kind": "write",
+   "fixture": "F1",
+   "state": "S3",
+   "parent": {
+    "median_ms": 80.430375,
+    "p90_ms": 81.475666,
+    "first_ms": 82.423917,
+    "rss_bytes": 17711104
+   },
+   "candidate": {
+    "median_ms": 80.219041,
+    "p90_ms": 82.455625,
+    "first_ms": 81.460125,
+    "rss_bytes": 17678336
+   },
+   "timing_rounds": [
+    {
+     "parent": {
+      "median_ms": 80.430375,
+      "p90_ms": 81.475666,
+      "first_ms": 82.423917,
+      "samples_ms": [
+       81.355041,
+       79.450666,
+       77.445625,
+       80.437833,
+       81.475666,
+       81.388709,
+       81.475208,
+       77.198125,
+       82.4115,
+       80.299708,
+       77.38775,
+       80.430375,
+       78.431959,
+       80.616166,
+       71.269417
+      ]
+     },
+     "candidate": {
+      "median_ms": 80.219041,
+      "p90_ms": 82.455625,
+      "first_ms": 81.460125,
+      "samples_ms": [
+       80.443541,
+       80.406125,
+       80.370667,
+       81.257375,
+       82.455625,
+       80.259625,
+       76.83525,
+       76.321458,
+       67.102167,
+       80.219041,
+       86.425458,
+       79.396333,
+       79.429666,
+       72.360458,
+       73.346625
+      ]
+     }
+    }
+   ],
+   "rss_rounds": [
+    {
+     "parent": {
+      "rss_bytes": 17711104,
+      "samples_bytes": [
+       17711104,
+       17645568,
+       17629184,
+       17760256,
+       17825792
+      ]
+     },
+     "candidate": {
+      "rss_bytes": 17678336,
+      "samples_bytes": [
+       17629184,
+       17678336,
+       17743872,
+       17711104,
+       17580032
+      ]
+     }
+    }
+   ],
+   "verdict": "pass",
+   "output": {
+    "parent_equals_candidate": true,
+    "digest": {
+     "parent": [
+      "2ecf9746c7c0441bc66b22d69611eb264d798be423e78f0fb6cb3355d1eac4d7"
+     ],
+     "candidate": [
+      "2ecf9746c7c0441bc66b22d69611eb264d798be423e78f0fb6cb3355d1eac4d7"
+     ]
+    },
+    "exit": {
+     "parent": [
+      0
+     ],
+     "candidate": [
+      0
+     ]
+    },
+    "excerpt": {
+     "parent": "{\"bindings\":{\"$probe\":\"N124\"},\"changed_paths\":[\".gitignore\",\"trace/exploration_tree.yaml\"],\"committed\":true,\"diagnostics\":[{\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N95]\",\"severity\":\"warning\"},{\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N96]\"",
+     "candidate": "{\"bindings\":{\"$probe\":\"N124\"},\"changed_paths\":[\".gitignore\",\"trace/exploration_tree.yaml\"],\"committed\":true,\"diagnostics\":[{\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N95]\",\"severity\":\"warning\"},{\"message\":\"field `lesson` dropped for type `experiment`\",\"path\":\"nodes[N96]\""
+    },
+    "equals_S0": {
+     "parent": true,
+     "candidate": true
+    }
+   },
+   "access": {
+    "ok": true,
+    "violations": []
+   },
+   "failures": []
+  },
+  {
+   "command": "merge first import",
+   "kind": "merge",
+   "fixture": "M",
+   "state": "S0",
+   "parent": {
+    "median_ms": 53.547542,
+    "p90_ms": 55.06125,
+    "first_ms": 61.818625,
+    "rss_bytes": 16957440
+   },
+   "candidate": {
+    "median_ms": 54.046375,
+    "p90_ms": 55.055834,
+    "first_ms": 49.423084,
+    "rss_bytes": 16924672
+   },
+   "timing_rounds": [
+    {
+     "parent": {
+      "median_ms": 53.547542,
+      "p90_ms": 55.06125,
+      "first_ms": 61.818625,
+      "samples_ms": [
+       53.173834,
+       54.50875,
+       52.990042,
+       53.516125,
+       71.192959,
+       54.243875,
+       52.975625,
+       55.06125,
+       53.6265,
+       54.290958,
+       54.764917,
+       52.582291,
+       53.547542,
+       52.645375,
+       52.387917
+      ]
+     },
+     "candidate": {
+      "median_ms": 54.046375,
+      "p90_ms": 55.055834,
+      "first_ms": 49.423084,
+      "samples_ms": [
+       52.840833,
+       54.75025,
+       54.046375,
+       53.233291,
+       54.595375,
+       54.392334,
+       54.034958,
+       53.668042,
+       52.967167,
+       54.590375,
+       53.596375,
+       54.049417,
+       55.055834,
+       53.239292,
+       56.137625
+      ]
+     }
+    }
+   ],
+   "rss_rounds": [
+    {
+     "parent": {
+      "rss_bytes": 16957440,
+      "samples_bytes": [
+       16957440,
+       16924672,
+       16924672,
+       16957440,
+       16957440
+      ]
+     },
+     "candidate": {
+      "rss_bytes": 16924672,
+      "samples_bytes": [
+       16924672,
+       16973824,
+       16859136,
+       16875520,
+       16957440
+      ]
+     }
+    }
+   ],
+   "verdict": "pass",
+   "output": {
+    "parent_equals_candidate": true,
+    "digest": {
+     "parent": [
+      "4559d24072140be540f863bd322f79a1e696bccb683ff8a3293980fa1ec6964f"
+     ],
+     "candidate": [
+      "4559d24072140be540f863bd322f79a1e696bccb683ff8a3293980fa1ec6964f"
+     ]
+    },
+    "exit": {
+     "parent": [
+      0
+     ],
+     "candidate": [
+      0
+     ]
+    },
+    "excerpt": {
+     "parent": "{\"changed_paths\":[\"trace/aliases.yaml\",\"trace/exploration_tree.yaml\",\"trace/merge_log.yaml\"],\"committed\":true,\"conflicts\":[],\"dry_run\":false,\"duplicate_candidates\":[],\"format\":\"ara.merge/v1\",\"imports\":[{\"layer\":\"trace\",\"original\":\"N01\",\"path\":\"trace/exploration_tree.yaml\",\"source_key\":\"zero-cost-sou",
+     "candidate": "{\"changed_paths\":[\"trace/aliases.yaml\",\"trace/exploration_tree.yaml\",\"trace/merge_log.yaml\"],\"committed\":true,\"conflicts\":[],\"dry_run\":false,\"duplicate_candidates\":[],\"format\":\"ara.merge/v1\",\"imports\":[{\"layer\":\"trace\",\"original\":\"N01\",\"path\":\"trace/exploration_tree.yaml\",\"source_key\":\"zero-cost-sou"
+    }
+   },
+   "access": {
+    "ok": true,
+    "violations": []
+   },
+   "failures": []
+  },
+  {
+   "command": "merge first import",
+   "kind": "merge",
+   "fixture": "M",
+   "state": "S1",
+   "parent": {
+    "median_ms": 51.295042,
+    "p90_ms": 55.748917,
+    "first_ms": 53.677458,
+    "rss_bytes": 16924672
+   },
+   "candidate": {
+    "median_ms": 50.987541,
+    "p90_ms": 58.416375,
+    "first_ms": 49.85325,
+    "rss_bytes": 16875520
+   },
+   "timing_rounds": [
+    {
+     "parent": {
+      "median_ms": 51.295042,
+      "p90_ms": 55.748917,
+      "first_ms": 53.677458,
+      "samples_ms": [
+       51.344375,
+       50.903417,
+       51.295042,
+       50.47975,
+       58.45075,
+       51.356,
+       53.145167,
+       51.25775,
+       55.748917,
+       55.078792,
+       50.386,
+       48.488334,
+       49.362083,
+       52.20625,
+       48.118417
+      ]
+     },
+     "candidate": {
+      "median_ms": 50.987541,
+      "p90_ms": 58.416375,
+      "first_ms": 49.85325,
+      "samples_ms": [
+       50.741958,
+       55.073541,
+       58.416375,
+       59.835334,
+       46.663125,
+       53.963166,
+       52.102083,
+       51.443,
+       50.093375,
+       49.146666,
+       50.321084,
+       49.723958,
+       53.286958,
+       50.260125,
+       50.987541
+      ]
+     }
+    }
+   ],
+   "rss_rounds": [
+    {
+     "parent": {
+      "rss_bytes": 16924672,
+      "samples_bytes": [
+       16973824,
+       16842752,
+       16941056,
+       16924672,
+       16924672
+      ]
+     },
+     "candidate": {
+      "rss_bytes": 16875520,
+      "samples_bytes": [
+       16842752,
+       16842752,
+       16941056,
+       16924672,
+       16875520
+      ]
+     }
+    }
+   ],
+   "verdict": "pass",
+   "output": {
+    "parent_equals_candidate": true,
+    "digest": {
+     "parent": [
+      "4559d24072140be540f863bd322f79a1e696bccb683ff8a3293980fa1ec6964f"
+     ],
+     "candidate": [
+      "4559d24072140be540f863bd322f79a1e696bccb683ff8a3293980fa1ec6964f"
+     ]
+    },
+    "exit": {
+     "parent": [
+      0
+     ],
+     "candidate": [
+      0
+     ]
+    },
+    "excerpt": {
+     "parent": "{\"changed_paths\":[\"trace/aliases.yaml\",\"trace/exploration_tree.yaml\",\"trace/merge_log.yaml\"],\"committed\":true,\"conflicts\":[],\"dry_run\":false,\"duplicate_candidates\":[],\"format\":\"ara.merge/v1\",\"imports\":[{\"layer\":\"trace\",\"original\":\"N01\",\"path\":\"trace/exploration_tree.yaml\",\"source_key\":\"zero-cost-sou",
+     "candidate": "{\"changed_paths\":[\"trace/aliases.yaml\",\"trace/exploration_tree.yaml\",\"trace/merge_log.yaml\"],\"committed\":true,\"conflicts\":[],\"dry_run\":false,\"duplicate_candidates\":[],\"format\":\"ara.merge/v1\",\"imports\":[{\"layer\":\"trace\",\"original\":\"N01\",\"path\":\"trace/exploration_tree.yaml\",\"source_key\":\"zero-cost-sou"
+    },
+    "equals_S0": {
+     "parent": true,
+     "candidate": true
+    }
+   },
+   "access": {
+    "ok": true,
+    "violations": []
+   },
+   "failures": []
+  },
+  {
+   "command": "merge first import",
+   "kind": "merge",
+   "fixture": "M",
+   "state": "S2",
+   "parent": {
+    "median_ms": 52.13,
+    "p90_ms": 53.616209,
+    "first_ms": 48.813917,
+    "rss_bytes": 16973824
+   },
+   "candidate": {
+    "median_ms": 52.068917,
+    "p90_ms": 54.77975,
+    "first_ms": 49.305958,
+    "rss_bytes": 16891904
+   },
+   "timing_rounds": [
+    {
+     "parent": {
+      "median_ms": 52.13,
+      "p90_ms": 53.616209,
+      "first_ms": 48.813917,
+      "samples_ms": [
+       51.684333,
+       51.696584,
+       52.114875,
+       53.071584,
+       51.848167,
+       53.894042,
+       52.0615,
+       51.423,
+       53.616209,
+       52.482417,
+       52.13,
+       53.22,
+       51.693292,
+       52.909417,
+       53.1075
+      ]
+     },
+     "candidate": {
+      "median_ms": 52.068917,
+      "p90_ms": 54.77975,
+      "first_ms": 49.305958,
+      "samples_ms": [
+       52.205584,
+       51.585834,
+       54.77975,
+       53.566708,
+       53.642375,
+       59.663916,
+       48.98225,
+       51.94225,
+       50.508041,
+       51.098584,
+       51.512917,
+       51.85375,
+       52.870834,
+       54.352167,
+       52.068917
+      ]
+     }
+    }
+   ],
+   "rss_rounds": [
+    {
+     "parent": {
+      "rss_bytes": 16973824,
+      "samples_bytes": [
+       16973824,
+       17006592,
+       16924672,
+       16924672,
+       16990208
+      ]
+     },
+     "candidate": {
+      "rss_bytes": 16891904,
+      "samples_bytes": [
+       16891904,
+       16891904,
+       16875520,
+       16859136,
+       16891904
+      ]
+     }
+    }
+   ],
+   "verdict": "pass",
+   "output": {
+    "parent_equals_candidate": true,
+    "digest": {
+     "parent": [
+      "4559d24072140be540f863bd322f79a1e696bccb683ff8a3293980fa1ec6964f"
+     ],
+     "candidate": [
+      "4559d24072140be540f863bd322f79a1e696bccb683ff8a3293980fa1ec6964f"
+     ]
+    },
+    "exit": {
+     "parent": [
+      0
+     ],
+     "candidate": [
+      0
+     ]
+    },
+    "excerpt": {
+     "parent": "{\"changed_paths\":[\"trace/aliases.yaml\",\"trace/exploration_tree.yaml\",\"trace/merge_log.yaml\"],\"committed\":true,\"conflicts\":[],\"dry_run\":false,\"duplicate_candidates\":[],\"format\":\"ara.merge/v1\",\"imports\":[{\"layer\":\"trace\",\"original\":\"N01\",\"path\":\"trace/exploration_tree.yaml\",\"source_key\":\"zero-cost-sou",
+     "candidate": "{\"changed_paths\":[\"trace/aliases.yaml\",\"trace/exploration_tree.yaml\",\"trace/merge_log.yaml\"],\"committed\":true,\"conflicts\":[],\"dry_run\":false,\"duplicate_candidates\":[],\"format\":\"ara.merge/v1\",\"imports\":[{\"layer\":\"trace\",\"original\":\"N01\",\"path\":\"trace/exploration_tree.yaml\",\"source_key\":\"zero-cost-sou"
+    },
+    "equals_S0": {
+     "parent": true,
+     "candidate": true
+    }
+   },
+   "access": {
+    "ok": true,
+    "violations": []
+   },
+   "failures": []
+  },
+  {
+   "command": "merge first import",
+   "kind": "merge",
+   "fixture": "M",
+   "state": "S3",
+   "parent": {
+    "median_ms": 62.438334,
+    "p90_ms": 70.444041,
+    "first_ms": 66.285542,
+    "rss_bytes": 16957440
+   },
+   "candidate": {
+    "median_ms": 62.956375,
+    "p90_ms": 70.512,
+    "first_ms": 56.443959,
+    "rss_bytes": 16891904
+   },
+   "timing_rounds": [
+    {
+     "parent": {
+      "median_ms": 62.438334,
+      "p90_ms": 70.444041,
+      "first_ms": 66.285542,
+      "samples_ms": [
+       69.364333,
+       71.148875,
+       67.310416,
+       70.427459,
+       62.438334,
+       70.444041,
+       62.011541,
+       63.169291,
+       55.887458,
+       60.094291,
+       59.44675,
+       62.966666,
+       58.135,
+       60.713458,
+       60.912959
+      ]
+     },
+     "candidate": {
+      "median_ms": 62.956375,
+      "p90_ms": 70.512,
+      "first_ms": 56.443959,
+      "samples_ms": [
+       70.460375,
+       72.4775,
+       69.414125,
+       70.331334,
+       70.512,
+       65.321292,
+       62.124542,
+       56.7685,
+       56.032541,
+       68.239583,
+       60.959375,
+       61.120667,
+       61.332792,
+       61.7815,
+       62.956375
+      ]
+     }
+    }
+   ],
+   "rss_rounds": [
+    {
+     "parent": {
+      "rss_bytes": 16957440,
+      "samples_bytes": [
+       17022976,
+       16957440,
+       16990208,
+       16941056,
+       16957440
+      ]
+     },
+     "candidate": {
+      "rss_bytes": 16891904,
+      "samples_bytes": [
+       16859136,
+       16859136,
+       16891904,
+       16957440,
+       16957440
+      ]
+     }
+    }
+   ],
+   "verdict": "pass",
+   "output": {
+    "parent_equals_candidate": true,
+    "digest": {
+     "parent": [
+      "4559d24072140be540f863bd322f79a1e696bccb683ff8a3293980fa1ec6964f"
+     ],
+     "candidate": [
+      "4559d24072140be540f863bd322f79a1e696bccb683ff8a3293980fa1ec6964f"
+     ]
+    },
+    "exit": {
+     "parent": [
+      0
+     ],
+     "candidate": [
+      0
+     ]
+    },
+    "excerpt": {
+     "parent": "{\"changed_paths\":[\"trace/aliases.yaml\",\"trace/exploration_tree.yaml\",\"trace/merge_log.yaml\"],\"committed\":true,\"conflicts\":[],\"dry_run\":false,\"duplicate_candidates\":[],\"format\":\"ara.merge/v1\",\"imports\":[{\"layer\":\"trace\",\"original\":\"N01\",\"path\":\"trace/exploration_tree.yaml\",\"source_key\":\"zero-cost-sou",
+     "candidate": "{\"changed_paths\":[\"trace/aliases.yaml\",\"trace/exploration_tree.yaml\",\"trace/merge_log.yaml\"],\"committed\":true,\"conflicts\":[],\"dry_run\":false,\"duplicate_candidates\":[],\"format\":\"ara.merge/v1\",\"imports\":[{\"layer\":\"trace\",\"original\":\"N01\",\"path\":\"trace/exploration_tree.yaml\",\"source_key\":\"zero-cost-sou"
+    },
+    "equals_S0": {
+     "parent": true,
+     "candidate": true
+    }
+   },
+   "access": {
+    "ok": true,
+    "violations": []
+   },
+   "failures": []
+  },
+  {
+   "command": "merge 41st import",
+   "kind": "merge",
+   "fixture": "F3",
+   "state": "S0",
+   "parent": {
+    "median_ms": 149.049125,
+    "p90_ms": 151.069167,
+    "first_ms": 158.35675,
+    "rss_bytes": 130433024
+   },
+   "candidate": {
+    "median_ms": 149.436666,
+    "p90_ms": 151.348625,
+    "first_ms": 151.687792,
+    "rss_bytes": 130301952
+   },
+   "timing_rounds": [
+    {
+     "parent": {
+      "median_ms": 149.049125,
+      "p90_ms": 151.069167,
+      "first_ms": 158.35675,
+      "samples_ms": [
+       148.52325,
+       148.035,
+       146.50125,
+       149.049125,
+       149.569083,
+       150.760666,
+       150.679083,
+       145.778,
+       151.069167,
+       146.725708,
+       151.735667,
+       146.783459,
+       147.212959,
+       150.003666,
+       150.701917
+      ]
+     },
+     "candidate": {
+      "median_ms": 149.436666,
+      "p90_ms": 151.348625,
+      "first_ms": 151.687792,
+      "samples_ms": [
+       154.245792,
+       149.436666,
+       150.420541,
+       149.975625,
+       149.606708,
+       148.667459,
+       151.348625,
+       148.968792,
+       146.616375,
+       149.812584,
+       148.73075,
+       148.140584,
+       147.622375,
+       148.333666,
+       149.58925
+      ]
+     }
+    }
+   ],
+   "rss_rounds": [
+    {
+     "parent": {
+      "rss_bytes": 130433024,
+      "samples_bytes": [
+       130351104,
+       130433024,
+       130514944,
+       130383872,
+       130514944
+      ]
+     },
+     "candidate": {
+      "rss_bytes": 130301952,
+      "samples_bytes": [
+       130285568,
+       130367488,
+       130301952,
+       130367488,
+       130301952
+      ]
+     }
+    }
+   ],
+   "verdict": "pass",
+   "output": {
+    "parent_equals_candidate": true,
+    "digest": {
+     "parent": [
+      "648047b21a1be58999aa9da23ab266c9543d601c3272c107e9c39746b4ce7add"
+     ],
+     "candidate": [
+      "648047b21a1be58999aa9da23ab266c9543d601c3272c107e9c39746b4ce7add"
+     ]
+    },
+    "exit": {
+     "parent": [
+      0
+     ],
+     "candidate": [
+      0
+     ]
+    },
+    "excerpt": {
+     "parent": "{\"changed_paths\":[\"trace/aliases.yaml\",\"trace/exploration_tree.yaml\",\"trace/merge_log.yaml\"],\"committed\":true,\"conflicts\":[],\"dry_run\":false,\"duplicate_candidates\":[],\"format\":\"ara.merge/v1\",\"imports\":[{\"layer\":\"trace\",\"original\":\"N01\",\"path\":\"trace/exploration_tree.yaml\",\"source_key\":\"zero-cost-sou",
+     "candidate": "{\"changed_paths\":[\"trace/aliases.yaml\",\"trace/exploration_tree.yaml\",\"trace/merge_log.yaml\"],\"committed\":true,\"conflicts\":[],\"dry_run\":false,\"duplicate_candidates\":[],\"format\":\"ara.merge/v1\",\"imports\":[{\"layer\":\"trace\",\"original\":\"N01\",\"path\":\"trace/exploration_tree.yaml\",\"source_key\":\"zero-cost-sou"
+    }
+   },
+   "access": {
+    "ok": true,
+    "violations": []
+   },
+   "failures": []
+  }
+ ],
+ "build": {
+  "binary_size": {
+   "parent_bytes": 13906016,
+   "candidate_bytes": 14044784,
+   "limit_bytes": 14249672.32,
+   "pass": true
+  },
+  "dependency_tree": {
+   "new_crates": [],
+   "removed_crates": [],
+   "changed_versions": [
+    "ara-cli v0.1.25",
+    "ara-core v0.1.25"
+   ],
+   "pass": true,
+   "note": "a new crate passes only if the stage plan names it; review new_crates"
+  },
+  "not_run": [
+   "clean release build time (reported manually)",
+   "wasm cargo check (run manually)"
+  ]
+ }
+}

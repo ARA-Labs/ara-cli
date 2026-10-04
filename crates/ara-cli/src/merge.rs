@@ -21,6 +21,9 @@ pub struct MergeArgs {
     pub label: Option<String>,
     #[arg(long)]
     pub source_key: Option<String>,
+    /// This destination's own stable fork identity; recorded on first use.
+    #[arg(long)]
+    pub self_key: Option<String>,
     #[arg(long)]
     pub dry_run: bool,
     #[arg(long)]
@@ -196,6 +199,7 @@ pub fn run(root: &Path, args: &MergeArgs) -> Result<Value, AgentError> {
         time: crate::write::now(),
         git: git_inputs.as_ref().map(|inputs| inputs.provenance.clone()),
         predecessor,
+        self_key: args.self_key.clone(),
     };
     let loaded_at = std::time::Instant::now();
     let mut planned_at = None;
