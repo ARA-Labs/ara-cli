@@ -833,11 +833,16 @@ pub fn plan_merge_with_observer(
     };
     let mut known_aliases: BTreeSet<_> = aliases.iter().map(signature).collect();
     for imported in imported_aliases {
-        // Incoming code/evidence is never installed; an inherited alias to an
-        // external path this destination lacks stays only in transported bytes.
-        let external =
-            imported.target.starts_with("src/") || imported.target.starts_with("evidence/");
-        if external && !available.contains(&imported.target) {
+        // Incoming code/evidence and opaque files are never installed; an
+        // inherited alias to a whole file this destination lacks stays only in
+        // the transported bytes, like the source's own mapping aliases below.
+        let file = imported.target.starts_with("src/")
+            || imported.target.starts_with("evidence/")
+            || bytes(theirs, &imported.target).is_some();
+        if file
+            && !available.contains(&imported.target)
+            && !redirects.contains_key(&imported.target)
+        {
             continue;
         }
         if known_aliases.insert(signature(&imported)) {

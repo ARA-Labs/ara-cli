@@ -164,6 +164,13 @@ pub(crate) fn reconcile(context: &Context) -> Result<Origins, MergeError> {
             };
             (destination.to_owned(), mapping, Some(fact))
         };
+        // Only live content can prove an origin. A historical identity was not
+        // live in that source revision (a retired ID, or an external file the
+        // source never installed), and external code/evidence is never
+        // relocated: its identity is its path.
+        if matches!(proving.layer.as_str(), "historical_identity" | "external") {
+            continue;
+        }
         let native = identity::normalize_local(&alias.target);
         let local = context
             .theirs_redirects

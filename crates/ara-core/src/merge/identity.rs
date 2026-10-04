@@ -1580,6 +1580,9 @@ pub(crate) fn allocation(
                 .or_insert(number);
         }
     }
+    // Incoming identities kept as they are must never be reallocated to a
+    // relocated incoming entry.
+    let incoming: BTreeSet<&str> = theirs.iter().map(|e| e.address.as_str()).collect();
     let mut sessions = BTreeMap::new();
     for id in &reserved {
         if let Some((date, sequence)) = session_parts(id) {
@@ -1622,21 +1625,34 @@ pub(crate) fn allocation(
             let (date, _) = session_parts(&entry.address).ok_or_else(|| {
                 MergeError::content("merge.session_identity", "invalid session identity")
             })?;
+            // Skip identities that other incoming sessions keep unchanged.
             let next = sessions.entry(date.into()).or_default();
-            *next = next.checked_add(1).ok_or_else(|| {
-                MergeError::content("merge.id_overflow", "session sequence exhausted")
-            })?;
+            loop {
+                *next = next.checked_add(1).ok_or_else(|| {
+                    MergeError::content("merge.id_overflow", "session sequence exhausted")
+                })?;
+                if !incoming.contains(format!("{date}_{next:03}").as_str()) {
+                    break;
+                }
+            }
             format!("{date}_{next:03}")
         } else if let Some((prefix, _)) = ordinal_parts(&entry.address).filter(|_| {
             !matches!(
                 entry.layer.as_str(),
                 "session_occurrence" | "annotation_occurrence"
-            ) && ours_ids.contains(entry.address.as_str())
+            )
         }) {
-            let next = ordinals.entry(prefix.into()).or_default();
-            *next = next.checked_add(1).ok_or_else(|| {
-                MergeError::content("merge.id_overflow", "append occurrence sequence exhausted")
-            })?;
+            // A positional row's identity is where it is appended: every new
+            // incoming row takes the next position after this destination's
+            // rows, in source order, whether or not its source position is
+            // also used here.
+            let next = match ordinals.get(prefix) {
+                Some(max) => max.checked_add(1).ok_or_else(|| {
+                    MergeError::content("merge.id_overflow", "append occurrence sequence exhausted")
+                })?,
+                None => 0,
+            };
+            ordinals.insert(prefix.into(), next);
             format!("{prefix}/{next}")
         } else {
             entry.address.clone()

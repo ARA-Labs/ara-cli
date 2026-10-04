@@ -288,12 +288,11 @@ fn self_key_is_explicit_recorded_once_and_fail_closed() {
         .unwrap();
     assert_eq!(error.code, "merge.self_origin_missing", "{}", error.message);
     assert_eq!(error.evidence[0].path, "trace/aliases.yaml");
-    // Without any self key these entries are unproven; in this fixture B's
-    // returning session collides and the merge rejects.
-    let error = try_merge(&l.seed, &l.b1, &l.c2, "canonical", 3)
-        .err()
-        .unwrap();
-    assert_eq!(error.code, "merge.identity");
+    // Without any self key these entries are unproven: B's own claim comes
+    // back as a new local entry. A runner must always pass --self-key.
+    let plan = try_merge(&l.seed, &l.b1, &l.c2, "canonical", 3).unwrap();
+    let unproven = materialized(&plan.working);
+    assert_ne!(resolve(&unproven, "canonical:C02").unwrap(), "C77");
 }
 
 #[test]
