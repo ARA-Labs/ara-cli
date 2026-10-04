@@ -17,6 +17,7 @@ Researchers (human or agent) work in private ARA forks. When a result is ready, 
 | [02-contribution-workflow](02-contribution-workflow.md) | `Agent-Native-Research-Artifact` (contracts) and `ara-eval` (runner) | Approved design; staged here pending upstream routing |
 | [03-lara-integration](03-lara-integration.md) | `Agent-Native-Research-Artifact` (bindings), `ara-eval` (adapter), `Lara` (docs only) | Approved design; staged here pending upstream routing |
 | [04-peer-feedback-merge](04-peer-feedback-merge.md) | `ara-cli`: identity reconciliation and provenance transport | Approved; required before native peer imports |
+| [05-jj-version-store](05-jj-version-store.md) | `ara-cli`: internal jj-lib snapshot store, hidden from agents; amends 01's output path | Draft; awaiting review and spike |
 
 Plans 02 and 03 remain staged here, following the precedent of [plan 14](../agent-cli-interface/14-shared-frontier-intentions.md). D1 leaves their eventual repository placement deferred. Plan 04's portable provenance contract belongs to the protocol repository even though its implementation lives in `ara-cli`.
 
