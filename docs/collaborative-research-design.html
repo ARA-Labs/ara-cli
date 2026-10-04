@@ -73,8 +73,8 @@
 <p class="sub">Written in ASD-STE100 Simplified Technical English. Each part gives the function, the reason, and the related Agora design.</p>
 
 <dl class="meta">
-  <dt>Design source</dt><dd><code>plans/collaborative-research/</code>: <code>README.md</code>, <code>01-ara-snapshot.md</code>, <code>02-contribution-workflow.md</code>, <code>03-lara-integration.md</code>, <code>04-peer-feedback-merge.md</code>, at commit <code>5fb8f3f</code>.</dd>
-  <dt>Design status</dt><dd>Approved on 2026-10-03. Not implemented. No commit, paid run, or upstream release is approved.</dd>
+  <dt>Design source</dt><dd><code>plans/collaborative-research/</code>: <code>README.md</code>, <code>01-ara-snapshot.md</code>, <code>02-contribution-workflow.md</code>, <code>03-lara-integration.md</code>, <code>04-peer-feedback-merge.md</code>, at commit <code>a977233</code>.</dd>
+  <dt>Design status</dt><dd>Approved on 2026-10-03, with one exception. The jj-lib version store and the <code>snapshot create/list/export</code> command shape in plan 01 are a revision. The revision waits for a spike and for re-approval. If the spike fails or the developer rejects the revision, the approved directory-only command <code>ara snapshot --output &lt;dir&gt;</code> stands. Not implemented. No commit, paid run, or upstream release is approved.</dd>
   <dt>Related work</dt><dd>Agora (Zhang et al., arXiv 2609.18094). The Agora facts come from two Obsidian notes. I read them with <code>obsidian-cli</code>: <code>Papers/Zhang2026-Agora</code> (written from v2) and <code>Analyses/Agora vs ARA as Research Records</code> (with a v4 check on 2026-10-01). Where v4 changed a figure, this document uses the v4 figure. I did not read the paper directly.</dd>
   <dt>Writing standard</dt><dd>Short sentences (procedures: 20 words maximum; descriptions: 25 words maximum), active voice, one topic for each paragraph. Project terms (fork, snapshot, contribution, merge) are technical names. I did not check each word against the STE dictionary.</dd>
 </dl>
@@ -89,7 +89,7 @@
   <li><a href="#parts">Design parts, reasons, and Agora</a></li>
   <li><a href="#compare">Side-by-side comparison with Agora</a></li>
   <li><a href="#borrow">What the design takes from Agora</a></li>
-  <li><a href="#decisions">Approved decisions D1 to D8</a></li>
+  <li><a href="#decisions">Decisions D1 to D8 and plan 01 decisions</a></li>
   <li><a href="#phases">Phases</a></li>
   <li><a href="#limits">Limits and costs</a></li>
 </ol>
@@ -104,7 +104,7 @@
   <li>Peers can read, reproduce, challenge, or import a contribution before canonical integration.</li>
   <li>One integration project manager (PM) merges selected contributions into canonical <code>logic/</code>. Competing interpretations stay visible.</li>
   <li>Lara can recheck the numbers and the arguments of selected claims. This step is optional.</li>
-  <li><code>ara-cli</code> gets two changes only: the <code>ara snapshot</code> command (plan 01) and a merge fix for peer feedback (plan 04).</li>
+  <li><code>ara-cli</code> gets two changes only: the <code>ara snapshot</code> command (plan 01) and a merge fix for peer feedback (plan 04). Plan 01 proposes a private jj-lib version store behind the command. Agents never see jj. This part is pending re-approval.</li>
   <li>Publication, participant authority, community views, and Lara calls stay outside the CLI. The runner (<code>ara-eval</code>) does these tasks.</li>
 </ul>
 
@@ -140,7 +140,7 @@
   <li><span class="who">Runner:</span> Refresh the briefing. Post an intention. <span class="tag">02</span></li>
   <li><span class="who">Worker tools:</span> Run the experiment in an isolated code workspace.</li>
   <li><span class="who">Continuity writer:</span> Record the result with <code>ara apply</code> and session history.</li>
-  <li><span class="who">Runner:</span> Stop all writers. Run <code>ara snapshot</code>. <span class="tag">01</span></li>
+  <li><span class="who">Runner:</span> Stop all writers. Run <code>ara snapshot create</code>, then <code>ara snapshot export</code>. <span class="tag">01</span></li>
   <li><span class="who">Argument producer and runner:</span> Optionally, write a Lara argument and run the check. <span class="tag">03</span></li>
   <li><span class="who">Runner:</span> Freeze the package. Publish the contribution. Announce it. <span class="tag">02</span></li>
   <li><span class="who">Peers:</span> Read, reproduce, or challenge. Optionally, import it into their own fork. <span class="tag">04</span></li>
@@ -208,18 +208,27 @@
 <!-- 6.2 -->
 <div class="part">
 <h3>6.2 <code>ara snapshot</code>: an exact offline capture <span class="tag">01, D4</span></h3>
-<pre><code>ara -C ./forks/a snapshot --output ./packages/a-0007 --json
+<p class="note">Two command shapes exist in plan 01. The <b>approved</b> shape is one command with a directory output. The <b>revised</b> shape (pending re-approval and a spike) adds a private version store and three subcommands. The capture rules are the same in both.</p>
+<pre><code># Revised (pending re-approval)
+ara -C ./forks/a snapshot create --json                      # capture + record in the store
+ara -C ./forks/a snapshot list --json                        # recorded fingerprints, in parent order
+ara -C ./forks/a snapshot export 3b9c…e41a --output ./packages/a-0007 --json
+
+# Approved baseline (and the fallback if the spike fails)
+ara -C ./forks/a snapshot --output ./packages/a-0007 --json
+
 packages/a-0007/
 ├── ara/            # every captured file, with captured bytes and modes
 └── snapshot.json   # manifest: fingerprint, per-file sha256/size/mode, diagnostics</code></pre>
 <div class="grid3">
   <div class="col what"><h4>What</h4><ul>
-    <li>Copies each nonprivate file into <code>&lt;output&gt;/ara/</code>. Writes <code>snapshot.json</code>.</li>
-    <li>Excludes <code>.git/</code>, <code>.ara/</code>, and temporary paths at all depths.</li>
-    <li>Rejects symlinks and a pending transaction.</li>
-    <li>Writes to a temporary directory, verifies the copy, and reads the source again.</li>
-    <li>Publishes the output with an atomic, no-replace operation.</li>
-    <li>If the source changed, it exposes nothing and returns <code>stale_snapshot_input</code>.</li>
+    <li>Capture (approved): take the artifact lock. Reject a pending transaction. Read each nonprivate file. Exclude <code>.git/</code>, <code>.ara/</code>, and temporary paths at all depths. Reject symlinks.</li>
+    <li>Export (approved publication steps): copy the files into <code>&lt;output&gt;/ara/</code>. Write <code>snapshot.json</code>. Verify the copy and read the source again.</li>
+    <li>Publish the output with an atomic, no-replace operation.</li>
+    <li>If the source changed, expose nothing and return <code>stale_snapshot_input</code>.</li>
+    <li>Revised: <code>create</code> also records the capture in a store at <code>.ara/vcs/</code>, built on <code>jj-lib</code>. <code>create</code> returns <code>recorded: false</code> if the fingerprint is already there.</li>
+    <li>Revised: <code>ara</code> decides what is captured. jj-lib only stores the captured trees, their order, and its operation log.</li>
+    <li>Revised: no jj command, term, identifier, file, or error appears in CLI output, agent docs, or skills. The store has no <code>.jj/</code> directory and never reads user jj or Git configuration.</li>
   </ul></div>
   <div class="col why"><h4>Why</h4><ul>
     <li>The runner is Python. If it copies and hashes the fork itself, it must copy the core capture rules.</li>
@@ -229,14 +238,20 @@ packages/a-0007/
     <li>D-S3: diagnostic errors do not stop capture. Publication policy decides.</li>
     <li>The lock stops only cooperating CLI writers. The caller must stop direct writers. The second read only detects changes.</li>
     <li>A core fix is necessary: <code>load_complete</code> can read nested <code>.ara/</code> or <code>.git/</code> before it excludes them.</li>
+    <li>Why a store: plan 02 keeps every predecessor snapshot, because a later import uses the last imported revision as its base. Directory-only output keeps many near-identical full copies. The store keeps one copy of unchanged contents and the order of the snapshots of one fork.</li>
+    <li>Why not a Git commit as the capture: a commit omits ignored and unstaged files. It also ignores the <code>ara</code> lock and transaction journal, so it can record a half-applied write.</li>
+    <li>The store is a private, derived record. The knowledge files stay authoritative. If <code>.ara/vcs/</code> is deleted, the history is lost but no artifact content is lost. A published package is the publication authority.</li>
+    <li>jj-lib stays in a native-only crate, <code>ara-vcs</code>, behind a small trait. <code>ara-core</code> still builds for wasm. A different store (for example <code>gix</code>) touches only that crate.</li>
   </ul></div>
   <div class="col agora"><h4>Agora</h4><ul>
     <li>Agora freezes work as a Git commit.</li>
     <li>Code work arrives as a Git bundle. The server validates the bundle and commits it again with a server timestamp.</li>
     <li>Metadata-only work arrives as JSON. The server writes the commit.</li>
     <li>Agora App. A lists what a run must pin. v4 reports that the run did not keep evaluator logs and some dependency, data, and model identities.</li>
+    <li>Agora records one commit for each published contribution, not one for each edit. Revised plan 01 does the same (D-S7): it records only on an explicit <code>snapshot create</code>.</li>
   </ul></div>
 </div>
+<div class="callout">Pending decisions on this part (plan 01): D-S4 command shape, D-S6 jj-lib or <code>gix</code> (decided from spike data), D-S7 explicit recording only, D-S8 jj-lib backend, D-S9 retention (keep everything at first), D-S10 read commands at a recorded snapshot (out of scope now). The spike checks that no <code>.jj/</code> appears, that user jj configuration has no effect, that bytes, modes, and the fingerprint round-trip, and that the build and size cost is acceptable.</div>
 </div>
 
 <!-- 6.3 -->
@@ -277,7 +292,7 @@ packages/a-0007/
 <div class="grid3">
   <div class="col what"><h4>What</h4><ul>
     <li>Step 1: Stop the worker and its child processes.</li>
-    <li>Step 2: Run <code>ara snapshot</code>. Verify the manifest.</li>
+    <li>Step 2: Run <code>ara snapshot create</code> and <code>ara snapshot export</code> (or <code>ara snapshot --output</code> in the approved baseline). Verify the manifest.</li>
     <li>Step 3: Freeze declared inputs outside the ARA root. Verify their digests. Do not run them.</li>
     <li>Step 4: Check diagnostics against policy. Bind the result to the intention and the prediction that existed before execution.</li>
     <li>Step 5: Compute the IDs. The coordinator records the contribution, gives a sequence number, announces it, and then acknowledges.</li>
@@ -509,17 +524,31 @@ packages/a-0007/
 <div class="callout">Both systems share a known risk: a visible best result attracts all effort (anchoring). Agora reports one narrow spine of work. The design does not solve anchoring. It reports branch concentration and neglected branches.</div>
 
 <!-- ============================================================ -->
-<h2 id="decisions">9. Approved decisions D1 to D8</h2>
+<h2 id="decisions">9. Decisions D1 to D8 and plan 01 decisions</h2>
 <table>
   <tr><th>ID</th><th>Question</th><th>Decision</th></tr>
   <tr><td>D1</td><td>Where do plans 02 and 03 live?</td><td>Deferred. They stay in <code>ara-cli</code> for now. Each repository keeps its semantic ownership.</td></tr>
   <tr><td>D2</td><td>Who writes canonical?</td><td>Many private contributors, one integration PM.</td></tr>
   <tr><td>D3</td><td>Is Lara on the core path?</td><td>No. Parallel track. Joins at phase 5.</td></tr>
-  <tr><td>D4</td><td><code>ara snapshot</code> details</td><td>Public command, takes the lock, no source-key option, report-only diagnostics, caller stops direct writers.</td></tr>
+  <tr><td>D4</td><td><code>ara snapshot</code> details</td><td>Approved: public command, takes the lock, no source-key option, report-only diagnostics, caller stops direct writers. <b>Revision pending re-approval:</b> an internal jj-lib store under <code>.ara/vcs/</code>, hidden from agents, and the <code>snapshot create/list/export</code> command shape.</td></tr>
   <tr><td>D5</td><td>Merge expected-revision flag?</td><td>No new flag. The PM owns the canonical workspace from review to commit.</td></tr>
   <tr><td>D6</td><td>Peer and canonical feedback</td><td>Support native imports and republication through plan 04.</td></tr>
   <tr><td>D7</td><td>Contribution identity</td><td>Three identities. Parents and verifications use contribution IDs.</td></tr>
   <tr><td>D8</td><td>Lara audit and scope</td><td>Authorized review separate from the producer. Pinned settings. Immutable attachments and map revisions.</td></tr>
+</table>
+<h3>Plan 01 decisions</h3>
+<table>
+  <tr><th>ID</th><th>Question</th><th>Status and recommendation</th></tr>
+  <tr><td>D-S1</td><td>Locking</td><td>Approved. Take the artifact lock. Cooperating CLI writes serialize. The runner stops direct writers.</td></tr>
+  <tr><td>D-S2</td><td>Source key</td><td>Approved. No <code>--source-key</code> on snapshot. The envelope owns source identity.</td></tr>
+  <tr><td>D-S3</td><td>Diagnostic errors</td><td>Approved. Report only. Publication policy decides.</td></tr>
+  <tr><td>D-S5</td><td>Public command</td><td>Approved. A supported CLI command, not Python core bindings.</td></tr>
+  <tr><td>D-S4</td><td>Command shape</td><td>Name <code>snapshot</code> approved. Pending: <code>snapshot create/list/export</code> (recommended) or <code>snapshot [--output]</code> plus <code>list</code> and <code>export</code>. Needs re-approval of D4.</td></tr>
+  <tr><td>D-S6</td><td>jj-lib or <code>gix</code></td><td>Pending. Decide from spike data.</td></tr>
+  <tr><td>D-S7</td><td>When to record history</td><td>Pending. Recommended: only on explicit <code>snapshot create</code>. Per-write history would duplicate the before/after audit history that guarded writes already keep.</td></tr>
+  <tr><td>D-S8</td><td>jj-lib storage backend</td><td>Pending. Recommended: its Git backend, unless the spike shows a lighter supported option.</td></tr>
+  <tr><td>D-S9</td><td>Retention and garbage collection</td><td>Pending. Recommended: keep everything in the first release. A later policy must never prune a snapshot that was published or imported.</td></tr>
+  <tr><td>D-S10</td><td>Read commands at a recorded snapshot</td><td>Pending. Recommended: out of scope now. <code>export</code> covers current needs.</td></tr>
 </table>
 
 <!-- ============================================================ -->
@@ -527,7 +556,7 @@ packages/a-0007/
 <table>
   <tr><th>Phase</th><th>Deliverable</th><th>Condition to continue</th></tr>
   <tr><td>1. Freeze contracts</td><td>Snapshot, contribution, roles, receipts, provenance representation.</td><td>Contracts cover negative results, missing evidence, envelope changes, and feedback histories.</td></tr>
-  <tr><td>2. Capture and publish</td><td><code>ara snapshot</code>; runner publication.</td><td>Two processes publish complete snapshots. Races, restarts, and lost acknowledgments pass.</td></tr>
+  <tr><td>2. Capture and publish</td><td><code>ara snapshot</code> (capture rules first; the jj-lib store after the spike and re-approval); runner publication.</td><td>Two processes publish complete snapshots. Races, restarts, and lost acknowledgments pass. If the store spike fails, the directory-only command ships.</td></tr>
   <tr><td>3. Shared frontier</td><td>Briefing, intentions, receipts.</td><td>A peer sees a result before integration and gets its exact evidence.</td></tr>
   <tr><td>4. Integrate and verify</td><td>Plan 04 merge fix, audited integration, reproduction records.</td><td>All feedback routes keep original identities. No duplicates on replay.</td></tr>
   <tr><td>L1, L2. Lara</td><td>Binding contracts; adapter and scoped views.</td><td>Rejections, contests, and incomplete coverage show correctly without a change to native maturity.</td></tr>
@@ -540,14 +569,15 @@ packages/a-0007/
 <ul>
   <li><b>Nothing is implemented.</b> The current binary (<code>0.1.23</code>) fails the diamond case. Native peer imports stay disabled until plan 04 passes.</li>
   <li><b>Same host only.</b> No network transport, hosted API, or cryptographic participant admission.</li>
-  <li><b>Storage.</b> Snapshots, predecessor packages, and receipts use space. Large evidence must go to pinned object storage.</li>
+  <li><b>Storage.</b> Snapshots, predecessor packages, and receipts use space. Large evidence must go to pinned object storage. The proposed store shares unchanged file contents between snapshots. It has no retention policy in the first release.</li>
+  <li><b>Store dependency.</b> The jj-lib store adds crates, build time, and binary size. Its API changes often. The spike measures the cost. The fallbacks are <code>gix</code> behind the same trait, or the directory-only command.</li>
   <li><b>Read volume.</b> Publication of each attempt adds material to read. The briefing helps only if a full follow-up read stays possible.</li>
   <li><b>Integration bottleneck.</b> One PM can slow synthesis. Raw contributions stay visible during the wait.</li>
   <li><b>Single point of failure.</b> The coordinator is one process. If it fails, the system pauses. It does not show stale peer data as fresh.</li>
   <li><b>Comparison limits.</b> The planned study compares whole stacks against a paper-based Agora reimplementation. It cannot claim an exact reproduction of the unreleased Agora run.</li>
 </ul>
 
-<p class="note" style="margin-top:40px">Generated 2026-10-03 from <code>plans/collaborative-research/</code> at <code>5fb8f3f</code> and the Obsidian notes named above.</p>
+<p class="note" style="margin-top:40px">Generated 2026-10-03 from <code>plans/collaborative-research/</code> at <code>5fb8f3f</code>. Updated 2026-10-03 for the plan 01 version-store revision (<code>a977233</code>). Also based on the Obsidian notes named above.</p>
 </div>
 </body>
 </html>
