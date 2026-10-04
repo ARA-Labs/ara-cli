@@ -279,6 +279,7 @@ Stage PRs merged into `feat/collaborative-ara`:
 |---|---|---|
 | 1a | #100 | `ara.snapshot/v1` contract; zero-cost measurement policy and harness (`scripts/collab-zero-cost.py`). |
 | 1b | #103 | Peer-feedback provenance contract (`docs/collaborative-research/provenance-contract.md`), amended in #104. |
+| 1c | this PR | Plan 02 contribution contracts adopted from `Agent-Native-Research-Artifact` [#39](https://github.com/ARA-Labs/Agent-Native-Research-Artifact/pull/39) at `36e6f89` (`evaluation/collaborative/`). The capture ID reproduces `ara.capture/v1` byte for byte on three real snapshots. |
 | 2a | #101 | `ara snapshot --output`, 0.1.24. Zero-cost PASS (`docs/verification/collaborative-research/phase-2a/`). |
 | 2b | #102 | jj-lib store spike evidence. The spike source sits on the unmerged branch `spike/jj-snapshot-store`. |
 | 4 | #104 | Peer-feedback identity reconciliation and `--self-key`, 0.1.25. Zero-cost PASS (`docs/verification/collaborative-research/phase-4/`). |
@@ -288,8 +289,8 @@ Not delivered, with the blocking decision for each:
 | Stage | Blocked on |
 |---|---|
 | 2c optional store | The developer's re-approval of D-S4, D-S6, and D-S8 against the phase-2b numbers. |
-| 1 (plan 02 contracts), 2–4 runner parts, 3 | Branches and linked PRs in `Agent-Native-Research-Artifact` and `ara-eval`. Creating branches there needs the developer's authorization. The plans forbid moving runner code into `ara-cli`. |
-| L1, L2 | The same cross-repository authorization, in `Agent-Native-Research-Artifact` and `ara-eval`. The local Lara build at `a31299f` is available for the adapter. |
+| 2–4 runner parts, 3 | In progress in `ara-eval` on `feat/collaborative-ara`, authorized by the developer on 2026-10-04. |
+| L1, L2 | In progress: L1 in `Agent-Native-Research-Artifact`, L2 in `ara-eval`. The local Lara build at `a31299f` is the checker pin. |
 | 5 | Stages 2–4 and L2 on the runner side, plus separate budget approval for the provider-backed smoke. |
 | 6 | Stage 5, the reviewed `ara-eval` stack registration, and budget approval for collection. |
 
