@@ -1285,6 +1285,7 @@ fn protected(
             bad = true;
         }
         let names = field_names(&b.fields, &o.fields, &t.fields);
+        let mut changed = Vec::new();
         for name in names {
             if doc.kind == Kind::Session
                 && matches!(name.as_str(), "summary" | "last_turn" | "turn_count")
@@ -1340,18 +1341,38 @@ fn protected(
                 equal_mapped(b.fields.get(name), t.fields.get(name), key, map)
             };
             if !equal_mapped(bf.as_deref(), o.fields.get(name), key, map) || !same_source {
-                report_field(
-                    report,
-                    o,
-                    destination,
-                    name,
-                    "protected_field",
-                    b.fields.get(name),
-                    o.fields.get(name),
-                    t.fields.get(name),
-                );
-                bad = true;
+                changed.push(name);
             }
+        }
+        // Typed field comparison leaves opaque values unrelocated, but the
+        // import that created ours relocated every identity token of the
+        // copied record. An unchanged record therefore still differs in, for
+        // example, a positional reasoning entry's session. Accept the record
+        // only when its exact bytes agree under that same relocation.
+        if !changed.is_empty()
+            && !matches!(doc.kind, Kind::Mutations | Kind::Session)
+            && same_relocated_record(
+                (doc, b),
+                (&ours.docs[&o.path], o),
+                (&theirs.docs[&t.path], t),
+                (&o.path, destination, map),
+                &mut quiet,
+            )
+        {
+            changed.clear();
+        }
+        for name in changed {
+            report_field(
+                report,
+                o,
+                destination,
+                name,
+                "protected_field",
+                b.fields.get(name),
+                o.fields.get(name),
+                t.fields.get(name),
+            );
+            bad = true;
         }
     }
     if bad {
@@ -4541,6 +4562,35 @@ fn inherited_record(
             return Ok(());
         }
     }
+    // Typed fields relocate structured references only, but the import that
+    // produced the incoming copy relocated every identity token of the record
+    // (for example a positional reasoning entry's session and turn). Compare
+    // with that same relocation before declaring a protected change.
+    let relocated = record_text(
+        &theirs.docs[&t.path],
+        t,
+        Some((&o.path, destination, map)),
+        &mut quiet,
+    );
+    if parent == o.parent.as_ref() {
+        if let Some(incoming) = &relocated
+            && record_text(&ours.docs[&o.path], o, None, &mut quiet).as_ref() == Some(incoming)
+        {
+            return Ok(());
+        }
+        if let (Some(incoming), Some((view, b, base_map))) = (&relocated, base)
+            && record_text(
+                &view.docs[&b.path],
+                b,
+                Some((&o.path, destination, base_map)),
+                &mut quiet,
+            )
+            .as_ref()
+                == Some(incoming)
+        {
+            return Ok(());
+        }
+    }
     conflict(
         report,
         &o.path,
@@ -4553,6 +4603,46 @@ fn inherited_record(
         ConflictLocator::Document,
     );
     Err(reject_protected(report))
+}
+/// Protected-history check on exact bytes: the base relocated into this
+/// destination exactly as an import relocates a copied record equals ours, and
+/// the base equals theirs in the source namespace. Only leading indentation is
+/// normalized, because an appended copy is re-indented under its new parent.
+fn same_relocated_record(
+    base: (&Document, &Record),
+    ours: (&Document, &Record),
+    theirs: (&Document, &Record),
+    relocate: (&str, &str, &IdentityMap),
+    report: &mut MergeReport,
+) -> bool {
+    let relocated = record_text(base.0, base.1, Some(relocate), report);
+    relocated.is_some()
+        && relocated == record_text(ours.0, ours.1, None, report)
+        && record_text(base.0, base.1, None, report)
+            == record_text(theirs.0, theirs.1, None, report)
+}
+/// A record's exact source text (nested children included), optionally
+/// relocated exactly as an import relocates a copied record.
+fn record_text(
+    doc: &Document,
+    record: &Record,
+    relocate: Option<(&str, &str, &IdentityMap)>,
+    report: &mut MergeReport,
+) -> Option<String> {
+    let text = match relocate {
+        Some((path, id, map)) => rewrite_source(
+            &doc.text,
+            &doc.parsed.root,
+            record.span.clone(),
+            path,
+            id,
+            map,
+            report,
+        )
+        .ok()?,
+        None => doc.text[record.span.clone()].to_owned(),
+    };
+    Some(reindent(&text, 0).trim_end().to_owned())
 }
 /// Whole-session comparison for a session that arrived through two routes.
 fn inherited_session(

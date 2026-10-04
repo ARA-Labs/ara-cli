@@ -7,6 +7,11 @@ content; unshared foreign revisions cannot remap a held origin
 (`merge.unshared_origin_revision`); `revision` mappings are authoritative;
 replay never re-proves origins; proofs must match the entry's layer and path;
 stricter self-key checks. See [Amendments](#amendments-phase-4-review).
+**Amended in plan 04b (0.1.26):** external code and evidence never prove an
+origin, and a retired native ID proves only the retired identity; inherited
+aliases to any uninstalled whole file are not copied; YAML history compares
+exact relocated bytes; positional rows and same-day sessions relocate without
+collisions. See [Amendments (plan 04b)](#amendments-plan-04b).
 
 ## Problem in one paragraph
 
@@ -100,6 +105,15 @@ the following hold:
    mapping for `O`. Its target is `D`.
 4. When several shared revisions of `K` qualify, the latest one in the incoming
    ledger order supplies the content base. All of them must agree on `D`.
+5. Code and evidence prove nothing: a mapping whose layer is `external`, or
+   `historical_identity` for a `src/` or `evidence/` path (an external file the
+   source mapped but never installed), is skipped, for self origins too. Their
+   identity is their path and they are never relocated.
+6. A `historical_identity` mapping of a native ID (an ID the source retired, for
+   example by an audited rename) proves the retired identity itself: the
+   incoming retired ID maps to the retired original here (for a self origin,
+   the original must still be known here, live or retired), not to either
+   side's redirect target. Live successors are proven by their own aliases.
 
 Everything else is unproven. Unproven entries allocate destination IDs exactly
 as before, so two unrelated `C77` entries stay distinct. Equal text, equal
@@ -156,7 +170,9 @@ Identity and content are reconciled separately.
   destination namespace. Equal records, or a destination-only change, keep
   ours. An incoming change relative to the shared base rejects the whole merge
   as `protected_inherited_entry`, because these layers are immutable history.
-  Without a rebuildable base, any difference rejects the same way. New incoming
+  A record also counts as equal when its exact bytes, relocated exactly as an
+  import relocates a copied record, equal ours (only leading indentation is
+  normalized). Without a rebuildable base, any difference rejects the same way. New incoming
   descendants of an inherited record are still imported under ours' record.
 - When an entry's origin is proven but there is no trusted base, an entry that
   is equal after relocation is a no-op. Any Markdown field difference is a
@@ -241,9 +257,10 @@ evidence with the complete base/ours/theirs bytes of the affected file.
 - Source facts the destination has not imported itself and that no shared
   revision proves. They are transported as `inherited_revision` evidence only.
 - Incoming code and evidence under `src/` and `evidence/` are never installed;
-  they stay `external_read_only` with `allowed: [ours]`. An incoming alias whose
-  target is such a path, absent here, is not copied into `aliases.yaml`; it
-  remains in the transported alias bytes.
+  they stay `external_read_only` with `allowed: [ours]`. Opaque files such as
+  `.gitignore` likewise stay `opaque_file`. An incoming alias whose target is
+  such a whole file, absent here, is not copied into `aliases.yaml`; it remains
+  in the transported alias bytes.
 - Inherited unresolved conflicts arrive as `imported_unresolved` with
   `allowed: []`. Only the owning fork resolves them; the destination receives
   that resolution as `imported_resolution` on a later import.
@@ -273,3 +290,30 @@ The independent review of PR #104 changed these rules before merge:
    ledger validation rejects such records for the recorded self key.
 5. A proof whose mapping layer or path differs from the incoming entry rejects
    with `merge.ambiguous_origin`.
+
+## Amendments (plan 04b)
+
+The ara-eval phase-4 runner found four defects in 0.1.25
+([plan 04b](../../plans/collaborative-research/04b-feedback-merge-defects.md)).
+The fixes change these rules; every fail-closed guarantee above still holds.
+
+1. Proof rules 5 and 6: external code and evidence, including an external
+   file the source mapped but never installed (carried as a historical
+   identity), never prove an origin. Before, a fork's own `evidence/` file was
+   "proven" by canonical's historical mapping and rejected as
+   `merge.ambiguous_origin`. A retired native ID still proves its origin, now
+   as the retired identity itself; 0.1.25 followed both sides' redirects and
+   rejected a self-key round trip of a renamed claim as
+   `merge.ambiguous_origin`.
+2. Not copying inherited aliases to uninstalled targets now covers every whole
+   file (for example `.gitignore`), not only `src/` and `evidence/`.
+3. Protected YAML records, inherited or in the base, also compare equal when
+   their exact relocated bytes agree. Typed field comparison leaves opaque
+   values unrelocated, while the import relocated every identity token of the
+   copied record (a reasoning entry's `session` and `turn`), so unchanged
+   history was rejected. Logic-mutation rows and whole sessions keep their
+   dedicated checks.
+4. Allocation (not a portable record): a new positional row
+   (`<path>#entries/N`, `#mutations/N`, ...) takes the next position after this
+   destination's rows, in source order, which is where it is appended. A
+   relocated session ID skips IDs that other incoming sessions keep.

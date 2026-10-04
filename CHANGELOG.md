@@ -88,6 +88,18 @@ All notable changes to this project are documented here. The format follows
   validate` output is unchanged (#43).
 
 ### Fixed
+- Merge: canonical feedback into a fork that owns `src/` or `evidence/` files
+  no longer fails with `merge.ambiguous_origin`: code and evidence never prove
+  an origin. A self-key round trip of a claim retired by an audited rename now
+  maps the retired ID to the retired original instead of rejecting (#112).
+- Merge: importing several same-day sessions that collide with the
+  destination's sessions no longer fails with `session import collision`.
+- Merge: positional rows such as `trace/pm_reasoning_log.yaml` entries take the
+  position they are appended at, and protected YAML history compares the exact
+  relocated bytes, so reasoning entries written on both sides no longer reject
+  as `protected_inherited_entry` (including on replay) (#112).
+- Merge: an inherited alias to an uninstalled opaque file such as `.gitignore`
+  is no longer copied, so it cannot dangle (`merge.alias_dangling`) (#112).
 - Merge: a canonical import of a fork that had absorbed another fork no longer
   fails with `merge.alias_conflict`, and two imports of the same source
   revision at different times no longer fail with
