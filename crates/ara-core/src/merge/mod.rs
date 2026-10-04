@@ -3,6 +3,7 @@
 //! The portable policy is the proposed agent CLI contract, pending upstream review.
 mod identity;
 mod markdown;
+mod origin;
 mod rewrite;
 mod types;
 mod yaml;
@@ -110,19 +111,17 @@ fn inventory_with_yaml(
     } else {
         Ledger::default()
     };
-    for record in &ledger.records {
-        if let Record::Revision { mappings, .. } = record {
-            for mapping in mappings {
-                if known.insert(mapping.target.clone()) {
-                    entries.push(EntryIdentity {
-                        address: mapping.target.clone(),
-                        layer: "historical_identity".into(),
-                        path: mapping.path.clone(),
-                        numeric: identity::numeric_prefix(&mapping.target),
-                        session: identity::session_parts(&mapping.target).is_some(),
-                        heading: Vec::new(),
-                    });
-                }
+    for fact in ledger.records.iter().filter_map(Record::fact) {
+        for mapping in fact.mappings {
+            if known.insert(mapping.target.clone()) {
+                entries.push(EntryIdentity {
+                    address: mapping.target.clone(),
+                    layer: "historical_identity".into(),
+                    path: mapping.path.clone(),
+                    numeric: identity::numeric_prefix(&mapping.target),
+                    session: identity::session_parts(&mapping.target).is_some(),
+                    heading: Vec::new(),
+                });
             }
         }
     }
@@ -361,144 +360,43 @@ fn validate_candidate_view(
         Ok(Arc::new(Ledger::default()))
     }
 }
-fn foreign_history(
-    ours: &Ledger,
-    incoming: &Ledger,
-    map: &IdentityMap,
-    transport_key: &str,
-) -> Result<Vec<Record>, MergeError> {
-    let mut enrolled: BTreeSet<String> = ours
-        .records
-        .iter()
-        .filter_map(|record| {
-            if let Record::Enrollment { source_key, .. } = record {
-                Some(source_key.clone())
-            } else {
-                None
-            }
-        })
-        .collect();
-    let mut labels: BTreeSet<(String, String)> = ours
-        .records
-        .iter()
-        .filter_map(|record| match record {
-            Record::Enrollment {
-                source_key, label, ..
-            }
-            | Record::Label {
-                source_key, label, ..
-            } => Some((source_key.clone(), label.clone())),
-            _ => None,
-        })
-        .collect();
-    let mut revisions: BTreeMap<(String, String), &Record> = ours
-        .records
-        .iter()
-        .filter_map(|record| {
-            if let Record::Revision {
-                source_key,
-                fingerprint,
-                ..
-            } = record
-            {
-                Some(((source_key.clone(), fingerprint.clone()), record))
-            } else {
-                None
-            }
-        })
-        .collect();
-    let mut transports: BTreeMap<_, _> = ours
-        .records
-        .iter()
-        .filter_map(|record| {
-            if let Record::Transport {
-                source_key,
-                revision,
-                path,
-                ..
-            } = record
-            {
-                Some((
-                    (source_key.as_str(), revision.as_str(), path.as_str()),
-                    record,
-                ))
-            } else {
-                None
-            }
-        })
-        .collect();
-    let mut additions = Vec::new();
-    for record in &incoming.records {
-        match record {
-            Record::Enrollment {
-                source_key, label, ..
-            } if source_key != transport_key => {
-                if enrolled.insert(source_key.clone()) {
-                    labels.insert((source_key.clone(), label.clone()));
-                    additions.push(record.clone());
-                }
-            }
-            Record::Label {
-                source_key, label, ..
-            } if source_key != transport_key => {
-                if labels.insert((source_key.clone(), label.clone())) {
-                    additions.push(record.clone());
-                }
-            }
-            Record::Revision {
-                source_key,
-                fingerprint,
-                mappings,
-                ..
-            } if source_key != transport_key => {
-                let mut remapped = record.clone();
-                if let Record::Revision {
-                    mappings: destination,
-                    ..
-                } = &mut remapped
-                {
-                    for (target, source) in destination.iter_mut().zip(mappings) {
-                        target.target=map.get(&source.target).cloned().ok_or_else(||MergeError::content("merge.foreign_mapping_conflict",format!("foreign historical target `{}` has no provable transport identity",source.target)))?;
-                    }
-                }
-                let key = (source_key.clone(), fingerprint.clone());
-                if let Some(existing) = revisions.get(&key) {
-                    if *existing != &remapped {
-                        return Err(MergeError::content(
-                            "merge.foreign_mapping_conflict",
-                            "the same foreign source revision has differing immutable history or destination mappings",
-                        ));
-                    }
-                } else {
-                    additions.push(remapped);
-                    revisions.insert(key, record);
-                }
-            }
-            Record::Transport {
-                source_key,
-                revision,
-                path,
-                ..
-            } if source_key != transport_key => {
-                let key = (source_key.as_str(), revision.as_str(), path.as_str());
-                if let Some(existing) = transports.get(&key) {
-                    if *existing != record {
-                        return Err(MergeError::content(
-                            "merge.foreign_mapping_conflict",
-                            "foreign source revision has differing exact portable metadata",
-                        ));
-                    }
-                } else {
-                    additions.push(record.clone());
-                    transports.insert(key, record);
-                }
-            }
-            _ => {}
+/// The destination's own source key: explicit, recorded once, never inferred.
+fn self_identity(ledger: &Ledger, options: &MergeOptions) -> Result<Option<String>, MergeError> {
+    let recorded = ledger.self_key();
+    if let Some(key) = &options.self_key {
+        identity::validate_name(key, false)?;
+        if recorded.is_some_and(|recorded| recorded != key) {
+            return Err(MergeError::content(
+                "merge.self_identity_conflict",
+                format!(
+                    "this destination is recorded as `{}`, not `{key}`",
+                    recorded.unwrap_or_default()
+                ),
+            ));
         }
     }
-    Ok(additions)
+    let own = options.self_key.as_deref().or(recorded);
+    if own == Some(options.source_key.as_str()) {
+        return Err(MergeError::content(
+            "merge.self_identity_conflict",
+            "the transport source key cannot be this destination's own key",
+        ));
+    }
+    if let Some(own) = own
+        && ledger.records.iter().any(|record| match record {
+            Record::Enrollment { source_key, .. }
+            | Record::Revision { source_key, .. }
+            | Record::InheritedRevision { source_key, .. } => source_key == own,
+            _ => false,
+        })
+    {
+        return Err(MergeError::content(
+            "merge.self_identity_conflict",
+            format!("this destination already holds `{own}` as an imported or inherited source"),
+        ));
+    }
+    Ok(own.map(str::to_owned))
 }
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MergePhase {
     PlanningFinished,
@@ -616,6 +514,8 @@ pub fn plan_merge_with_observer(
             LOG,
         ));
     }
+    let own_key = self_identity(ledger, options)
+        .map_err(|error| evidence(error, base, ours, theirs, options, LOG))?;
     let mut replay = false;
     let effective_base;
     if let Some(Record::Revision {
@@ -713,13 +613,39 @@ pub fn plan_merge_with_observer(
             return Err(types::reject_protected(&rejected));
         }
     }
+    // A replay re-applies recorded mappings only; it never re-proves origins.
+    let peer_feedback = !replay && origin::needed(ledger, incoming_ledger, &options.source_key);
+    let origins = if peer_feedback {
+        origin::reconcile(&origin::Context {
+            ours: ledger,
+            theirs: incoming_ledger,
+            aliases: &theirs_aliases,
+            theirs_redirects: &theirs_view.redirects,
+            theirs_entries: &theirs_view.entries,
+            ours_entries: &ours_view.entries,
+            ours_redirects: &ours_view.redirects,
+            transport: &options.source_key,
+            own: own_key.as_deref(),
+        })
+        .map_err(|error| evidence(error, &effective_base, ours, theirs, options, ALIASES))?
+    } else {
+        origin::Origins::default()
+    };
     let (mut map, imports) = identity::allocation(
         &effective_view.entries,
         &ours_view.entries,
         &theirs_view.entries,
         ledger,
         options,
-    )?;
+        &origins.targets,
+    )
+    .map_err(|error| {
+        if error.code == "merge.ambiguous_origin" {
+            evidence(error, &effective_base, ours, theirs, options, ALIASES)
+        } else {
+            error
+        }
+    })?;
     let mut projected_ids = ids(&ours_view);
     projected_ids.extend(map.values().cloned());
     let local = ours_view.redirects.clone();
@@ -778,6 +704,21 @@ pub fn plan_merge_with_observer(
     )
     .map_err(|error| evidence(error, &effective_base, ours, theirs, options, ALIASES))?;
     map.local = local;
+    let inherited = if peer_feedback {
+        origin::inherited(
+            &origins,
+            ledger,
+            incoming_ledger,
+            &options.source_key,
+            &theirs_view.entries,
+            &ids(effective_view),
+            &ids(&ours_view),
+            &map,
+            &base.root,
+        )
+    } else {
+        origin::Inherited::default()
+    };
     let mut report = MergeReport::new(options, revision.clone());
     report.imports = imports;
     report.renamed = report
@@ -796,6 +737,7 @@ pub fn plan_merge_with_observer(
         &mut working,
         &mut report,
         &ledger.unresolved(),
+        &inherited,
     )
     .map_err(|e| {
         evidence(
@@ -814,6 +756,7 @@ pub fn plan_merge_with_observer(
         &map,
         &mut working,
         &mut report,
+        &inherited,
     )
     .map_err(|e| evidence(e, &effective_base, ours, theirs, options, "logic/claims.md"))?;
     let handled: BTreeSet<String> = effective_view
@@ -890,6 +833,13 @@ pub fn plan_merge_with_observer(
     };
     let mut known_aliases: BTreeSet<_> = aliases.iter().map(signature).collect();
     for imported in imported_aliases {
+        // Incoming code/evidence is never installed; an inherited alias to an
+        // external path this destination lacks stays only in transported bytes.
+        let external =
+            imported.target.starts_with("src/") || imported.target.starts_with("evidence/");
+        if external && !available.contains(&imported.target) {
+            continue;
+        }
         if known_aliases.insert(signature(&imported)) {
             aliases.push(imported.clone());
             new_aliases.push(imported);
@@ -953,6 +903,14 @@ pub fn plan_merge_with_observer(
     report.conflicts = previous_conflicts;
     report.conflicts.extend(new_conflicts.iter().cloned());
     let mut new_records = Vec::new();
+    if let Some(key) = &options.self_key
+        && ledger.self_key().is_none()
+    {
+        new_records.push(Record::SelfIdentity {
+            source_key: key.clone(),
+            time: options.time.clone(),
+        });
+    }
     if !ledger.records.iter().any(|record|matches!(record,Record::Enrollment{source_key,..}if source_key==&options.source_key)){new_records.push(Record::Enrollment{source_key:options.source_key.clone(),label:options.label.clone(),time:options.time.clone()});}else if history.as_ref().is_none_or(|old|old.label!=options.label){new_records.push(Record::Label{source_key:options.source_key.clone(),label:options.label.clone(),time:options.time.clone()});}
     if !replay {
         for path in [LOG, ALIASES] {
@@ -966,8 +924,15 @@ pub fn plan_merge_with_observer(
             }
         }
         new_records.extend(
-            foreign_history(ledger, incoming_ledger, &map, &options.source_key)
-                .map_err(|error| evidence(error, base, ours, theirs, options, LOG))?,
+            origin::foreign_history(
+                ledger,
+                incoming_ledger,
+                &map,
+                &options.source_key,
+                &revision,
+                own_key.as_deref(),
+            )
+            .map_err(|error| evidence(error, base, ours, theirs, options, LOG))?,
         );
         let mut known_conflicts: BTreeSet<String> =
             report.conflicts.iter().map(|old| old.id.clone()).collect();
@@ -1668,15 +1633,9 @@ fn relocated_choice(
         return Ok(value.clone());
     }
     let mut map = IdentityMap::new();
-    for record in &ledger.records {
-        if let Record::Revision {
-            source_key,
-            mappings,
-            ..
-        } = record
-            && source_key == &item.source_key
-        {
-            for mapping in mappings {
+    for fact in ledger.records.iter().filter_map(Record::fact) {
+        if fact.source_key == item.source_key {
+            for mapping in fact.mappings {
                 map.insert(mapping.original.clone(), mapping.target.clone());
             }
         }
@@ -1725,6 +1684,7 @@ fn relocated_choice(
         time: String::new(),
         git: None,
         predecessor: None,
+        self_key: None,
     };
     let mut report = MergeReport::new(&options, item.source_revision.clone());
     let mut candidate = value.clone();

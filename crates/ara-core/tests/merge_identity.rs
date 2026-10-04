@@ -68,6 +68,7 @@ fn options() -> MergeOptions {
         time: "2026-10-01T12:00:00Z".into(),
         git: None,
         predecessor: None,
+        self_key: None,
     }
 }
 const TREE: &str = "tree:\n  - id: N01\n    type: question\n    title: root\n    children:\n      - id: N02\n        type: experiment\n        title: parent\n        result: base\n        children: []\n";
@@ -1542,4 +1543,201 @@ fn inventory_errors_keep_input_precedence_for_small_and_large_captures() {
         let error = plan_merge(&base, &ours, &theirs, &options()).err().unwrap();
         assert_eq!(error.code, "merge.encoding");
     }
+}
+
+// Plan 04 regression: the same original claim reaches canonical directly and
+// through a peer fork that imported it. Import times differ on every step.
+fn peer_merge(
+    base: &ArtifactSnapshot,
+    ours: &ArtifactSnapshot,
+    theirs: &ArtifactSnapshot,
+    key: &str,
+    time: &str,
+) -> Result<ara_core::merge::MergePlan, ara_core::merge::MergeError> {
+    plan_merge(
+        base,
+        ours,
+        theirs,
+        &MergeOptions {
+            source_key: key.into(),
+            label: key.into(),
+            time: time.into(),
+            git: None,
+            predecessor: None,
+            self_key: None,
+        },
+    )
+}
+fn peer_claim(id: &str, title: &str, statement: &str) -> String {
+    format!(
+        "\n## {id}: {title}\n- **Statement**: {statement}\n- **Status**: hypothesis\n- **Provenance**: user\n- **Dependencies**: []\n"
+    )
+}
+fn headings(snapshot: &ArtifactSnapshot) -> Vec<String> {
+    text(snapshot, "logic/claims.md")
+        .lines()
+        .filter(|line| line.starts_with("## "))
+        .map(str::to_owned)
+        .collect()
+}
+fn ledger_kinds(snapshot: &ArtifactSnapshot, key: &str) -> Vec<String> {
+    let document =
+        ara_core::write::positions::YamlDocument::parse(text(snapshot, "trace/merge_log.yaml"))
+            .unwrap();
+    document.root.to_json().unwrap()["records"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|record| record["source_key"] == key)
+        .map(|record| record["kind"].as_str().unwrap().to_owned())
+        .collect()
+}
+
+#[test]
+fn diamond_peer_feedback_keeps_one_identity_for_the_original_claim() {
+    let seed = base();
+    let mut a1 = seed.clone();
+    put(
+        &mut a1,
+        "logic/claims.md",
+        format!(
+            "{CLAIMS}{}",
+            peer_claim("C77", "fork A finding", "A says x")
+        ),
+    );
+    let mut b1 = seed.clone();
+    put(
+        &mut b1,
+        "logic/claims.md",
+        format!(
+            "{CLAIMS}{}",
+            peer_claim("C77", "fork B finding", "B says y")
+        ),
+    );
+    let step = |base: &ArtifactSnapshot,
+                ours: &ArtifactSnapshot,
+                theirs: &ArtifactSnapshot,
+                key: &str,
+                time: &str| {
+        let plan = peer_merge(base, ours, theirs, key, time).unwrap();
+        assert_eq!(plan.report.exit_code(), 0, "{:?}", plan.report.conflicts);
+        materialized(&plan.working)
+    };
+    let canonical = step(&seed, &seed, &b1, "fork-b", "2026-10-01T10:00:00Z");
+    let canonical = step(&seed, &canonical, &a1, "fork-a", "2026-10-01T11:00:00Z");
+    let b2 = step(&seed, &b1, &a1, "fork-a", "2026-10-01T12:30:00Z");
+    assert_eq!(resolve(&canonical, "fork-a:C77").unwrap(), "C03");
+    assert_eq!(resolve(&canonical, "fork-b:C77").unwrap(), "C02");
+    assert_eq!(resolve(&b2, "fork-a:C77").unwrap(), "C78");
+
+    let returned = peer_merge(&b1, &canonical, &b2, "fork-b", "2026-10-01T13:00:00Z").unwrap();
+    assert_eq!(returned.report.exit_code(), 0);
+    let mapping = returned
+        .report
+        .imports
+        .iter()
+        .find(|mapping| mapping.original == "C78")
+        .unwrap();
+    assert_eq!(mapping.target, "C03");
+    let result = materialized(&returned.working);
+    assert_eq!(
+        headings(&result),
+        [
+            "## C01: shared",
+            "## C02: fork B finding",
+            "## C03: fork A finding"
+        ]
+    );
+    assert_eq!(
+        text(&result, "logic/claims.md"),
+        text(&canonical, "logic/claims.md")
+    );
+    for (address, expected) in [
+        ("fork-a:C77", "C03"),
+        ("fork-b:C77", "C02"),
+        ("fork-b:C78", "C03"),
+        ("fork-b:C01", "C01"),
+    ] {
+        assert_eq!(resolve(&result, address).unwrap(), expected, "{address}");
+    }
+    // The shared fork-a source fact is held once; fork-b gains one import event.
+    assert_eq!(ledger_kinds(&result, "fork-a"), ["enrollment", "revision"]);
+    assert_eq!(
+        ledger_kinds(&result, "fork-b"),
+        [
+            "enrollment",
+            "revision",
+            "transport",
+            "transport",
+            "revision"
+        ]
+    );
+    // Replaying the latest source revision changes nothing.
+    let replay = peer_merge(&b1, &result, &b2, "fork-b", "2026-10-01T14:00:00Z").unwrap();
+    assert_eq!(replay.report.exit_code(), 0);
+    assert!(replay.working.changed_paths().is_empty());
+    assert_eq!(
+        fingerprint(&materialized(&replay.working)),
+        fingerprint(&result)
+    );
+}
+
+#[test]
+fn independent_imports_at_different_times_share_source_facts() {
+    let seed = base();
+    let mut a1 = seed.clone();
+    put(
+        &mut a1,
+        "logic/claims.md",
+        CLAIMS.replace("Statement**: base", "Statement**: A refined"),
+    );
+    let mut b1 = seed.clone();
+    put(
+        &mut b1,
+        "logic/claims.md",
+        format!(
+            "{CLAIMS}{}",
+            peer_claim("C02", "fork B finding", "B says y")
+        ),
+    );
+    let step = |base: &ArtifactSnapshot,
+                ours: &ArtifactSnapshot,
+                theirs: &ArtifactSnapshot,
+                key: &str,
+                time: &str| {
+        let plan = peer_merge(base, ours, theirs, key, time).unwrap();
+        assert_eq!(plan.report.exit_code(), 0, "{:?}", plan.report.conflicts);
+        materialized(&plan.working)
+    };
+    let canonical = step(&seed, &seed, &b1, "fork-b", "2026-10-01T10:00:00Z");
+    let canonical = step(&seed, &canonical, &a1, "fork-a", "2026-10-01T10:00:01Z");
+    // Same source revision, same destination identities, different event time.
+    let b2 = step(&seed, &b1, &a1, "fork-a", "2026-10-01T10:00:09Z");
+    assert_eq!(resolve(&canonical, "fork-a:C01").unwrap(), "C01");
+    assert_eq!(resolve(&b2, "fork-a:C01").unwrap(), "C01");
+    let returned = peer_merge(&b1, &canonical, &b2, "fork-b", "2026-10-01T10:00:20Z").unwrap();
+    assert_eq!(returned.report.exit_code(), 0);
+    let result = materialized(&returned.working);
+    assert_eq!(
+        headings(&result),
+        ["## C01: shared", "## C02: fork B finding"]
+    );
+    assert!(text(&result, "logic/claims.md").contains("Statement**: A refined"));
+    assert_eq!(ledger_kinds(&result, "fork-a"), ["enrollment", "revision"]);
+    // Both import events survive: ours as its own record, B's verbatim in transport.
+    let log = text(&result, "trace/merge_log.yaml");
+    assert!(log.contains("\"time\":\"2026-10-01T10:00:01Z\""));
+    let transported = log
+        .lines()
+        .filter(|line| line.contains("\"kind\":\"transport\""))
+        .map(|line| {
+            let value: serde_json::Value = serde_json::from_str(&line[4..]).unwrap();
+            String::from_utf8(STANDARD.decode(value["bytes"].as_str().unwrap()).unwrap()).unwrap()
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        transported
+            .iter()
+            .any(|ledger| ledger.contains("\"time\":\"2026-10-01T10:00:09Z\""))
+    );
 }

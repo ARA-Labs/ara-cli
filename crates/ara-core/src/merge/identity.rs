@@ -119,6 +119,59 @@ pub(crate) enum Record {
         #[serde(with = "base64_bytes")]
         evidence: Vec<u8>,
     },
+    /// A foreign source fact received through another source's transport.
+    /// It carries no import-event context and never joins the predecessor chain.
+    InheritedRevision {
+        source_key: String,
+        fingerprint: String,
+        #[serde(
+            serialize_with = "serialize_file_payloads",
+            deserialize_with = "unique_file_payloads"
+        )]
+        files: BTreeMap<String, Vec<u8>>,
+        mappings: Vec<ImportMapping>,
+        via_source_key: String,
+        via_revision: String,
+    },
+    /// This destination's own stable source key, recorded once on first use.
+    SelfIdentity {
+        source_key: String,
+        time: String,
+    },
+}
+/// The immutable source fact shared by an import event and an inherited fact.
+#[derive(Clone, Copy)]
+pub(crate) struct Fact<'a> {
+    pub source_key: &'a str,
+    pub fingerprint: &'a str,
+    pub files: &'a BTreeMap<String, Vec<u8>>,
+    pub mappings: &'a [ImportMapping],
+}
+impl Record {
+    pub(crate) fn fact(&self) -> Option<Fact<'_>> {
+        match self {
+            Record::Revision {
+                source_key,
+                fingerprint,
+                files,
+                mappings,
+                ..
+            }
+            | Record::InheritedRevision {
+                source_key,
+                fingerprint,
+                files,
+                mappings,
+                ..
+            } => Some(Fact {
+                source_key,
+                fingerprint,
+                files,
+                mappings,
+            }),
+            _ => None,
+        }
+    }
 }
 mod base64_bytes {
     use base64::{Engine as _, display::Base64Display, engine::general_purpose::STANDARD};
@@ -252,6 +305,12 @@ impl Ledger {
             git,
         })
     }
+    pub(crate) fn self_key(&self) -> Option<&str> {
+        self.records.iter().find_map(|record| match record {
+            Record::SelfIdentity { source_key, .. } => Some(source_key.as_str()),
+            _ => None,
+        })
+    }
     pub(crate) fn revision(&self, key: &str) -> Option<&Record> {
         self.records
             .iter()
@@ -288,7 +347,20 @@ impl Ledger {
         let mut conflicts = BTreeMap::new();
         let mut resolved = BTreeSet::new();
         let mut transports = BTreeMap::new();
+        let mut inherited = BTreeSet::new();
+        let mut vias = Vec::new();
+        let mut own: Option<&str> = None;
+        let mut facts: BTreeMap<(&str, &str), Fact> = BTreeMap::new();
         for record in &self.records {
+            if let Some(fact) = record.fact()
+                && let Some(previous) = facts.insert((fact.source_key, fact.fingerprint), fact)
+                && !same_source_fact(&previous, &fact)
+            {
+                return Err(MergeError::content(
+                    "merge.corrupt_ledger",
+                    "one source revision has differing source bytes or identities",
+                ));
+            }
             match record {
                 Record::Enrollment {
                     source_key, label, ..
@@ -349,24 +421,7 @@ impl Ledger {
                         ));
                     }
                     last_revision.insert(source_key.as_str(), fingerprint.as_str());
-                    let mut origins = BTreeSet::new();
-                    for mapping in mappings {
-                        if mapping.source_key != *source_key || !origins.insert(&mapping.original) {
-                            return Err(MergeError::content(
-                                "merge.corrupt_ledger",
-                                "invalid or duplicate import mapping",
-                            ));
-                        }
-                    }
-                    for path in files.keys() {
-                        safe_path(path)?;
-                        if private_path(path) || path == LOG || path == ALIASES {
-                            return Err(MergeError::content(
-                                "merge.corrupt_ledger",
-                                "revision contains private or recursively nested provenance",
-                            ));
-                        }
-                    }
+                    validate_fact(source_key, files, mappings)?;
                 }
                 Record::Conflict { conflict } => {
                     if let Some(previous) = conflicts.insert(conflict.id.as_str(), conflict)
@@ -461,6 +516,36 @@ impl Ledger {
                         ));
                     }
                 }
+                Record::InheritedRevision {
+                    source_key,
+                    fingerprint,
+                    files,
+                    mappings,
+                    via_source_key,
+                    via_revision,
+                } => {
+                    if !enrolled.contains(source_key.as_str())
+                        || !enrolled.contains(via_source_key.as_str())
+                        || source_key == via_source_key
+                        || !inherited.insert((source_key.as_str(), fingerprint.as_str()))
+                    {
+                        return Err(MergeError::content(
+                            "merge.corrupt_ledger",
+                            "inherited source fact has an unenrolled, self, or duplicate source",
+                        ));
+                    }
+                    validate_fact(source_key, files, mappings)?;
+                    vias.push((via_source_key.as_str(), via_revision.as_str()));
+                }
+                Record::SelfIdentity { source_key, .. } => {
+                    validate_name(source_key, false)?;
+                    if own.replace(source_key.as_str()).is_some() {
+                        return Err(MergeError::content(
+                            "merge.corrupt_ledger",
+                            "destination self identity is recorded more than once",
+                        ));
+                    }
+                }
                 Record::ImportedResolution {
                     conflict_id,
                     evidence,
@@ -513,11 +598,25 @@ impl Ledger {
                 }
             }
         }
-        for ((source, revision, _), _) in transports {
+        if own.is_some_and(|key| revisions.contains_key(key) || enrolled.contains(key)) {
+            return Err(MergeError::content(
+                "merge.corrupt_ledger",
+                "a destination cannot hold its own source key as an imported source",
+            ));
+        }
+        for (source, revision) in vias {
             if !revisions
                 .get(source)
                 .is_some_and(|known| known.contains(revision))
             {
+                return Err(MergeError::content(
+                    "merge.corrupt_ledger",
+                    "inherited source fact names no transport revision",
+                ));
+            }
+        }
+        for ((source, revision, _), _) in transports {
+            if !facts.contains_key(&(source, revision)) {
                 return Err(MergeError::content(
                     "merge.corrupt_ledger",
                     "portable metadata has no associated source revision",
@@ -526,6 +625,42 @@ impl Ledger {
         }
         Ok(())
     }
+}
+fn validate_fact(
+    source_key: &str,
+    files: &BTreeMap<String, Vec<u8>>,
+    mappings: &[ImportMapping],
+) -> Result<(), MergeError> {
+    let mut origins = BTreeSet::new();
+    for mapping in mappings {
+        if mapping.source_key != *source_key || !origins.insert(&mapping.original) {
+            return Err(MergeError::content(
+                "merge.corrupt_ledger",
+                "invalid or duplicate import mapping",
+            ));
+        }
+    }
+    for path in files.keys() {
+        safe_path(path)?;
+        if private_path(path) || path == LOG || path == ALIASES {
+            return Err(MergeError::content(
+                "merge.corrupt_ledger",
+                "revision contains private or recursively nested provenance",
+            ));
+        }
+    }
+    Ok(())
+}
+/// Source facts agree on bytes and on the identity set they cover; mapping
+/// targets are destination-local and are compared by the merger instead.
+pub(crate) fn same_source_fact(left: &Fact, right: &Fact) -> bool {
+    fn identities<'a>(fact: &'a Fact) -> BTreeSet<(&'a str, &'a str, &'a str)> {
+        fact.mappings
+            .iter()
+            .map(|m| (m.original.as_str(), m.layer.as_str(), m.path.as_str()))
+            .collect()
+    }
+    left.files == right.files && identities(left) == identities(right)
 }
 fn bind_label<'a>(
     labels: &mut BTreeMap<&'a str, &'a str>,
@@ -1373,30 +1508,63 @@ pub(crate) fn allocation(
     theirs: &[EntryIdentity],
     ledger: &Ledger,
     options: &MergeOptions,
+    inherited: &BTreeMap<String, String>,
 ) -> Result<(IdentityMap, Vec<ImportMapping>), MergeError> {
     let base_ids: BTreeSet<&str> = base.iter().map(|e| e.address.as_str()).collect();
     let ours_ids: BTreeSet<&str> = ours.iter().map(|e| e.address.as_str()).collect();
     let mut reserved: BTreeSet<String> = ours.iter().map(|e| e.address.clone()).collect();
     let mut previous = BTreeMap::new();
+    let mut received = Vec::new();
     for record in &ledger.records {
-        if let Record::Revision {
-            source_key,
-            mappings,
-            ..
-        } = record
-        {
-            for mapping in mappings {
-                reserved.insert(mapping.target.clone());
-                if source_key == &options.source_key
-                    && previous
-                        .insert(mapping.original.clone(), mapping.target.clone())
-                        .is_some_and(|old| old != mapping.target)
-                {
-                    return Err(MergeError::content(
-                        "merge.corrupt_ledger",
-                        "source import mapping changed across revisions",
-                    ));
-                }
+        let Some(fact) = record.fact() else {
+            continue;
+        };
+        for mapping in fact.mappings {
+            reserved.insert(mapping.target.clone());
+        }
+        if fact.source_key != options.source_key {
+            continue;
+        }
+        // This destination's own import events are authoritative; facts
+        // received through a route only fill identities it never imported.
+        if !matches!(record, Record::Revision { .. }) {
+            received.push(fact);
+            continue;
+        }
+        for mapping in fact.mappings {
+            if previous
+                .insert(mapping.original.clone(), mapping.target.clone())
+                .is_some_and(|old| old != mapping.target)
+            {
+                return Err(MergeError::content(
+                    "merge.corrupt_ledger",
+                    "source import mapping changed across revisions",
+                ));
+            }
+        }
+    }
+    for fact in received {
+        for mapping in fact.mappings {
+            previous
+                .entry(mapping.original.clone())
+                .or_insert_with(|| mapping.target.clone());
+        }
+    }
+    // Proven inherited origins reuse the destination identity; the current
+    // source's own recorded mapping must agree with that proof.
+    for (local, destination) in inherited {
+        match previous.get(local) {
+            Some(old) if old != destination => {
+                return Err(MergeError::content(
+                    "merge.ambiguous_origin",
+                    format!(
+                        "incoming `{local}` has a proven origin at `{destination}` but was previously mapped to `{old}`"
+                    ),
+                ));
+            }
+            Some(_) => {}
+            None => {
+                previous.insert(local.clone(), destination.clone());
             }
         }
     }
@@ -1573,6 +1741,23 @@ pub(crate) fn allocation(
         map.insert(original.clone(), target.clone());
         if let Some(index) = positions.get(&original) {
             imports[*index].target = target;
+        }
+    }
+    if !inherited.is_empty() {
+        let mut owners: BTreeMap<&str, &str> = BTreeMap::new();
+        for mapping in &imports {
+            if let Some(owner) = owners.insert(&mapping.target, &mapping.original)
+                && owner != mapping.original
+                && (inherited.contains_key(owner) || inherited.contains_key(&mapping.original))
+            {
+                return Err(MergeError::content(
+                    "merge.ambiguous_origin",
+                    format!(
+                        "incoming `{owner}` and `{}` both resolve to destination `{}`",
+                        mapping.original, mapping.target
+                    ),
+                ));
+            }
         }
     }
     reference_namespaces(theirs, &mut map)?;

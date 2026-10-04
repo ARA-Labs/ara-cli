@@ -40,6 +40,7 @@ fn options() -> MergeOptions {
         time: "2026-10-01T12:00Z".into(),
         git: None,
         predecessor: None,
+        self_key: None,
     }
 }
 fn staged(working: &WorkingArtifact) -> ArtifactSnapshot {
