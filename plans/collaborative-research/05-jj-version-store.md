@@ -91,7 +91,7 @@ New error codes: `unknown_snapshot` (exit 2, setup class) and `snapshot_store_un
 
 | Plan | Change |
 |---|---|
-| 01 | Steps 1–4, the manifest, the direct-writer precondition, the privacy fix, and the error codes stay. Steps 5–8 become "record, then optionally export". D-S4 changes from `snapshot` to `snapshot create|list|export`. Reopen D4 in the README for review. |
+| 01 | Steps 1–4, the manifest, the direct-writer precondition, the privacy fix, and the error codes stay. Steps 5–8 become "record, then optionally export". D-S4 changes from `snapshot` to `snapshot create`/`list`/`export`. Reopen D4 in the README for review. |
 | 02 | None to the contract. The runner may use `export` to rebuild a predecessor package, but published packages remain the authority it retains. |
 | 03, 04 | None. Plan 04's identity reconciliation is semantic and does not depend on storage. |
 
@@ -136,17 +136,21 @@ Exit criteria: steps 1–2 pass, and the build and size cost is acceptable to th
 
 ## Open decisions
 
-| ID | Question | Recommendation |
-|---|---|---|
-| J1 | Confirm jj-lib after the spike, or fall back to `gix`? | Decide on spike data. |
-| J2 | Record history only on explicit `snapshot create`, or after every committed guarded write too? | Explicit snapshots first. Automatic history adds latency to every write and a failure mode after the write's commit point. |
-| J3 | Command shape: `snapshot create|list|export`, or keep `snapshot [--output]` and add `list`/`export`? | `create|list|export`; one verb per action. |
-| J4 | jj-lib storage backend. | Its Git backend, the production backend, unless the spike shows a lighter supported option. |
-| J5 | Retention and garbage collection of the store. | Keep everything in the first release; add a policy when size data exists. |
-| J6 | Read commands at a recorded snapshot (for example `ara --at <fingerprint> show N12`). | Out of scope now; a later plan. |
+J2, J3, and J5 carry recommendations backed by related work; they await the developer's approval. J1 and J4 need spike data. J6 is a timing question.
+
+| ID | Question | Recommendation | Related-work basis |
+|---|---|---|---|
+| J1 | Confirm jj-lib after the spike, or fall back to `gix`? | Decide on spike data. | None applies. Agora runs Git through a Go service; the tools below wrap Git or a custom store. |
+| J2 | Record history only on explicit `snapshot create`, or after every committed guarded write too? | Explicit snapshots only. If per-write history is needed later, record it at the start of the next command, as jj does, never as part of the write. | Agora records one commit per published contribution, not per edit. The ARA Live Research Manager commits on closure signals. DataLad (`save`, `run`), DVC (`commit`), and MLflow (runs) record at explicit points. jj records automatically, but at the start of the next command ([working-copy docs](https://github.com/jj-vcs/jj/blob/main/docs/working-copy.md)), so recording cannot fail after a write commits. Per-write history would also duplicate the before/after audit history that guarded writes already keep, and `src/`/`evidence/` are written by experiment tools, not by `ara`. |
+| J3 | Command shape: `snapshot create`/`list`/`export`, or keep `snapshot [--output]` and add `list`/`export`? | `snapshot create`/`list`/`export`; one subcommand per action. Changes D-S4 and needs re-approval of README D4. | borg uses `create`/`list`/`extract`; restic uses `backup`/`snapshots`/`restore`; `git stash` uses `push`/`list`/`show`/`apply`. |
+| J4 | jj-lib storage backend. | Its Git backend, the production backend, unless the spike shows a lighter supported option. | None applies; spike data. |
+| J5 | Retention and garbage collection of the store. | Keep everything in the first release. A later policy must never prune a snapshot that was published or imported; other snapshots may be pruned only by an explicit policy. The store does not know publication state, so pruning needs a protected list from the runner. | Agora is append-only and its App. A asks a retained run to pin the full graph. Plan 02 requires every predecessor snapshot. borg and restic prune only by explicit keep policies (`prune`, `forget --keep-*`). |
+| J6 | Read commands at a recorded snapshot (for example `ara --at <fingerprint> show N12`). | Out of scope now; `export` covers current needs. A later plan. | Common (`git show <rev>:<path>`, `jj -r <rev>`; Agora requires reproduction from a fresh checkout), so this decides when, not whether. |
+
+Sources: Agora and the Live Research Manager from the Obsidian notes `Papers/Zhang2026-Agora` and `Analyses/Agora vs ARA as Research Records`; jj from its documentation. The borg, restic, `git stash`, DataLad, DVC, and MLflow behavior is from general knowledge and was not re-checked when this table was written.
 
 ## Next Steps
 
-1. Review this draft and decide J2 and J3.
+1. Review this draft and approve or change the J2, J3, and J5 recommendations.
 2. Run the spike and record its results here.
 3. Revise plan 01 and README D4 for approval before any implementation.
