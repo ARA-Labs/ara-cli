@@ -201,8 +201,9 @@ revision. Without a self key these entries are unproven. A peer revision of a
 source this destination never imported cannot remap an origin it already holds
 (`merge.unshared_origin_revision`); import that revision directly first.
 Forks that own `src/` or `evidence/` files, several same-day sessions, and
-reasoning-log rows appended on both sides round-trip through canonical: only
-live content proves an origin, new positional rows take the next position
+reasoning-log rows appended on both sides round-trip through canonical: code
+and evidence never prove an origin, a retired claim proves only its retired
+identity, new positional rows take the next position
 here, and protected history compares the exact bytes an import would produce.
 Opaque files a fork never wrote (such as `.gitignore`) are reported as
 `opaque_file` without copying their aliases. The record format is frozen in

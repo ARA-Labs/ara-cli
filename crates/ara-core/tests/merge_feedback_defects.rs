@@ -236,3 +236,75 @@ fn an_inherited_alias_to_an_uninstalled_file_is_not_copied() {
     assert!(!text(&result, "trace/aliases.yaml").contains("\"original\":\".gitignore\""));
     assert_eq!(resolve(&result, "fork-a:C77").unwrap(), "C02");
 }
+
+/// Canonical whose own claim C02 was retired by an audited rename to C03.
+fn canonical_with_retired_claim(seed: &ArtifactSnapshot) -> ArtifactSnapshot {
+    let mut canonical = seed.clone();
+    let after = "## C03: canonical claim\n- **Statement**: renamed\n- **Status**: hypothesis\n- **Provenance**: user\n- **Dependencies**: []\n";
+    let before = after.replace("C03:", "C02:");
+    add_claim(&mut canonical, "C03", "canonical claim", "renamed");
+    let mutation = serde_json::json!({"action":"rename","from":"logic/claims.md:C02","to":"logic/claims.md:C03","from_selector":{"document":"logic/claims.md","heading":[],"entry":"C02"},"to_selector":{"document":"logic/claims.md","heading":[],"entry":"C03"},"before":before,"after":after,"session":"2026-10-01_001","turn":1,"signal":"user-directive","provenance":"user","historical_references":[]});
+    let mut session =
+        ara_core::write::positions::YamlDocument::parse(&bare_session("2026-10-01_001", "rename"))
+            .unwrap()
+            .root
+            .to_json()
+            .unwrap();
+    session["logic_revisions"] = serde_json::json!([{"turn":1,"entry":mutation["from_selector"],"field":"entry","before":mutation["before"],"after":mutation["after"],"signal":mutation["signal"],"provenance":mutation["provenance"]}]);
+    put(
+        &mut canonical,
+        "trace/sessions/2026-10-01_001.yaml",
+        ara_core::write::source::render_yaml(&session, 0, "\n"),
+    );
+    put(
+        &mut canonical,
+        "trace/sessions/session_index.yaml",
+        bare_index(&[("2026-10-01_001", "rename")]),
+    );
+    put(
+        &mut canonical,
+        "trace/logic_mutations.yaml",
+        format!("mutations:\n  - {mutation}\n"),
+    );
+    assert_eq!(resolve(&canonical, "C02").unwrap(), "C03");
+    canonical
+}
+
+#[test]
+fn self_origin_round_trip_keeps_a_retired_native_claim() {
+    let seed = seed();
+    let canonical = canonical_with_retired_claim(&seed);
+    let mut b1 = seed.clone();
+    add_claim(&mut b1, "C02", "fork B finding", "B says y");
+    let plan = try_merge_as(&seed, &b1, &canonical, "canonical", 1, "fork-b").unwrap();
+    assert_eq!(plan.report.exit_code(), 0, "{:#?}", plan.report.conflicts);
+    let b2 = materialized(&plan.working);
+    let live = resolve(&b2, "canonical:C03").unwrap();
+    assert_eq!(resolve(&b2, "canonical:C02").unwrap(), live);
+    // Canonical's first import of fork B uses the shared seed as base.
+    let plan = try_merge_as(&seed, &canonical, &b2, "fork-b", 2, "canonical").unwrap();
+    assert_eq!(plan.report.exit_code(), 0, "{:#?}", plan.report.conflicts);
+    let back = materialized(&plan.working);
+    assert_eq!(
+        headings(&back),
+        [
+            "## C01: shared",
+            "## C03: canonical claim",
+            "## C04: fork B finding"
+        ]
+    );
+    assert_eq!(
+        text(&back, "trace/logic_mutations.yaml"),
+        text(&canonical, "trace/logic_mutations.yaml")
+    );
+    assert_eq!(resolve(&back, "C02").unwrap(), "C03");
+    assert_eq!(resolve(&back, &format!("fork-b:{live}")).unwrap(), "C03");
+    // B's retired copy of C02 maps back to canonical's own C02.
+    let retired = plan
+        .report
+        .imports
+        .iter()
+        .find(|mapping| mapping.target == "C02")
+        .map(|mapping| mapping.original.clone());
+    assert!(retired.is_some(), "{:#?}", plan.report.imports);
+}

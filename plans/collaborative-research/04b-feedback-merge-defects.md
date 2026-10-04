@@ -29,9 +29,14 @@ canonical feedback must round-trip without bypasses.
    The fork holds the file, so its import of canonical writes the alias
    `canonical:evidence/a.json`. On the return import, `origin::reconcile`
    treated that historical mapping as a self-origin proof and its layer check
-   rejected the fork's live external entry. A historical identity is not live
-   content and external paths are never relocated, so neither may prove an
-   origin.
+   rejected the fork's live external entry. External paths are never
+   relocated, so neither a live nor a never-installed external mapping may
+   prove an origin. A retired native claim is also a `historical_identity`, but
+   it does need its proof; the review of the first fix found that skipping all
+   historical mappings broke a self-key round trip of a renamed claim
+   (`protected_inherited_entry` on the returning mutation row). 0.1.25 already
+   failed that round trip (`merge.ambiguous_origin`) because the proof followed
+   redirects on both sides.
 2. `identity::allocation` relocates an incoming session that collides with a
    destination session to `max(reserved) + 1`, without reserving the IDs that
    other incoming sessions keep. Canonical `_001`, `_002` into a fork with
@@ -52,9 +57,12 @@ canonical feedback must round-trip without bypasses.
 
 ## Fix
 
-1. `origin::reconcile`: a proving mapping whose layer is `historical_identity`
-   or `external` proves nothing (contract proof rule 5). Allocation then keeps
-   the external path, as for any import.
+1. `origin::reconcile`: a proving mapping of layer `external`, or
+   `historical_identity` for a `src/`/`evidence/` path, proves nothing
+   (contract proof rule 5); allocation keeps the external path. A historical
+   mapping of a native ID proves the retired identity itself: no redirect is
+   followed on either side, and a self origin requires the original to be
+   known here (rule 6).
 2. `identity::allocation`: a relocated session skips IDs held by incoming
    sessions. When nothing collides the targets are unchanged.
 3. a. `identity::allocation`: every new incoming positional row (not in the
@@ -78,7 +86,8 @@ still apply on replay.
 
 1. Regression tests reproducing each defect with the exact 0.1.25 errors:
    `crates/ara-core/tests/merge_feedback_defects.rs` and the real-binary
-   `crates/ara-cli/tests/agent_feedback_defects.rs` (the runner's flow).
+   `crates/ara-cli/tests/agent_feedback_defects.rs` (the runner's flow), plus
+   a self-key round trip of a claim retired by an audited rename (core and CLI).
 2. Fixes above in `merge/origin.rs`, `merge/identity.rs`, `merge/yaml.rs`,
    `merge/mod.rs`.
 3. Contract amendment (plan 04b section), `docs/agent-cli.md`, CHANGELOG, patch

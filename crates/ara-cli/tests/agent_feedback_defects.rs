@@ -261,3 +261,72 @@ fn canonical_feedback_with_external_files_sessions_and_reasoning_round_trips() {
     );
     assert_eq!(resolved(&fork_d, "canonical:C02"), "C02");
 }
+
+#[test]
+fn self_key_round_trip_keeps_a_retired_native_claim() {
+    // Canonical retired its own C02 by an audited rename to C03; a fork with
+    // its own C02 absorbs canonical and returns.
+    let owner = TempDir::new().unwrap();
+    let path = |name: &str| -> PathBuf { owner.path().join(name) };
+    let (seed_dir, canonical, fork_b) = (path("seed"), path("canonical"), path("fork-b"));
+    seed(&seed_dir, true);
+    snapshot(&seed_dir, &canonical);
+    let after = "## C03: canonical claim\n- **Statement**: renamed\n- **Status**: hypothesis\n- **Provenance**: user\n- **Dependencies**: []\n";
+    let before = after.replace("C03:", "C02:");
+    put(
+        &canonical,
+        "logic/claims.md",
+        format!("{CLAIMS}\n{after}").as_bytes(),
+    );
+    let mutation = serde_json::json!({"action":"rename","from":"logic/claims.md:C02","to":"logic/claims.md:C03","from_selector":{"document":"logic/claims.md","heading":[],"entry":"C02"},"to_selector":{"document":"logic/claims.md","heading":[],"entry":"C03"},"before":before,"after":after,"session":"2026-10-01_001","turn":1,"signal":"user-directive","provenance":"user","historical_references":[]});
+    let session = serde_json::json!({
+        "session": {"id": "2026-10-01_001", "date": "2026-10-01", "started": "2026-10-01T10:00:00Z", "last_turn": "2026-10-01T11:00:00Z", "turn_count": 1, "summary": "rename"},
+        "events_logged": [], "ai_actions": [], "claims_touched": [],
+        "logic_revisions": [{"turn":1,"entry":mutation["from_selector"],"field":"entry","before":before,"after":after,"signal":"user-directive","provenance":"user"}],
+        "key_context": [], "open_threads": [], "ai_suggestions_pending": []
+    });
+    put(
+        &canonical,
+        "trace/sessions/2026-10-01_001.yaml",
+        ara_core::write::source::render_yaml(&session, 0, "\n").as_bytes(),
+    );
+    put(
+        &canonical,
+        "trace/sessions/session_index.yaml",
+        b"sessions:\n  - {id: '2026-10-01_001', date: '2026-10-01', summary: rename, turn_count: 1, events_count: 0, claims_touched: [], open_threads: 0}\n",
+    );
+    put(
+        &canonical,
+        "trace/logic_mutations.yaml",
+        format!("mutations:\n  - {mutation}\n").as_bytes(),
+    );
+    assert_eq!(resolved(&canonical, "C02"), "C03");
+    snapshot(&seed_dir, &fork_b);
+    let text = fs::read_to_string(fork_b.join("logic/claims.md")).unwrap()
+        + "\n## C02: fork B finding\n- **Statement**: B says y\n- **Status**: hypothesis\n- **Provenance**: user\n- **Dependencies**: []\n";
+    put(&fork_b, "logic/claims.md", text.as_bytes());
+    let k1 = path("K1");
+    snapshot(&canonical, &k1);
+    import(&fork_b, &seed_dir, &k1, "canonical", "fork-b");
+    let live = resolved(&fork_b, "canonical:C03");
+    assert_eq!(resolved(&fork_b, "canonical:C02"), live);
+    let b2 = path("B2");
+    snapshot(&fork_b, &b2);
+    let mutations = fs::read(canonical.join("trace/logic_mutations.yaml")).unwrap();
+    let report = import(&canonical, &seed_dir, &b2, "fork-b", "canonical");
+    assert_eq!(report["unresolved_count"], 0);
+    assert_eq!(
+        headings(&canonical),
+        [
+            "## C01: shared",
+            "## C03: canonical claim",
+            "## C04: fork B finding"
+        ]
+    );
+    assert_eq!(
+        fs::read(canonical.join("trace/logic_mutations.yaml")).unwrap(),
+        mutations
+    );
+    assert_eq!(resolved(&canonical, "C02"), "C03");
+    assert_eq!(resolved(&canonical, &format!("fork-b:{live}")), "C03");
+}

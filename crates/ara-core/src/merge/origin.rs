@@ -164,19 +164,43 @@ pub(crate) fn reconcile(context: &Context) -> Result<Origins, MergeError> {
             };
             (destination.to_owned(), mapping, Some(fact))
         };
-        // Only live content can prove an origin. A historical identity was not
-        // live in that source revision (a retired ID, or an external file the
-        // source never installed), and external code/evidence is never
-        // relocated: its identity is its path.
-        if matches!(proving.layer.as_str(), "historical_identity" | "external") {
+        // External code and evidence keep their path as identity and are
+        // never relocated, so they prove nothing. That includes an external
+        // file the source mapped but never installed, which its snapshot
+        // carries as a historical identity. Retired native IDs (also
+        // historical identities) still prove their origin.
+        let external = |path: &str| path.starts_with("src/") || path.starts_with("evidence/");
+        if proving.layer == "external"
+            || proving.layer == "historical_identity"
+                && (external(&proving.original) || external(&proving.path))
+        {
             continue;
         }
+        // A retired native ID proves the retired identity itself: it maps to
+        // the retired original here, not to either side's redirect target.
+        let retired = proving.layer == "historical_identity";
+        let destination = if own && retired {
+            if !context
+                .ours_entries
+                .iter()
+                .any(|entry| entry.address == alias.original)
+            {
+                continue;
+            }
+            alias.original.clone()
+        } else {
+            destination
+        };
         let native = identity::normalize_local(&alias.target);
-        let local = context
-            .theirs_redirects
-            .get(&native)
-            .cloned()
-            .unwrap_or(native);
+        let local = if retired {
+            native
+        } else {
+            context
+                .theirs_redirects
+                .get(&native)
+                .cloned()
+                .unwrap_or(native)
+        };
         if let Some(entry) = incoming_live.get(local.as_str()) {
             // The proving mapping must describe the entry it is applied to.
             if !same_place(entry, proving) {

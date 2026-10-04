@@ -89,8 +89,9 @@ All notable changes to this project are documented here. The format follows
 
 ### Fixed
 - Merge: canonical feedback into a fork that owns `src/` or `evidence/` files
-  no longer fails with `merge.ambiguous_origin`; historical and external
-  mappings never prove an origin.
+  no longer fails with `merge.ambiguous_origin`: code and evidence never prove
+  an origin. A self-key round trip of a claim retired by an audited rename now
+  maps the retired ID to the retired original instead of rejecting.
 - Merge: importing several same-day sessions that collide with the
   destination's sessions no longer fails with `session import collision`.
 - Merge: positional rows such as `trace/pm_reasoning_log.yaml` entries take the
