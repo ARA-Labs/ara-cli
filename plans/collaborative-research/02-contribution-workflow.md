@@ -27,8 +27,9 @@ A package binds:
 
 Imports use the merger's stable source-key contract. Fork identity never comes from `--as`, a moving branch, a directory name, or a local node number.
 
-Three identities serve different purposes:
+Four identities serve different purposes:
 - The **native revision** is the `ara.artifact/v1` fingerprint that `ara snapshot` records. It covers nonprivate source and evidence bodies and portable provenance, but not modes.
+- The **capture ID** identifies the exact native package under [01's manifest contract](01-ara-snapshot.md#interface), including full captured modes and the original diagnostic manifest. Use it for snapshot-store lookup and export. A mode-only change can keep the native revision while changing this ID.
 - The **payload digest** binds the complete frozen inventory: native snapshot and manifest, modes, execution metadata, external inputs, and any initial argument/check attachments. It identifies bytes and execution permissions, not a publisher or a scientific claim.
 - The **contribution ID** binds the payload digest and the immutable envelope, including community, publisher, request, source identity, lineage, and native pointers. Parent edges and verification targets use contribution IDs, never a payload digest alone.
 
@@ -36,7 +37,7 @@ A `show --source` digest isn't an artifact revision, and neither is a knowledge-
 
 | Envelope field group | Meaning |
 |---|---|
-| Identity | Schema revision, community/run, publisher, request, source identity, payload digest, contribution ID. |
+| Identity | Schema revision, community/run, publisher, request, source identity, native fingerprint and capture ID, payload digest, contribution ID. |
 | Lineage | Starting native revision, parent contribution IDs, source-qualified native references the work uses. |
 | Research payload | Pointers to the native experiment, question, observation, declared change, pre-execution prediction, measured outcome, and follow-up. Pointers only, never copied bodies. |
 | Package inventory | Sorted relative paths, file digests and modes, external object digests, entry point, configuration, environment identity. |
@@ -53,7 +54,7 @@ Illustrative envelope (digests abbreviated; the versioned schema is frozen in ph
   "publisher": "worker-a",
   "request": "req-a-0007",
   "source_key": "fork-a",
-  "native": {"snapshot": "snapshot.json", "fingerprint": "3b9c…e41a"},
+  "native": {"snapshot": "snapshot.json", "fingerprint": "3b9c…e41a", "capture_id": "sha256:8f21…"},
   "payload_digest": "sha256:9d10…",
   "contribution_id": "sha256:80b2…",
   "lineage": {
@@ -75,7 +76,7 @@ Illustrative envelope (digests abbreviated; the versioned schema is frozen in ph
 
 Rules:
 - The protocol schema defines canonical JSON using RFC 8785. Inventory entries are sorted by root and relative path; parent IDs are sorted and unique. Duplicate paths or ambiguous roots reject. Schema revisions fix all remaining array ordering and digest input fields.
-- Compute `payload_digest = SHA-256("ara.payload/v1\0" || canonical_inventory)`. The inventory binds every required file's bytes by SHA-256, size, and mode, plus every external object's digest and pinned retrieval descriptor. It includes the native snapshot manifest and fingerprint. The inventory excludes itself and the envelope; the coordinator verifies every inventory entry before accepting it.
+- Compute `payload_digest = SHA-256("ara.payload/v1\0" || canonical_inventory)`. The inventory binds every required file's bytes by SHA-256, size, and mode, plus every external object's digest and pinned retrieval descriptor. It includes the native snapshot manifest, capture ID, and fingerprint. The inventory excludes itself and the envelope; the coordinator verifies every inventory entry and the manifest-derived capture ID before accepting it.
 - Compute `contribution_id = SHA-256("ara.contribution/v1\0" || canonical_envelope_without_contribution_id)`. Include `payload_digest` and all other immutable envelope fields. Store digests as `sha256:<lowercase hex>`. Neither hash proves authorship; runner actor permissions bind publisher identity.
 - The envelope sits outside the payload inventory. Publication receipts and later attachments sit outside the immutable contribution. No field or included file may depend on the contribution ID being computed.
 - An accepted `(community, publisher, request)` is bound to one contribution ID. An exact retry returns its original receipt; different metadata or payload under the same request rejects. Changing attribution or lineage changes the contribution ID even if the payload is unchanged.
@@ -222,9 +223,15 @@ Receipt, cache, and channel recovery never edits a frozen contribution. The coor
 
 Evaluation infrastructure doesn't become a production collaboration service in this work. A reusable runner package needs its own owner and deployment decision.
 
+Follow the [stage PR instructions](README.md#stage-pr-instructions). Phase 1 contracts, phase 2 publication, phase 3 frontier, phase 4 integration, phase 5 worker smoke, and phase 6 evaluation each have a separate stage PR targeting `feat/collaborative-ara` here, with linked contract/runtime PRs in their owning repositories. Stage PRs record exact upstream revisions and acceptance evidence; they do not move the runner into the CLI.
+
+The [zero-cost contract](README.md#zero-cost-when-collaboration-is-unused) applies outside collective runs. Installing or using ordinary `ara` must not require the runner, collective skills, community state, or a store-enabled binary. Publication accepts the default directory-only capture path; the runner may opt into retained-store export but cannot make it a prerequisite for ordinary CLI use. Local reads and writes do not discover or contact a coordinator.
+
 ## Engineering checks
 
 - **Unit, integration, and functional tests** target lost contributions, bad identity binding, stale visibility, wrong verdict precedence, malformed inventories, unsafe paths, and interrupted publication or recovery. Changing envelope attribution, lineage, or a native pointer must change the contribution ID; changing payload bytes or modes must change both payload and contribution identity. Retrying an accepted request with changed content rejects.
+- **Capture identity.** Publish two native packages differing only in mode. Their native fingerprints agree, their capture IDs and payload/contribution identities differ, and both retained packages reproduce their original modes. Rebuilding a predecessor by store export uses its capture ID, never a mode-blind fingerprint lookup.
+- **Non-collective use.** Exercise local CLI reads and writes without installed runner/Lara tools or community state, and with the channel unavailable. No discovery, polling, or initialization of those systems may occur. Apply the series zero-cost measurements to shared CLI changes.
 - **Real CLI.** Runner tests invoke the actual CLI for knowledge reads and writes. Reuse native merge regressions, including the new feedback regressions in [04](04-peer-feedback-merge.md), rather than replacing them with mock results.
 - **Smoke fixture**: one seed; two forks with colliding local identities; disjoint experiments; changed executable code and evidence; an incompatible shared-claim edit; an intentional verification; and a synthesis candidate.
 - **Smoke steps**, in order:

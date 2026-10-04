@@ -30,6 +30,7 @@ The relevant implementation is [identity allocation](../../crates/ara-core/src/m
 - Reconcile identity separately from content. Two routes to one original claim may carry different mutable interpretations; they must produce one identity with a normal content conflict when warranted.
 - Preserve fail-closed behavior for forged or ambiguous aliases, changed protected history, unknown ledger fields, source regression, and unproven ancestry.
 - Do not install incoming code or evidence. External-file disposition and package-backed reads follow [02](02-contribution-workflow.md#how-code-and-evidence-conflicts-are-closed).
+- Follow the [zero-cost contract](README.md#zero-cost-when-collaboration-is-unused). No store or runner dependency enters merge. Ordinary commands must not build an origin graph, capture extra evidence bodies, or initialize import metadata just because peer-feedback support is installed.
 
 This work does not introduce automatic semantic deduplication, arbitrary graph repair, concurrent canonical writers, or a network merge service. It establishes identity for entries whose shared origin is supported by validated native provenance and exact retained inputs.
 
@@ -57,7 +58,15 @@ Acceptance includes both peer-to-worker-to-canonical and canonical-to-worker-to-
 
 Protected histories remain immutable after identity relocation. Imported unresolved conflicts retain their source ownership; a destination cannot invent a local resolution for a conflict whose allowed choices are empty. The source owner resolves it, publishes a later revision, and the destination imports that resolution. A clean mutable edit rejected on scientific grounds still needs an explicit audited logic revision, not an identity exception.
 
+### Preserve the ordinary paths
+
+Run origin reconciliation only where the merge or identity operation requires it. An artifact without import metadata keeps its existing lightweight read/write path. Keep ordinary parser loads, guarded-write `ArtifactSnapshot::load`, and lazy identity snapshots separate from `load_complete`. Do not add eager origin-index construction to command dispatch or repeat full ledger decoding for each entry. Validate present provenance with the same fail-closed guarantees; absence of collaboration use is not a reason to trust malformed metadata.
+
+Measure existing single-source and linear-history imports separately from diamonds and canonical feedback. Preserve validated common paths when the inputs do not require multi-route reconciliation. Reuse parsed provenance and mappings within one operation rather than rereading or copying the history for each lookup. The [series measurement gate](README.md#how-the-zero-cost-requirement-is-checked) applies to every affected CLI stage, including default and store-enabled builds.
+
 ### Implementation steps
+
+Phase 1 freezes the portable representation; phase 4 implements and verifies feedback merges. Each stage or declared substage has its own PR targeting `feat/collaborative-ara`, following the [stage PR instructions](README.md#stage-pr-instructions). Link the owning protocol PR and gate the new writer format on reader adoption. Keep the identity and source-history fix coherent; do not ship an intermediate alias-error bypass.
 
 1. Add the demonstrated diamond scenario to `crates/ara-core/tests/merge_identity.rs` and a real-binary case to `crates/ara-cli/tests/agent_merge_identity.rs`. Preserve the failing-before evidence. Add a case where independent imports have different timestamps even when their destination IDs happen to agree.
 2. Specify the source-fact and import-event representation in the owning protocol contract. Inspect all exported API references before changing types. Use the current ledger format where it can preserve these distinctions without reinterpreting history; if a new schema is required, freeze its migration and unknown-field rules before editing persisted records.
@@ -79,6 +88,8 @@ Protected histories remain immutable after identity relocation. Imported unresol
 | Forged alias, ambiguous origin, or protected-history edit | Reject before destination mutation with complete conflict evidence. |
 | External code/evidence and inherited conflicts | Files stay in their frozen payloads; only allowed local acknowledgments succeed; source-owned resolutions arrive through later imports. |
 | Local-Git feedback | Same native identity/content results as directory mode, with Git ancestry checks retained. |
+| No import metadata; ordinary reads and guarded writes | Same behavior and lightweight loads, with no new origin graph, store access, or opaque-body capture. |
+| Existing simple and long linear-history imports | Retain identity/history correctness and pass the predeclared latency, memory, and I/O regression gate against the baseline. |
 
 Run unit, integration, and functional tests plus the actual CLI smoke. Assert native bodies, source-qualified resolution, exact history, conflict candidates, and absence of duplicates, not just successful exit codes. Finish with locked workspace tests, formatting, all-target Clippy, native/wasm checks, and the embedded-viewer verification required by the affected code.
 

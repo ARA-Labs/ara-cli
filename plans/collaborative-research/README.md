@@ -72,6 +72,8 @@ Non-goals for this series:
 | Integration PM | The single project manager that owns canonical `logic/` and merges contributions into it. |
 | Contribution | An immutable record binding a frozen native ARA, declared code/evidence, and its attribution and lineage. Its contribution ID covers the envelope and payload digest. |
 | Envelope | Metadata outside the native ARA: attribution, lineage, inventory, and verification relations. It is bound into the contribution ID, not an alternate knowledge format. |
+| Native revision | The existing `ara.artifact/v1` fingerprint of captured paths and bytes, used by merge. It excludes file modes. |
+| Capture ID | Identity of the exact native snapshot manifest, including file digests and full modes. Store lookup/export uses this ID; it does not identify attribution or external inputs. |
 | Payload digest | Identity of frozen bytes and modes, including the snapshot and declared external inputs. It does not identify attribution or parentage. |
 | Runner | The external process (`ara-eval`) that isolates workspaces, freezes packages, publishes, and builds community views. |
 | Coordinator | The runner's single same-host component that serializes publication and owns the shared channel. |
@@ -138,6 +140,29 @@ Private forks are the recommended path. Same-checkout concurrency stays supporte
 - Each repository owns its own semantics. Portable contribution, source-binding, and role contracts belong to `Agent-Native-Research-Artifact`. Certificate and support/attack semantics belong to `Lara`. `ara-eval` is the first runtime, not the owner of either.
 - Lara runs as a separate pinned process. No Haskell dependency enters the Rust workspace.
 
+### Zero-cost when collaboration is unused
+
+Collaboration is pay-for-use. Existing commands must not initialize or access the snapshot store, contact the runner or Lara, capture extra artifact bodies, create collaboration state, or perform collaboration maintenance. This applies even when `.ara/vcs/` exists, is large, or is corrupt. Explicit snapshot operations may pay for capture, storage, and the existing artifact lock; ordinary reads and writes must not inherit that work.
+
+Keep ordinary parser loads, guarded-write snapshots, and lazy identity resolution separate from complete publication capture. Plan 04 may add work to imports that need origin reconciliation, but must preserve lightweight paths for artifacts without imported provenance and avoid rebuilding the full origin graph for unrelated reads. Required provenance validation stays fail-closed.
+
+Build and installation costs are part of the requirement. The default CLI build and default release distribution must exclude the optional version-store crate and jj-lib dependency graph. Plan 01 uses a non-default `snapshot-store` feature and a separately selected store-enabled distribution. `ara-core`, `ara-wasm`, and the viewer gain no store dependency. The runner, collective skills, and Lara remain separately installed and explicitly invoked.
+
+### How the zero-cost requirement is checked
+
+Before implementation measurements, freeze the fixtures, commands, toolchain, build flags, repetition policy, and noise tolerances in the stage's verification record. Compare each CLI stage against its parent on `feat/collaborative-ara`, and compare the complete series against the recorded pre-series revision. Do not relax tolerances after seeing a regression. A repeatable slowdown or resource increase outside the predeclared measurement noise blocks the stage until fixed or the developer explicitly revises the requirement.
+
+| Surface | Required evidence |
+|---|---|
+| `status`, `ls`, ordinary `show`, `find`, and existing validation/viewer commands | No new store access, collaboration initialization, or extra evidence-body capture. Preserve results and failure behavior. |
+| `add`, `edit`, `apply`, and guarded fixes | No automatic capture after a write or at the start of the next command. Existing transaction and audit guarantees remain intact. |
+| Existing directory and local-Git merge | Compare simple imports and long linear histories as well as the new feedback cases. Correctness alone does not establish unchanged cost. |
+| Missing, corrupt, unreadable, or large `.ara/vcs/` | Ordinary commands remain independent of store contents and availability. Exercise both default and store-enabled binaries. |
+| Runtime | Measure cold and warm command latency, peak memory, and filesystem I/O on a small artifact, large external evidence, and long imported histories. Use access tracing or equivalent instrumentation to prove absence of store work; timings alone are insufficient. |
+| Build and distribution | Inspect default dependency trees and release artifacts; measure clean/incremental build time and binary/download size separately for default and store-enabled builds. Run native and Wasm checks. |
+
+The planned implementation has no performance measurements yet. Shared privacy-filter corrections remain required, but ordinary loads must not be replaced with `load_complete`.
+
 ## Sources
 
 - Current CLI behavior: [agent CLI guide](../../docs/agent-cli.md) and [delivery evidence](../../docs/verification/agent-cli-2026-10-02/README.md).
@@ -161,6 +186,16 @@ The core track proves publication, visibility, and integration. Lara runs in par
 | L2. Lara checks in the frontier | Adapter, review attestations, initial and later checks, individual and composite verdict views. | Shows rejected certificates, same-setting contests, different-setting separation, unreviewed/disputed bindings, incompatible policies, and incomplete map coverage without changing native maturity. |
 | 5. Complete worker loop | Provider-backed runner smoke over the adopted contracts, with all costs recorded. | Approved smoke covers intention → experiment → record → (argument) → publication → peer reuse/import → republication → integration → restart/rebuild. Lara joins here. No paid call without separate budget approval. |
 | 6. Evaluate | The reviewed `ara-eval` collective-stack study. | Dependencies, prompts, policies, tasks, budgets, and held-out evaluation frozen before collection. |
+
+### Stage PR instructions
+
+Each stage in the table above (1, 2, 3, 4, L1, L2, 5, and 6) must be delivered as a separate PR. In this repository, every stage PR targets **`feat/collaborative-ara`**, not `main`. Branch each stage from the updated integration branch after its prerequisites land. If a stage needs smaller reviewable parts, name those substages before implementation and give each its own PR to the same base; do not combine independent stages into one PR.
+
+Cross-repository ownership remains unchanged. Protocol, runner, and Lara work goes through linked PRs in its owning repository, with that repository's base branch stated explicitly rather than assuming this branch exists there. The corresponding stage PR here records adopted contracts, exact dependency revisions, and acceptance evidence. Documentation/evidence-only stage PRs are valid; do not move external runtime code into `ara-cli` to satisfy the workflow.
+
+Every stage PR must identify its phase/substage, prerequisite PRs, changed contracts, tests and actual-program smoke evidence, and applicable zero-cost measurements. A stage is complete only when its required owning-repository changes are adopted and its acceptance checks pass. Functional CLI PRs include the workspace patch bump, local lockfile updates, changelog entry, and required viewer review; documentation-only PRs do not. Keep dependent stages blocked on unmet contracts, while Lara's independent track may proceed in parallel.
+
+This instruction defines the implementation workflow. It does not authorize creating commits or PRs during this documentation revision, merging the integration branch into `main`, choosing a release procedure, or starting paid runs.
 
 ## Alternatives considered
 
@@ -200,8 +235,10 @@ The developer approved these choices on 2026-10-03. Implementation evidence, ups
 | D4 | `ara snapshot` | Adopt [01's decisions](01-ara-snapshot.md#approved-decisions): public command, lock, no source-key option, report-only diagnostics, caller-enforced direct-writer quiescence. Revision pending re-approval: an internal jj-lib store under `.ara/vcs/`, hidden from agents, and the `snapshot create`/`list`/`export` command shape ([01 pending decisions](01-ara-snapshot.md#decisions-pending-re-approval-revision)). |
 | D5 | Merge expected-revision flag | Rely on the integration PM's exclusive workspace ownership across review and commit. A new CLI flag is outside this series. |
 | D6 | Peer and canonical feedback | Support native imports and republication. Include [04](04-peer-feedback-merge.md), not a package-only restriction or provenance bypass. |
-| D7 | Contribution identity | Distinguish native revision, complete payload digest, and an envelope-bound contribution ID. Parents and verification target contribution IDs. |
+| D7 | Contribution identity | Distinguish native merge revision, exact capture ID, complete payload digest, and envelope-bound contribution ID. Parents and verification target contribution IDs; store export targets capture IDs. |
 | D8 | Lara audit and scope | Authorized review separate from producer assertions; pinned setting identities; immutable later attachments and map revisions. Freeze concrete schemas in L1. |
+| D9 | Cost for nonusers | Require runtime and build/install pay-for-use, explicit snapshots only, and the zero-cost acceptance gates above. |
+| D10 | Stage delivery | Separate PR per stage or declared substage; all `ara-cli` PRs target `feat/collaborative-ara`. Cross-repository work uses linked owning-repository PRs. |
 
 ## Review record (2026-10-03)
 
@@ -232,9 +269,11 @@ The behavioral review ran temporary fixtures with the actual `ara 0.1.23` binary
 
 The developer approved the revised design after the behavioral review. This revision changes documentation only; it performs no implementation, commit, paid run, or upstream release.
 
+The later cost review found that `ara.artifact/v1` excludes modes but the proposed store deduplicated and exported by that fingerprint. The current binary reported the same source revision after a mode-only change. Plan 01 now separates exact capture identity from native merge revision, preserves the manifest and full captured modes, and makes storage optional. The developer requested these revisions and the stage-PR workflow. Backend selection and command-shape re-approval still depend on the spike; no performance result for the planned implementation is claimed.
+
 ## Next Steps
 
-1. Freeze the versioned snapshot, contribution, and provenance contracts with their owning repositories.
+1. Freeze the versioned snapshot, contribution, and provenance contracts with their owning repositories, including exact capture IDs and the zero-cost measurement policy.
 2. Implement 01 and 04 with their regressions and real-binary acceptance checks; enable the runner's native peer imports only after 04 passes.
 3. Build 02's complete feedback/recovery loop and 03's parallel Lara track. Keep upstream placement D1 deferred until directed.
-4. Obtain separate paid-smoke and scored-study approvals before provider-backed execution or collection. Do not create commits or PRs without an explicit request.
+4. Follow the stage PR instructions above, targeting `feat/collaborative-ara` for this repository. Obtain separate paid-smoke and scored-study approvals before provider-backed execution or collection. Do not create commits or PRs during this documentation revision.

@@ -143,6 +143,8 @@ Test:
 
 Assert that argument acceptance never upgrades research maturity or stands in for a reproduction receipt. The integrated smoke reads back exact argument inputs and both individual and composite outcomes through the frontier's declared scope. Reuse Lara's own backend conformance cases.
 
+Lara is installed and invoked only by an explicitly selected runner policy. Ordinary CLI reads, writes, validation, and merges must not probe for the checker, load its arguments, or build maps. Test these paths with Lara absent and with unusable checker configuration; they must remain unaffected. A collective policy that requires Lara still fails explicitly when it is unavailable. Apply the [series zero-cost contract](README.md#zero-cost-when-collaboration-is-unused).
+
 ## Alternatives and tradeoffs
 
 - **A custom numerical or argument checker** would duplicate Lara's certificate, polarity, bridge, and attack rules. Reuse Lara as a pinned external process instead.
@@ -153,6 +155,8 @@ Assert that argument acceptance never upgrades research maturity or stands in fo
 - **Evaluation.** Adding Lara to the evaluated collective stack needs a reviewed `ara-eval` update covering stack definition, prompts, dependency locks, coverage policy, and registration, all before collection. Argument production, formalization review, checker runs, and composite views are charged to the collective budget.
 
 ## Next Steps
+
+Follow the [stage PR instructions](README.md#stage-pr-instructions): L1 and L2 are separate stage PRs targeting `feat/collaborative-ara` in this repository, with linked protocol, runner, and any Lara documentation PRs in their owning repositories. Record exact accepted revisions and evidence here; Lara remains outside the Rust dependency graph. Phase 5 integration is a separate PR, not part of either Lara stage.
 
 1. Freeze the binding, review-attestation, setting-registry, attachment, and map-scope schemas in L1 with their protocol owners. Select the actual Lara source and executable pins.
 2. Implement and exercise the adapter and scoped views in L2. Record numerical checks, formalization review, research maturity, and reproduction separately.
