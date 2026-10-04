@@ -2,6 +2,11 @@
 
 **Date:** 2026-10-04
 **Status:** frozen representation for plan 04 ([peer-feedback merge](../../plans/collaborative-research/04-peer-feedback-merge.md)), proposed for adoption by the protocol repository. This file is reviewed before the implementation that follows it.
+**Amended in phase 4 review (PR #104):** self facts prove identity only, never
+content; unshared foreign revisions cannot remap a held origin
+(`merge.unshared_origin_revision`); `revision` mappings are authoritative;
+replay never re-proves origins; proofs must match the entry's layer and path;
+stricter self-key checks. See [Amendments](#amendments-phase-4-review).
 
 ## Problem in one paragraph
 
@@ -66,7 +71,7 @@ only `target` is relocated to this destination's identity.
 |---|---|---|
 | Source history, replay detection, `--base` proof, Git predecessor | yes | **no** |
 | Per-key predecessor-chain validation | yes | no |
-| Stable mapping for a later import of the same key | yes | yes |
+| Stable mapping for a later import of the same key | yes, authoritative | only for originals no `revision` maps |
 | Reserved IDs and historical identities | yes | yes |
 | Origin proof and content base for inherited entries | yes | yes |
 | Association target for `transport` records | yes | yes |
@@ -114,7 +119,7 @@ The self key is resolved before any identity work:
 | No `--self-key`, `K` recorded | Use `K`. |
 | `--self-key K`, a different key recorded | Reject `merge.self_identity_conflict`. |
 | Self key equals the transport `--source-key` | Reject `merge.self_identity_conflict`. |
-| This destination holds `revision` records for its self key | Reject `merge.self_identity_conflict`. |
+| This destination holds an `enrollment`, `revision` or `inherited_revision` for its self key | Reject `merge.self_identity_conflict`. |
 | No self key at all | Self origins are unproven; entries behave as before. |
 
 An incoming entry with local ID `L` maps to this destination's own `O` when:
@@ -122,14 +127,20 @@ An incoming entry with local ID `L` maps to this destination's own `O` when:
 1. The incoming aliases contain `(S, O, T)`, `S` being the self key, with `T`
    resolving through the incoming audited redirects to `L`.
 2. The incoming ledger holds a fact for `(S, F)` whose mapping for `O` targets
-   `T`. The latest such fact in incoming order supplies the content base.
+   `T`. This proves identity only: the fact is asserted by the peer, so it is
+   never used as a content base.
 3. `O`, followed through this destination's audited redirects, still exists
    here as a live entry with the same layer and path as the fact's mapping.
    Otherwise the merge rejects with `merge.self_origin_missing`; a duplicate is
    never allocated.
 
 Self and inherited proofs of one `L` must agree. The current source's previous
-mapping must also agree.
+mapping must also agree. For every proof, the live incoming entry must have the
+proving mapping's layer and path (session files and documents relocate by
+identity); otherwise `merge.ambiguous_origin`.
+
+Replay of the latest transport revision re-applies recorded mappings only and
+never re-runs origin proofs.
 
 ## Content of an inherited entry
 
@@ -147,14 +158,20 @@ Identity and content are reconciled separately.
   as `protected_inherited_entry`, because these layers are immutable history.
   Without a rebuildable base, any difference rejects the same way. New incoming
   descendants of an inherited record are still imported under ours' record.
-- When an entry's origin is proven but no base can be rebuilt, an unchanged
-  entry (after relocation) is a no-op and a changed one is an `identity`
-  conflict.
+- When an entry's origin is proven but there is no trusted base, an entry that
+  is equal after relocation is a no-op. Any Markdown field difference is a
+  `mutable_field` conflict with the base absent; ours is kept and nothing is
+  taken from theirs, including fields only theirs has. YAML differences reject
+  as above.
 
-A self-origin entry uses the same rules, with the incoming fact `(S, F)` as the
-base. That fact's namespace is this destination's own, so its identities map to
-themselves. An edit made only on the other side applies to ours; edits on both
-sides give a normal mutable conflict.
+A self-origin entry never has a trusted base from the incoming side: a peer
+could assert our own current bytes as the base and silently overwrite an
+unpublished edit. Its only trusted base is the transport `--base` snapshot
+(or, in Git mode, the recorded previous revision) when that already contains
+the entry, in which case it is merged through the ordinary base path. The
+first time an own entry comes back changed, it is therefore a conflict that
+keeps ours; later changes merge normally against the previous transport
+revision.
 
 The same base rule applies to a transport-source entry that the destination
 received earlier through a route: the latest `inherited_revision` of the
@@ -186,8 +203,9 @@ appends nothing.
 | `merge.ambiguous_origin` | **new** | One incoming entry is proven to two destination identities; two incoming entries are proven to one destination identity; or a proven origin disagrees with the transport source's previous mapping. |
 | `merge.self_identity_conflict` | **new** | `--self-key` differs from the recorded self key, equals the transport source key, or names a key this destination imported as a source. |
 | `merge.self_origin_missing` | **new** | A live incoming entry is proven to originate here, but its original no longer exists here with the same layer and path. |
+| `merge.unshared_origin_revision` | **new (review)** | An incoming foreign fact this destination does not hold would map an origin it already holds to a different identity. Import that source revision here first. Nothing is written, so later imports of the source are not wedged. |
 | `merge.protected_content` | existing | Protected history changed, including the new conflict kind `protected_inherited_entry`. |
-| `merge.corrupt_ledger` | existing | A malformed `inherited_revision` (unenrolled key, unknown `via` revision, duplicate `(K, F)`, unsafe paths, duplicate originals), or one that disagrees with a `revision` for the same `(K, F)`; more than one `self_identity`; or a `revision` of the recorded self key. |
+| `merge.corrupt_ledger` | existing | A malformed `inherited_revision` (unenrolled key, unknown `via` revision, duplicate `(K, F)`, unsafe paths, duplicate originals), or one that disagrees with a `revision` for the same `(K, F)`; more than one `self_identity`; or an `enrollment`, `revision` or `inherited_revision` of the recorded self key. |
 | `merge.source_regression`, `merge.unproven_source_revision` | existing | Unchanged; they consider `revision` records only. |
 
 All of these reject before the destination is mutated and carry conflict
@@ -235,3 +253,23 @@ evidence with the complete base/ours/theirs bytes of the affected file.
 Origin reconciliation runs only when the incoming ledger holds a fact for a key
 other than the transport key. Otherwise the merger takes the 0.1.23 path:
 no extra inventories, no base reconstruction, no new records.
+
+## Amendments (phase 4 review)
+
+The independent review of PR #104 changed these rules before merge:
+
+1. Self facts are peer assertions. They may prove that an incoming entry is our
+   own (so no duplicate is allocated) but never supply a 3-way base. Without a
+   trusted base, differences conflict and ours is kept.
+2. A peer can hold a source revision this destination never imported. If such a
+   fact would give an origin that this destination already holds a second
+   identity, the merge rejects with `merge.unshared_origin_revision` before
+   writing. `revision` mappings are authoritative for later imports;
+   `inherited_revision` mappings only fill originals no `revision` maps. The
+   0.1.23 path would otherwise have written a ledger on which every later
+   import of that source fails `merge.corrupt_ledger`.
+3. Replay never re-proves origins.
+4. `--self-key` is refused when the key is enrolled or inherited here, and
+   ledger validation rejects such records for the recorded self key.
+5. A proof whose mapping layer or path differs from the incoming entry rejects
+   with `merge.ambiguous_origin`.

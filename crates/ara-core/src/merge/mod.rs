@@ -382,10 +382,17 @@ fn self_identity(ledger: &Ledger, options: &MergeOptions) -> Result<Option<Strin
             "the transport source key cannot be this destination's own key",
         ));
     }
-    if own.is_some_and(|own| ledger.history(own).is_some()) {
+    if let Some(own) = own
+        && ledger.records.iter().any(|record| match record {
+            Record::Enrollment { source_key, .. }
+            | Record::Revision { source_key, .. }
+            | Record::InheritedRevision { source_key, .. } => source_key == own,
+            _ => false,
+        })
+    {
         return Err(MergeError::content(
             "merge.self_identity_conflict",
-            "this destination previously imported its own key as a source",
+            format!("this destination already holds `{own}` as an imported or inherited source"),
         ));
     }
     Ok(own.map(str::to_owned))
@@ -606,14 +613,15 @@ pub fn plan_merge_with_observer(
             return Err(types::reject_protected(&rejected));
         }
     }
-    let peer_feedback = origin::needed(ledger, incoming_ledger, &options.source_key);
+    // A replay re-applies recorded mappings only; it never re-proves origins.
+    let peer_feedback = !replay && origin::needed(ledger, incoming_ledger, &options.source_key);
     let origins = if peer_feedback {
         origin::reconcile(&origin::Context {
             ours: ledger,
             theirs: incoming_ledger,
             aliases: &theirs_aliases,
             theirs_redirects: &theirs_view.redirects,
-            theirs_live: &ids(&theirs_view),
+            theirs_entries: &theirs_view.entries,
             ours_entries: &ours_view.entries,
             ours_redirects: &ours_view.redirects,
             transport: &options.source_key,

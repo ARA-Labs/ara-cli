@@ -45,15 +45,14 @@ fn facts(ledger: &Ledger) -> BTreeMap<(&str, &str), Fact<'_>> {
 #[derive(Default)]
 pub(crate) struct Origins {
     pub targets: BTreeMap<String, String>,
-    /// Incoming local identity -> source fact used as its content base.
+    /// Incoming local identity -> shared foreign fact used as its content base.
+    /// Self origins never have one: their facts are asserted by the peer.
     bases: BTreeMap<String, BaseRef>,
 }
 struct BaseRef {
     key: String,
     fingerprint: String,
     original: String,
-    /// The fact belongs to this destination's own source key.
-    own: bool,
 }
 /// Inputs of origin reconciliation for one merge.
 pub(crate) struct Context<'a> {
@@ -61,18 +60,33 @@ pub(crate) struct Context<'a> {
     pub theirs: &'a Ledger,
     pub aliases: &'a [Alias],
     pub theirs_redirects: &'a BTreeMap<String, String>,
-    pub theirs_live: &'a BTreeSet<String>,
+    pub theirs_entries: &'a [EntryIdentity],
     pub ours_entries: &'a [EntryIdentity],
     pub ours_redirects: &'a BTreeMap<String, String>,
     pub transport: &'a str,
     pub own: Option<&'a str>,
+}
+fn live(entries: &[EntryIdentity]) -> BTreeMap<&str, &EntryIdentity> {
+    entries
+        .iter()
+        .filter(|entry| entry.layer != "historical_identity")
+        .map(|entry| (entry.address.as_str(), entry))
+        .collect()
+}
+/// Session files and their occurrences relocate with the session identity.
+fn same_place(entry: &EntryIdentity, mapping: &ImportMapping) -> bool {
+    entry.layer == mapping.layer
+        && (matches!(
+            entry.layer.as_str(),
+            "document" | "session" | "session_occurrence"
+        ) || entry.path == mapping.path)
 }
 
 /// Apply the proof rules. A foreign origin needs an incoming alias backed by an
 /// incoming fact that this destination holds byte-identically. A self origin
 /// needs an incoming alias under this destination's own key, backed by an
 /// incoming fact of that key, whose original still exists here unchanged in
-/// namespace, layer and path.
+/// namespace, layer and path. Self facts prove identity only, never content.
 pub(crate) fn reconcile(context: &Context) -> Result<Origins, MergeError> {
     let mut origins = Origins::default();
     let held = facts(context.ours);
@@ -85,7 +99,7 @@ pub(crate) fn reconcile(context: &Context) -> Result<Origins, MergeError> {
             continue;
         }
         if Some(fact.source_key) == context.own {
-            mine.push((fact, originals(&fact)));
+            mine.push(originals(&fact));
         } else if let Some(local) = held.get(&(fact.source_key, fact.fingerprint)) {
             if !identity::same_source_fact(&fact, local) {
                 return Err(conflict(format!(
@@ -99,18 +113,20 @@ pub(crate) fn reconcile(context: &Context) -> Result<Origins, MergeError> {
     if shared.is_empty() && mine.is_empty() {
         return Ok(origins);
     }
-    let mut own_proofs: BTreeMap<String, (String, &ImportMapping)> = BTreeMap::new();
+    let incoming_live = live(context.theirs_entries);
+    let present = live(context.ours_entries);
     for alias in context
         .aliases
         .iter()
         .filter(|alias| alias.source_key != context.transport)
     {
-        let (destination, fact, own) = if Some(alias.source_key.as_str()) == context.own {
-            let Some((fact, mapping)) = mine.iter().rev().find_map(|(fact, incoming)| {
+        let own = Some(alias.source_key.as_str()) == context.own;
+        let (destination, proving, base) = if own {
+            let Some(mapping) = mine.iter().rev().find_map(|incoming| {
                 incoming
                     .get(alias.original.as_str())
                     .filter(|mapping| mapping.target == alias.target)
-                    .map(|mapping| (fact, *mapping))
+                    .copied()
             }) else {
                 continue;
             };
@@ -119,16 +135,9 @@ pub(crate) fn reconcile(context: &Context) -> Result<Origins, MergeError> {
                 .get(&alias.original)
                 .cloned()
                 .unwrap_or_else(|| alias.original.clone());
-            let native = identity::normalize_local(&alias.target);
-            let local = context
-                .theirs_redirects
-                .get(&native)
-                .cloned()
-                .unwrap_or(native);
-            own_proofs.insert(local, (destination.clone(), mapping));
-            (destination, fact, true)
+            (destination, mapping, None)
         } else {
-            let mut proven: Option<(&str, &Fact)> = None;
+            let mut proven: Option<(&str, &ImportMapping, &Fact)> = None;
             for (fact, incoming, local) in &shared {
                 if fact.source_key != alias.source_key {
                     continue;
@@ -142,18 +151,18 @@ pub(crate) fn reconcile(context: &Context) -> Result<Origins, MergeError> {
                 if incoming.target != alias.target {
                     continue;
                 }
-                if proven.is_some_and(|(target, _)| target != local.target) {
+                if proven.is_some_and(|(target, _, _)| target != local.target) {
                     return Err(ambiguous(format!(
                         "origin `{}:{}` has different destination identities across revisions",
                         alias.source_key, alias.original
                     )));
                 }
-                proven = Some((&local.target, fact));
+                proven = Some((&local.target, incoming, fact));
             }
-            let Some((destination, fact)) = proven else {
+            let Some((destination, mapping, fact)) = proven else {
                 continue;
             };
-            (destination.to_owned(), fact, false)
+            (destination.to_owned(), mapping, Some(fact))
         };
         let native = identity::normalize_local(&alias.target);
         let local = context
@@ -161,6 +170,29 @@ pub(crate) fn reconcile(context: &Context) -> Result<Origins, MergeError> {
             .get(&native)
             .cloned()
             .unwrap_or(native);
+        if let Some(entry) = incoming_live.get(local.as_str()) {
+            // The proving mapping must describe the entry it is applied to.
+            if !same_place(entry, proving) {
+                return Err(ambiguous(format!(
+                    "incoming `{local}` ({} in {}) is not the `{}` entry its origin `{}:{}` proves",
+                    entry.layer, entry.path, proving.layer, alias.source_key, alias.original
+                )));
+            }
+            // A live incoming entry that originated here must still exist here.
+            if own
+                && !present
+                    .get(destination.as_str())
+                    .is_some_and(|entry| same_place(entry, proving))
+            {
+                return Err(MergeError::content(
+                    "merge.self_origin_missing",
+                    format!(
+                        "incoming `{local}` originated here as `{}:{}`, but `{destination}` no longer exists here with layer `{}` in `{}`",
+                        alias.source_key, alias.original, proving.layer, proving.path
+                    ),
+                ));
+            }
+        }
         if let Some(old) = origins.targets.get(&local)
             && *old != destination
         {
@@ -169,35 +201,12 @@ pub(crate) fn reconcile(context: &Context) -> Result<Origins, MergeError> {
             )));
         }
         origins.targets.insert(local.clone(), destination);
-        origins.bases.entry(local).or_insert_with(|| BaseRef {
-            key: fact.source_key.to_owned(),
-            fingerprint: fact.fingerprint.to_owned(),
-            original: alias.original.clone(),
-            own,
-        });
-    }
-    // A live incoming entry that originated here must still exist here.
-    let present: BTreeMap<&str, &EntryIdentity> = context
-        .ours_entries
-        .iter()
-        .filter(|entry| entry.layer != "historical_identity")
-        .map(|entry| (entry.address.as_str(), entry))
-        .collect();
-    for (local, (destination, mapping)) in &own_proofs {
-        if !context.theirs_live.contains(local) || mapping.layer == "historical_identity" {
-            continue;
-        }
-        if !present
-            .get(destination.as_str())
-            .is_some_and(|entry| entry.layer == mapping.layer && entry.path == mapping.path)
-        {
-            return Err(MergeError::content(
-                "merge.self_origin_missing",
-                format!(
-                    "incoming `{local}` originated here as `{}:{}`, but `{destination}` no longer exists here with layer `{}` in `{}`",
-                    mapping.source_key, mapping.original, mapping.layer, mapping.path
-                ),
-            ));
+        if let Some(fact) = base {
+            origins.bases.entry(local).or_insert_with(|| BaseRef {
+                key: fact.source_key.to_owned(),
+                fingerprint: fact.fingerprint.to_owned(),
+                original: alias.original.clone(),
+            });
         }
     }
     let mut owners = BTreeMap::new();
@@ -249,6 +258,15 @@ pub(crate) fn foreign_history(
         }
     }
     let held = facts(ours);
+    // Every identity this destination already holds per (source, original).
+    let mut known: BTreeMap<(String, String), String> = BTreeMap::new();
+    for fact in ours.records.iter().filter_map(Record::fact) {
+        for mapping in fact.mappings {
+            known
+                .entry((fact.source_key.to_owned(), mapping.original.clone()))
+                .or_insert_with(|| mapping.target.clone());
+        }
+    }
     let mut added: BTreeMap<(String, String), Record> = BTreeMap::new();
     let mut additions = Vec::new();
     for record in &incoming.records {
@@ -299,6 +317,22 @@ pub(crate) fn foreign_history(
                             )));
                         }
                     };
+                    // A fact this destination never imported must not assign a
+                    // second identity to an origin it already holds; that would
+                    // break every later import of the same source.
+                    let slot = (fact.source_key.to_owned(), mapping.original.clone());
+                    if let Some(held) = known.get(&slot)
+                        && *held != target
+                    {
+                        return Err(MergeError::content(
+                            "merge.unshared_origin_revision",
+                            format!(
+                                "origin `{}:{}` is `{held}` here, but the unshared revision {} would map it to `{target}`; import that source revision here first",
+                                fact.source_key, mapping.original, fact.fingerprint
+                            ),
+                        ));
+                    }
+                    known.insert(slot, target.clone());
                     mappings.push(ImportMapping {
                         target,
                         ..mapping.clone()
@@ -464,53 +498,31 @@ pub(crate) fn inherited(
         {
             continue;
         }
-        let (key, fingerprint, original, relocate, own) =
-            if let Some(base) = origins.bases.get(local) {
-                (
-                    base.key.clone(),
-                    base.fingerprint.clone(),
-                    base.original.clone(),
-                    true,
-                    base.own,
-                )
-            } else if let Some(fact) = received.get(local.as_str()) {
-                (
-                    fact.source_key.to_owned(),
-                    fact.fingerprint.to_owned(),
-                    local.clone(),
-                    false,
-                    false,
-                )
-            } else {
-                continue;
-            };
+        let (key, fingerprint, original, relocate) = if let Some(base) = origins.bases.get(local) {
+            (
+                base.key.clone(),
+                base.fingerprint.clone(),
+                base.original.clone(),
+                true,
+            )
+        } else if let Some(fact) = received.get(local.as_str()) {
+            (
+                fact.source_key.to_owned(),
+                fact.fingerprint.to_owned(),
+                local.clone(),
+                false,
+            )
+        } else {
+            continue;
+        };
         let index = *built
             .entry((key.clone(), fingerprint.clone()))
             .or_insert_with(|| {
-                // Our own facts are held only by the incoming side; their
-                // namespace is this destination's own.
-                let (local_fact, ledger) = if own {
-                    (
-                        theirs_facts.get(&(key.as_str(), fingerprint.as_str()))?,
-                        theirs,
-                    )
-                } else {
-                    (held.get(&(key.as_str(), fingerprint.as_str()))?, ours)
-                };
-                let snapshot = super::captured(local_fact.files, root, ledger, &key, &fingerprint);
+                // Only facts this destination holds itself can be a base.
+                let local_fact = held.get(&(key.as_str(), fingerprint.as_str()))?;
+                let snapshot = super::captured(local_fact.files, root, ours, &key, &fingerprint);
                 let view = super::live_inventory(&snapshot).ok()?;
-                let mut destination = if own {
-                    let mut identity: IdentityMap = local_fact
-                        .mappings
-                        .iter()
-                        .map(|mapping| (mapping.original.clone(), mapping.original.clone()))
-                        .collect::<BTreeMap<_, _>>()
-                        .into();
-                    let _ = identity::reference_namespaces(&view.entries, &mut identity);
-                    identity
-                } else {
-                    fact_map(local_fact, &view.entries)
-                };
+                let mut destination = fact_map(local_fact, &view.entries);
                 destination.local = map.local.clone();
                 destination.references = map.references.clone();
                 let markdown = if relocate {

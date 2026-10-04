@@ -194,9 +194,12 @@ different key or a key equal to `--source-key` rejects with
 `merge.self_identity_conflict`. An incoming alias under the self key, backed by
 an incoming source revision of that key, maps the entry back to the original
 here. The original must still exist with the same layer and path, otherwise
-`merge.self_origin_missing`. The incoming fact is the 3-way base, so an edit
-made only on the other side applies. Without a self key these entries are
-unproven. The record format is frozen in
+`merge.self_origin_missing`. The incoming fact proves identity only, never
+content: the first time an own entry comes back changed it is a mutable
+conflict that keeps ours; later changes merge against the previous transport
+revision. Without a self key these entries are unproven. A peer revision of a
+source this destination never imported cannot remap an origin it already holds
+(`merge.unshared_origin_revision`); import that revision directly first. The record format is frozen in
 [the provenance contract](collaborative-research/provenance-contract.md).
 
 `merge resolve <conflict> --take ours|theirs|base` requires an owning session,

@@ -1077,6 +1077,7 @@ fn merge_entry(
     report: &mut MergeReport,
     comparison: &mut MergeReport,
     patches: &mut Vec<Patch>,
+    untrusted_base: bool,
 ) -> Result<(), MergeError> {
     let (ours_doc, ours_entry) = ours;
     let (theirs_doc, theirs_entry) = theirs;
@@ -1133,7 +1134,9 @@ fn merge_entry(
             continue;
         }
         let writable = t.or(b).is_none_or(|(_, atom)| atom.writable);
-        if incoming_equal(o, b, mapped_base.as_deref(), map)? && writable {
+        // Without a trusted base nothing proves which side changed: any
+        // difference stays a conflict and ours is kept.
+        if !untrusted_base && incoming_equal(o, b, mapped_base.as_deref(), map)? && writable {
             let replacement = if let Some((doc, atom)) = t {
                 rewrite_atom(doc, theirs_entry, atom, path, map, report)?
             } else {
@@ -1423,6 +1426,7 @@ pub(crate) fn apply(
                         report,
                         &mut comparison,
                         &mut patches,
+                        false,
                     )?,
                     (None, None) => {
                         skipped_base = Some(entry.range.clone());
@@ -1495,6 +1499,7 @@ pub(crate) fn apply(
                         report,
                         &mut comparison,
                         &mut patches,
+                        false,
                     )?;
                 } else if let Some((base_doc, base_entry)) = inherited
                     .markdown(&entry.address)
@@ -1512,25 +1517,26 @@ pub(crate) fn apply(
                         report,
                         &mut comparison,
                         &mut patches,
+                        false,
+                    )?;
+                } else if inherited.contains(&entry.address) {
+                    // A proven origin without a trusted base (always for self
+                    // origins): equal after relocation is a no-op; any field
+                    // difference is a mutable conflict that keeps ours.
+                    merge_entry(
+                        &path,
+                        None,
+                        (ours_doc, our_entry),
+                        (theirs_doc, entry),
+                        map,
+                        report,
+                        &mut comparison,
+                        &mut patches,
+                        true,
                     )?;
                 } else {
-                    // A proven origin without a rebuildable base must agree after
-                    // relocation; unproven colliding identities compare exactly.
-                    let differs = if inherited.contains(&entry.address) {
-                        comparison.rewritten.clear();
-                        comparison.needs_review.clear();
-                        ours_doc.full(our_entry)
-                            != theirs_doc.rewrite(
-                                entry.range.clone(),
-                                &path,
-                                &entry.address,
-                                map,
-                                &mut comparison,
-                            )?
-                    } else {
-                        ours_doc.full(our_entry) != theirs_doc.full(entry)
-                    };
-                    if differs {
+                    // Unproven colliding identities compare exactly.
+                    if ours_doc.full(our_entry) != theirs_doc.full(entry) {
                         entry_conflict(
                             &path,
                             target,

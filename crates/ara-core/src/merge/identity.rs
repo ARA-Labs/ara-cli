@@ -598,10 +598,10 @@ impl Ledger {
                 }
             }
         }
-        if own.is_some_and(|key| revisions.contains_key(key)) {
+        if own.is_some_and(|key| revisions.contains_key(key) || enrolled.contains(key)) {
             return Err(MergeError::content(
                 "merge.corrupt_ledger",
-                "a destination cannot import its own source key",
+                "a destination cannot hold its own source key as an imported source",
             ));
         }
         for (source, revision) in vias {
@@ -1514,19 +1514,40 @@ pub(crate) fn allocation(
     let ours_ids: BTreeSet<&str> = ours.iter().map(|e| e.address.as_str()).collect();
     let mut reserved: BTreeSet<String> = ours.iter().map(|e| e.address.clone()).collect();
     let mut previous = BTreeMap::new();
-    for fact in ledger.records.iter().filter_map(Record::fact) {
+    let mut received = Vec::new();
+    for record in &ledger.records {
+        let Some(fact) = record.fact() else {
+            continue;
+        };
         for mapping in fact.mappings {
             reserved.insert(mapping.target.clone());
-            if fact.source_key == options.source_key
-                && previous
-                    .insert(mapping.original.clone(), mapping.target.clone())
-                    .is_some_and(|old| old != mapping.target)
+        }
+        if fact.source_key != options.source_key {
+            continue;
+        }
+        // This destination's own import events are authoritative; facts
+        // received through a route only fill identities it never imported.
+        if !matches!(record, Record::Revision { .. }) {
+            received.push(fact);
+            continue;
+        }
+        for mapping in fact.mappings {
+            if previous
+                .insert(mapping.original.clone(), mapping.target.clone())
+                .is_some_and(|old| old != mapping.target)
             {
                 return Err(MergeError::content(
                     "merge.corrupt_ledger",
                     "source import mapping changed across revisions",
                 ));
             }
+        }
+    }
+    for fact in received {
+        for mapping in fact.mappings {
+            previous
+                .entry(mapping.original.clone())
+                .or_insert_with(|| mapping.target.clone());
         }
     }
     // Proven inherited origins reuse the destination identity; the current

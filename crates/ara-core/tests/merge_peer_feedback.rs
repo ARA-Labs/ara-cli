@@ -456,3 +456,62 @@ fn artifacts_without_import_metadata_take_the_unchanged_path() {
     let replay = try_merge(&seed, &result, &a1, "fork-a", 2).unwrap();
     assert!(replay.working.changed_paths().is_empty());
 }
+
+#[test]
+fn a_peer_holding_only_a_newer_source_revision_cannot_wedge_later_imports() {
+    let seed = seed();
+    let a1 = fork(&seed, "A");
+    let mut a2 = a1.clone();
+    edit(&mut a2, "logic/claims.md", "A says x", "A says x, revised");
+    let b1 = fork(&seed, "B");
+    // Canonical imports A1 directly; B imports only A2 (never A1).
+    let canonical = clean(&seed, &seed, &a1, "fork-a", 1);
+    let canonical = clean(&seed, &canonical, &b1, "fork-b", 2);
+    let b2 = clean(&seed, &b1, &a2, "fork-a", 3);
+    let before = canonical.clone();
+    let outcome = try_merge(&b1, &canonical, &b2, "fork-b", 4);
+    let error = outcome.err().expect("unshared origin must be refused");
+    // Canonical already aliases fork-a's originals, so the unproven copy is
+    // refused before any write.
+    assert_eq!(error.code, "merge.alias_conflict", "{}", error.message);
+    assert!(!error.evidence.is_empty());
+    // Nothing was written, so the direct source still advances normally, and
+    // afterwards the peer's copy is proven through the shared A2 fact.
+    let advanced = clean(&a1, &before, &a2, "fork-a", 5);
+    assert!(text(&advanced, "logic/claims.md").contains("A says x, revised"));
+    let returned = clean(&b1, &advanced, &b2, "fork-b", 6);
+    assert_eq!(headings(&returned), headings(&advanced));
+    assert_eq!(resolve(&returned, "fork-b:C78").unwrap(), "C02");
+    let replay = try_merge(&a1, &returned, &a2, "fork-a", 7).unwrap();
+    assert!(replay.working.changed_paths().is_empty());
+}
+
+#[test]
+fn an_unshared_foreign_revision_is_refused_before_it_can_wedge_the_ledger() {
+    let seed = seed();
+    let a1 = fork(&seed, "A");
+    let mut a2 = a1.clone();
+    edit(&mut a2, "logic/claims.md", "A says x", "A says x, revised");
+    let b1 = fork(&seed, "B");
+    let canonical = clean(&seed, &seed, &a1, "fork-a", 1);
+    let mut canonical = clean(&seed, &canonical, &b1, "fork-b", 2);
+    // Without an alias for fork-a's originals nothing else stops the merge:
+    // appending fork-a A2 with fresh targets would contradict the recorded
+    // A1 mapping and make every later fork-a import fail.
+    let aliases = text(&canonical, "trace/aliases.yaml")
+        .lines()
+        .filter(|line| !line.contains("\"source_key\":\"fork-a\""))
+        .map(|line| format!("{line}\n"))
+        .collect::<String>();
+    put(&mut canonical, "trace/aliases.yaml", aliases);
+    let b2 = clean(&seed, &b1, &a2, "fork-a", 3);
+    let error = try_merge(&b1, &canonical, &b2, "fork-b", 4).err().unwrap();
+    assert_eq!(
+        error.code, "merge.unshared_origin_revision",
+        "{}",
+        error.message
+    );
+    assert_eq!(error.evidence[0].path, "trace/merge_log.yaml");
+    let advanced = clean(&a1, &canonical, &a2, "fork-a", 5);
+    assert!(text(&advanced, "logic/claims.md").contains("A says x, revised"));
+}

@@ -132,8 +132,7 @@ const CANONICAL: [&str; 4] = [
     "## C03: fork A finding",
     "## C04: canonical synthesis",
 ];
-fn canonical_edits(root: &Path) {
-    set_statement(root, "C02", "PM refined B");
+fn canonical_authors(root: &Path) {
     let added = run(
         root,
         &[
@@ -163,7 +162,7 @@ fn canonical_edits(root: &Path) {
 }
 fn worker_checks(worker: &Path) {
     assert_eq!(headings(worker), WORKER);
-    assert!(section(worker, "## C77: fork B finding").contains("PM refined B"));
+    assert!(section(worker, "## C77: fork B finding").contains("B says y"));
     for (address, expected) in [
         ("canonical:C02", "C77"),
         ("canonical:C03", "C78"),
@@ -212,13 +211,16 @@ fn directory_round_trip() -> Directory {
     copy_tree(&seed_dir, &canonical);
     import(&canonical, &seed_dir, &b1, "fork-b", "canonical");
     import(&canonical, &seed_dir, &a1, "fork-a", "canonical");
-    canonical_edits(&canonical);
+    canonical_authors(&canonical);
+    let c2 = path("C2");
+    copy_tree(&canonical, &c2);
 
-    let report = import(&worker, &seed_dir, &canonical, "canonical", "fork-b");
+    // 1. B absorbs canonical: its own C77 comes back as canonical's C02.
+    let report = import(&worker, &seed_dir, &c2, "canonical", "fork-b");
     assert_eq!(report["unresolved_count"], 0);
     worker_checks(&worker);
     let worker_before = frozen(&worker);
-    let replay = import(&worker, &seed_dir, &canonical, "canonical", "fork-b");
+    let replay = import(&worker, &seed_dir, &c2, "canonical", "fork-b");
     assert_eq!(replay["changed_paths"], json!([]));
     assert_eq!(frozen(&worker), worker_before);
     // A different self key is refused without touching the worker.
@@ -228,7 +230,7 @@ fn directory_round_trip() -> Directory {
             "--base",
             seed_dir.to_str().unwrap(),
             "--theirs",
-            canonical.to_str().unwrap(),
+            c2.to_str().unwrap(),
             "--as",
             "canonical",
             "--source-key",
@@ -246,12 +248,27 @@ fn directory_round_trip() -> Directory {
     assert!(text.contains("merge.self_identity_conflict"), "{text}");
     assert_eq!(frozen(&worker), worker_before);
 
+    // 2. Canonical refines B's claim; with C2 as trusted base it applies to C77.
+    set_statement(&canonical, "C02", "PM refined B");
+    let report = import(&worker, &c2, &canonical, "canonical", "fork-b");
+    assert_eq!(report["unresolved_count"], 0);
+    assert!(section(&worker, "## C77: fork B finding").contains("PM refined B"));
+    assert_eq!(headings(&worker), WORKER);
+
+    // 3. Canonical receives B back: its own C04 returns without a duplicate.
+    let b2 = path("B2");
+    copy_tree(&worker, &b2);
+    let report = import(&canonical, &b1, &b2, "fork-b", "canonical");
+    assert_eq!(report["unresolved_count"], 0);
+    assert_eq!(headings(&canonical), CANONICAL);
+
+    // 4. B's later edit of canonical's claim has B2 as its trusted base.
     set_statement(&worker, "C79", "PM combines A and B; B agrees");
-    let report = import(&canonical, &b1, &worker, "fork-b", "canonical");
+    let report = import(&canonical, &b2, &worker, "fork-b", "canonical");
     assert_eq!(report["unresolved_count"], 0);
     canonical_checks(&canonical);
     let canonical_before = frozen(&canonical);
-    let replay = import(&canonical, &b1, &worker, "fork-b", "canonical");
+    let replay = import(&canonical, &b2, &worker, "fork-b", "canonical");
     assert_eq!(replay["changed_paths"], json!([]));
     assert_eq!(frozen(&canonical), canonical_before);
     Directory {
@@ -336,16 +353,26 @@ fn local_git_round_trip_matches_directory_mode() {
     );
     git_import(root, "fork-b", "fork-b", "canonical");
     git_import(root, "fork-a", "fork-a", "canonical");
-    canonical_edits(root);
-    git(root, &["commit", "-q", "-am", "canonical edits"]);
+    canonical_authors(root);
+    git(root, &["commit", "-q", "-am", "canonical synthesis"]);
 
     let report = git_import(worker, "canonical", "canonical", "fork-b");
     assert_eq!(report["unresolved_count"], 0);
     assert!(report["git"]["theirs"].is_string());
     worker_checks(worker);
+    set_statement(root, "C02", "PM refined B");
+    git(root, &["commit", "-q", "-am", "canonical refines B"]);
+    let report = git_import(worker, "canonical", "canonical", "fork-b");
+    assert_eq!(report["unresolved_count"], 0);
+    assert!(section(worker, "## C77: fork B finding").contains("PM refined B"));
+
+    assert_eq!(
+        git_import(root, "fork-b", "fork-b", "canonical")["unresolved_count"],
+        0
+    );
+    assert_eq!(headings(root), CANONICAL);
     set_statement(worker, "C79", "PM combines A and B; B agrees");
     git(worker, &["commit", "-q", "-am", "worker agrees"]);
-
     let report = git_import(root, "fork-b", "fork-b", "canonical");
     assert_eq!(report["unresolved_count"], 0);
     canonical_checks(root);
