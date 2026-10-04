@@ -7,6 +7,12 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- `ara snapshot --output <dir>`: capture every nonprivate artifact file under
+  the artifact lock into a verified package (`ara/` plus a canonical
+  `snapshot.json`). The manifest binds the native merge fingerprint and a
+  separate `capture_id` that also covers full file modes and diagnostics.
+  Publication uses an atomic no-replace rename and rejects changed input with
+  `stale_snapshot_input` (#101).
 - Agent CLI: native discovery, source/full reads, structural queries, keyword
   search, guarded writes, typed JSONL batches, staging/promotion and complete
   session/audit history.
@@ -73,6 +79,11 @@ All notable changes to this project are documented here. The format follows
   (`ARA105 error: nodes[N01]: duplicate node id`), and each `--json`
   `validate.errors`/`validate.warnings` entry gains a `rule` field. `ara
   validate` output is unchanged (#43).
+
+### Fixed
+- Core: loaders apply one privacy predicate before descending, so nested
+  `.git/`, `.ara/` and write temporaries inside knowledge directories are no
+  longer read by ordinary loads or Git materialization (#101).
 
 ## [0.1.16] - 2026-08-23
 

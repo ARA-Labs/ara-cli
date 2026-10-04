@@ -166,7 +166,7 @@ impl ArtifactSnapshot {
             for path in crate::knowledge_paths(paper)
                 .map_err(|e| WriteError::semantic("write.knowledge_paths", e))?
             {
-                if !result.files.contains_key(&path) {
+                if !private_path(&path) && !result.files.contains_key(&path) {
                     result.capture(&path)?;
                 }
             }
@@ -205,7 +205,7 @@ impl ArtifactSnapshot {
                 let name = entry.file_name().into_string().map_err(|_| {
                     WriteError::semantic("write.path", "artifact paths must be UTF-8")
                 })?;
-                if matches!(name.as_str(), ".git" | ".ara") || is_temporary_path(&name) {
+                if private_name(&name) {
                     continue;
                 }
                 let absolute = entry.path();
@@ -273,7 +273,7 @@ impl ArtifactSnapshot {
                 .file_name()
                 .into_string()
                 .map_err(|_| WriteError::semantic("write.path", "knowledge paths must be UTF-8"))?;
-            if is_temporary_path(&name) {
+            if private_name(&name) {
                 continue;
             }
             let child = format!("{path}/{name}");
@@ -1314,6 +1314,15 @@ pub fn allowed_write_path(path: &str) -> bool {
 }
 /// Exact reserved same-directory transaction temp namespace. Unauthenticated
 /// pre-prepared crash leftovers are excluded, never prefix-deleted.
+/// One privacy predicate for every loader and the merge fingerprint: operational
+/// state, repository metadata and reserved write temporaries. Loaders apply it
+/// before descending, so private bytes are never inspected.
+pub fn private_name(name: &str) -> bool {
+    matches!(name, ".git" | ".ara") || is_temporary_path(name)
+}
+pub fn private_path(path: &str) -> bool {
+    path.split('/').any(private_name)
+}
 pub fn is_temporary_path(path: &str) -> bool {
     let name = path.rsplit('/').next().unwrap_or(path);
     name.strip_prefix(".ara-write-")

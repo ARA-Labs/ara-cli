@@ -25,7 +25,7 @@ name = "ara"
 path = "src/main.rs"
 
 [dependencies]
-ara-core = { path = "../ara-core", version = "0.1.23" }
+ara-core = { path = "../ara-core", version = "0.1.24" }
 clap = { version = "4", features = ["derive"] }
 # `ara check --json` serializes a composed report struct via `#[derive(Serialize)]`.
 serde = { version = "1", features = ["derive"] }
@@ -49,6 +49,11 @@ tower = { version = "0.5", features = ["util"] }
 # Embedded viewer assets (default; `--assets <dir>` overrides at runtime).
 include_dir = "0.7"
 mime_guess = "2"
+
+# `ara snapshot` publishes its package with an atomic no-replace rename
+# (renamex_np / renameat2), which std does not expose.
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
 
 [dev-dependencies]
 assert_cmd = "2"

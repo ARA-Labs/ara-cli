@@ -98,7 +98,7 @@ fn fingerprint(snapshot: &ArtifactSnapshot) -> Vec<(&str, &str)> {
 fn disjoint_roots(roots: &[&Path]) -> Result<(), AgentError> {
     for (i, left) in roots.iter().enumerate() {
         for right in roots.iter().skip(i + 1) {
-            if left.starts_with(right) || right.starts_with(left) {
+            if crate::context::roots_overlap(left, right) {
                 return Err(AgentError::semantic(
                     "overlapping_inputs",
                     "Base, ours, and theirs must be nonoverlapping roots",

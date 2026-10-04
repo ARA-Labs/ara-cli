@@ -36,11 +36,7 @@ pub fn fingerprint(snapshot: &ArtifactSnapshot) -> String {
     }
     format!("{:x}", h.finalize())
 }
-pub(crate) fn private_path(path: &str) -> bool {
-    path.split('/').any(|part| {
-        matches!(part, ".git" | ".ara") || crate::write::source::is_temporary_path(part)
-    })
-}
+pub(crate) use crate::write::source::private_path;
 pub(crate) fn bytes<'a>(snapshot: &'a ArtifactSnapshot, path: &str) -> Option<&'a [u8]> {
     snapshot
         .files

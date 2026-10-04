@@ -778,11 +778,10 @@ fn artifact_files(root: &Path) -> Result<Vec<ArtifactFile>, AgentError> {
             .map_err(|error| AgentError::io(format!("{}: {error}", directory.display())))?
         {
             let entry = entry.map_err(|error| AgentError::io(error.to_string()))?;
-            if matches!(entry.file_name().to_str(), Some(".git" | ".ara"))
-                || entry
-                    .file_name()
-                    .to_str()
-                    .is_some_and(ara_core::write::source::is_temporary_path)
+            if entry
+                .file_name()
+                .to_str()
+                .is_some_and(ara_core::write::source::private_name)
             {
                 continue;
             }
