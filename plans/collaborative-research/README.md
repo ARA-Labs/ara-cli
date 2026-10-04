@@ -282,6 +282,7 @@ Stage PRs merged into `feat/collaborative-ara`:
 | 1c | this PR | Plan 02 contribution contracts adopted from `Agent-Native-Research-Artifact` [#39](https://github.com/ARA-Labs/Agent-Native-Research-Artifact/pull/39) at `36e6f89` (`evaluation/collaborative/`). The capture ID reproduces `ara.capture/v1` byte for byte on three real snapshots. |
 | L1 | this PR | Lara contracts adopted from `Agent-Native-Research-Artifact` [#40](https://github.com/ARA-Labs/Agent-Native-Research-Artifact/pull/40) at `e5179d9` (`evaluation/collaborative/lara/`). The checker pin is Lara `a31299f`, a local build with sha256 `dfbc5966…`, provisional until a release executable is pinned. |
 | 2a | #101 | `ara snapshot --output`, 0.1.24. Zero-cost PASS (`docs/verification/collaborative-research/phase-2a/`). |
+| 2 (runner) | this PR | Capture, freeze, and publication in `ara-eval` [#2](https://github.com/ARA-Labs/ara-eval/pull/2) at `71da192`. It pins ara-cli `da43bf6` and the protocol at `36e6f89`. 48 tests pass against the real binary, covering concurrent publishers, stale input, lost acknowledgment, announcement recovery, index rebuild, and mode-only identity. |
 | 2b | #102 | jj-lib store spike evidence. The spike source sits on the unmerged branch `spike/jj-snapshot-store`. |
 | 4 | #104 | Peer-feedback identity reconciliation and `--self-key`, 0.1.25. Zero-cost PASS (`docs/verification/collaborative-research/phase-4/`). |
 
@@ -290,7 +291,7 @@ Not delivered, with the blocking decision for each:
 | Stage | Blocked on |
 |---|---|
 | 2c optional store | The developer's re-approval of D-S4, D-S6, and D-S8 against the phase-2b numbers. |
-| 2–4 runner parts, 3 | In progress in `ara-eval` on `feat/collaborative-ara`, authorized by the developer on 2026-10-04. |
+| 3, 4 runner parts | In progress in `ara-eval` on `feat/collaborative-ara`, authorized by the developer on 2026-10-04. |
 | L2 | In progress in `ara-eval`. |
 | 5 | Stages 2–4 and L2 on the runner side, plus separate budget approval for the provider-backed smoke. |
 | 6 | Stage 5, the reviewed `ara-eval` stack registration, and budget approval for collection. |
