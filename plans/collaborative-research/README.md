@@ -285,6 +285,7 @@ Stage PRs merged into `feat/collaborative-ara`:
 | 2a | #101 | `ara snapshot --output`, 0.1.24. Zero-cost PASS (`docs/verification/collaborative-research/phase-2a/`). |
 | 2 (runner) | this PR | Capture, freeze, and publication in `ara-eval` [#2](https://github.com/ARA-Labs/ara-eval/pull/2) at `71da192`. It pins ara-cli `da43bf6` and the protocol at `36e6f89`. 48 tests pass against the real binary, covering concurrent publishers, stale input, lost acknowledgment, announcement recovery, index rebuild, and mode-only identity. |
 | 3 | this PR | Shared frontier in `ara-eval` [#4](https://github.com/ARA-Labs/ara-eval/pull/4) at `3411f4c`: v2 intentions on the plan-14 channel, ordered announcements, and bounded briefings built only from CLI reads over exact packages, with digest-verified evidence fetch. 119 tests pass across phases 2, 3, and L2. |
+| 4 (runner) | this PR | Integration in `ara-eval` [#5](https://github.com/ARA-Labs/ara-eval/pull/5) at `f5a68a0`: exact-base imports with `--self-key`, sealed integration receipts, replay and older-receipt lookup, external-file acknowledgments with digest-verified fetch, audited logic revisions, and verification records. 154 tests pass. Two ara-cli defects found here (canonical feedback with the fork's own external files; same-day session collision) are tracked in a follow-up. |
 | 2b | #102 | jj-lib store spike evidence. The spike source sits on the unmerged branch `spike/jj-snapshot-store`. |
 | 4 | #104 | Peer-feedback identity reconciliation and `--self-key`, 0.1.25. Zero-cost PASS (`docs/verification/collaborative-research/phase-4/`). |
 
@@ -293,7 +294,7 @@ Not delivered, with the blocking decision for each:
 | Stage | Blocked on |
 |---|---|
 | 2c optional store | The developer's re-approval of D-S4, D-S6, and D-S8 against the phase-2b numbers. |
-| 4 runner parts | In progress in `ara-eval` on `feat/collaborative-ara`. |
+| 4 acceptance | ara-cli defects found by the runner (`merge.ambiguous_origin` on canonical feedback with the fork's own `src/`/`evidence/`, same-day `session import collision`) are being fixed. Then the runner's pin is bumped. |
 | 5 | Stages 2–4 and L2 on the runner side, plus separate budget approval for the provider-backed smoke. |
 | 6 | Stage 5, the reviewed `ara-eval` stack registration, and budget approval for collection. |
 
