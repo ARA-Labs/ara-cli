@@ -13,10 +13,10 @@ Researchers (human or agent) work in private ARA forks. When a result is ready, 
 
 | Plan | Implementation target | Status |
 |---|---|---|
-| [01-ara-snapshot](01-ara-snapshot.md) | `ara-cli`: snapshot command, shared capture rules, and an internal jj-lib version store hidden from agents | Capture rules approved; version-store revision pending re-approval and spike; implementation pending |
+| [01-ara-snapshot](01-ara-snapshot.md) | `ara-cli`: snapshot command, shared capture rules, and an internal jj-lib version store hidden from agents | Directory-only `ara snapshot --output` delivered (#101). Spike evidence recorded (#102); the optional store waits on re-approval of D-S4, D-S6, and D-S8. |
 | [02-contribution-workflow](02-contribution-workflow.md) | `Agent-Native-Research-Artifact` (contracts) and `ara-eval` (runner) | Approved design; staged here pending upstream routing |
 | [03-lara-integration](03-lara-integration.md) | `Agent-Native-Research-Artifact` (bindings), `ara-eval` (adapter), `Lara` (docs only) | Approved design; staged here pending upstream routing |
-| [04-peer-feedback-merge](04-peer-feedback-merge.md) | `ara-cli`: identity reconciliation and provenance transport | Approved; required before native peer imports |
+| [04-peer-feedback-merge](04-peer-feedback-merge.md) | `ara-cli`: identity reconciliation and provenance transport | Delivered in `ara-cli` (#103 contract, #104 implementation). Adoption of the contract in the protocol repository is pending. |
 
 Plans 02 and 03 remain staged here, following the precedent of [plan 14](../agent-cli-interface/14-shared-frontier-intentions.md). D1 leaves their eventual repository placement deferred. Plan 04's portable provenance contract belongs to the protocol repository even though its implementation lives in `ara-cli`.
 
@@ -270,6 +270,28 @@ The behavioral review ran temporary fixtures with the actual `ara 0.1.23` binary
 The developer approved the revised design after the behavioral review. This revision changes documentation only; it performs no implementation, commit, paid run, or upstream release.
 
 The later cost review found that `ara.artifact/v1` excludes modes but the proposed store deduplicated and exported by that fingerprint. The current binary reported the same source revision after a mode-only change. Plan 01 now separates exact capture identity from native merge revision, preserves the manifest and full captured modes, and makes storage optional. The developer requested these revisions and the stage-PR workflow. Backend selection and command-shape re-approval still depend on the spike; no performance result for the planned implementation is claimed.
+
+## Delivery record
+
+Stage PRs merged into `feat/collaborative-ara`:
+
+| Stage | PR | Content |
+|---|---|---|
+| 1a | #100 | `ara.snapshot/v1` contract; zero-cost measurement policy and harness (`scripts/collab-zero-cost.py`). |
+| 1b | #103 | Peer-feedback provenance contract (`docs/collaborative-research/provenance-contract.md`), amended in #104. |
+| 2a | #101 | `ara snapshot --output`, 0.1.24. Zero-cost PASS (`docs/verification/collaborative-research/phase-2a/`). |
+| 2b | #102 | jj-lib store spike evidence. The spike source sits on the unmerged branch `spike/jj-snapshot-store`. |
+| 4 | #104 | Peer-feedback identity reconciliation and `--self-key`, 0.1.25. Zero-cost PASS (`docs/verification/collaborative-research/phase-4/`). |
+
+Not delivered, with the blocking decision for each:
+
+| Stage | Blocked on |
+|---|---|
+| 2c optional store | The developer's re-approval of D-S4, D-S6, and D-S8 against the phase-2b numbers. |
+| 1 (plan 02 contracts), 2–4 runner parts, 3 | Branches and linked PRs in `Agent-Native-Research-Artifact` and `ara-eval`. Creating branches there needs the developer's authorization. The plans forbid moving runner code into `ara-cli`. |
+| L1, L2 | The same cross-repository authorization, in `Agent-Native-Research-Artifact` and `ara-eval`. The local Lara build at `a31299f` is available for the adapter. |
+| 5 | Stages 2–4 and L2 on the runner side, plus separate budget approval for the provider-backed smoke. |
+| 6 | Stage 5, the reviewed `ara-eval` stack registration, and budget approval for collection. |
 
 ## Next Steps
 
