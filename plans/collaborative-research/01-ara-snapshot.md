@@ -209,6 +209,8 @@ Use a disposable implementation branch with no version bump. Submit its findings
 4. Run the [zero-cost checks](README.md#how-the-zero-cost-requirement-is-checked) for default and store-enabled builds, including ordinary command paths. Measure capture latency and store growth separately on `../Agent-Native-Research-Artifact/examples/the-ara-of-ara` and large `src/`/`evidence/` fixtures. Inspect dependency trees and actual release packaging, not only feature declarations. Confirm native and Wasm builds.
 5. Confirm no network code path runs. Choose backend feature flags that minimize opt-in cost without adding store dependencies to the default build.
 
+**Spike result (2026-10-04):** [phase-2b evidence](../../docs/verification/collaborative-research/phase-2b-spike/README.md). jj-lib 0.45.1 with its Git backend passes every correctness check once the adapter isolates gix from user Git configuration. The opt-in cost is +162 crates, +8.3 MB stripped, and about +20 s clean build. The full ordinary-command zero-cost run for a store-enabled `ara` still needs the feature-gated integration. D-S4, D-S6, and D-S8 await the developer's re-approval.
+
 Exit criteria: all correctness and zero-cost gates pass. The developer separately reviews the measured opt-in build, size, and capture costs before backend approval. A smaller backend does not waive default-build isolation. If the spike fails, record the results and use the directory-only command, or propose `gix` behind the same optional boundary.
 
 ## Implementation steps

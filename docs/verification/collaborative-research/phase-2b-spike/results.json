@@ -1,0 +1,844 @@
+{
+  "environment": {
+    "rustc": "1.94.1 (e408947bf 2026-03-25)",
+    "cargo": "1.94.1",
+    "host": "aarch64-apple-darwin",
+    "os": "Darwin 27.0.0",
+    "jj_lib": "0.45.1 (crates.io, exact pin =0.45.1)",
+    "jj_lib_msrv": "1.89",
+    "jj_lib_features": {
+      "default-features": false,
+      "features": [
+        "git"
+      ],
+      "note": "jj-lib features: default=[git], git=[dep:gix], testing, watchman. ['git'] is the minimal set with the Git backend and equals jj-lib's default set."
+    },
+    "gix": "0.87.1",
+    "gix_features_enabled": [
+      "attributes",
+      "blob-diff",
+      "command",
+      "excludes",
+      "index",
+      "max-control",
+      "max-performance-safe",
+      "pack-cache-lru-dynamic",
+      "pack-cache-lru-static",
+      "parallel",
+      "sha1",
+      "sha256"
+    ],
+    "gix_transport_features": [
+      "default (= empty: no blocking-client, async-client, or http-client)"
+    ],
+    "executor": "pollster 1.0.1 (already a jj-lib dependency)",
+    "ara_binary": "wt-snapshot target/release/ara 0.1.24 (snapshot command)"
+  },
+  "design": {
+    "repo_path": "<artifact>/.ara/vcs/repo",
+    "init": "ReadonlyRepo::init + GitBackend::init_internal(Sha1), no Workspace, no working copy; initialized in a sibling temp dir then renamed into place",
+    "config": "StackedConfig::with_defaults() + one ConfigSource::CommandArg layer: user ara <ara@localhost>, debug.commit-timestamp=debug.operation-timestamp=1970-01-01T00:00:00Z, debug.randomness-seed=0, operation.hostname/username=ara, signing.backend=none, signing.behavior=drop",
+    "commit_tree": "ara/<path> (exec bit = mode&0o111) + snapshot.json (original canonical manifest bytes); full modes come from the manifest",
+    "change_id": "first 16 bytes of the capture id hash (deterministic, unique per capture)",
+    "index": "one local bookmark per capture (capture-<hex>) in the operation view; list = parent walk from the single head, cross-checked against the bookmarks",
+    "git_env_isolation": "process start: remove GIT_CONFIG_COUNT/GIT_CONFIG_PARAMETERS/GIT_CONFIG/GIT_CONFIG_SYSTEM, set GIT_CONFIG_NOSYSTEM=1 and GIT_CONFIG_GLOBAL=/dev/null"
+  },
+  "check1": {
+    "no_dot_jj": "clean1/clean2/hostile: 0 .jj dirs",
+    "store_hash_clean1": "594ba6497a98fbb101fb652dc2366f92a26a38b3e83f1a4c3d1c25ebd5ae4976 406",
+    "store_hash_clean2": "594ba6497a98fbb101fb652dc2366f92a26a38b3e83f1a4c3d1c25ebd5ae4976 406",
+    "store_hash_hostile_mitigated": "594ba6497a98fbb101fb652dc2366f92a26a38b3e83f1a4c3d1c25ebd5ae4976 406",
+    "store_hash_hostile_unmitigated": "b5809706a507b6eff48716c2d3b040a8888bd1778eb08c7c6fbbfaa7b7fbbc40 406",
+    "head_unmitigated_hostile": "ref: refs/heads/evilbranch",
+    "list_equal_clean_vs_hostile": "yes",
+    "record_stdout_equal_clean_vs_hostile": "yes",
+    "commit_id_clean_and_hostile": "c944bd43359d547acd9cbc61753029a48fbb1c2e (both, also without mitigation)",
+    "spawned_processes": "none (fake git/gpg/gpgsm/ssh/ssh-keygen on PATH logged nothing)",
+    "per_variant_mitigated": {
+      "baseline": {
+        "exit": 0,
+        "store_vs_clean": "identical",
+        "objects_redirected": 0,
+        "stderr": ""
+      },
+      "home_gitconfig": {
+        "exit": 0,
+        "store_vs_clean": "identical",
+        "objects_redirected": 0,
+        "stderr": ""
+      },
+      "xdg_gitconfig": {
+        "exit": 0,
+        "store_vs_clean": "identical",
+        "objects_redirected": 0,
+        "stderr": ""
+      },
+      "git_config_global": {
+        "exit": 0,
+        "store_vs_clean": "identical",
+        "objects_redirected": 0,
+        "stderr": ""
+      },
+      "git_config_env": {
+        "exit": 0,
+        "store_vs_clean": "identical",
+        "objects_redirected": 0,
+        "stderr": ""
+      },
+      "git_author_env": {
+        "exit": 0,
+        "store_vs_clean": "identical",
+        "objects_redirected": 0,
+        "stderr": ""
+      },
+      "jj_env": {
+        "exit": 0,
+        "store_vs_clean": "identical",
+        "objects_redirected": 0,
+        "stderr": ""
+      },
+      "malformed_gitconfig": {
+        "exit": 0,
+        "store_vs_clean": "identical",
+        "objects_redirected": 0,
+        "stderr": ""
+      },
+      "git_object_directory": {
+        "exit": 0,
+        "store_vs_clean": "identical",
+        "objects_redirected": 0,
+        "stderr": ""
+      },
+      "git_alternates": {
+        "exit": 0,
+        "store_vs_clean": "identical",
+        "objects_redirected": 0,
+        "stderr": ""
+      },
+      "git_dir": {
+        "exit": 0,
+        "store_vs_clean": "identical",
+        "objects_redirected": 0,
+        "stderr": ""
+      },
+      "mitigated_hostile": {
+        "exit": 0,
+        "store_vs_clean": "identical",
+        "objects_redirected": 0,
+        "stderr": ""
+      },
+      "mitigated_malformed": {
+        "exit": 0,
+        "store_vs_clean": "identical",
+        "objects_redirected": 0,
+        "stderr": ""
+      }
+    },
+    "per_variant_unmitigated": {
+      "baseline": {
+        "exit": 0,
+        "store_vs_clean": "identical",
+        "objects_redirected": 0,
+        "stderr": ""
+      },
+      "home_gitconfig": {
+        "exit": 0,
+        "store_vs_clean": "differs",
+        "objects_redirected": 0,
+        "stderr": ""
+      },
+      "xdg_gitconfig": {
+        "exit": 0,
+        "store_vs_clean": "differs",
+        "objects_redirected": 0,
+        "stderr": ""
+      },
+      "git_config_global": {
+        "exit": 0,
+        "store_vs_clean": "differs",
+        "objects_redirected": 0,
+        "stderr": ""
+      },
+      "git_config_env": {
+        "exit": 0,
+        "store_vs_clean": "differs",
+        "objects_redirected": 0,
+        "stderr": ""
+      },
+      "git_author_env": {
+        "exit": 0,
+        "store_vs_clean": "identical",
+        "objects_redirected": 0,
+        "stderr": ""
+      },
+      "jj_env": {
+        "exit": 0,
+        "store_vs_clean": "identical",
+        "objects_redirected": 0,
+        "stderr": ""
+      },
+      "malformed_gitconfig": {
+        "exit": 2,
+        "store_vs_clean": "differs",
+        "objects_redirected": 0,
+        "stderr": "{\"error\":{\"code\":\"snapshot_store_unavailable\",\"message\":\"snapshot store unavailable: Failed to initialize git repository\"},\"format\":\"ara.snapshot/v1\"}"
+      },
+      "git_object_directory": {
+        "exit": 0,
+        "store_vs_clean": "identical",
+        "objects_redirected": 0,
+        "stderr": ""
+      },
+      "git_alternates": {
+        "exit": 0,
+        "store_vs_clean": "identical",
+        "objects_redirected": 0,
+        "stderr": ""
+      },
+      "git_dir": {
+        "exit": 0,
+        "store_vs_clean": "identical",
+        "objects_redirected": 0,
+        "stderr": ""
+      },
+      "mitigated_hostile": {
+        "exit": 0,
+        "store_vs_clean": "identical",
+        "objects_redirected": 0,
+        "stderr": ""
+      },
+      "mitigated_malformed": {
+        "exit": 0,
+        "store_vs_clean": "identical",
+        "objects_redirected": 0,
+        "stderr": ""
+      }
+    }
+  },
+  "check2_git_backend": {
+    "checks": {
+      "list_missing_store_empty": {
+        "pass": true,
+        "detail": null
+      },
+      "export_missing_store_unknown": {
+        "pass": true,
+        "detail": null
+      },
+      "mode_only_same_fingerprint": {
+        "pass": true,
+        "detail": null
+      },
+      "mode_only_distinct_capture_id": {
+        "pass": true,
+        "detail": null
+      },
+      "fixture_contents": {
+        "pass": true,
+        "detail": {
+          "PAPER.md": "0640",
+          "src/run.sh": "0755",
+          "evidence/empty.txt": "0644",
+          "evidence/résumé-数据.md": "0644",
+          "src/deep/er/x.py": "0644"
+        }
+      },
+      "record_new_true": {
+        "pass": true,
+        "detail": null
+      },
+      "rerecord_identical_false_no_commit": {
+        "pass": true,
+        "detail": {
+          "recorded": false,
+          "objects": [
+            387,
+            387
+          ],
+          "operations": 3
+        }
+      },
+      "list_parent_order": {
+        "pass": true,
+        "detail": [
+          "sha256:00958df146837",
+          "sha256:14e153d55a3ef",
+          "sha256:0a947539b7e12"
+        ]
+      },
+      "export_c1_exact": {
+        "pass": true,
+        "detail": {
+          "manifest_bytes_equal": true,
+          "bytes_and_modes_equal": true,
+          "resnapshot_capture_id_equal": true
+        }
+      },
+      "export_c2_exact": {
+        "pass": true,
+        "detail": {
+          "manifest_bytes_equal": true,
+          "bytes_and_modes_equal": true,
+          "resnapshot_capture_id_equal": true
+        }
+      },
+      "export_c3_exact": {
+        "pass": true,
+        "detail": {
+          "manifest_bytes_equal": true,
+          "bytes_and_modes_equal": true,
+          "resnapshot_capture_id_equal": true
+        }
+      },
+      "export_c1_full_mode_0640": {
+        "pass": true,
+        "detail": "0o640"
+      },
+      "unknown_capture_id": {
+        "pass": true,
+        "detail": null
+      },
+      "export_existing_output_rejected": {
+        "pass": true,
+        "detail": null
+      },
+      "store_excluded_from_capture": {
+        "pass": true,
+        "detail": null
+      },
+      "no_dot_jj_anywhere": {
+        "pass": true,
+        "detail": null
+      },
+      "surrounding_git_repo_unchanged": {
+        "pass": true,
+        "detail": null
+      },
+      "no_backend_terms_in_output": {
+        "pass": true,
+        "detail": []
+      },
+      "corrupt_store_unavailable": {
+        "pass": true,
+        "detail": "snapshot store unavailable: Failed to read operation heads"
+      },
+      "corrupt_store_type_unavailable": {
+        "pass": true,
+        "detail": "{\"error\":{\"code\":\"snapshot_store_unavailable\",\"message\":\"snapshot store unavailable: Unsupported commit backend type 'bogus'\"},\"format\":\"ara.snapshot/v1\"}\n"
+      }
+    },
+    "captures": {
+      "c1": {
+        "capture_id": "sha256:00958df146837a077ec53ba3abb463b71c588470fc97298cc26f919364fbe65f",
+        "fingerprint": "b8c7de07df70751e8ed045dfe824d31898619a08c46d058709d90d900633e8d2",
+        "file_count": 336
+      },
+      "c2": {
+        "capture_id": "sha256:14e153d55a3ef415f491952f7a30f933377925acce3eaedc12b75665802a3e12",
+        "fingerprint": "b8c7de07df70751e8ed045dfe824d31898619a08c46d058709d90d900633e8d2",
+        "file_count": 336
+      },
+      "c3": {
+        "capture_id": "sha256:0a947539b7e122d521ae549e4b4d3e31e18d093f86173a19d4c13c0f8d7e1616",
+        "fingerprint": "b8c7de07df70751e8ed045dfe824d31898619a08c46d058709d90d900633e8d2",
+        "file_count": 336
+      }
+    },
+    "outer_git_status_porcelain": " M art/src/run.sh\n?? art/.ara/\n",
+    "store_layout": [
+      ".ara/vcs",
+      ".ara/vcs/repo",
+      ".ara/vcs/repo/index",
+      ".ara/vcs/repo/index/changed_paths",
+      ".ara/vcs/repo/index/op_links",
+      ".ara/vcs/repo/index/segments",
+      ".ara/vcs/repo/op_heads",
+      ".ara/vcs/repo/op_heads/heads",
+      ".ara/vcs/repo/op_store",
+      ".ara/vcs/repo/op_store/operations",
+      ".ara/vcs/repo/op_store/views",
+      ".ara/vcs/repo/store",
+      ".ara/vcs/repo/store/extra",
+      ".ara/vcs/repo/store/git",
+      ".ara/vcs/repo/submodule_store"
+    ]
+  },
+  "check2_simple_backend": {
+    "all_pass": true
+  },
+  "check3_check4_runtime": {
+    "growth": {
+      "the_ara_of_ara": {
+        "fixture_bytes": {
+          "apparent_bytes": 6789469,
+          "disk_bytes": 7380992,
+          "files": 332
+        },
+        "steps": [
+          {
+            "step": "record s1 (fresh store)",
+            "capture_id": "sha256:04570c022b93ac2e81186d3b56210b91566b95c65d8d0ec025832f9f1303d295",
+            "vcs": {
+              "store": {
+                "apparent_bytes": 4122137,
+                "disk_bytes": 5021696,
+                "files": 395
+              },
+              "op_store": {
+                "apparent_bytes": 397,
+                "disk_bytes": 12288,
+                "files": 3
+              },
+              "op_heads": {
+                "apparent_bytes": 21,
+                "disk_bytes": 4096,
+                "files": 2
+              },
+              "index": {
+                "apparent_bytes": 367,
+                "disk_bytes": 20480,
+                "files": 5
+              },
+              "total": {
+                "apparent_bytes": 4122929,
+                "disk_bytes": 5062656,
+                "files": 406
+              }
+            }
+          },
+          {
+            "step": "record s2 (one file changed)",
+            "capture_id": "sha256:ee9760f01d352d30c637757474341759603b7b174004459ecb52c9742ca2ac9a",
+            "vcs": {
+              "store": {
+                "apparent_bytes": 4155160,
+                "disk_bytes": 5083136,
+                "files": 403
+              },
+              "op_store": {
+                "apparent_bytes": 883,
+                "disk_bytes": 20480,
+                "files": 5
+              },
+              "op_heads": {
+                "apparent_bytes": 21,
+                "disk_bytes": 4096,
+                "files": 2
+              },
+              "index": {
+                "apparent_bytes": 637,
+                "disk_bytes": 28672,
+                "files": 7
+              },
+              "total": {
+                "apparent_bytes": 4156708,
+                "disk_bytes": 5140480,
+                "files": 418
+              }
+            }
+          }
+        ],
+        "changed": {
+          "path": "logic/claims.md",
+          "file_bytes_after": 10059,
+          "bytes_added": 32,
+          "desc": "append 32 bytes to logic/claims.md (10 KiB file)",
+          "manifest_bytes_s1": 58583,
+          "manifest_bytes_s2": 58583
+        },
+        "growth_s1_to_s2": {
+          "store": {
+            "apparent_bytes": 33023,
+            "disk_bytes": 61440,
+            "files": 8
+          },
+          "op_store": {
+            "apparent_bytes": 486,
+            "disk_bytes": 8192,
+            "files": 2
+          },
+          "op_heads": {
+            "apparent_bytes": 0,
+            "disk_bytes": 0,
+            "files": 0
+          },
+          "index": {
+            "apparent_bytes": 270,
+            "disk_bytes": 8192,
+            "files": 2
+          },
+          "total": {
+            "apparent_bytes": 33779,
+            "disk_bytes": 77824,
+            "files": 12
+          }
+        },
+        "s1_store_vs_fixture_ratio": 0.607
+      },
+      "large_evidence_64x1MiB": {
+        "fixture_bytes": {
+          "apparent_bytes": 73898333,
+          "disk_bytes": 74489856,
+          "files": 396
+        },
+        "steps": [
+          {
+            "step": "record s1 (fresh store)",
+            "capture_id": "sha256:b0c9c09030e8d7d029efb13996ba4fcb21f555f083361110f375cccd9d60b412",
+            "vcs": {
+              "store": {
+                "apparent_bytes": 74907683,
+                "disk_bytes": 75964416,
+                "files": 460
+              },
+              "op_store": {
+                "apparent_bytes": 397,
+                "disk_bytes": 12288,
+                "files": 3
+              },
+              "op_heads": {
+                "apparent_bytes": 21,
+                "disk_bytes": 4096,
+                "files": 2
+              },
+              "index": {
+                "apparent_bytes": 367,
+                "disk_bytes": 20480,
+                "files": 5
+              },
+              "total": {
+                "apparent_bytes": 74908475,
+                "disk_bytes": 76005376,
+                "files": 471
+              }
+            }
+          },
+          {
+            "step": "record s2 (one file changed)",
+            "capture_id": "sha256:808666b27034744bfc0d8ca02b631b532dd35883c12675e5fbc37b53a7a6f7a3",
+            "vcs": {
+              "store": {
+                "apparent_bytes": 76047540,
+                "disk_bytes": 77135872,
+                "files": 469
+              },
+              "op_store": {
+                "apparent_bytes": 883,
+                "disk_bytes": 20480,
+                "files": 5
+              },
+              "op_heads": {
+                "apparent_bytes": 21,
+                "disk_bytes": 4096,
+                "files": 2
+              },
+              "index": {
+                "apparent_bytes": 637,
+                "disk_bytes": 28672,
+                "files": 7
+              },
+              "total": {
+                "apparent_bytes": 76049088,
+                "disk_bytes": 77193216,
+                "files": 484
+              }
+            }
+          }
+        ],
+        "changed": {
+          "path": "evidence/large/blob_17.bin",
+          "file_bytes_after": 1048576,
+          "bytes_modified_in_file": 16,
+          "desc": "overwrite 16 bytes in one 1 MiB random file",
+          "manifest_bytes_s1": 68183,
+          "manifest_bytes_s2": 68183
+        },
+        "growth_s1_to_s2": {
+          "store": {
+            "apparent_bytes": 1139857,
+            "disk_bytes": 1171456,
+            "files": 9
+          },
+          "op_store": {
+            "apparent_bytes": 486,
+            "disk_bytes": 8192,
+            "files": 2
+          },
+          "op_heads": {
+            "apparent_bytes": 0,
+            "disk_bytes": 0,
+            "files": 0
+          },
+          "index": {
+            "apparent_bytes": 270,
+            "disk_bytes": 8192,
+            "files": 2
+          },
+          "total": {
+            "apparent_bytes": 1140613,
+            "disk_bytes": 1187840,
+            "files": 13
+          }
+        },
+        "s1_store_vs_fixture_ratio": 1.014
+      }
+    },
+    "latency": {
+      "the_ara_of_ara": {
+        "capture_only_ms": {
+          "median": 1158.2,
+          "samples": [
+            1148.5,
+            1117.2,
+            1158.2,
+            1323.3,
+            1223.9
+          ]
+        },
+        "record_new_fresh_store_wall_ms": {
+          "median": 201.2,
+          "samples": [
+            201.2,
+            199.1,
+            201.1,
+            215.1,
+            208.1
+          ]
+        },
+        "record_new_fresh_store_inproc_ms": {
+          "median": 173.7,
+          "samples": [
+            173.7,
+            171.7,
+            173.7,
+            187.0,
+            180.2
+          ]
+        },
+        "read_package_inproc_ms": {
+          "median": 20.9,
+          "samples": [
+            20.8,
+            20.9,
+            20.7,
+            21.2,
+            21.3
+          ]
+        },
+        "record_incremental_wall_ms": {
+          "median": 97.1,
+          "samples": [
+            95.3,
+            95.1,
+            97.1,
+            99.1,
+            115.2
+          ]
+        },
+        "record_identical_wall_ms": {
+          "median": 59.7,
+          "samples": [
+            59.2,
+            59.7,
+            59.5,
+            62.8,
+            60.4
+          ]
+        },
+        "list_wall_ms": {
+          "median": 6.9,
+          "samples": [
+            7.1,
+            6.9,
+            6.4,
+            6.8,
+            7.3
+          ]
+        },
+        "export_wall_ms": {
+          "median": 1304.8,
+          "samples": [
+            1253.3,
+            1186.6,
+            1317.4,
+            1304.8,
+            1391.6
+          ]
+        },
+        "capture_plus_record_new_median_ms": 1359.3
+      },
+      "large_evidence_64x1MiB": {
+        "capture_only_ms": {
+          "median": 1504.5,
+          "samples": [
+            1652.7,
+            1597.6,
+            1479.4,
+            1504.5,
+            1439.3
+          ]
+        },
+        "record_new_fresh_store_wall_ms": {
+          "median": 1105.8,
+          "samples": [
+            1463.8,
+            1097.1,
+            1105.8,
+            1107.5,
+            1102.9
+          ]
+        },
+        "record_new_fresh_store_inproc_ms": {
+          "median": 955.4,
+          "samples": [
+            1312.3,
+            946.6,
+            955.4,
+            955.6,
+            947.3
+          ]
+        },
+        "read_package_inproc_ms": {
+          "median": 143.1,
+          "samples": [
+            143.1,
+            142.2,
+            141.8,
+            143.2,
+            146.2
+          ]
+        },
+        "record_incremental_wall_ms": {
+          "median": 586.9,
+          "samples": [
+            588.7,
+            584.5,
+            587.7,
+            586.9,
+            578.9
+          ]
+        },
+        "record_identical_wall_ms": {
+          "median": 451.5,
+          "samples": [
+            455.4,
+            451.4,
+            450.6,
+            454.1,
+            451.5
+          ]
+        },
+        "list_wall_ms": {
+          "median": 7.5,
+          "samples": [
+            6.8,
+            6.8,
+            7.5,
+            7.5,
+            9.8
+          ]
+        },
+        "export_wall_ms": {
+          "median": 1735.2,
+          "samples": [
+            1862.3,
+            1835.7,
+            1735.2,
+            1726.1,
+            1701.7
+          ]
+        },
+        "capture_plus_record_new_median_ms": 2612.0
+      }
+    }
+  },
+  "check4_build": {
+    "baseline": {
+      "normal_crates": 16,
+      "normal_build_crates": 17,
+      "clean_release_build_s": 1.6,
+      "unstripped_bytes": 588256,
+      "stripped_bytes": 456128
+    },
+    "spike_git": {
+      "normal_crates": 203,
+      "normal_build_crates": 207,
+      "clean_release_build_s": 22.2,
+      "unstripped_bytes": 11309800,
+      "stripped_bytes": 8707776
+    },
+    "spike_nogit": {
+      "normal_crates": 121,
+      "normal_build_crates": 125,
+      "clean_release_build_s": 17.0,
+      "unstripped_bytes": 7017192,
+      "stripped_bytes": 5302008
+    },
+    "cpu": "unavailable in sandbox",
+    "gix_probe": {
+      "normal_crates": 104,
+      "clean_release_build_s": 6.2,
+      "unstripped_bytes": 2997712,
+      "stripped_bytes": 2457952,
+      "note": "minimal gix (features [sha1]) that inits a bare repo and writes blob/tree/commit/ref; lower bound for a gix fallback, no op log"
+    },
+    "ara_cli_default_normal_crates": 146,
+    "new_crates_vs_ara_cli_git_variant": 162,
+    "new_crates_vs_ara_cli_simple_variant": 86,
+    "gix_crates_in_git_variant": 48,
+    "note": "normal_crates = unique name+version in cargo tree -e normal, including the root package. Clean release builds: fresh CARGO_TARGET_DIR, offline, single sample each, same machine."
+  },
+  "check4_wasm": {
+    "command": "cargo check --offline --target wasm32-unknown-unknown -p ara-core (in wt-snapshot)",
+    "exit": 0,
+    "ara_core_wasm_normal_crates": 41,
+    "jj_or_gix_in_ara_core_tree": 0,
+    "ara_core_Cargo_toml_changed": false
+  },
+  "backend_store_size_two_captures_the_ara_of_ara": {
+    "package_ara_bytes": 6789522,
+    "git": {
+      "apparent": 4152299,
+      "disk": 5144576,
+      "files": 420
+    },
+    "simple": {
+      "apparent": 6946721,
+      "disk": 7770112,
+      "files": 399
+    }
+  },
+  "check5_network": {
+    "network_crates_in_graph": [
+      "gix-protocol 0.65.1 (default features: no handshake/fetch)",
+      "gix-transport 0.59.2 (default features = none: no client)",
+      "gix-url 0.38.0 (URL parsing only)"
+    ],
+    "absent": [
+      "reqwest",
+      "hyper",
+      "h2",
+      "http",
+      "curl",
+      "ssh2",
+      "libssh2-sys",
+      "openssl",
+      "rustls",
+      "native-tls",
+      "tokio",
+      "mio",
+      "socket2",
+      "watchman_client"
+    ],
+    "linked_text_symbols": {
+      "jj_lib::git_subprocess": 0,
+      "gix_transport": 0,
+      "gix_protocol": 0,
+      "jj_lib::git (functions)": 1,
+      "TcpStream/getaddrinfo/connect": 0
+    },
+    "linked_data_symbols_only": "tracing callsite metadata for jj_lib::git::GitFetch::fetch, push_refs, git_subprocess (no code)",
+    "spawn_capable_code_linked": "std::process::Command::spawn via jj-lib GPG/SSH signing backends; unreachable with signing.backend=none / behavior=drop; no spawn observed at runtime",
+    "network_reachable_from_adapter": false
+  }
+}
