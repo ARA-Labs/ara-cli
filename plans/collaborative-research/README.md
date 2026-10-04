@@ -284,6 +284,7 @@ Stage PRs merged into `feat/collaborative-ara`:
 | L2 | this PR | Lara adapter, review attestations, composite maps, and verdict views in `ara-eval` [#3](https://github.com/ARA-Labs/ara-eval/pull/3) at `6e6d4e5`. It pins the protocol at `e5179d9` and Lara `a31299f`. 80 tests pass against the real `lara` and `ara`. |
 | 2a | #101 | `ara snapshot --output`, 0.1.24. Zero-cost PASS (`docs/verification/collaborative-research/phase-2a/`). |
 | 2 (runner) | this PR | Capture, freeze, and publication in `ara-eval` [#2](https://github.com/ARA-Labs/ara-eval/pull/2) at `71da192`. It pins ara-cli `da43bf6` and the protocol at `36e6f89`. 48 tests pass against the real binary, covering concurrent publishers, stale input, lost acknowledgment, announcement recovery, index rebuild, and mode-only identity. |
+| 3 | this PR | Shared frontier in `ara-eval` [#4](https://github.com/ARA-Labs/ara-eval/pull/4) at `3411f4c`: v2 intentions on the plan-14 channel, ordered announcements, and bounded briefings built only from CLI reads over exact packages, with digest-verified evidence fetch. 119 tests pass across phases 2, 3, and L2. |
 | 2b | #102 | jj-lib store spike evidence. The spike source sits on the unmerged branch `spike/jj-snapshot-store`. |
 | 4 | #104 | Peer-feedback identity reconciliation and `--self-key`, 0.1.25. Zero-cost PASS (`docs/verification/collaborative-research/phase-4/`). |
 
@@ -292,7 +293,7 @@ Not delivered, with the blocking decision for each:
 | Stage | Blocked on |
 |---|---|
 | 2c optional store | The developer's re-approval of D-S4, D-S6, and D-S8 against the phase-2b numbers. |
-| 3, 4 runner parts | In progress in `ara-eval` on `feat/collaborative-ara`, authorized by the developer on 2026-10-04. |
+| 4 runner parts | In progress in `ara-eval` on `feat/collaborative-ara`. |
 | 5 | Stages 2–4 and L2 on the runner side, plus separate budget approval for the provider-backed smoke. |
 | 6 | Stage 5, the reviewed `ara-eval` stack registration, and budget approval for collection. |
 
