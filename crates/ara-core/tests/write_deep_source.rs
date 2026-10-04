@@ -54,3 +54,43 @@ fn true_ten_thousand_deep_native_source_index_clone_delta_and_drop_are_stack_bou
         // Every owned tree and the cache are destroyed on this small stack.
     }).unwrap().join().unwrap();
 }
+
+/// Every loader shares one privacy predicate: nested `.git`, `.ara` and write
+/// temporaries inside knowledge directories are neither read nor captured.
+#[test]
+fn loaders_skip_private_names_inside_knowledge_directories() {
+    let dir = tempfile::TempDir::new().unwrap();
+    let root = dir.path();
+    for (path, bytes) in [
+        (
+            "trace/exploration_tree.yaml",
+            "tree: [{id: N01, type: question, title: Q}]\n",
+        ),
+        ("logic/claims.md", "# Claims\n"),
+        ("logic/.git/objects/x", "private"),
+        ("trace/.ara/state", "private"),
+        ("staging/.ara-write-1-2", "private"),
+    ] {
+        let file = root.join(path);
+        std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+        std::fs::write(file, bytes).unwrap();
+    }
+    for snapshot in [
+        ara_core::write::ArtifactSnapshot::load(root).unwrap(),
+        ara_core::write::ArtifactSnapshot::load_complete(root).unwrap(),
+    ] {
+        let captured = snapshot.files.keys().cloned().collect::<Vec<_>>();
+        assert!(
+            captured
+                .iter()
+                .all(|path| !ara_core::write::source::private_path(path)),
+            "{captured:?}"
+        );
+        assert!(
+            snapshot
+                .identity_paths
+                .iter()
+                .all(|path| !ara_core::write::source::private_path(path))
+        );
+    }
+}

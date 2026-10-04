@@ -98,3 +98,9 @@ pub fn ensure_no_pending_transaction(root: &Path) -> Result<(), AgentError> {
     }
     Ok(())
 }
+
+/// Whether two resolved roots are equal or nested. Callers map an overlap to
+/// their own error contract.
+pub fn roots_overlap(left: &Path, right: &Path) -> bool {
+    left.starts_with(right) || right.starts_with(left)
+}

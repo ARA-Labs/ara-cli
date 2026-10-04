@@ -406,7 +406,7 @@ fn materialize(
         if path.components().any(|part| {
             part.as_os_str()
                 .to_str()
-                .is_some_and(ara_core::write::source::is_temporary_path)
+                .is_some_and(ara_core::write::source::private_name)
         }) {
             continue;
         }

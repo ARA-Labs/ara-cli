@@ -185,6 +185,33 @@ filters must not regenerate source bytes. Reports retain the Git object/source
 identity and phase timings. Git convenience setup is measured separately from
 native merge planning/validation/commit phases.
 
+## Snapshot packages
+
+```sh
+ara -C ./forks/a snapshot --output ./packages/a-0007 --json
+```
+
+`snapshot` takes the artifact lock, refuses a prepared transaction, and captures
+every nonprivate regular file, including opaque `src/` and `evidence/` files.
+`.ara/`, `.git/` and write temporaries are skipped at every depth without being
+read. The new `--output` directory receives `ara/` with the captured bytes and
+full file modes, plus `snapshot.json`.
+
+The manifest records `fingerprint`, the same native revision `ara merge`
+records for these bytes, and `capture_id`, which also binds every file mode and
+the `status` diagnostics of the capture. A mode-only change keeps the
+fingerprint and changes the capture ID. Diagnostic errors are reported, not
+rejected. The exact schema is in
+[`collaborative-research/snapshot-contract.md`](collaborative-research/snapshot-contract.md).
+
+The package is written beside the output, verified, rechecked against the
+source, and then published with an atomic no-replace rename. An existing or
+concurrently created `--output` is never replaced (`output_exists`); a source
+that changed during capture gives `stale_snapshot_input` and leaves no output.
+The lock only serializes `ara` writers. For a point-in-time package, stop code
+tools and other direct writers before running `snapshot`. Pass the exported
+`ara/` directly to `ara merge --theirs` or to any read command.
+
 ## Keyword search and duplicate advice
 
 Search tokenizes maximal Unicode alphanumeric runs, lowercases Unicode text,

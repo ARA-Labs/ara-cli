@@ -8,7 +8,7 @@
 mod check;
 mod check_config;
 mod serve;
-use ara_cli::{agent, context, merge, output, search, write};
+use ara_cli::{agent, context, merge, output, search, snapshot, write};
 
 use std::path::PathBuf;
 use std::process::ExitCode;
@@ -72,6 +72,8 @@ enum Command {
     Merge(merge::MergeArgs),
     /// Resolve a source-qualified imported identity.
     Resolve(merge::ResolveArgs),
+    /// Capture the complete artifact into a new verified package directory.
+    Snapshot(snapshot::SnapshotArgs),
 }
 
 #[derive(clap::Args)]
@@ -324,6 +326,11 @@ fn main() -> ExitCode {
             };
             agent_command(directory, "ara.merge/v1", options, !args.dry_run, |root| {
                 merge::run(root, &args)
+            })
+        }
+        Command::Snapshot(args) => {
+            agent_command(directory, snapshot::FORMAT, &args.options, true, |root| {
+                snapshot::run(root, &args)
             })
         }
         Command::Resolve(args) => {
