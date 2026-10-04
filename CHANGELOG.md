@@ -13,7 +13,7 @@ All notable changes to this project are documented here. The format follows
   `inherited_revision` records outside the predecessor chain, and repeated
   facts compare only source bytes and identities, not import times.
   `ara merge --self-key <key>` records the destination's own stable key so its
-  entries returning from canonical or peers map back without duplicates.
+  entries returning from canonical or peers map back without duplicates (#104).
 - `ara snapshot --output <dir>`: capture every nonprivate artifact file under
   the artifact lock into a verified package (`ara/` plus a canonical
   `snapshot.json`). The manifest binds the native merge fingerprint and a
@@ -91,7 +91,7 @@ All notable changes to this project are documented here. The format follows
 - Merge: a canonical import of a fork that had absorbed another fork no longer
   fails with `merge.alias_conflict`, and two imports of the same source
   revision at different times no longer fail with
-  `merge.foreign_mapping_conflict`.
+  `merge.foreign_mapping_conflict` (#104).
 - Core: loaders apply one privacy predicate before descending, so nested
   `.git/`, `.ara/` and write temporaries inside knowledge directories are no
   longer read by ordinary loads or Git materialization (#101).
