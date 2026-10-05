@@ -641,3 +641,33 @@ fn colliding_entry_namespaces_print_addresses_that_round_trip() {
         assert_eq!(result["entry"]["kind"], result["kind"], "{result}");
     }
 }
+
+#[test]
+fn escaped_recipe_document_addresses_round_trip() {
+    for (name, escaped) in [
+        ("my notes", "logic/solution/my%20notes.md"),
+        ("caf\u{e9}", "logic/solution/caf%C3%A9.md"),
+    ] {
+        let dir = artifact("# M\n");
+        let path = format!("logic/solution/{name}.md");
+        put(dir.path(), &path, "# Notes\n\nA widget recipe.\n");
+        for args in [
+            &["ls"][..],
+            &["ls", "--type", "solution"],
+            &["find", "widget"],
+        ] {
+            let found = addresses(&brief(dir.path(), args));
+            assert!(found.iter().any(|a| a == escaped), "{args:?}: {found:?}");
+        }
+        let header = show_header(dir.path(), escaped);
+        assert_eq!(header_address(&header), escaped, "{header}");
+        // The JSON read keeps the recipe projection of the raw spelling.
+        let read = show(dir.path(), &[escaped]);
+        assert_eq!(read, show(dir.path(), &[&path]), "{name}");
+        assert_eq!(read["entries"][0]["kind"], "solution");
+        assert_eq!(read["entries"][0]["key"], path.as_str());
+        // Decoding stays one pass: a doubly escaped spelling names nothing.
+        let twice = escaped.replace('%', "%25");
+        assert_eq!(reject(dir.path(), &[&twice])["code"], "unknown_id");
+    }
+}

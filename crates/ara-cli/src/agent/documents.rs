@@ -158,10 +158,18 @@ pub(super) fn select<'a>(
             }
             // Decoded once; a raw path spelling stays readable when it names
             // no decoded document. A valid path naming no document may still
-            // be an entry key, such as a concept spelled with `/`.
+            // be an entry key, such as a concept spelled with `/`. A recipe
+            // document reads as its recipe entry, looked up by the path that
+            // named it, so an escaped recipe address resolves too.
             for path in [path.as_str(), id] {
-                if artifact.sources.contains_key(path) && !artifact.is_recipe_document(path) {
+                if !artifact.sources.contains_key(path) {
+                    continue;
+                }
+                if !artifact.is_recipe_document(path) {
                     return document_row(artifact, path, &[], false, full).map(Selected::Source);
+                }
+                if let Ok(entry) = artifact.lookup_entry(path)? {
+                    return Ok(Selected::Entry(entry));
                 }
             }
         }

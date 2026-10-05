@@ -287,7 +287,10 @@ resolve exactly, with no redirect or tolerant tier. The input is decoded once
 and then passes the normal document boundary: malformed escapes, invalid
 UTF-8, absolute paths and traversal reject (`invalid_address` or
 `invalid_document`). A positional whole-document path is decoded the same
-way; its raw spelling still reads when no decoded path matches. A legacy
+way; its raw spelling still reads when no decoded path matches. A solution
+document (`logic/solution/<name>.md`, other than `heuristics.md`) reads as its
+`solution` entry under either spelling, so `logic/solution/my%20notes.md` as
+printed by `ls` and `find` returns the same entry as the raw path. A legacy
 `path#Method/Step 3` is tried only when no entry has that selector, and
 resolves only when exactly one section has a heading suffix spelled that way
 with `/` joins; each segment may use its native-ID shorthand
