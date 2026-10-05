@@ -41,7 +41,7 @@ mod sections;
 #[cfg(feature = "native")]
 pub mod write;
 
-pub use claims::{claim_heading, unparsed_claim_headings};
+pub use claims::{claim_heading, fenced_claim_headings, unparsed_claim_headings};
 pub use layout::{LayoutOptions, LayoutResult, NodePosition, Point, Rect};
 pub use manifest::{
     Binding, BindingRole, BuiltOn, Claim, ClaimId, Concept, Exhibit, ExhibitKind, ExperimentId,

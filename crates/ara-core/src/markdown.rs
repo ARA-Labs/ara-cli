@@ -158,6 +158,41 @@ fn index_headings(md: &str, body_start: usize, include_paths: bool) -> Vec<Markd
     result
 }
 
+/// Lines from `start` to EOF that a code fence left open at EOF hides, as
+/// `(one-based line, text)`, scanned exactly as [`index_headings`] scans
+/// (field continuations cannot open a fence). Empty when every fence closes.
+pub(crate) fn unclosed_code_fence_lines(md: &str, start: usize) -> Vec<(usize, &str)> {
+    let mut fence = None;
+    let mut continuation = false;
+    let mut hidden = Vec::new();
+    let mut offset = 0;
+    for (index, line) in md.split_inclusive('\n').enumerate() {
+        let skip = offset < start;
+        offset += line.len();
+        if skip {
+            continue;
+        }
+        let text = line.trim_end_matches(['\r', '\n']);
+        if continuation && text.starts_with("  ") {
+            continue;
+        }
+        continuation = false;
+        let was_open = fence.is_some();
+        if outside_fence(text, &mut fence) {
+            continuation = field_label(text).is_some_and(|(_, start)| start == text.len());
+        } else if !was_open {
+            // This line opened a fence; anything hidden so far was closed.
+            hidden.clear();
+        } else if fence.is_some() {
+            hidden.push((index + 1, text));
+        }
+    }
+    if fence.is_none() {
+        hidden.clear();
+    }
+    hidden
+}
+
 /// Level-two sections in source order; ranges include deeper subsections.
 pub fn sections(md: &str) -> Vec<MarkdownSection<'_>> {
     level_two(index_headings(md, body_start(md), false))

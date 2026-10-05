@@ -322,7 +322,10 @@ validation error is read through only when its code is in this allowlist
 Admitted errors also need every typed native document (`claims`,
 `solution/heuristics`, `concepts`, `related_work`, `experiments`) to be fully
 represented: no `ARA229` fence hides one, no `logic/claims.md` heading that
-starts like a claim ID (`## C01—Speedup`) fails to parse, and no line of
+starts like a claim ID (`## C01—Speedup`) fails to parse, no code fence left
+open at EOF in `logic/claims.md` hides a claim-like heading (whether or not
+any reference names it; a closed fence holding an example heading is fine),
+and no line of
 `logic/claims.md` starting with `#` names a dangling claim ID as a whole token
 (ignoring case, spaces, code fences and heading level, so `### C01: A`,
 `## c01 — A`, `## **C01**: A`, a heading swallowed by an unclosed code
@@ -346,7 +349,8 @@ An unclosed leading `---` in a Markdown document hides the rest of it as
 frontmatter, and loads warn `ARA229` at `path:line` (for `PAPER.md`, the
 knowledge-registry warning `ARA217` reports it instead). A `logic/claims.md`
 whose opener is followed only by blank lines, the exact title `# Claims`, a
-claim heading and a known claim field is the one recovered case: reads skip
+claim heading and a known claim field, with no code fence left open at EOF
+hiding a claim-like heading, is the one recovered case: reads skip
 that line and warn `ARA228` (rules in
 [stage-1](stage-1-core-parse-validate.md#validation-severity)). Writes never
 recover it. A write, including a dry run, fails with `write.frontmatter` and

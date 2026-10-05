@@ -7,7 +7,8 @@
 //! document rather than metadata: optional blank lines, the exact title
 //! `# Claims`, blank lines, an unindented claim heading whose first content is
 //! a known claim field with a value. After the opener every level-two section
-//! must be a distinct claim and no other level-one title may appear. Anything
+//! must be a distinct claim, no other level-one title may appear, and no code
+//! fence left open at EOF may hide a claim-like heading. Anything
 //! else, including YAML-looking content, comments or a heading-only block,
 //! stays hidden. Source bytes are never rewritten.
 
@@ -134,6 +135,10 @@ fn recovered(md: &str, start: usize) -> bool {
     {
         return false;
     }
+    // A code fence left open at EOF hides later claims: not recoverable.
+    if !crate::claims::hidden_claim_headings(md, start).is_empty() {
+        return false;
+    }
     let mut ids = BTreeSet::new();
     for heading in std::iter::once(first).chain(rest) {
         let distinct_claim =
@@ -240,6 +245,8 @@ mod tests {
             "---\n# Claims\n## C01: A\n- **Statement**: x\n## Notes\nprose\n",
             "---\n# Claims\n## C01: A\n- **Statement**: x\n# Appendix\n",
             "---\n# Claims\n## C01: A\n- **Statement**: x\n## C01: B\n- **Statement**: y\n",
+            // An unclosed code fence swallowing a later claim.
+            "---\n# Claims\n## C01: A\n- **Statement**: x\n```\n## C02: B\n",
         ];
         for md in cases {
             assert_eq!(handling(md), Some(UnclosedFence::Protected), "{md:?}");

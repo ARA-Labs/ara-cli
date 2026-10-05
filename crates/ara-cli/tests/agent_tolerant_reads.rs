@@ -762,3 +762,69 @@ fn dangling_dependency_refuses_when_its_claim_was_swallowed() {
         "{details}"
     );
 }
+
+#[test]
+fn unclosed_code_fence_hiding_a_claim_refuses_independently_of_dangling_ids() {
+    // C99 dangles, so reads take the read-through path; the swallowed C02 is
+    // referenced nowhere, so no dangling ID points at it.
+    let tree = "tree:\n  - id: N01\n    type: experiment\n    evidence: [C01, C99]\n";
+    let body = "## C01: A\n- **Statement**: a\n\n```\n## C02: Hidden\n- **Statement**: b\n";
+    let stray = format!("---\n# Claims\n\n{body}");
+    for (claims, location) in [
+        (body.to_owned(), "logic/claims.md:5"),
+        // A leading stray opener must not be declared recovered (`ARA228`).
+        (stray, "logic/claims.md:1"),
+    ] {
+        let dir = artifact(&[
+            ("trace/exploration_tree.yaml", tree),
+            ("logic/claims.md", &claims),
+        ]);
+        for read in [
+            &["ls"][..],
+            &["find", "hidden"],
+            &["show", "C01"],
+            &["show", "N01"],
+        ] {
+            let refused = fail(dir.path(), read, 1);
+            assert_eq!(refused["error"]["code"], "invalid_artifact", "{claims:?}");
+            let details = &refused["error"]["details"];
+            assert_eq!(details["blocking"], json!(["ARA107"]), "{claims:?}");
+            assert!(
+                details["unrepresented"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .any(|reason| reason.as_str().unwrap().starts_with(location)),
+                "{details}"
+            );
+        }
+        let check = ara()
+            .arg("check")
+            .arg(dir.path())
+            .arg("--json")
+            .output()
+            .unwrap();
+        let check = String::from_utf8_lossy(&check.stdout);
+        assert!(
+            !check.contains("ARA228"),
+            "stray opener declared recovered: {claims:?}"
+        );
+    }
+
+    // Control: a closed fence holding an example heading stays readable.
+    let closed = "---\n# Claims\n\n## C01: A\n- **Statement**: a\n\n```\n## C02: Example\n```\n";
+    for claims in [&closed[4..], closed] {
+        let dir = artifact(&[
+            ("trace/exploration_tree.yaml", tree),
+            ("logic/claims.md", claims),
+        ]);
+        let listed = run(dir.path(), &["ls"]);
+        assert_eq!(codes(&listed["diagnostics"], "errors"), ["ARA107"]);
+        assert!(ids(&listed["entries"]).contains(&"C01".to_owned()));
+        assert_eq!(run(dir.path(), &["show", "C01"])["entries"][0]["id"], "C01");
+        assert_eq!(
+            fail(dir.path(), &["show", "C02"], 1)["error"]["code"],
+            "unknown_id"
+        );
+    }
+}

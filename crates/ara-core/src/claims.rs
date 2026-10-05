@@ -137,6 +137,42 @@ pub fn unparsed_claim_headings(md: &str) -> Vec<(usize, &str)> {
         .collect()
 }
 
+/// Claim-like heading lines of `logic/claims.md` hidden by a code fence that
+/// is still open at EOF, as `(one-based line, line)`. The parser folds them
+/// into the preceding claim, so their claims are lost without any dangling
+/// reference pointing at them. Closed fences (intentional examples) are fine.
+pub fn fenced_claim_headings(md: &str) -> Vec<(usize, &str)> {
+    hidden_claim_headings(
+        md,
+        crate::stray_fence::body_start(crate::stray_fence::CLAIMS, md),
+    )
+}
+
+/// [`fenced_claim_headings`] scanned from byte offset `start`.
+pub(crate) fn hidden_claim_headings(md: &str, start: usize) -> Vec<(usize, &str)> {
+    crate::markdown::unclosed_code_fence_lines(md, start)
+        .into_iter()
+        .filter(|(_, line)| claim_like_heading(line))
+        .collect()
+}
+
+/// A line starting with `#` whose text, ignoring `#`, `*`, whitespace and
+/// case, starts with a claim ID: `C` and digits, then no alphanumeric.
+fn claim_like_heading(line: &str) -> bool {
+    let Some(rest) = line.trim_start().strip_prefix('#') else {
+        return false;
+    };
+    let compact: String = rest
+        .chars()
+        .filter(|c| !c.is_whitespace() && !matches!(c, '#' | '*'))
+        .collect();
+    let Some(rest) = compact.strip_prefix(['C', 'c']) else {
+        return false;
+    };
+    let digits = rest.bytes().take_while(u8::is_ascii_digit).count();
+    digits > 0 && !rest[digits..].starts_with(char::is_alphanumeric)
+}
+
 /// Extracts every `^<prefix>\d+$` token, splitting on non-alphanumeric
 /// separators. Handles `[C01]`, `C01`, `C02, C04`, `none`, `[]` uniformly.
 fn extract_ids(value: &str, prefix: char) -> Vec<String> {
@@ -332,6 +368,24 @@ mod tests {
             unparsed_claim_headings(md),
             [(3, "C02\u{2014}Dropped"), (4, "C03")]
         );
+    }
+
+    #[test]
+    fn unclosed_code_fences_hiding_claim_headings_are_listed() {
+        let md = "# Claims\n## C01: A\n```\n## C02: Shown\n```\n- x\n~~~\n# notes\n### c 03 - B\n## **C04**: D\n## Cx\n";
+        assert_eq!(
+            fenced_claim_headings(md),
+            [(9, "### c 03 - B"), (10, "## **C04**: D")]
+        );
+        // Closed fences, and fences opened inside field continuations, hide nothing.
+        assert!(fenced_claim_headings("## C01: A\n```\n## C02: B\n```\n").is_empty());
+        assert!(
+            fenced_claim_headings("## C01: A\n- **Statement**:\n  ```\n## C02: B\n").is_empty()
+        );
+        // A stray-recovered document is scanned after its opener.
+        let stray = "---\n# Claims\n\n## C01: A\n- **Statement**: a\n```\n## C02: B\n";
+        assert!(fenced_claim_headings(stray).is_empty());
+        assert_eq!(hidden_claim_headings(stray, 4), [(7, "## C02: B")]);
     }
 
     #[test]

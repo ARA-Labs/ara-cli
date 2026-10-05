@@ -130,7 +130,8 @@ even error ordering is hash-seed independent. Nothing is sorted by id.
   `logic/claims.md` whose opener is followed only by blank lines, the exact
   title `# Claims`, blank lines and an unindented claim heading whose first
   content is a known claim field with a value; every later level-two section
-  must be a distinct claim and no other level-one title may follow. That stray
+  must be a distinct claim, no other level-one title may follow, and no code
+  fence left open at EOF may hide a claim-like heading. That stray
   line is skipped and its claims are read (`ARA228`). Metadata-like content,
   comments or heading-only blocks never qualify
   ([`stray_fence.rs`](../crates/ara-core/src/stray_fence.rs)).

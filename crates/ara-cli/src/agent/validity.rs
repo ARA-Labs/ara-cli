@@ -8,8 +8,9 @@
 //! ambiguous identities, cycles, contradictory parents and corrupt identity
 //! history stay refusals, and a new rule refuses until it is classified here.
 //! Read-through also needs every typed native document to be represented: no
-//! `ARA229` fence hides one, and no claim-like heading in `logic/claims.md`
-//! fails to parse. A dropped claim looks exactly like a dangling `ARA107`
+//! `ARA229` fence hides one, no claim-like heading in `logic/claims.md`
+//! fails to parse, and no code fence left open at EOF hides one, whether or
+//! not any dangling ID names it. A dropped claim looks exactly like a dangling `ARA107`
 //! reference, so that parse loss refuses as it did before. The report keeps
 //! each diagnostic's original severity. Writes never use this tolerance.
 use crate::output::AgentError;
@@ -89,6 +90,14 @@ fn unrepresented_documents(
         reasons.extend(ara_core::unparsed_claim_headings(claims).into_iter().map(
             |(line, heading)| {
                 format!("logic/claims.md:{line}: claim heading `{heading}` does not parse")
+            },
+        ));
+        reasons.extend(ara_core::fenced_claim_headings(claims).into_iter().map(
+            |(line, heading)| {
+                format!(
+                    "logic/claims.md:{line}: unclosed code fence hides claim heading `{}`",
+                    heading.trim()
+                )
             },
         ));
     }
