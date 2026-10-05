@@ -86,6 +86,13 @@ pub(crate) fn headings_from(md: &str, start: usize) -> Vec<MarkdownHeading<'_>> 
 }
 
 /// Where Markdown begins: after any frontmatter, or at 0.
+/// Whether reads recover the native document at `path` from a stray leading
+/// `---` ([`crate::stray_fence`]). Writes never recover it: a heading
+/// selector there fails with `write.frontmatter`.
+pub fn recovered_fence(path: &str, md: &str) -> bool {
+    crate::stray_fence::body_start(path, md) != body_start(md)
+}
+
 pub(crate) fn body_start(md: &str) -> usize {
     frontmatter_range(md).map_or(0, |range| range.end)
 }

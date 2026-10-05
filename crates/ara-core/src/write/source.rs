@@ -458,13 +458,23 @@ impl WorkingArtifact {
         if allowed_document(path) {
             return Ok(true);
         }
-        if !self.exists("PAPER.md") {
-            return Ok(false);
+        registered_document(path, self.paper()?)
+            .map_err(|e| WriteError::semantic("write.knowledge_paths", e))
+    }
+    /// Whether `document.replace` can target `path` ([`replaceable`]).
+    pub fn is_replaceable(&self, path: &str) -> Result<bool, WriteError> {
+        if path == "PAPER.md" || allowed_document(path) {
+            return Ok(path != "PAPER.md");
         }
-        Ok(crate::knowledge_paths(self.text("PAPER.md")?)
-            .map_err(|e| WriteError::semantic("write.knowledge_paths", e))?
-            .iter()
-            .any(|registered| registered == path))
+        replaceable(path, self.paper()?)
+            .map_err(|e| WriteError::semantic("write.knowledge_paths", e))
+    }
+    fn paper(&self) -> Result<Option<&str>, WriteError> {
+        if self.exists("PAPER.md") {
+            self.text("PAPER.md").map(Some)
+        } else {
+            Ok(None)
+        }
     }
     pub fn allocate_id(
         &self,
@@ -1335,6 +1345,21 @@ pub fn allowed_document(path: &str) -> bool {
                 | "logic/experiments.md"
                 | "logic/related_work.md"
         ) || (path.starts_with("logic/solution/") && path.ends_with(".md")))
+}
+/// Whether `PAPER.md` text (when present) registers `path` in
+/// `knowledge_paths`. An invalid registry is an error.
+pub fn registered_document(path: &str, paper: Option<&str>) -> Result<bool, String> {
+    let Some(paper) = paper else {
+        return Ok(false);
+    };
+    Ok(crate::knowledge_paths(paper)?
+        .iter()
+        .any(|registered| registered == path))
+}
+/// Whether `document.replace` can target `path`: an allowed native document
+/// or a registered knowledge path, never `PAPER.md` itself.
+pub fn replaceable(path: &str, paper: Option<&str>) -> Result<bool, String> {
+    Ok(path != "PAPER.md" && (allowed_document(path) || registered_document(path, paper)?))
 }
 pub fn allowed_write_path(path: &str) -> bool {
     safe_relative(path).is_ok()

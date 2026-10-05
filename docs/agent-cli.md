@@ -14,38 +14,112 @@ current directory's ancestors, checking each ancestor and its `ara/` child for
 never create a lock, journal, or artifact structure. Explicit source-document
 reads can inspect a partially initialized root.
 
+Agents read the brief default text; programs add `--json`:
+
 ```sh
+ara -C ./ara status
+ara -C ./ara ls
+ara -C ./ara ls logic/claims.md
+ara -C ./ara ls --type question --under N01 --status open
+ara -C ./ara find 'failure boundary' --context 2
+ara -C ./ara show C01 'logic/solution/architecture.md#h/Architecture/A%2FB'
+ara -C ./ara show --document logic/problem.md --source
+ara -C ./ara path N12
+ara -C ./ara refs C01
+ara -C ./ara open
+
 ara -C ./ara status --json
-ara -C ./ara ls --type question --under N01 --status open --json
 ara -C ./ara show N01 C01 --full --json
 ara -C ./ara show --document logic/problem.md --source --full --json
 ara -C ./ara show --document logic/solution/architecture.md \
   --heading Architecture --heading 'A/B' --full --json
-ara -C ./ara show 'logic/solution/architecture.md#h/Architecture/A%2FB' --json
-ara -C ./ara path N12 --json
-ara -C ./ara refs C01 --json
-ara -C ./ara open --json
 ara -C ./ara find 'failure boundary' --limit 10 --full --json
 ```
 
-| Command | Behavior |
-|---|---|
-| `status` | Layer counts, diagnostics and advisory next IDs |
-| `ls` | Source-order entries; intersecting type, subtree, date, status and provenance filters |
-| `show` | Entry projection, relations via `--with`, full body or bounded native document |
-| `path` | Root-to-node nesting, with cross-edges kept distinct |
-| `refs` | Typed references with source spans, separately reported possible prose mentions |
-| `open` | Unfinished questions/experiments, unpromoted observations and active continuity |
-| `find` | Stateless keyword ranking over loaded knowledge |
-| `resolve` | Resolve a qualified imported identity through the portable identity records |
+| Command | Behavior | Brief default text |
+|---|---|---|
+| `status` | Layer counts, diagnostics and advisory next IDs | Counts and next IDs only when complete; error and warning counts with rule codes |
+| `ls` | Source-order entries; intersecting type, subtree, date, status and provenance filters | No arguments: one line per knowledge document with entry counts by kind (or heading count) and line count, then the direct-file roots. `ls <path>`: that document's entries, or its heading addresses when it has none. Filters: matching entries |
+| `show` | Entry projection, relations via `--with`, full body or bounded native document | One labeled block per selection: native source with its `source_digest`, or a projection without a digest |
+| `path` | Root-to-node nesting, with cross-edges kept distinct | Root-to-node IDs, indented by depth |
+| `refs` | Typed references with source spans, separately reported possible prose mentions | Referencing ID, field, `source:line`, literal; prose mentions labeled as possible |
+| `open` | Unfinished questions/experiments, unpromoted observations and active continuity | Address, kind, reasons, title |
+| `find` | Stateless keyword ranking over loaded knowledge | Ranked addresses with one-based source lines; `--context N` adds merged context |
+| `resolve` | Resolve a qualified imported identity through the portable identity records | The resolved ID |
 
-Results use command-specific `ara.<command>/v1` JSON formats. Success goes to
-stdout; a JSON error goes to stderr with `code`, `message`, and applicable ID,
-line or details. Exit 0 means completion, exit 1 means a semantic rejection or
-unresolved merge, and exit 2 means setup, argument, I/O or lock failure.
-`--fields` projects supported fields while retaining transaction/result identity.
-Default excerpts are bounded to 160 Unicode characters; `--full` retains source
-content. Incomplete source representation must not be reported as success.
+With `--json`, results use command-specific `ara.<command>/v1` JSON formats.
+Success goes to stdout; a JSON error goes to stderr with `code`, `message`,
+and applicable ID, line or details. Exit 0 means completion, exit 1 means a
+semantic rejection or unresolved merge, and exit 2 means setup, argument, I/O
+or lock failure. `--fields` projects supported fields while retaining
+transaction/result identity. JSON excerpts are bounded to 160 Unicode
+characters; `--full` retains source content. Incomplete source representation
+must not be reported as success.
+
+### Brief text output
+
+Without `--json`, `status`, `ls`, `show`, `path`, `refs`, `open` and `find`
+print address-led text ([`brief/`](../crates/ara-cli/src/brief)). Each item line
+starts with an address `show` accepts: a native ID (`C04`), a heading address
+or a document path. Data only the text needs is computed only without
+`--json`. `--fields` keeps its row meaning: with it, reads print the projected
+rows in the previous row text (tab-separated rows; `show` rows as JSON).
+Write commands keep their previous text.
+
+`show` prints one block per selection. The block starts with `== <address>
+[<label>]`. A native source selection (a document, a heading, or an entry that
+heads exactly one Markdown section, such as `C04` or `H18`) then prints the
+`heading:` path, a metadata line and the exact selected bytes in full:
+
+```text
+== logic/claims.md#C04 [claim C04]
+heading: Claims > C04: Universal Ingestor produces lossless transformations
+source_digest=sha256:09f6c8af… scope=heading_body selector: --document logic/claims.md --heading Claims --heading 'C04: Universal Ingestor produces lossless transformations'
+- **Statement**: The LLM-based Ingestor faithfully transforms PDF papers …
+```
+
+A section that is the only one headed by a loaded entry of its document is
+cited in the short form `path#ID` (`logic/claims.md#C04`,
+`logic/solution/heuristics.md#H01`), which `show` resolves to the same
+section; other sections use their canonical heading address.
+`source_digest` keeps the meaning of the JSON `digest`: SHA-256 of the full
+selected source. For a heading, that is the section body that `document.replace`
+with the printed `--document`/`--heading` selection replaces (title and
+ancestors excluded). For a document, it is the whole file (`scope=whole_document`).
+Use it as `expected` for that selection. The line says `selector: none` when
+the full heading vector also matches another section, or when the document is
+read-only for `document.replace` (`PAPER.md`, `trace/`, `staging/` and any
+path that is neither a mutable logic document nor registered in
+`knowledge_paths`), or for a heading in a `logic/claims.md` whose stray
+leading `---` reads recover (writes reject that heading with
+`write.frontmatter`). The reason follows `none`, and the digest is still
+printed. A value starting with `-` prints as `--heading=<value>`. The display adds one newline when the source lacks a
+final one. `--source --json` remains the exact-byte path. Entries without a
+native section (nodes, observations, sessions) print a labeled projection with
+no digest. The projection ends with the exact source read, such as
+`ara show --document trace/exploration_tree.yaml --source`.
+
+`find` keeps BM25 order, tokenization and filters. Each result prints
+`<address> [<kind>] <source>`. Under it are the one-based source lines of the
+result's native span (its section, YAML entry without nested entries, session
+file, or a document's indexed text) that contain one of the result's matched
+query terms, compared case-insensitively. A result with no such line prints
+its excerpt as `excerpt:`. At most 20 lines print per result; a final line
+counts the rest. `--context N` (long form only; `-C` selects the artifact)
+adds up to N lines on each side within the span. Overlapping or touching
+ranges merge, `--` separates the others, and hit lines use `N:` while context
+lines use `N-`. `--context 0` adds nothing.
+
+Load diagnostics print once on stderr, after the output, as one line. It gives
+the error and warning counts with each rule code once (`ARA219×3`) and suggests
+`ara check`. `status` prints its codes on stdout instead. Text errors print
+`error [code]: message`, then the `hint`, up to 10 ranked `candidates`, the
+`blocking` codes, `file_access` roots and `unrepresented` documents from
+`details`. A refusal (`invalid_artifact`, `incomplete_artifact`) replaces the
+full validation report in its message with error and warning counts and rule
+codes; the JSON `message` keeps the report. When a next ID cannot be
+allocated, `status` prints `X=unavailable` and a `next_ids_unavailable` line
+with the reason from `next_id_errors`.
 
 Native documents are `PAPER.md`, `logic/**/*.md`, `trace/**/*.yaml`,
 `staging/observations.yaml` and paths registered in `PAPER.md` `knowledge_paths`.
@@ -116,7 +190,9 @@ add `heading_path` (the section's full source vector) and `address`. The
 
 A miss returns `unknown_id`; more than one match, whether sections or
 entries, returns `ambiguous_heading`. Both carry `details.candidates`, at most
-40 canonical addresses from loaded knowledge, and `details.capped`, which is
+40 addresses from loaded knowledge that `show` accepts (a section that alone
+heads a loaded entry is cited as `path#ID` and ranked by that ID; other
+sections use their canonical address), and `details.capped`, which is
 true when more existed. When a heading read finds several sections, the
 candidates are those sections in source order. Otherwise they are the
 document's headings (for a document selector) or the artifact's entries,
@@ -344,6 +420,19 @@ review is not human protocol approval. Fixed gates must not be retuned after
 measurement.
 
 ## Compatibility and delivery gates
+
+Brief text migration: default output of the read commands is now brief text,
+so scripts that parsed the old tab-separated or pretty-JSON text must add
+`--json`. JSON is unchanged except for these additive fields. `find` results
+gain `match_count` and, when a source line matches, `line` (the first hit) and
+`matches` (`[{line, text}]`, at most 20). With `--context N` they also gain
+`context` (`[{start, end, lines}]`). `ls <path>` is a new positional filter.
+For a Markdown document without typed entries, it returns rows with
+`kind: "heading"`, `address`, `heading_path`, `title` and `source`.
+Selection-error `details.candidates` now cite a section that alone heads a
+loaded entry as `path#ID` (`logic/claims.md#C04`) instead of its `#h/`
+address, and rank it by that ID; both forms resolve to the same section, and
+row `address` fields keep the canonical form.
 
 The JSON additions preserve missing optional fields and published experiment
 `fields.status`; common non-experiment status is optional. Existing JSON callers

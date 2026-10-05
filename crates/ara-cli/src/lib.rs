@@ -1,5 +1,6 @@
 //! Reusable native agent interface. Command parsing and printing remain adapters.
 pub mod agent;
+mod brief;
 pub mod context;
 pub mod merge;
 pub mod output;

@@ -61,11 +61,38 @@ impl Artifact {
                 )
             })
     }
+    /// The document `ls <path>` lists: a path, decoded once when it is
+    /// percent-encoded, inside the knowledge boundary.
+    pub(super) fn list_document(&self, input: &str) -> Result<(String, &str), AgentError> {
+        let path = match address::parse(input) {
+            Some(Err(error)) => return Err(error),
+            Some(Ok(Address::Document { path })) if self.sources.contains_key(&path) => path,
+            _ => input.to_owned(),
+        };
+        let text = self.document_text(&path)?;
+        Ok((path, text))
+    }
+    /// Sections of a knowledge document that know its loaded entries, so
+    /// candidates cite entry sections by `path#ID`.
+    pub(super) fn sections<'a>(&'a self, path: &'a str, text: &'a str) -> Sections<'a> {
+        Sections::new(path, text).with_entries(self.entry_keys(path))
+    }
+    /// Keys of the entries a document holds, whole-document entries excluded.
+    pub(super) fn entry_keys<'a>(&'a self, path: &str) -> Vec<&'a str> {
+        self.entries()
+            .into_iter()
+            .filter(|entry| {
+                !matches!(entry, Entry::Document { .. } | Entry::Recipe(_))
+                    && entry.source_matches(path)
+            })
+            .map(Entry::key)
+            .collect()
+    }
     fn markdown_sections<'a>(&'a self, path: &'a str) -> Option<Sections<'a>> {
         (path.ends_with(".md") && valid_document_path(path) && self.is_knowledge(path))
             .then(|| self.sources.get(path))
             .flatten()
-            .map(|text| Sections::new(path, text))
+            .map(|text| self.sections(path, text))
     }
     /// A read-facing miss for an entry selector, with canonical candidates
     /// from loaded knowledge: the named document's headings for `path#...`,
@@ -124,7 +151,7 @@ pub(super) fn select<'a>(
             heading,
             occurrence,
         })) => {
-            let sections = Sections::new(&path, artifact.document_text(&path)?);
+            let sections = artifact.sections(&path, artifact.document_text(&path)?);
             let lookup = sections.canonical(&heading, occurrence);
             return sections
                 .row(lookup, id, label(&heading), &heading, full)
@@ -168,6 +195,7 @@ pub(super) fn show_source(
     root: &Path,
     document: &str,
     headings: &[String],
+    brief: bool,
 ) -> Result<Value, AgentError> {
     if !valid_document_path(document) {
         return Err(invalid_document());
@@ -188,7 +216,7 @@ pub(super) fn show_source(
     let path = ara_core::write::transaction::checked_destination(root, document)
         .map_err(crate::write::convert_error)?;
     let text = std::fs::read_to_string(path).map_err(|error| AgentError::io(error.to_string()))?;
-    let row = if headings.is_empty() {
+    let mut row = if headings.is_empty() {
         source_row(document, &text, true)
     } else {
         let sections = Sections::new(document, &text);
@@ -204,6 +232,13 @@ pub(super) fn show_source(
             true,
         )?
     };
+    if brief {
+        let paper = ara_core::write::transaction::checked_destination(root, "PAPER.md")
+            .ok()
+            .and_then(|path| std::fs::read_to_string(path).ok());
+        let replaceable = super::display::replaceable(document, paper.as_deref());
+        super::display::annotate(&mut row, &text, Vec::new(), replaceable);
+    }
     Ok(json!({"format":"ara.show/v1","entries":[row],"artifact_validation":"not_run"}))
 }
 
@@ -231,7 +266,7 @@ fn document_row(
     if headings.is_empty() {
         return Ok(source_row(document, text, full));
     }
-    let sections = Sections::new(document, text);
+    let sections = artifact.sections(document, text);
     let id = headings.join(" / ");
     match sections.exact(headings) {
         Lookup::Missing => {}
@@ -298,7 +333,7 @@ fn archived_row(
         }
         EntrySelector::Id { .. } => return Ok(None),
     };
-    let redirected = Sections::new(&current, artifact.document_text(&current)?);
+    let redirected = artifact.sections(&current, artifact.document_text(&current)?);
     let lookup = redirected.exact(&heading);
     redirected
         .row(

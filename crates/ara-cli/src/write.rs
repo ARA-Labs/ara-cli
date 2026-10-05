@@ -198,6 +198,7 @@ pub fn convert_error(error: write::WriteError) -> AgentError {
         id: None,
         line: error.line,
         details,
+        summary: None,
     }
 }
 fn read_input(value: &str, used_stdin: &mut bool) -> Result<String, AgentError> {

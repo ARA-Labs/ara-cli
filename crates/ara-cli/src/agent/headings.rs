@@ -10,7 +10,7 @@ use super::candidates::{self, Candidates, normalize};
 use crate::output::{AgentError, excerpt};
 use ara_core::markdown::MarkdownHeading;
 use serde_json::{Value, json};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 pub enum Lookup {
     Found(usize),
@@ -26,6 +26,8 @@ pub struct Sections<'a> {
     /// One-based source-order occurrence among identical full vectors, when
     /// the vector repeats.
     occurrences: Vec<Option<usize>>,
+    /// Keys of the loaded entries this document holds; see [`Sections::cited`].
+    entries: BTreeSet<&'a str>,
 }
 impl<'a> Sections<'a> {
     pub fn new(document: &'a str, text: &'a str) -> Self {
@@ -48,6 +50,36 @@ impl<'a> Sections<'a> {
             text,
             items,
             occurrences,
+            entries: BTreeSet::new(),
+        }
+    }
+    /// Attach the keys of the loaded entries this document holds.
+    pub fn with_entries(mut self, keys: impl IntoIterator<Item = &'a str>) -> Self {
+        self.entries = keys.into_iter().collect();
+        self
+    }
+    /// The key of the loaded entry this section alone heads, when that key
+    /// needs no escaping (`C04` for `## C04: Title`).
+    fn cited_key(&self, index: usize) -> Option<&'a str> {
+        let heading = self.items[index].heading;
+        [heading_id(heading), Some(heading)]
+            .into_iter()
+            .flatten()
+            .find(|key| {
+                self.entries.contains(key)
+                    && key
+                        .bytes()
+                        .all(|b| b.is_ascii_alphanumeric() || b"-._~".contains(&b))
+            })
+            .filter(|key| matches!(self.entry(key), Lookup::Found(found) if found == index))
+    }
+    /// The short cited address `path#ID` of a section that heads an entry
+    /// ([`Sections::cited_key`]), else the canonical address. `show`
+    /// resolves both to this section's entry.
+    pub fn cited(&self, index: usize) -> String {
+        match self.cited_key(index) {
+            Some(key) => format!("{}#{key}", address::document(self.document)),
+            None => self.address(index),
         }
     }
     fn select(&self, keep: impl Fn(&MarkdownHeading<'_>) -> bool) -> Lookup {
@@ -120,6 +152,32 @@ impl<'a> Sections<'a> {
             (0..section.path.len()).any(|start| spelled(&section.path[start..], display))
         })
     }
+    /// The section headed by an entry: its native ID (`C04: Title`) or its
+    /// exact heading text (a concept term).
+    pub fn entry(&self, key: &str) -> Lookup {
+        self.select(|section| section.heading == key || heading_id(section.heading) == Some(key))
+    }
+    pub fn len(&self) -> usize {
+        self.items.len()
+    }
+    /// The section a canonical address names in this source.
+    pub fn index_of(&self, address: &str) -> Option<usize> {
+        (0..self.items.len()).find(|index| self.address(*index) == address)
+    }
+    /// The heading line and body of a section.
+    pub fn range(&self, index: usize) -> std::ops::Range<usize> {
+        self.items[index].range.clone()
+    }
+    /// Whether the full vector, used as a write selector's suffix match,
+    /// names this section alone.
+    pub fn writable(&self, index: usize) -> bool {
+        let path = &self.items[index].path;
+        self.items
+            .iter()
+            .filter(|section| section.path.ends_with(path))
+            .count()
+            == 1
+    }
     pub fn address(&self, index: usize) -> String {
         address::heading(
             self.document,
@@ -138,12 +196,15 @@ impl<'a> Sections<'a> {
     pub fn ranked(&self, label: &str) -> Candidates {
         Candidates::ranked(
             label,
-            (0..self.items.len()).map(|index| (self.address(index), self.items[index].heading)),
+            (0..self.items.len()).map(|index| {
+                let label = self.cited_key(index).unwrap_or(self.items[index].heading);
+                (self.cited(index), label)
+            }),
         )
     }
     /// The matched sections, in source order.
     pub fn matched(&self, found: &[usize]) -> Candidates {
-        Candidates::ordered(found.iter().map(|index| self.address(*index)))
+        Candidates::ordered(found.iter().map(|index| self.cited(*index)))
     }
     /// Resolve a lookup to its source row or a read-facing error.
     pub fn row(

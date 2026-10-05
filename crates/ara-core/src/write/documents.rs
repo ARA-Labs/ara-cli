@@ -120,7 +120,7 @@ fn replace(
     expected: &str,
     content: &str,
 ) -> Result<OperationResult, WriteError> {
-    if document == "PAPER.md" || !working.is_allowed_document(document)? {
+    if !working.is_replaceable(document)? {
         return Err(WriteError::semantic(
             "write.document",
             "Replacement is restricted to mutable knowledge documents",

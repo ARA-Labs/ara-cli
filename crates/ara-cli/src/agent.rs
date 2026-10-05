@@ -8,12 +8,17 @@ use std::path::Path;
 pub(crate) mod address;
 mod boundary;
 mod candidates;
+mod display;
 mod documents;
+mod find;
 mod headings;
+mod hits;
 mod references;
+mod spans;
 mod validity;
 use boundary::{invalid_document, knowledge_document};
 use documents::{Selected, show_document, show_source};
+pub use find::{FindArgs, find};
 use validity::representable;
 
 #[derive(Debug, Default, Clone, clap::Args)]
@@ -25,8 +30,16 @@ pub struct ReadOptions {
     #[arg(long)]
     pub fields: Option<String>,
 }
+impl ReadOptions {
+    /// Brief text: no `--json`, and no `--fields`, which keeps the row text.
+    pub fn brief(&self) -> bool {
+        !self.json && self.fields.is_none()
+    }
+}
 #[derive(Debug, Default, Clone, clap::Args)]
 pub struct ListArgs {
+    /// List one document's entries, or its headings when it has none.
+    pub path: Option<String>,
     #[command(flatten)]
     pub output: ReadOptions,
     #[arg(long = "type")]
@@ -134,39 +147,42 @@ impl Artifact {
         self.sources
             .iter()
             .filter(|(path, _)| path.ends_with(".md") && self.is_knowledge(path))
-            .filter_map(|(path, text)| {
-                if path != "logic/solution/heuristics.md"
-                    && path
-                        .strip_prefix("logic/solution/")
-                        .and_then(|path| path.strip_suffix(".md"))
-                        .is_some_and(|name| {
-                            self.manifest
-                                .recipes
-                                .iter()
-                                .any(|recipe| recipe.name == name)
-                        })
-                {
-                    return None;
-                }
-                let typed = matches!(
-                    path.as_str(),
-                    "logic/claims.md"
-                        | "logic/concepts.md"
-                        | "logic/related_work.md"
-                        | "logic/experiments.md"
-                        | "logic/solution/heuristics.md"
-                );
-                let content = if typed {
-                    let end = ara_core::markdown::document_sections(path, text)
-                        .first()
-                        .map_or(text.len(), |section| section.range.start);
-                    &text[..end]
-                } else {
-                    text.as_str()
-                };
-                (!content.trim().is_empty()).then_some((path.as_str(), content))
-            })
+            .filter_map(|(path, text)| Some((path.as_str(), self.searchable_text(path, text)?)))
             .collect()
+    }
+    /// The prefix of a Markdown document that search indexes as the document
+    /// itself: typed documents index only the text before their entries.
+    fn searchable_text<'a>(&self, path: &str, text: &'a str) -> Option<&'a str> {
+        if path != "logic/solution/heuristics.md"
+            && path
+                .strip_prefix("logic/solution/")
+                .and_then(|path| path.strip_suffix(".md"))
+                .is_some_and(|name| {
+                    self.manifest
+                        .recipes
+                        .iter()
+                        .any(|recipe| recipe.name == name)
+                })
+        {
+            return None;
+        }
+        let typed = matches!(
+            path,
+            "logic/claims.md"
+                | "logic/concepts.md"
+                | "logic/related_work.md"
+                | "logic/experiments.md"
+                | "logic/solution/heuristics.md"
+        );
+        let content = if typed {
+            let end = ara_core::markdown::document_sections(path, text)
+                .first()
+                .map_or(text.len(), |section| section.range.start);
+            &text[..end]
+        } else {
+            text
+        };
+        (!content.trim().is_empty()).then_some(content)
     }
     fn snapshot(&self) -> Result<&ara_core::write::ArtifactSnapshot, AgentError> {
         if self.snapshot.get().is_none() {
@@ -401,20 +417,7 @@ impl<'a> Entry<'a> {
         if let Some(status) = self.status() {
             object.insert("status".into(), json!(status));
         }
-        let source = match self {
-            Self::Node(_) => "trace/exploration_tree.yaml".to_owned(),
-            Self::Claim(_) => "logic/claims.md".into(),
-            Self::Observation(v) => v.source_file.clone(),
-            Self::Session(v) => v.source_file.clone(),
-            Self::Heuristic(v) => v.source_file.clone(),
-            Self::Experiment(v) => v.source_file.clone(),
-            Self::Taste(v) => v.source_file.clone(),
-            Self::Concept(_) => "logic/concepts.md".into(),
-            Self::RelatedWork(_) => "logic/related_work.md".into(),
-            Self::Recipe(v) => format!("logic/solution/{}.md", v.name),
-            Self::Exhibit(v) => v.file.clone(),
-            Self::Document { path, .. } => path.into(),
-        };
+        let source = self.source_path();
         object.insert("source".into(), json!(source));
         if matches!(self, Self::Recipe(_)) {
             object.insert("key".into(), json!(source));
@@ -523,11 +526,29 @@ pub fn list(root: &Path, args: &ListArgs) -> Result<Value, AgentError> {
             })
         })
         .transpose()?;
-    let rows = artifact
+    let document = args
+        .path
+        .as_deref()
+        .map(|path| artifact.list_document(path))
+        .transpose()?;
+    let filtered = args.kind.is_some()
+        || args.under.is_some()
+        || args.since.is_some()
+        || args.status.is_some()
+        || args.provenance.is_some();
+    if args.output.brief() && document.is_none() && !filtered {
+        return Ok(
+            json!({"format":"ara.ls/v1","documents":artifact.document_summaries(),"file_access":ara_core::FILE_ACCESS_ROOTS,"diagnostics":diagnostics(&artifact.report)}),
+        );
+    }
+    let mut rows = artifact
         .entries()
         .into_iter()
         .filter(|entry| {
-            args.kind.as_deref().is_none_or(|kind| entry.kind() == kind)
+            document.as_ref().is_none_or(|(path, _)| {
+                !matches!(entry, Entry::Document { .. } | Entry::Recipe(_))
+                    && entry.source_matches(path)
+            }) && args.kind.as_deref().is_none_or(|kind| entry.kind() == kind)
                 && descendants
                     .as_ref()
                     .is_none_or(|ids| matches!(entry, Entry::Node(_)) && ids.contains(entry.key()))
@@ -548,6 +569,13 @@ pub fn list(root: &Path, args: &ListArgs) -> Result<Value, AgentError> {
         })
         .map(|entry| entry.value(args.output.full))
         .collect::<Vec<_>>();
+    if let Some((path, text)) = document
+        && rows.is_empty()
+        && !filtered
+        && path.ends_with(".md")
+    {
+        rows = display::heading_rows(&path, text);
+    }
     Ok(json!({"format":"ara.ls/v1","entries":rows,"diagnostics":diagnostics(&artifact.report)}))
 }
 pub fn show(root: &Path, args: &ShowArgs) -> Result<Value, AgentError> {
@@ -570,20 +598,25 @@ pub fn show(root: &Path, args: &ShowArgs) -> Result<Value, AgentError> {
                 "Source selection cannot be mixed with entry IDs or relations",
             ));
         }
-        return show_source(root, document, &args.heading);
+        return show_source(root, document, &args.heading, args.output.brief());
     }
     let artifact = Artifact::load(root)?;
     show_loaded(&artifact, args)
 }
+/// `show` over a loaded artifact. In brief mode ([`ReadOptions::brief`]), selections print in
+/// full and carry brief display data ([`display`]).
 pub fn show_loaded(artifact: &Artifact, args: &ShowArgs) -> Result<Value, AgentError> {
+    let brief = args.output.brief();
+    let mut value = show_rows(artifact, args, brief)?;
+    if brief {
+        artifact.annotate_rows(&mut value);
+    }
+    Ok(value)
+}
+fn show_rows(artifact: &Artifact, args: &ShowArgs, brief: bool) -> Result<Value, AgentError> {
+    let full = args.output.full || brief;
     if let Some(document) = &args.document {
-        return show_document(
-            artifact,
-            document,
-            &args.heading,
-            args.source,
-            args.output.full,
-        );
+        return show_document(artifact, document, &args.heading, args.source, full);
     }
     if args.ids.is_empty() || !args.heading.is_empty() || args.source {
         return Err(AgentError::semantic(
@@ -605,7 +638,7 @@ pub fn show_loaded(artifact: &Artifact, args: &ShowArgs) -> Result<Value, AgentE
     let selected = args
         .ids
         .iter()
-        .map(|id| documents::select(artifact, id, args.output.full))
+        .map(|id| documents::select(artifact, id, full))
         .collect::<Result<Vec<_>, _>>()?;
     let index = QueryIndex::new(&artifact.manifest);
     let mut rows = Vec::with_capacity(selected.len());
@@ -639,7 +672,12 @@ pub fn show_loaded(artifact: &Artifact, args: &ShowArgs) -> Result<Value, AgentE
                 continue;
             }
         };
-        let mut value = entry.value(args.output.full);
+        let native = if brief {
+            artifact.native_row(entry)
+        } else {
+            None
+        };
+        let mut value = native.unwrap_or_else(|| entry.value(full));
         if let Entry::Node(node) = entry
             && let Some(raw) = raw_nodes.get(node.id.as_str())
         {
@@ -718,7 +756,9 @@ pub fn path(root: &Path, args: &IdArgs) -> Result<Value, AgentError> {
         json!({"format":"ara.path/v1","steps":path.into_iter().map(|n| Entry::Node(n).value(args.output.full)).collect::<Vec<_>>(),"diagnostics":artifact.diagnostics()}),
     )
 }
-pub fn status(root: &Path) -> Result<Value, AgentError> {
+/// In brief mode, `display` adds the rule codes behind the
+/// diagnostic counts.
+pub fn status(root: &Path, brief: bool) -> Result<Value, AgentError> {
     let loaded = parse_dir_detailed(root);
     if !loaded.io_issues.is_empty() {
         return Err(AgentError::io(format!(
@@ -794,9 +834,20 @@ pub fn status(root: &Path) -> Result<Value, AgentError> {
         .iter()
         .try_fold(0u64, |total, file| total.checked_add(file.bytes))
         .ok_or_else(|| AgentError::io("Artifact byte size exceeds u64"))?;
-    Ok(
-        json!({"format":"ara.status/v1","artifact_location":root.canonicalize().map_err(|error|AgentError::io(error.to_string()))?,"file_count":files.len(),"total_bytes":total_bytes,"files":files,"complete":complete,"counts":if complete {json!(counts)}else{Value::Null},"next_ids":if complete{json!(next_ids)}else{Value::Null},"next_id_errors":next_id_errors,"latest_session":latest,"diagnostics":{"errors":loaded.report.errors().len(),"warnings":loaded.report.warnings().len(),"report":loaded.report}}),
-    )
+    let mut value = json!({"format":"ara.status/v1","artifact_location":root.canonicalize().map_err(|error|AgentError::io(error.to_string()))?,"file_count":files.len(),"total_bytes":total_bytes,"files":files,"complete":complete,"counts":if complete {json!(counts)}else{Value::Null},"next_ids":if complete{json!(next_ids)}else{Value::Null},"next_id_errors":next_id_errors,"latest_session":latest,"diagnostics":{"errors":loaded.report.errors().len(),"warnings":loaded.report.warnings().len(),"report":loaded.report}});
+    if brief {
+        let codes = |diagnostics: &[ara_core::Diagnostic]| {
+            diagnostics
+                .iter()
+                .map(|d| json!(d.code))
+                .collect::<Vec<_>>()
+        };
+        value["display"] = json!({
+            "error_codes": codes(loaded.report.errors()),
+            "warning_codes": codes(loaded.report.warnings()),
+        });
+    }
+    Ok(value)
 }
 #[derive(serde::Serialize)]
 struct ArtifactFile {
@@ -889,9 +940,11 @@ pub fn refs(root: &Path, args: &IdArgs) -> Result<Value, AgentError> {
             prose.push(json!({"source":source,"field":"source_text","literal":token.literal,"range":token.range,"certainty":"possible","context":excerpt(&text[start..end])}));
         }
     }
-    Ok(
-        json!({"format":"ara.refs/v1","target":target.key(),"structured":structured.rows,"prose":prose,"diagnostics":diagnostics(&artifact.report)}),
-    )
+    let mut value = json!({"format":"ara.refs/v1","target":target.key(),"structured":structured.rows,"prose":prose,"diagnostics":diagnostics(&artifact.report)});
+    if args.output.brief() {
+        artifact.annotate_lines(&mut value);
+    }
+    Ok(value)
 }
 pub fn open(root: &Path, options: &ReadOptions) -> Result<Value, AgentError> {
     let artifact = Artifact::load(root)?;

@@ -218,8 +218,26 @@ pub fn refusal(code: &str, report: &ParseReport, blocking: Vec<RuleCode>) -> Age
             "blocking": blocking,
             "hint": "Run `ara check` to list each diagnostic with its rule code and location. Dangling references alone do not block reads; a source read (`ara show --document <path> --source`) still works.",
         }))),
+        summary: Some(summary(report).into()),
         ..AgentError::semantic(code, report.to_string())
     }
+}
+
+/// Error and warning counts with their rule codes, for text output.
+fn summary(report: &ParseReport) -> String {
+    let codes = |diagnostics: &[ara_core::Diagnostic]| {
+        diagnostics
+            .iter()
+            .map(|d| d.code.to_string())
+            .collect::<Vec<_>>()
+    };
+    let (errors, warnings) = (codes(report.errors()), codes(report.warnings()));
+    let errors: Vec<&str> = errors.iter().map(String::as_str).collect();
+    let warnings: Vec<&str> = warnings.iter().map(String::as_str).collect();
+    format!(
+        "the artifact cannot be read structurally: {}",
+        crate::brief::summary(&errors, &warnings)
+    )
 }
 
 #[cfg(test)]

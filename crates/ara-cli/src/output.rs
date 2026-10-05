@@ -20,6 +20,10 @@ pub struct AgentError {
     pub details: Option<Box<Value>>,
     #[serde(skip)]
     pub exit: u8,
+    /// Replaces `message` in text output when the message is long, such as
+    /// a refusal's full validation report. JSON keeps `message`.
+    #[serde(skip)]
+    pub summary: Option<Box<str>>,
 }
 impl AgentError {
     pub fn semantic(code: impl Into<String>, message: impl Into<String>) -> Self {
@@ -30,6 +34,7 @@ impl AgentError {
             line: None,
             details: None,
             exit: 1,
+            summary: None,
         }
     }
     pub fn setup(code: impl Into<String>, message: impl Into<String>) -> Self {
@@ -124,6 +129,7 @@ pub fn project(value: &mut Value, fields: Option<&str>) -> Result<(), AgentError
                     | "diagnostics"
                     | "advisories"
                     | "duplicate_candidates"
+                    | "display"
             ) || names.contains(&name.as_str())
         });
         return Ok(());
@@ -177,7 +183,16 @@ fn known_row_field(format: &str, name: &str) -> bool {
     if format == "ara.find/v1" {
         return matches!(
             name,
-            "id" | "key" | "kind" | "source" | "score" | "excerpt" | "entry"
+            "id" | "key"
+                | "kind"
+                | "source"
+                | "score"
+                | "excerpt"
+                | "entry"
+                | "line"
+                | "matches"
+                | "match_count"
+                | "context"
         );
     }
     if format == "ara.refs/v1" {
@@ -300,6 +315,8 @@ pub fn emit(
                 serde_json::to_writer(&mut writer, &value).expect("JSON output");
                 writer.write_all(b"\n").expect("stdout output");
                 writer.flush().expect("stdout output");
+            } else if fields.is_none() && crate::brief::handles(format) {
+                crate::brief::print(&value);
             } else {
                 print_human(&value);
             }
@@ -309,7 +326,7 @@ pub fn emit(
             if json_mode {
                 eprintln!("{}", json!({"format":format,"error":error}));
             } else {
-                eprintln!("error [{}]: {}", error.code, error.message);
+                eprintln!("{}", crate::brief::error(&error));
             }
             ExitCode::from(error.exit)
         }
@@ -368,29 +385,29 @@ fn print_human(value: &Value) {
                     );
                 }
             }
-        } else {
-            for row in rows {
-                let id = row
-                    .get("id")
-                    .or_else(|| row.get("key"))
-                    .and_then(Value::as_str)
-                    .unwrap_or("");
-                let kind = row.get("kind").and_then(Value::as_str).unwrap_or("");
-                let title = [
-                    "title",
-                    "term",
-                    "cite",
-                    "name",
-                    "excerpt",
-                    "statement",
-                    "summary",
-                    "content",
-                ]
-                .iter()
-                .find_map(|key| row.get(*key).and_then(Value::as_str))
+            return;
+        }
+        for row in rows {
+            let id = row
+                .get("id")
+                .or_else(|| row.get("key"))
+                .and_then(Value::as_str)
                 .unwrap_or("");
-                println!("{id}\t{kind}\t{title}");
-            }
+            let kind = row.get("kind").and_then(Value::as_str).unwrap_or("");
+            let title = [
+                "title",
+                "term",
+                "cite",
+                "name",
+                "excerpt",
+                "statement",
+                "summary",
+                "content",
+            ]
+            .iter()
+            .find_map(|key| row.get(*key).and_then(Value::as_str))
+            .unwrap_or("");
+            println!("{id}\t{kind}\t{title}");
         }
         return;
     }
