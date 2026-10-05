@@ -18,6 +18,7 @@ recorded. Historical reproduction and human protocol approval remain distinct ga
 | [15](15-experiment-harness.md) | Harness/collection remain deferred; revised external-repo, three-submodule, and sharing-disabled-control plan pending review; no E0–E6 experiment claimed |
 | [16](16-local-semantic-search.md), [17](17-cli-write-enforcement.md) | Closed conditionals for this delivery; evidence gates have not fired |
 | [18](18-failed-blocked-calls.md) | Draft pending review: stop the failed and blocked calls found in preliminary e1-test data |
+| [19](19-deterministic-bookkeeping.md) | Draft pending review: move derivable bookkeeping (turns, timestamps, sessions, event rows, reference rewrites) from the agent into `ara` |
 
 Actual browser and installed-agent smokes are recorded in the verification report.
 The final CLI PR targets main and must use a merge commit, preserving the integration
