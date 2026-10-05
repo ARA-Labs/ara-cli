@@ -75,12 +75,25 @@ recipe:
   --context 2`; `show` an address the output printed; cite that address
   (`logic/claims.md#C04`, `trace:N01`, a canonical `#h/` heading address). On
   `unknown_id` or `ambiguous_heading`, choose from the printed candidates.
+- **Two line systems.** `find` prints line numbers of the whole source
+  document; `show <address> --lines` counts from the first body line of that
+  entry or heading. The pages read around a hit with `show --document <source>
+  --source --lines A:B`, keep address windows for numbers counted inside the
+  selection (`next:`), and window a projection's named source document,
+  because node, observation and session addresses reject `--lines`.
 - **Brief text for reading, JSON for structured use.** `--json` stays on write,
   `apply` and `merge` commands and where a step consumes fields (`status --json`
-  counts, `ls --json` typed counts, frontier records). Before a guarded write,
-  the skill reads the exact selection with `show --document … --heading …
-  --source --full` and uses its `source_digest` as `expected`; a page's digest
-  never authorizes replacing unseen content.
+  counts, `ls --json` typed counts, frontier records).
+- **Two digest scopes before a guarded write.** `document.replace`,
+  `logic.revise` Body and `paper.edit` guard the heading body (heading line
+  excluded) or the whole document: the skill reads the selection with
+  `show --document … --heading … --source --full` and uses its printed
+  `source_digest` as `expected`; a page's digest never authorizes replacing
+  unseen content. `entry.rename` and `entry.remove` guard the entry span, the
+  heading line plus its body, which no `show` line prints. The skill reads that
+  span as a document window from the heading's `find` line `H` through `H+N`
+  (`N` = the body's line count), checks that it is the heading line plus the
+  body it read, and hashes the window's JSON `content` itself.
 
 ## Changing a skill
 
@@ -102,3 +115,11 @@ and checks that every long flag in such a command line appears in that
 subcommand's `--help`, so renaming or removing a flag the skills use, such as
 `--lines`, `--max-bytes`, `--context`, `--limit` or `--heading`, fails the test.
 An inline command that wraps onto the next line is checked as one command.
+Two more tests run command lines the access page prints verbatim. One runs
+both digest recipes on a scratch artifact and dry-runs every guarded write:
+the printed heading-body digest must pass `document.replace` and `logic.revise`
+Body and fail `entry.rename`/`entry.remove`, and the computed entry-span digest
+must do the reverse. The other checks on the `agent-cli` fixture that a `find`
+hit line selects the hit through `show --document … --source --lines`, while
+the same number on the entry address fails with `line_out_of_range` and a node
+address rejects `--lines` with `lines_unavailable`.

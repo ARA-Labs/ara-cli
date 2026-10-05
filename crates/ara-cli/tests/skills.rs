@@ -352,3 +352,274 @@ fn subcommand_extraction_reads_only_command_lines() {
     assert!(code_snippets("a `stray\n```sh\nara find x\n```").is_err());
     assert!(code_snippets("ends `open").is_err());
 }
+
+/// The shared access page every CLI skill carries (all copies are identical).
+fn cli_access() -> String {
+    std::fs::read_to_string(skills_root().join("research-manager-cli/references/cli-access.md"))
+        .unwrap()
+}
+
+/// Split a documented command line into words, honouring single quotes.
+fn shell_words(line: &str) -> Vec<String> {
+    let mut words = Vec::new();
+    let mut word: Option<String> = None;
+    let mut quoted = false;
+    for c in line.chars() {
+        match c {
+            '\'' => {
+                quoted = !quoted;
+                word.get_or_insert_with(String::new);
+            }
+            c if c.is_whitespace() && !quoted => words.extend(word.take()),
+            c => word.get_or_insert_with(String::new).push(c),
+        }
+    }
+    assert!(!quoted, "unclosed quote in `{line}`");
+    words.extend(word);
+    words
+}
+
+fn ara_in(root: &Path) -> Command {
+    let mut command = Command::cargo_bin("ara").unwrap();
+    command.env_remove("ARA_DIR").arg("-C").arg(root);
+    command
+}
+
+/// Run a command line that `cli-access.md` documents verbatim against `root`.
+fn documented(root: &Path, line: &str) -> std::process::Output {
+    assert!(
+        cli_access().lines().any(|doc| doc == line),
+        "cli-access.md no longer documents `{line}`"
+    );
+    let words = shell_words(line);
+    assert_eq!(words[..3], ["ara", "-C", "<artifact>"], "{line}");
+    ara_in(root).args(&words[3..]).output().unwrap()
+}
+
+fn stdout(output: &std::process::Output) -> String {
+    assert!(output.status.success(), "{output:?}");
+    String::from_utf8(output.stdout.clone()).unwrap()
+}
+
+/// The `error.code` of a failed `--json` command (`apply` reports on stdout,
+/// reads on stderr).
+fn error_code(output: &std::process::Output) -> String {
+    assert_eq!(output.status.code(), Some(1), "{output:?}");
+    let text = if output.stdout.is_empty() {
+        &output.stderr
+    } else {
+        &output.stdout
+    };
+    let value: serde_json::Value = serde_json::from_slice(text).unwrap();
+    value["error"]["code"].as_str().unwrap().to_owned()
+}
+
+fn write_file(root: &Path, path: &str, content: &str) {
+    let path = root.join(path);
+    std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+    std::fs::write(path, content).unwrap();
+}
+
+/// Dry-run one JSONL batch.
+fn dry_run(root: &Path, operations: &[serde_json::Value]) -> std::process::Output {
+    let text: String = operations.iter().map(|op| format!("{op}\n")).collect();
+    ara_in(root)
+        .args(["apply", "-", "--dry-run", "--json", "--no-duplicate-check"])
+        .write_stdin(text)
+        .output()
+        .unwrap()
+}
+
+/// Runs the access page's two digest recipes and checks that each one guards
+/// exactly its own operations: the printed heading-body digest for body and
+/// document replacement, the computed entry-span digest for rename/remove.
+#[test]
+fn cli_access_digest_recipes_match_each_guard_scope() {
+    use serde_json::json;
+    let dir = tempfile::TempDir::new().unwrap();
+    let root = dir.path();
+    write_file(
+        root,
+        "PAPER.md",
+        "---\ntitle: Guard scopes\n---\n# Guard scopes\n",
+    );
+    write_file(
+        root,
+        "trace/exploration_tree.yaml",
+        "tree:\n  - id: N01\n    type: question\n    title: Q\n    provenance: user\n",
+    );
+    write_file(
+        root,
+        "logic/concepts.md",
+        "# Concepts\n\n## Old term\n- **Definition**: Caller concept\n\n## Other term\n- **Definition**: Kept\n",
+    );
+
+    // Step 1: the heading's document line from its own find hit.
+    let hits = stdout(&documented(
+        root,
+        "ara -C <artifact> find 'Old term' --type concept",
+    ));
+    assert!(hits.contains("\n  3: ## Old term\n"), "{hits}");
+    // Step 2: the heading body, its printed digest and its line count.
+    let body_read = stdout(&documented(
+        root,
+        "ara -C <artifact> show --document logic/concepts.md --heading 'Old term' --source --lines 1:",
+    ));
+    let body_digest = body_read
+        .split_whitespace()
+        .find_map(|word| word.strip_prefix("source_digest="))
+        .unwrap()
+        .to_owned();
+    assert!(body_read.contains("scope=heading_body"), "{body_read}");
+    assert!(body_read.contains("\nlines: 1-2 of 2\n"), "{body_read}");
+    // Step 3: the window H:H+N is the heading line plus that body.
+    let window: serde_json::Value = serde_json::from_str(&stdout(&documented(
+        root,
+        "ara -C <artifact> show --document logic/concepts.md --source --lines 3:5 --full --json",
+    )))
+    .unwrap();
+    let content = window["entries"][0]["content"].as_str().unwrap();
+    assert_eq!(content, "## Old term\n- **Definition**: Caller concept\n\n");
+    let window_digest = window["entries"][0]["digest"].as_str().unwrap().to_owned();
+    // Step 4: the entry-span digest is the hash of that content.
+    let span_digest = ara_core::write::source::digest(content.as_bytes());
+    assert_ne!(span_digest, body_digest);
+
+    let session: serde_json::Value = serde_json::from_slice(
+        &ara_in(root)
+            .args([
+                "session",
+                "start",
+                "--date",
+                "2026-10-01",
+                "--started",
+                "2026-10-01T10:00",
+                "--summary",
+                "Guard scopes",
+                "--json",
+            ])
+            .assert()
+            .success()
+            .get_output()
+            .stdout,
+    )
+    .unwrap();
+    let session = session["id"].as_str().unwrap();
+    let log = json!({"op":"session.log","session":session,"timestamp":"2026-10-01T10:01"});
+    let target = json!({"document":"logic/concepts.md","heading":["Old term"]});
+    let audit = |mut op: serde_json::Value| {
+        op["session"] = json!(session);
+        op["turn"] = json!(1);
+        op["signal"] = json!("user-directive");
+        op["provenance"] = json!("user");
+        op
+    };
+    let rename = |expected: &str| {
+        audit(json!({"op":"entry.rename","target":target,"name":"New term","expected":expected}))
+    };
+    let remove =
+        |expected: &str| audit(json!({"op":"entry.remove","target":target,"expected":expected}));
+    let replace = |expected: &str| json!({"op":"document.replace","document":"logic/concepts.md","heading":["Old term"],"expected":expected,"content":"- **Definition**: Revised\n\n"});
+    let revise = |expected: &str| {
+        audit(
+            json!({"op":"logic.revise","target":target,"set":{"Body":"- **Definition**: Revised\n\n"},"expected":expected}),
+        )
+    };
+
+    // Structural edits accept only the entry-span digest.
+    for structural in [rename(&span_digest), remove(&span_digest)] {
+        let output = dry_run(root, &[log.clone(), structural]);
+        assert!(output.status.success(), "{output:?}");
+    }
+    for wrong in [&body_digest, &window_digest] {
+        for structural in [rename(wrong), remove(wrong)] {
+            assert_eq!(
+                error_code(&dry_run(root, &[log.clone(), structural])),
+                "write.digest_conflict"
+            );
+        }
+    }
+    // Body replacements accept only the printed heading-body digest.
+    let output = dry_run(root, &[replace(&body_digest)]);
+    assert!(output.status.success(), "{output:?}");
+    let output = dry_run(root, &[log.clone(), revise(&body_digest)]);
+    assert!(output.status.success(), "{output:?}");
+    assert_eq!(
+        error_code(&dry_run(root, &[replace(&span_digest)])),
+        "write.digest_conflict"
+    );
+    assert_eq!(
+        error_code(&dry_run(root, &[log.clone(), revise(&span_digest)])),
+        "write.digest_conflict"
+    );
+}
+
+/// `find` reports whole-document lines; the access page reads around a hit
+/// with a document window, not an address window, and projections reject
+/// line bounds.
+#[test]
+fn cli_access_reads_find_hits_by_document_lines() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../ara-core/tests/fixtures/agent-cli");
+    let hits = stdout(
+        &ara_in(&root)
+            .args(["find", "lossless", "--type", "claim"])
+            .output()
+            .unwrap(),
+    );
+    assert!(
+        hits.contains("C04 [claim] logic/claims.md\n  30: ## C04:"),
+        "{hits}"
+    );
+    // The documented document window around that hit holds the hit line.
+    let window = stdout(&documented(
+        &root,
+        "ara -C <artifact> show --document logic/claims.md --source --lines 26:40",
+    ));
+    assert!(window.contains("\n## C04: Universal Ingestor"), "{window}");
+    assert!(window.contains("lines: 26-40 of"), "{window}");
+
+    let show = |args: &[&str]| ara_in(&root).args(args).arg("--json").output().unwrap();
+    // Address windows count body lines: the hit's line 30 is past C04's 8.
+    assert_eq!(
+        error_code(&show(&["show", "logic/claims.md#C04", "--lines", "30:30"])),
+        "line_out_of_range"
+    );
+    // Projections take no line bounds; the source document they name does.
+    assert_eq!(
+        error_code(&show(&["show", "trace:N01", "--lines", "1:5"])),
+        "lines_unavailable"
+    );
+    let output = show(&[
+        "show",
+        "--document",
+        "trace/exploration_tree.yaml",
+        "--source",
+        "--lines",
+        "1:5",
+    ]);
+    assert!(output.status.success(), "{output:?}");
+    let access = cli_access();
+    for phrase in [
+        "show --document <source> --source --lines A:B",
+        "`line_out_of_range`",
+        "`lines_unavailable`",
+    ] {
+        assert!(access.contains(phrase), "cli-access.md lost `{phrase}`");
+    }
+}
+
+#[test]
+fn shell_words_honours_single_quotes() {
+    assert_eq!(
+        shell_words("ara -C <artifact> show 'logic/claims.md#C04' --heading 'Old term'"),
+        [
+            "ara",
+            "-C",
+            "<artifact>",
+            "show",
+            "logic/claims.md#C04",
+            "--heading",
+            "Old term"
+        ]
+    );
+}

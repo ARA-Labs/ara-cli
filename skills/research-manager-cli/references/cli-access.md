@@ -25,6 +25,7 @@ ara -C <artifact> ls logic/claims.md
 ara -C <artifact> find '<keyword query>' --context 2
 ara -C <artifact> find '<keyword query>' --type claim --limit 5
 ara -C <artifact> show 'logic/claims.md#C04'
+ara -C <artifact> show --document logic/claims.md --source --lines 26:40
 ara -C <artifact> show logic/solution/method.md --lines 40:120
 ara -C <artifact> show trace/exploration_tree.yaml --lines 300: --max-bytes 8192
 ara -C <artifact> show C01 trace:N01
@@ -35,7 +36,9 @@ ara -C <artifact> open
 
 1. **Orient.** `ls` prints one line per knowledge document with its entry counts by kind (or heading count) and line count, then the direct-file roots. `ls <path>` lists that document's entries, or its heading addresses when it has none. `status` gives layer counts, next IDs and diagnostic codes.
 2. **Search.** `find` is case-insensitive keyword search. Each result prints `<address> [<kind>] <source>` and the matching source lines (`N:`); `--context 2` adds neighbouring lines (`N-`). Narrow with `--type` and `--limit`.
-3. **Read.** `show` an address that `ls`, `find` or an error printed. A native section prints `== <address>`, its `heading:` path, a `source_digest=… selector: …` line and its exact source bytes; a node, observation or session prints a projection and names the exact source read. Read a whole document or section, or the lines around a `find` hit with `--lines A:B`. Brief `show` stops at 16 KiB and pages at whole lines; follow `next:` until you have read every line you rely on.
+3. **Read.** `show` an address that `ls`, `find` or an error printed. A native section prints `== <address>`, its `heading:` path, a `source_digest=… selector: …` line and its exact source bytes; a node, observation or session prints a projection and names the exact source read. Read a whole document or section. Brief `show` stops at 16 KiB and pages at whole lines; follow `next:` until you have read every line you rely on.
+
+   `--lines A:B` counts lines of the selection you `show`, and `find` and `show` count differently. `find` prints line numbers of the whole source document (`N:` under `<source>`). On a claim, entry or heading address, `--lines 1:` starts at the first body line under that heading. So read around a `find` hit with `show --document <source> --source --lines A:B`, using the hit's numbers (the example above windows `logic/claims.md` around a hit on line 30). Do not pass a hit's numbers to `show <address> --lines`: they select other text, or fail with `line_out_of_range` when the body is shorter. Use `--lines` on an address only with numbers counted inside that selection, such as a `next:` value or its `lines: S-E of N` trailer. A node, observation or session address is a projection and rejects every `--lines` with `lines_unavailable`. Window the source document it names instead (`show --document trace/exploration_tree.yaml --source --lines A:B`).
 4. **Cite** the address the output printed: `logic/claims.md#C04`, `trace:N01`, a canonical heading address such as `logic/problem.md#h/Problem/Observations`, or a document path. Never cite a generated display ID or a heading spelling you guessed.
 
 A miss returns `unknown_id`; a selector that matches several sections or entries returns `ambiguous_heading`. Both print `candidates:` that `show` accepts. Choose the candidate whose address or heading path is the one you need, or run `ls <path>` to see the document's headings, instead of guessing another spelling. An ambiguous selector is an error, not permission to take the first candidate. `invalid_document` on a `rubric/`, `evidence/` or `src/` path means a file tool reads it.
@@ -50,7 +53,9 @@ For grounding read the source document or its unique section with `show`: brief 
 
 Brief text is the reading format. Add `--json` where a step consumes structured fields: write and `apply` results with their `bindings`, `merge` reports and conflicts, `status --json` revision and file counts used in a report, `ls --json` typed counts, or rows another program parses. `--full` lifts the 160-character JSON excerpt bound and, on a brief `--source` read, the 16 KiB page budget; brief `show` already prints exact source either way.
 
-A full source show means the whole selection: a brief `show` without `--lines` that prints no `truncated` line, pages that together cover lines 1 to N of the selection (`lines: S-E of N`), or `--source --full`, which is unbounded. A window you chose with `--lines` is not a full read even when it prints no `truncated` line. Before a guarded write (`document.replace`, `logic.revise` with `Body`, `entry.rename`, `entry.remove`, or `paper.edit` with `expected`), read the exact selection you will replace in full:
+A full source show means the whole selection: a brief `show` without `--lines` that prints no `truncated` line, pages that together cover lines 1 to N of the selection (`lines: S-E of N`), or `--source --full`, which is unbounded. A window you chose with `--lines` is not a full read even when it prints no `truncated` line. Before a guarded write, read in full the exact bytes its `expected` digest covers. Operations guard two different spans, and a digest of one never matches the other.
+
+**Heading body or whole document** (`document.replace`, `logic.revise` with `Body`, `paper.edit` with `expected`). The digest covers the text below the heading, with the heading line and its ancestors excluded, or the whole document. `show` prints it as `source_digest=… scope=heading_body` or `scope=whole_document`:
 
 ```sh
 ara -C <artifact> show --document logic/solution/method.md --heading 'Method' --heading 'Step 3' --source --full
@@ -58,6 +63,20 @@ ara -C <artifact> show --document logic/solution/method.md --heading 'Method' --
 ```
 
 Pass its `source_digest` (JSON `digest`) as `expected` and build the replacement from the complete bytes you read. Every page prints the digest of the whole selection, so a page's digest never authorizes replacing content you have not seen; if the digest changes between pages, the source changed and you restart. A `selector: none` line means `document.replace` cannot target that selection; the reason follows `none`.
+
+**Entry span** (`entry.rename`, `entry.remove`). The digest covers the entry's own heading line plus its whole heading body, subsections included, up to the next heading of the same or a higher level (or the end of the document). No `show` line prints this digest. A `source_digest` from a heading read, or from a `--lines` window, fails with `write.digest_conflict`. Read the span and hash it yourself:
+
+```sh
+ara -C <artifact> find 'Old term' --type concept
+ara -C <artifact> show --document logic/concepts.md --heading 'Old term' --source --lines 1:
+ara -C <artifact> show --document logic/concepts.md --source --lines 3:5 --full --json
+```
+
+1. Take the heading's document line `H` from the `find` hit that prints the heading itself (`3: ## Old term`).
+2. Read the heading body in full with `--source --full`, as for a body replacement. The `--lines 1:` read of the same selection adds the trailer `lines: 1-N of N`, which gives the body's line count `N`; `lines: none of 0` means `N` is 0.
+3. Read the document window `H:H+N` in JSON (here `3:5`). Its `content` must be the heading line followed by exactly the body bytes from step 2; if it is not, the source changed, so restart. The window's own `digest` is the whole-document digest; never use it as `expected`.
+4. `expected` is `sha256:` followed by the lowercase hex SHA-256 of that `content` as UTF-8 bytes. `ara` has no hashing command: write the decoded `content` to a scratch file outside the artifact, as you do the request file, and hash that file in its own shell call (for example `sha256sum <scratch-file>`).
+5. Dry-run the batch first. `write.digest_conflict` means the hashed bytes are not the current span: reread and hash again. Never edit the bytes or the digest to make it pass.
 
 ## JSONL transactions
 
@@ -85,8 +104,8 @@ The following is the supported writer union; `?` means an optional key, not lite
 | `heuristic.add` | `id?`, `title`, `fields` mapping | Complete source-dialect heuristic. Compiler fields retain singular scalar `Source`, full `Bounds` and source prose; do not manufacture PM `Status`/`Provenance` or fake values to satisfy the adapter. PM fields retain their source schema. |
 | `entry.edit` | `target`, `set` mapping | Named permitted field edit only; not a generic historical YAML editor. |
 | `logic.revise` | `target`, `set`, `session`, `turn` integer, `signal`, `provenance`, `note?`, `expected?` | Current-state field or `Body` changes with exact complete before/after and Last revised where applicable; requires owning `session.log` in the same batch. Body mode requires native Document target and exact selected-source digest `expected`. |
-| `entry.rename` | `target`, `name`, `expected`, `references?`, `session?`, `turn?`, `signal?`, `provenance?` | Native rename plus redirects and guarded modeled mutable reference repair; archive full endpoints. |
-| `entry.remove` | `target`, `expected`, `references?`, `session?`, `turn?`, `signal?`, `provenance?`, `redirect?` | Guarded eligible non-claim current-state removal only; never history deletion. Claims cannot be physically removed: PM withdrawal/merge uses audited `logic.revise` with retained Status/Merged into and repaired references; identity changes use canonical `entry.rename`. |
+| `entry.rename` | `target`, `name`, `expected`, `references?`, `session?`, `turn?`, `signal?`, `provenance?` | Native rename plus redirects and guarded modeled mutable reference repair; archive full endpoints. `expected` is the entry-span digest. |
+| `entry.remove` | `target`, `expected`, `references?`, `session?`, `turn?`, `signal?`, `provenance?`, `redirect?` | Guarded eligible non-claim current-state removal only, with the entry-span digest as `expected`; never history deletion. Claims cannot be physically removed: PM withdrawal/merge uses audited `logic.revise` with retained Status/Merged into and repaired references; identity changes use canonical `entry.rename`. |
 | `entry.annotate` | `target`, `kind`, `references`, `comment` | Add conflict annotation without rewriting original record, alongside unresolved decision. |
 | `entry.taste_append` | `target`, `record` | Add confirmed user taste to claim/heuristic only; preserve prior taste/status. |
 | `observation.stage` | `id?`, `content`, `potential_type`, `context?`, `provenance`, `timestamp`, `bound_to?` array | Full raw/context/provenance staging record. |
@@ -98,7 +117,7 @@ The following is the supported writer union; `?` means an optional key, not lite
 
 `target` is either `{"id":"C01"}` or `{"document":"logic/concepts.md","heading":["native heading"],"entry":"native entry"}`; omit unused heading/entry. A `references` row is `{target,field,before,after}` with verbatim values. Historical refs resolve through retained redirects; do not rewrite old trace/session/staging prose.
 
-Creation `id: "$name"` binds a provisional name (letter/underscore followed by letters/digits/underscores); later structured selectors/reference fields use exact `$name`. Wrong-kind/forward references reject; source prose/title/quotes containing dollar signs remain literal. A session binding may be used as `"$session#1"` in a reasoning turn. `expected` for document replacement/rename/remove is the returned selected-source SHA-256 digest, not an approximate text excerpt. PAPER body edits use the digest of the uniquely shown body/heading, not the whole frontmatter-inclusive file.
+Creation `id: "$name"` binds a provisional name (letter/underscore followed by letters/digits/underscores); later structured selectors/reference fields use exact `$name`. Wrong-kind/forward references reject; source prose/title/quotes containing dollar signs remain literal. A session binding may be used as `"$session#1"` in a reasoning turn. `expected` is always an exact SHA-256 digest, never an approximate text excerpt. For `document.replace`, `logic.revise` Body and `paper.edit` it is the printed heading-body or whole-document `source_digest`; for `entry.rename` and `entry.remove` it is the entry-span digest you compute (above). PAPER body edits use the digest of the uniquely shown body/heading, not the whole frontmatter-inclusive file.
 
 Concept references introduced by a write must name an exact existing native concept heading or authenticated alias; never mint a display ID or guess a name. For scalar-or-list `evidence` and `Code ref`, preserve the exact source value. CLI field arguments become arrays only when explicitly supplied as JSON beginning with `[`; otherwise they are exact scalar strings (or complete `@file` text), not comma-split lists.
 

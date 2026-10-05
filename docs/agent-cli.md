@@ -89,7 +89,12 @@ section; other sections use their canonical heading address.
 selected source. For a heading, that is the section body that `document.replace`
 with the printed `--document`/`--heading` selection replaces (title and
 ancestors excluded). For a document, it is the whole file (`scope=whole_document`).
-Use it as `expected` for that selection. The line says `selector: none` when
+Use it as `expected` for that selection with `document.replace`, `logic.revise`
+Body or `paper.edit`. `entry.rename` and `entry.remove` guard a different span,
+the entry's heading line plus its body up to the next heading of the same or a
+higher level, and no `show` line prints that digest; the skills' access page
+(`references/cli-access.md`) reads the span as a `--source --lines` window and
+hashes its JSON `content`. The line says `selector: none` when
 the full heading vector also matches another section, or when the document is
 read-only for `document.replace` (`PAPER.md`, `trace/`, `staging/` and any
 path that is neither a mutable logic document nor registered in

@@ -107,8 +107,13 @@ Orient, search, read and cite in brief text, one quoted `ara` command per shell 
 (`references/cli-access.md`). Orient with `ara -C <ara_dir> ls`, then `ls <path>` for one
 document's entries or heading addresses. Search with `find '<terms>' --context 2`; it is
 case-insensitive and prints addresses with their matching lines. Read with `show <address>`
-using an address the output printed, a whole document or section or a `--lines A:B` window
-around a hit, and follow `next:` when a block is truncated. On `unknown_id` or
+using an address the output printed, a whole document or section, and follow `next:` when a
+block is truncated. `find` prints line numbers of the whole source document, while
+`show <address> --lines A:B` counts from the first body line of that entry or heading. Read
+around a hit with `show --document <source> --source --lines A:B` and the hit's numbers; keep
+address `--lines` for numbers counted inside that selection (a `next:` value). Node, observation
+and session addresses are projections and take no `--lines`; window the source document they
+name instead. On `unknown_id` or
 `ambiguous_heading`, choose from the printed candidates instead of guessing again. Use
 `path`/`refs` for structured relations and possible prose mentions. Permitted
 source/evidence bodies (`evidence/`, `src/`) remain direct file reads.
