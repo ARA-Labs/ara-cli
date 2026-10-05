@@ -1,0 +1,176 @@
+# PR 18: stop failed and blocked calls in CLI agent sessions
+**Date:** 2026-10-04
+
+Status: **draft, pending review**. Repository: `ARA-Labs/ara-cli` (binary and
+[skills](../../docs/agent-cli-skills.md)). Dependencies outside this repository: the
+`ara-eval` harness (H1) and the `ara-paperbench` corpus (C1). Evidence: preliminary
+`runs/e1-test` ([analysis doc](https://claude.ai/code/artifact/70b438b7-c4a1-4a12-9899-d107136b03fe)).
+Parent: [agent CLI interface](../agent-cli-interface.md). Shared checks: [PR index](README.md).
+
+## TL;DR
+
+A CLI session spends **3.25 model calls on tool calls that fail or are blocked**,
+out of 5.3 more calls than a Files session. Each wasted call costs about 20 s and
+re-sends about 39k prompt tokens. Five causes account for 93% of them. Three are
+fixable in the binary: exact-only `--heading` matching, a parser rule that hides a
+whole document behind one stray `---`, and errors that don't say what to do next.
+The largest cause is the skill never telling the agent that bash runs only single
+`ara` commands. Fix each cause with a regression test first, then pilot on the dev
+split.
+
+## Problem
+
+### Evidence
+
+Snapshot 2026-10-04 16:53 PDT: 580 CLI and 581 Files sessions with complete
+traces (about 52% of the run; 6 CLI timeouts excluded). Agent `glm-5.3-flash`,
+`ara 0.1.23` (`4f70972`), skill `research-foresight-cli` at protocol `03f19c7`,
+Pi 0.82.1. Preliminary and descriptive, not the registered analysis.
+
+| Per session (mean) | Files | CLI |
+|---|---|---|
+| Model calls | 8.65 | 13.97 |
+| Calls spent on failed or blocked tool calls | 0 | 3.25 |
+| Wall time | 166 s | 289 s |
+| Cost (list price) | $0.0121 | $0.0280 |
+
+A model call that issues k tool calls counts 1/k toward each of their causes.
+158 times, a session ran five or more bad tool calls in a row.
+
+### Root causes
+
+| # | Cause | Model calls / session | Share |
+|---|---|---|---|
+| 1 | The agent doesn't know bash runs only one `ara` command | 1.10 | 34% |
+| 2 | `--heading` misses in `rubric/requirements.md` | 0.77 | 24% |
+| 3 | A stray `---` makes 8 artifacts invalid | 0.53 | 16% |
+| 4 | Truncated output, then reading Pi's log | 0.38 | 12% |
+| 5 | `show --document` on `evidence/` or `src/` | 0.24 | 7% |
+| | Other (scattered errors) | 0.23 | 7% |
+
+**1. Shell habits.** The harness guard (`ara-eval/src/ara_eval/pi/guard.ts`) allows
+one `ara` command per bash call and rejects unquoted `| > & ; * ? [ ] ( ) # ! ~ $`.
+Neither the harness nor the skill says so; the agent learns from denials. Typical:
+`ara -C … find '…' --json 2>/dev/null | head -c 6000`, `cd … && ara …`. 43% of the
+piped commands pipe `find`, whose output has a median of 2.7k characters, so most
+of this is habit, not a reaction to long output. Real harnesses usually allow
+pipes, so this cause is partly specific to the experiment, but it counts in its
+results.
+
+**2. Rubric heading misses.** 95% of `--heading` misses are in
+`rubric/requirements.md`, which `knowledge_document` (`agent.rs:978`) treats as
+knowledge. Its compiler-written headings are cut off with a literal `...`
+(`### R84: The salience density is only calculated for blocks...`), so a request
+for the same text without `...` fails exact matching. `heading_matches`
+(`agent.rs:1087`) accepts bare ids only for `N C H E O T`, not `R84`. 66% of misses
+are guessed names ("Experiments", "Coverage"); the `unknown_id` error does not list
+the headings that exist.
+
+**3. Stray `---`.** In 8 of 9 invalid corpus artifacts, `logic/claims.md` starts
+with `---` and never closes it. `frontmatter_range` (`ara-core/src/markdown.rs:36`)
+deliberately extends an unclosed fence to end of file, so no claims parse and
+every evidence link fails with "unknown claim" (6–54 errors per artifact). No
+diagnostic names the fence. `Artifact::load` (`agent.rs:64`) then refuses `find`,
+`ls`, `status`, `open` and `refs`. These artifacts are 23% of CLI sessions and
+waste 1.95 calls each; Files agents read the files and never notice. Deleting the
+line makes `find` work on `pinn`.
+
+**4. Truncation.** `ls --json` prints about 50 KB on one line (`body`,
+`source_fields` and per-kind fields even without `--full`). Pi keeps the last 50 KB
+of output and saves the full text to `/tmp/pi-bash-*.log`, so the agent sees the
+broken tail of a JSON document. 54% of `ls --json` calls are truncated; the agent
+then tries to read the log, and the guard blocks it.
+
+**5. Wrong access path.** The agent runs `show --document` on `evidence/` (77%) or
+`src/` (22%). These are source files read with file tools, but the error says only
+"Document outside the knowledge boundary".
+
+## Goals and acceptance
+
+On a dev-split pilot against the unchanged CLI condition and Files:
+
+1. Model calls spent on failed or blocked tool calls fall from 3.25 to below 1.0 per
+   CLI session.
+2. No run of five or more consecutive bad tool calls in more than 2% of sessions.
+3. Accuracy stays within the registered non-inferiority margin (0.03) of Files and
+   of the unchanged CLI condition.
+
+Token and context reductions that do not remove calls (compact `show`, smaller
+skills, the required `status`/`ls` opening) are out of scope; they get their own
+plan after this one is measured.
+
+## Proposed changes
+
+### Binary
+
+| # | Change | Cause | Contract impact |
+|---|---|---|---|
+| B1 | `--heading` accepts any `LETTERS+DIGITS` id before `:` (`R84`, `RW06`), not only `N C H E O T` | 2 | More inputs match |
+| B2 | `--heading` ignores case and surrounding whitespace, treats a trailing `...` on the real heading as a truncation marker, and accepts a unique prefix | 2 | More inputs match; ambiguity still refuses |
+| B3 | A missed or ambiguous `--heading` returns `candidates`: the document's heading paths, closest first, capped at 40 | 2 | Additive error field |
+| B4 | `check`/`validate` report an unclosed opening `---` in a Markdown knowledge document as one root-cause diagnostic, naming the file and how many headings it hides | 3 | New diagnostic code |
+| B5 | Read-only commands (`find`, `ls`, `show`, `status`, `open`, `refs`, `path`) run on artifacts with validation errors and return the diagnostics in `warnings`; `incomplete_artifact` and writes still refuse | 3 | Refusal becomes success with warnings |
+| B6 | `ls --json` without `--full` omits `body` and `source_fields` | 4 | Changes default `ara.ls/v1` output (see Q3) |
+| B7 | `show --document … --max-bytes N` cuts at a line boundary and reports `truncated` and `next_line`; `--from-line N` continues | 4 | Additive flags and fields |
+| B8 | `invalid_document` errors add a `hint`: the allowed `show --document` roots, and that `evidence/` and `src/` are read directly | 5 | Additive error field |
+
+### Skills
+
+| # | Change | Cause |
+|---|---|---|
+| S1 | A short "Running ara" section in `cli-access.md` and `SKILL.md`: one `ara` command per call, no pipes, redirects or `&&`, errors arrive without `2>&1`, bound output with `--heading`, `--max-bytes` and `--from-line` | 1, 4 |
+| S2 | On a heading miss, retry with a listed `candidates` entry instead of guessing | 2 |
+| S3 | State which paths go through `show --document` and which are read directly | 5 |
+
+### Outside this repository
+
+- **H1 (`ara-eval`):** the guard's denial message names the rule and the
+  alternative ("run one `ara` command with no pipes or redirects; bound output with
+  `--max-bytes`"). The denial is when the agent learns. Applies only to new runs.
+- **C1 (`ara-paperbench`):** remove the stray `---` from the 8 `claims.md` files.
+  Applies only to new runs; e1-test stays on the vendored corpus.
+
+## Implementation steps
+
+Per the bug process, each PR starts with tests that reproduce the failure on the
+current binary.
+
+1. **Measurement (`ara-eval`).** Move the trace scripts (`events.py`, `calls.py`,
+   `roots.py`, now in the session scratchpad) into `ara-eval/src/analysis/` with a
+   frozen snapshot list, so every comparison uses the same root-cause attribution.
+2. **PR 18a — heading selection (B1–B3, S2).** Reproducers in
+   `crates/ara-cli/tests/agent_reads.rs`: `--heading R84` on a rubric fixture with
+   truncated `...` headings; the full text of a truncated heading; a
+   case-different heading; a guessed name that returns `candidates`; an ambiguous
+   prefix that still refuses. Change `heading_matches` and `source_output` in
+   `agent.rs`, and the error shape in `output.rs`.
+3. **PR 18b — errors and invalid artifacts (B4, B5, B8, S3).** Reproducers: a
+   fixture with a stray `---` in `logic/claims.md` gets one named diagnostic from
+   `check`; the same fixture with a dangling claim reference still answers `find`,
+   `ls` and `show` with `warnings`; writes and `incomplete_artifact` still refuse;
+   `show --document evidence/x.md` returns the `hint`. Add the lint in `ara-core`;
+   split `Artifact::load` into strict and lenient loading.
+4. **PR 18c — output bounds (B6, B7, S1).** Reproducers: `ls --json` field set with
+   and without `--full`; `--max-bytes` cuts at a line boundary; `--from-line` resumes
+   with no gap or overlap. Update `docs/agent-cli.md`.
+5. Each PR bumps the patch version, adds a `CHANGELOG.md` entry, and updates the
+   skills in the same change; `tests/skills.rs` checks that every command the skills
+   name exists.
+6. **H1 and C1** as separate changes in their repositories, after e1-test finishes.
+7. **Pilot** on the dev split with the new `ara-cli` commit (binary + skill),
+   the same model, Pi version and repetitions. Report the root-cause table above
+   next to accuracy against Files with the 0.03 margin.
+8. After the pilot, rewrite this plan as a design record in
+   `docs/agent-cli-interface/` and remove it from `plans/`.
+
+## Open questions
+
+- **Q1.** Should `rubric/requirements.md` stay readable? It is the PaperBench
+  grading rubric, both conditions can read it, and `knowledge_document` hard-codes
+  it. Removing it from the artifact copy would also remove most of cause 2.
+- **Q2.** For the stray `---`: is B4's diagnostic enough, or should the parser stop
+  treating an unclosed fence followed by a heading as front matter? The current rule
+  is deliberate: it keeps metadata comments from becoming selectable sections.
+- **Q3.** B6 changes default `ls --json` output for existing consumers. Accept the
+  change (bump the format version), or add `--brief` and leave the default?
+- **Q4.** Pilot size: the same 3 repetitions, or fewer to save budget?
