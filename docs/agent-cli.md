@@ -352,7 +352,9 @@ recover it. A write, including a dry run, fails with `write.frontmatter` and
 the opener's line when it would leave a changed document behind an unclosed
 fence, or when its selector names a heading the fence hides; other selector
 misses stay `write.selector`. A guarded whole-document `document.replace`
-that removes the fence is accepted.
+that removes the fence is accepted, but claim retention counts the recovered
+claims: a repair that drops one fails with `write.claim_retention` like any
+other edit that retires a canonical claim.
 
 Claim headings accept `:` and a spaced `-`, U+2013 or U+2014 separator
 (`## C04 — Title`). `show C04`, `--heading C04`, `refs` and merge titles

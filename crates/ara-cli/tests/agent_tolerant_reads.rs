@@ -629,6 +629,80 @@ fn whole_document_replace_repairs_unclosed_fences() {
     assert_eq!(gap["entries"][0]["heading_path"], json!(["Problem", "Gap"]));
 }
 
+/// A whole-document fence repair cannot drop a claim that reads recover
+/// behind the stray opener; one that keeps every claim still succeeds.
+#[test]
+fn fence_repair_retains_recovered_claims() {
+    const CLAIMS: &str = "---\n# Claims\n\n## C01: First\n- **Statement**: a\n\n## C02: Second\n- **Statement**: b\n";
+    let dir = artifact(&[
+        (
+            "trace/exploration_tree.yaml",
+            "tree:\n  - id: N01\n    type: experiment\n    evidence: [C01]\n",
+        ),
+        ("logic/claims.md", CLAIMS),
+    ]);
+    let root = dir.path();
+    assert_eq!(
+        ids(&run(root, &["ls", "--type", "claim"])["entries"]),
+        ["C01", "C02"]
+    );
+    // A private request directory: sibling tests share the temp root.
+    let requests = TempDir::new().unwrap();
+    let request = requests.path().join("repair.jsonl");
+    let replace = |content: &str| {
+        let digest = run(root, &["show", "--document", "logic/claims.md", "--source"])["entries"]
+            [0]["digest"]
+            .clone();
+        let operation = json!({"op":"document.replace","document":"logic/claims.md","expected":digest,"content":content});
+        std::fs::write(&request, operation.to_string()).unwrap();
+    };
+
+    // Removing the opener and C02 retires a recovered canonical claim.
+    replace("# Claims\n\n## C01: First\n- **Statement**: a\n");
+    let before = snapshot(root);
+    for mode in [&["--dry-run"][..], &[]] {
+        let mut args = vec!["apply", request.to_str().unwrap()];
+        args.extend(mode);
+        assert_eq!(
+            fail(root, &args, 1)["error"]["code"],
+            "write.claim_retention"
+        );
+    }
+    assert_eq!(
+        std::fs::read_to_string(root.join("logic/claims.md")).unwrap(),
+        CLAIMS
+    );
+    assert_eq!(
+        snapshot(root)
+            .into_iter()
+            .filter(|(path, _)| !path.starts_with(".ara"))
+            .collect::<Vec<_>>(),
+        before
+            .into_iter()
+            .filter(|(path, _)| !path.starts_with(".ara"))
+            .collect::<Vec<_>>()
+    );
+    assert_eq!(
+        ids(&run(root, &["ls", "--type", "claim"])["entries"]),
+        ["C01", "C02"]
+    );
+
+    // Removing only the stray opener keeps both claims and succeeds.
+    let repaired = &CLAIMS["---\n".len()..];
+    replace(repaired);
+    run(root, &["apply", request.to_str().unwrap()]);
+    std::fs::remove_file(&request).unwrap();
+    assert_eq!(
+        std::fs::read_to_string(root.join("logic/claims.md")).unwrap(),
+        repaired
+    );
+    assert_eq!(
+        ids(&run(root, &["ls", "--type", "claim"])["entries"]),
+        ["C01", "C02"]
+    );
+    assert_eq!(run(root, &["status"])["diagnostics"]["warnings"], 0);
+}
+
 #[test]
 fn selector_misses_name_a_fence_only_when_it_hides_the_target() {
     let dir = artifact(&[

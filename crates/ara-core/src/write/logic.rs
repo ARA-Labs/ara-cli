@@ -141,13 +141,15 @@ pub fn preserve_canonical_ids(
     let Some(prefix) = native_document_prefix(document) else {
         return Ok(());
     };
-    let before = working.headings(document)?;
-    let after = markdown::headings(content);
+    // Selectors stay strict, but retention counts every identity reads see,
+    // including claims recovered behind a stray leading `---`.
+    let before = markdown::document_headings(document, working.text(document)?);
+    let after = markdown::document_headings(document, content);
     for entry in before
         .iter()
         .filter(|h| h.range.start >= range.start && h.range.start < range.end)
     {
-        let id = heading_id(&entry.heading);
+        let id = heading_id(entry.heading);
         if fields::typed_id(id, prefix) && !after.iter().any(|h| heading_id(h.heading) == id) {
             if document == "logic/claims.md" {
                 return Err(WriteError::semantic(
@@ -2907,12 +2909,13 @@ fn validate_claim_retention(working: &WorkingArtifact) -> Result<(), WriteError>
     } else {
         ""
     };
-    let current: BTreeSet<_> = markdown::headings(after)
+    // Recovery-aware on both sides: any claim reads list must stay retained.
+    let current: BTreeSet<_> = markdown::document_headings(CLAIMS, after)
         .into_iter()
         .map(|heading| heading_id(heading.heading))
         .filter(|id| fields::typed_id(id, "C"))
         .collect();
-    let removed: BTreeSet<_> = markdown::headings(before)
+    let removed: BTreeSet<_> = markdown::document_headings(CLAIMS, before)
         .into_iter()
         .map(|heading| heading_id(heading.heading))
         .filter(|id| fields::typed_id(id, "C") && !current.contains(id))
