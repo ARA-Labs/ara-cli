@@ -552,7 +552,7 @@ Before this change, an artifact holding such a rename record failed
 a `rubric/` path now has an invalid registry, as one that registers `evidence/`
 already did.
 
-Workspace version is 0.1.23 for this integration. The minor/major release
+Workspace version is 0.1.24 for this integration. The minor/major release
 decision remains pending; no tag or release is implied by engineering checks.
 
 Core behavior affects wasm even when the embedded-viewer source hash does not.
