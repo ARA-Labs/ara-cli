@@ -46,7 +46,7 @@ A model call that issues k tool calls counts 1/k toward each of their causes.
 |---|---|---|---|
 | 1 | The agent doesn't know bash runs only one `ara` command | 1.10 | 34% |
 | 2 | The CLI serves the PaperBench rubric; `--heading` misses on it | 0.77 | 24% |
-| 3 | A stray `---` makes 8 artifacts invalid | 0.53 | 16% |
+| 3 | Claims that fail to parse make 8 artifacts invalid | 0.53 | 16% |
 | 4 | Truncated output, then reading Pi's log | 0.38 | 12% |
 | 5 | `show --document` on `evidence/` or `src/` | 0.24 | 7% |
 | | Other (scattered errors) | 0.23 | 7% |
@@ -82,14 +82,21 @@ the guard lets CLI agents `grep` and `read` the file directly, as Files agents d
 
 95% of all `--heading` misses are on this file.
 
-**3. Stray `---`.** In 8 of 9 invalid corpus artifacts, `logic/claims.md` starts
-with `---` and never closes it. `frontmatter_range` (`ara-core/src/markdown.rs:36`)
-deliberately extends an unclosed fence to end of file, so no claims parse and
-every evidence link fails with "unknown claim" (6–54 errors per artifact). No
-diagnostic names the fence. `Artifact::load` (`agent.rs:64`) then refuses `find`,
-`ls`, `status`, `open` and `refs`. These artifacts are 23% of CLI sessions and
-waste 1.95 calls each; Files agents read the files and never notice. Deleting the
-line makes `find` work on `pinn`.
+**3. Claims that fail to parse.** 9 corpus artifacts fail validation. In 7, line 1
+of `logic/claims.md` is `---` and line 2 is `# Claims`: no YAML and no closing fence,
+most likely a compiler-written opener or horizontal rule. CommonMark renders it as
+a horizontal rule, but `frontmatter_range` (`ara-core/src/markdown.rs:36`) treats any
+first non-blank `---` as a front matter fence and, when unclosed, extends it to end
+of file on purpose, so metadata such as `## metadata only` in a broken block never
+becomes a selectable heading (test at `markdown.rs:407`). The whole file is hidden
+and no claims parse. In `nanogpt-speedrun` the front matter is valid and closed, but
+claim headings read `## C01 — Title`, and `parse_claims` requires `C01: Title`. The
+ninth, `rebench-restricted_mlm`, has a different trace format and is out of scope.
+Either way every evidence link fails with "unknown claim" (6–54 errors per
+artifact), no diagnostic names the cause, and `Artifact::load` (`agent.rs:64`)
+refuses `find`, `ls`, `status`, `open` and `refs`. The 8 artifacts are 23% of CLI
+sessions and waste 1.95 calls each; Files agents read the files and never notice.
+Deleting the stray line makes `find` work on `pinn`.
 
 **4. Truncation.** `ls --json` prints about 50 KB on one line (`body`,
 `source_fields` and per-kind fields even without `--full`). Pi keeps the last 50 KB
@@ -126,7 +133,7 @@ plan after this one is measured.
 | B2 | Remove rubric handling from writes and merge: the `Requirement` entry kind and `R` ids (`write/fields.rs`, `write/logic.rs`), the document and transaction allowlists (`write/documents.rs`, `write/transaction.rs`, `write/source.rs`), and the merge special cases (`merge/identity.rs`, `merge/markdown.rs`). `rubric/` becomes a plain source directory, merged like `evidence/` | 2 | Breaking: removes `EntryKind::Requirement` from `ara-core`'s public API |
 | B3 | `--heading` ignores case and surrounding whitespace, treats a trailing `...` on the real heading as a truncation marker, and accepts a unique prefix | 2 (general) | More inputs match; ambiguity still refuses |
 | B4 | A missed or ambiguous `--heading` returns `unknown_id` with `candidates`: the document's heading paths, closest first, capped at 40. Read paths never surface `merge.*` codes | 2 (general) | Additive error field; error code changes |
-| B5 | `check`/`validate` report an unclosed opening `---` in a Markdown knowledge document as one root-cause diagnostic, naming the file and how many headings it hides | 3 | New diagnostic code |
+| B5 | `frontmatter_range` treats an unclosed opening `---` as front matter only when the next non-blank line looks like YAML (`key: value`); otherwise it is a horizontal rule and the document parses. Either way `check`/`validate` warn about the unclosed fence, naming the file and line | 3 | Documents with a stray leading `---` now parse; new warning code |
 | B6 | Read-only commands (`find`, `ls`, `show`, `status`, `open`, `refs`, `path`) run on artifacts with validation errors and return the diagnostics in `warnings`; `incomplete_artifact` and writes still refuse | 3 | Refusal becomes success with warnings |
 | B7 | `ls --json` without `--full` omits `body` and `source_fields` | 4 | Changes default `ara.ls/v1` output (see Q2) |
 | B8 | `show --document … --max-bytes N` cuts at a line boundary and reports `truncated` and `next_line`; `--from-line N` continues | 4 | Additive flags and fields |
@@ -148,8 +155,9 @@ plan after this one is measured.
   `--max-bytes`"). The denial is when the agent learns. Applies only to new runs.
 - **H2 (`ara-eval`):** any compile-condition guard allows the compiler to write
   `rubric/requirements.md` directly, since `ara` no longer writes it.
-- **C1 (`ara-paperbench`):** remove the stray `---` from the 8 `claims.md` files.
-  Applies only to new runs; e1-test stays on the vendored corpus.
+- **C1 (`ara-paperbench`):** remove the stray `---` from the 7 `claims.md` files, so
+  the corpus is clean for any `ara` version. B5 already makes them parse. Applies
+  only to new runs; e1-test stays on the vendored corpus.
 
 ## Implementation steps
 
@@ -173,11 +181,14 @@ current binary.
    an ambiguous prefix that still refuses; a fallback miss that returns `unknown_id`,
    not `merge.unknown_identity`. Change `heading_matches`, `source_output` and the
    `show_document` fallback in `agent.rs`, and the error shape in `output.rs`.
-4. **PR 18c — errors and invalid artifacts (B5, B6, B9).** Reproducers: a fixture
-   with a stray `---` in `logic/claims.md` gets one named diagnostic from `check`; the
-   same fixture still answers `find`, `ls` and `show` with `warnings`; writes and
-   `incomplete_artifact` still refuse; `show --document evidence/x.md` returns the
-   `hint`. Add the lint in `ara-core`; split `Artifact::load` into strict and lenient
+4. **PR 18c — errors and invalid artifacts (B5, B6, B9).** Reproducers: a
+   `claims.md` that starts `---` then `# Claims` parses all its claims and `check`
+   warns once, naming line 1; `---` then `title: Broken` with no closing fence still
+   hides `## metadata only` (the existing `markdown.rs:407` case); closed front matter
+   is unchanged. A fixture with a dangling claim reference still answers `find`, `ls`
+   and `show` with `warnings`; writes and `incomplete_artifact` still refuse;
+   `show --document evidence/x.md` returns the `hint`. Change `frontmatter_range` and
+   add the warning in `ara-core`; split `Artifact::load` into strict and lenient
    loading.
 5. **PR 18d — output bounds (B7, B8, S1).** Reproducers: `ls --json` field set with
    and without `--full`; `--max-bytes` cuts at a line boundary; `--from-line` resumes
@@ -200,12 +211,15 @@ current binary.
   and merge (B1, B2). It is benchmark grading material, the harness already allows
   direct reads, and CLI access made Category B sessions slower. Indexing requirements
   as entries and special-casing `R` ids in `--heading` were rejected.
+- **2026-10-04:** an unclosed opening `---` counts as front matter only when the next
+  non-blank line looks like YAML, with a warning either way (B5). A diagnostic alone
+  leaves the documents unreadable; treating every unclosed fence as a horizontal rule
+  would expose broken metadata as headings.
 
 ## Open questions
 
-- **Q1.** For the stray `---`: is B5's diagnostic enough, or should the parser stop
-  treating an unclosed fence followed by a heading as front matter? The current rule
-  is deliberate: it keeps metadata comments from becoming selectable sections.
+- **Q1.** Should `parse_claims` also accept `C01 — Title` and `C01 - Title`? It is
+  documented as lenient about corpus drift; this would fix `nanogpt-speedrun`.
 - **Q2.** B7 changes default `ls --json` output for existing consumers. Accept the
   change (bump the format version), or add `--brief` and leave the default?
 - **Q3.** Pilot size: the same 3 repetitions, or fewer to save budget?
