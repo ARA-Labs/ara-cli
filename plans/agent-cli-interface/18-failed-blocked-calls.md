@@ -1,34 +1,17 @@
 # PR 18: stop failed and blocked calls in CLI agent sessions
 **Date:** 2026-10-04
 
-Status: **draft, pending review**. Repository: `ARA-Labs/ara-cli` (binary and
-[skills](../../docs/agent-cli-skills.md)). Dependencies outside this repository: the
-`ara-eval` harness (H1, H2) and the `ara-paperbench` corpus (C1). Evidence: preliminary
-`runs/e1-test` ([analysis doc](https://claude.ai/code/artifact/70b438b7-c4a1-4a12-9899-d107136b03fe)).
-Parent: [agent CLI interface](../agent-cli-interface.md). Shared checks: [PR index](README.md).
+Status: **approved design, 2026-10-04**, at the user's direction. Implementation, external-repository changes and measurement remain pending. Repository: `ARA-Labs/ara-cli` (binary and [skills](../../docs/agent-cli-skills.md)). Dependencies outside this repository: the `ara-eval` harness (H1, H2) and the `ara-paperbench` corpus (C1). Parent: [agent CLI interface](../agent-cli-interface.md). Shared checks: [PR index](README.md). This approval does not authorize implementation in this documentation task, a paid run, a release or upstream protocol adoption.
 
 ## TL;DR
 
-A CLI session spends **3.25 model calls on tool calls that fail or are blocked**,
-out of 5.3 more calls than a Files session. Each wasted call costs about 20 s and
-re-sends about 39k prompt tokens. Five causes account for 93% of them. The largest
-is the skill never telling the agent that bash runs only single `ara` commands.
-The second is the CLI serving `rubric/requirements.md`, a PaperBench grading file
-that is not research knowledge: agents make about 10 `ara` calls per Category B
-session to read a file one `grep` answers. The fix is to stop handling the rubric
-in the CLI, not to make it handle the rubric better. The rest are an unclosed `---`
-that hides a whole document, output larger than the agent's tool shows, and errors
-that do not say what to do next. Each fix starts with a reproducing test, then a
-dev-split pilot.
+The supplied preliminary `runs/e1-test` analysis attributes 3.25 model calls per CLI session to failed or blocked tools, against a 5.32-call difference from Files. This plan removes native rubric handling, gives agents bounded text reads and usable addresses, and permits structural reads when parsing is complete but validation fails. It keeps exact source reads and guarded-write digests separate from displayed excerpts, and continues to reject unsafe or incomplete reads. The proposed 120-point dev pilot is a screening exercise, not evidence that accuracy is non-inferior or that the call-reduction target has been met.
 
 ## Problem
 
-### Evidence
+### What does the supplied snapshot show?
 
-Snapshot 2026-10-04 16:53 PDT: 580 CLI and 581 Files sessions with complete
-traces (about 52% of the run; 6 CLI timeouts excluded). Agent `glm-5.3-flash`,
-`ara 0.1.23` (`4f70972`), skill `research-foresight-cli` at protocol `03f19c7`,
-Pi 0.82.1. Preliminary and descriptive, not the registered analysis.
+The user-supplied snapshot is dated 2026-10-04 16:53 PDT: 580 CLI and 581 Files sessions with complete traces, about 52% of the run, with 6 CLI timeouts excluded. Its pins are agent `glm-5.3-flash`, `ara 0.1.23` (`4f70972`), skill `research-foresight-cli` at protocol `03f19c7`, and Pi 0.82.1. The [analysis document](https://claude.ai/code/artifact/70b438b7-c4a1-4a12-9899-d107136b03fe) and `runs/e1-test` are historical inputs supplied for this revision. These results were not rerun or independently verified here and are not the registered analysis.
 
 | Per session (mean) | Files | CLI |
 |---|---|---|
@@ -37,253 +20,186 @@ Pi 0.82.1. Preliminary and descriptive, not the registered analysis.
 | Wall time | 166 s | 289 s |
 | Cost (list price) | $0.0121 | $0.0280 |
 
-A model call that issues k tool calls counts 1/k toward each of their causes.
-158 times, a session ran five or more bad tool calls in a row.
+The supplied attribution gives each tool in a model call with k tool calls a weight of 1/k. It reports 158 sequences of five or more bad tool calls. The earlier estimate of about 20 seconds and 39k repeated prompt tokens per failed model call describes this snapshot; it does not establish the savings from a fix.
 
-### Root causes
+### Which failures motivate the changes?
 
-| # | Cause | Model calls / session | Share |
+| # | Supplied cause | Model calls / session | Share |
 |---|---|---|---|
-| 1 | The agent doesn't know bash runs only one `ara` command | 1.10 | 34% |
+| 1 | The agent does not know the harness permits only one `ara` command per shell call | 1.10 | 34% |
 | 2 | The CLI serves the PaperBench rubric; `--heading` misses on it | 0.77 | 24% |
-| 3 | Claims that fail to parse make 8 artifacts invalid | 0.53 | 16% |
-| 4 | Truncated output, then reading Pi's log | 0.38 | 12% |
-| 5 | `show --document` on `evidence/` or `src/` | 0.24 | 7% |
-| | Other (scattered errors) | 0.23 | 7% |
+| 3 | Claim parsing leaves 8 artifacts invalid | 0.53 | 16% |
+| 4 | Truncated output leads to attempts to read Pi's log | 0.38 | 12% |
+| 5 | `show --document` targets `evidence/` or `src/` | 0.24 | 7% |
+| | Other scattered errors | 0.23 | 7% |
 
-**1. Shell habits.** The harness guard (`ara-eval/src/ara_eval/pi/guard.ts`) allows
-one `ara` command per bash call and rejects unquoted `| > & ; * ? [ ] ( ) # ! ~ $`.
-Neither the harness nor the skill says so; the agent learns from denials. Typical:
-`ara -C … find '…' --json 2>/dev/null | head -c 6000`, `cd … && ara …`. 43% of the
-piped commands pipe `find`, whose output has a median of 2.7k characters, so most
-of this is habit, not a reaction to long output. Real harnesses usually allow
-pipes, so this cause is partly specific to the experiment, but it counts in its
-results. The registration's dev pilot recorded the same pattern
-(`ara-eval/plans/registration-reading-wave.md`, "3.2 denied calls per session").
+The supplied harness analysis says `ara-eval/src/ara_eval/pi/guard.ts` permits one `ara` command per shell call and rejects unquoted `| > & ; * ? [ ] ( ) # ! ~ $`. Examples include piping JSON to `head` or using `cd` followed by `&&`. It attributes 43% of piped commands to `find`, whose median output was 2.7k characters. This restriction belongs to that harness, not to the `ara` executable or shells in general. The supplied registration pilot also reported 3.2 denied calls per session in `ara-eval/plans/registration-reading-wave.md`.
 
-**2. The rubric.** `rubric/requirements.md` is PaperBench's expert-written
-reproduction rubric, flattened by `generate_rubric_requirements_md.py` into
-`R01`…`Rnn` with headings cut to 60 characters plus a literal `...`. It is grading
-material, present only in artifacts compiled for the benchmark. The eval uses it as
-reading material: Category B questions are generated from it and tell the agent to
-open it. The CLI handles it because `compiler-cli` needed an allowlisted write path
-for it (`compiler-cli/references/cli-access.md`, "the fixed compiler allowlisted
-case"); read access followed. The handling is partial: `show --document` returns the
-whole file, but `show R84` fails with `unknown_id`, `--heading R84` fails with a
-`merge.unknown_identity` code, and `find`/`ls` do not index requirements. Meanwhile
-the guard lets CLI agents `grep` and `read` the file directly, as Files agents do.
+`rubric/requirements.md` is PaperBench grading material. The supplied compiler conversion flattens it into `R01` through `Rnn` headings shortened to 60 characters plus literal `...`. Category B questions direct agents to read it. The current native allowlist serves its document but does not make requirements searchable native entries. The supplied traces report successful whole-document reads, `unknown_id` for `show R84`, and `merge.unknown_identity` for `--heading R84`, although the harness allows direct `grep` and `read`.
 
 | Rubric access per Category B CLI session (139 sessions) | Count |
 |---|---|
 | `ara show` that fails | 5.84 |
 | `ara show` that succeeds | 3.22 |
 | `ara show` blocked by the harness | 1.15 |
-| `grep`/`read` tool (allowed) | 0.07 |
+| Allowed `grep` or `read` tool | 0.07 |
 
-95% of all `--heading` misses are on this file.
+The supplied analysis attributes 95% of heading misses to the rubric. It reports 9 invalid corpus artifacts: 7 have an unclosed leading `---` followed by `# Claims`; `nanogpt-speedrun` uses a U+2014 separator in claim headings; and `rebench-restricted_mlm` uses a different trace format that this plan does not change. The first 8 account for 23% of CLI sessions and 1.95 failed calls per affected session, with 6 to 54 unknown-claim errors per artifact. The reported removal of the stray first line in `pinn` restored `find`; that observation is accepted without rerunning it.
 
-**3. Claims that fail to parse.** 9 corpus artifacts fail validation. In 7, line 1
-of `logic/claims.md` is `---` and line 2 is `# Claims`: no YAML and no closing fence,
-most likely a compiler-written opener or horizontal rule. CommonMark renders it as
-a horizontal rule, but `frontmatter_range` (`ara-core/src/markdown.rs:36`) treats any
-first non-blank `---` as a front matter fence and, when unclosed, extends it to end
-of file on purpose, so metadata such as `## metadata only` in a broken block never
-becomes a selectable heading (test at `markdown.rs:407`). The whole file is hidden
-and no claims parse. In `nanogpt-speedrun` the front matter is valid and closed, but
-claim headings read `## C01 — Title`, and `parse_claims` requires `C01: Title`. The
-ninth, `rebench-restricted_mlm`, has a different trace format and is out of scope.
-Either way every evidence link fails with "unknown claim" (6–54 errors per
-artifact), no diagnostic names the cause, and `Artifact::load` (`agent.rs:64`)
-refuses `find`, `ls`, `status`, `open` and `refs`. The 8 artifacts are 23% of CLI
-sessions and waste 1.95 calls each; Files agents read the files and never notice.
-Deleting the stray line makes `find` work on `pinn`.
+The same snapshot reports approximately 50 KB single-line `ls --json` output, truncation in 54% of those calls, and blocked attempts to read `/tmp/pi-bash-*.log`. It attributes wrong-document calls to `evidence/` in 77% of cases and `src/` in 22%. These observations motivate bounded text and better errors, not smaller or silently incomplete JSON.
 
-**4. Truncation.** `ls --json` prints about 50 KB on one line (`body`,
-`source_fields` and per-kind fields even without `--full`). Pi keeps the last 50 KB
-of output and saves the full text to `/tmp/pi-bash-*.log`, so the agent sees the
-broken tail of a JSON document. 54% of `ls --json` calls are truncated; the agent
-then tries to read the log, and the guard blocks it.
+## Constraints
 
-**5. Wrong access path.** The agent runs `show --document` on `evidence/` (77%) or
-`src/` (22%). These are source files read with file tools, but the error says only
-"Document outside the knowledge boundary".
+The CLI must preserve the knowledge boundary, literal source bytes and write preconditions. It must not read through unsafe paths, hide parse loss, reinterpret duplicate identities as unique, or weaken recovery checks. Read tolerance applies only to fully represented artifacts with semantic validation errors. No read creates a lock, journal, background task or collaboration store.
 
-## Goals and acceptance
+This work changes access and deterministic presentation. It does not change research judgment, question generation, the excluded trace schema, scoring or the original Files skills. Rubric handling becomes direct file access and an external read-only merge source. Removal must not silently install incoming rubric files or rewrite old mutation records and aliases.
 
-On the dev-split pilot (step 8) against the unchanged CLI condition and Files:
+JSON compatibility is field-level, not byte-level. Existing successful `ara.*/v1` fields retain their meanings where applicable. Removed rubric operations, heading error codes, additive diagnostics and new opt-in address or bounds fields are observable changes and require migration notes. Default text is deliberately different. The approved design does not claim lower runtime cost or improved accuracy before measurement; normal commands must not pay for unused context, pagination or source hashing.
 
-1. Model calls spent on failed or blocked tool calls fall from 3.25 to below 1.0 per
-   CLI session.
-2. Category B CLI sessions reach the rubric with file tools, with no `ara` calls on it.
-3. No run of five or more consecutive bad tool calls in more than 2% of sessions.
-4. Accuracy stays within the registered non-inferiority margin (0.03) of Files and
-   of the unchanged CLI condition, overall and on Category B.
+## Proposed approach
 
-The brief (B7, S5) is in scope because oversized JSON causes the truncation in
-cause 4 and guessed headings cause the misses in cause 2; its token savings come
-with it. Other token reductions that do
-not remove calls (smaller skills, the required `status`/`ls` opening) get their own
-plan after this one is measured.
-
-## Proposed changes
-
-### Binary
+### Which binary contracts change?
 
 | # | Change | Cause | Contract impact |
 |---|---|---|---|
-| B1 | Remove `rubric/requirements.md` from the read boundary (`knowledge_document`, `agent.rs:980`) and from parsing (`parse.rs:444`). `show --document rubric/…` returns `invalid_document` with the B8 hint | 2 | Breaking for `show --document rubric/…` callers |
-| B2 | Remove rubric handling from writes and merge: the `Requirement` entry kind and `R` ids (`write/fields.rs`, `write/logic.rs`), the document and transaction allowlists (`write/documents.rs`, `write/transaction.rs`, `write/source.rs`), and the merge special cases (`merge/identity.rs`, `merge/markdown.rs`). `rubric/` becomes a plain source directory, merged like `evidence/` | 2 | Breaking: removes `EntryKind::Requirement` from `ara-core`'s public API |
-| B3 | `--heading` ignores case and surrounding whitespace, treats a trailing `...` on the real heading as a truncation marker, and accepts a unique prefix | 2 (general) | More inputs match; ambiguity still refuses |
-| B4 | A missed or ambiguous `--heading` returns `unknown_id` with `candidates`: the document's heading paths, closest first, capped at 40. Read paths never surface `merge.*` codes | 2 (general) | Additive error field; error code changes |
-| B5 | `frontmatter_range` treats an unclosed opening `---` as front matter only when the next non-blank line looks like YAML (`key: value`); otherwise it is a horizontal rule and the document parses. Either way `check`/`validate` warn about the unclosed fence, naming the file and line | 3 | Documents with a stray leading `---` now parse; new warning code |
-| B6 | Read-only commands (`find`, `ls`, `show`, `status`, `open`, `refs`, `path`) run on artifacts with validation errors and return the diagnostics in `warnings`; `incomplete_artifact` and writes still refuse | 3 | Refusal becomes success with warnings |
-| B7 | Brief text is the agent format: `ls`, `find`, `show` and `status` print the [brief](#brief-text-output) by default, built on one `path#anchor` address; `--json` keeps the complete `ara.*/v1` contracts for programs | 2, 4 | Default text of `ls`, `find`, `show` and `status` changes; `show` accepts addresses; JSON unchanged |
-| B8 | `show … --lines A:B` returns a line range of a document; `--max-bytes N` cuts at a line boundary and ends with `… continue with --lines N:` | 4 | Additive flags |
-| B9 | `invalid_document` errors add a `hint`: the allowed `show --document` roots, and that `rubric/`, `evidence/` and `src/` are read directly | 2, 5 | Additive error field |
-| B10 | `parse_claims` accepts `C01 — Title`, `C01 – Title` and `C01 - Title` as well as `C01: Title` | 3 | More claim headings parse |
+| B1 | Remove `rubric/requirements.md` from native reads and parsing, including registered-path bypasses. `show --document rubric/...` returns `invalid_document` with the B9 hint | 2 | Breaks native rubric readers |
+| B2 | Remove `Requirement`, native `R` IDs, rubric write allowlists and native merge entry handling. Treat all `rubric/` paths as `external_read_only`, like `evidence/` and `src/` | 2 | Removes a public Rust variant and native write operations; no incoming rubric installation |
+| B3 | Resolve headings exact-first, then use the bounded tolerant lookup below | 2, general | Additional unambiguous inputs match |
+| B4 | Return `unknown_id` on a miss and `ambiguous_heading` on multiple matches, with at most 40 canonical candidate addresses | 2, general | Corrects error codes and adds candidate metadata |
+| B5 | Recognize only the conservative stray-fence case below; retain protection for malformed metadata and report the opening line | 3 | Narrow parse recovery and a diagnostic |
+| B6 | Allow structural reads of fully represented artifacts with validation errors; retain original diagnostic severities | 3 | Some semantic refusals become diagnostic-bearing read success |
+| B7 | Default to brief text for agent reads; keep explicit `--json` for programs and exact `--source` for source access | 2, 4 | Changes default text, adds addresses and explicit display metadata |
+| B8 | Add inclusive `--lines A:B`, a text-output byte budget and resumable pagination, including oversized lines | 4 | Additive read options; invalid combinations reject before output |
+| B9 | Add an actionable `invalid_document` hint naming allowed native roots and direct file access for `rubric/`, `evidence/` and `src/` | 2, 5 | Additive error field |
+| B10 | Parse claim headings separated by colon, spaced ASCII hyphen, U+2013 or U+2014 | 3 | Additional native claim spelling; source stays unchanged |
 
-### Brief text output
+B2 must change both native inventories and the external-file conflict classifier. Identical or unchanged rubric bytes produce no new conflict. Incoming additions, modifications and deletions that differ from the destination produce the existing external read-only conflict, preserve destination bytes and permit only the existing external acknowledgment policy. Acknowledgment never copies incoming content. Existing rubric-related historical records remain exact and readable as history; the migration must not invent replacement native identities.
 
-Agents read text; programs read JSON. The brief is designed from what Files agents
-actually do in e1-test (781 Files sessions): they navigate by location, never by
-entry fields.
+B4 translates only heading-selection failures into read-facing codes. It must not turn a corrupt alias index, unsafe path or failed recovery check into an ordinary missing heading. Those failures retain a truthful read/setup diagnostic without leaking a `merge.*` implementation code. Candidate generation uses loaded knowledge only, ranks deterministically, and reports whether the candidate list was capped.
 
-| Step | Files agents | Per session | CLI today |
+### How do headings and addresses resolve?
+
+Repeated `--heading` arguments remain an exact vector. `['A/B']` names a literal slash in one heading and differs from `['A', 'B']`. Resolution first tries the exact full vector, then the existing unique exact suffix and native-ID shorthand. Each tier must reject multiple matches before considering a weaker tier. Only when exact matching finds none may the reader trim surrounding whitespace and compare case-insensitively, first for equality and then for a unique prefix. The normalization must be locale-independent and documented; use Unicode lowercase without accent stripping or Unicode normalization. A real trailing literal `...` may match a longer request with the same nonempty prefix, but only in the final tolerant tier. An exact heading containing `...` wins first.
+
+Canonical addresses encode the original heading identity. Keep bare native IDs (`C04`), `trace:N09` and `logic/claims.md#C04` as convenient unambiguous forms. General headings use `path#h/<segment>/<segment>` with the full original heading vector. Encode each segment's UTF-8 bytes using uppercase percent escapes for everything except URI unreserved characters. A literal slash becomes `%2F`, so `path#h/A%2FB` and `path#h/A/B` stay distinct. Encode path components the same way while keeping path separators; decode once and then apply the normal boundary checks. Malformed escapes, invalid UTF-8, absolute paths and traversal reject.
+
+For repeated identical full vectors, append `;occurrence=N`, a one-based source-order occurrence among that vector's matches. Literal semicolons in headings are percent-encoded. Generated addresses always include the occurrence when needed; an unqualified duplicate rejects. Canonical addresses resolve exactly, without tolerant fallback, and JSON retains the original heading array alongside any additive address. They round-trip within the same source snapshot; an ordinal is not a durable identity after edits. `--document` and repeated `--heading` remain supported structured selectors rather than lossy aliases. Legacy `path#Method/Step 3` input may resolve only if its literal-vector and split-vector interpretations identify one section; otherwise it rejects with canonical candidates.
+
+### What does brief text contain?
+
+The supplied Files navigation analysis covers a separate 781-session cohort. Its inclusion list and relationship to the 581-session snapshot above must be frozen before comparison; the two denominators must not be pooled. It reports the following behavior, which motivates the read format without proving that the format reduces calls.
+
+| Step | Supplied Files behavior | Per session | Reported CLI limitation |
 |---|---|---|---|
-| Orient | `ls .`, then `ls logic`: names only | 2.9 calls, 169 characters in total | `ls` lists every entry (6k text, 50k JSON); `status` 4–6k |
-| Search | `grep` over the whole artifact, case-insensitive (66%), with context lines (54%); hits are `path:line: text` | 3.6 calls | `find` returns entries with an excerpt of the document's opening and no line numbers |
-| Read | Whole `logic/*.md` files or the exploration tree; 35% of reads take a line range found by `grep` | 6.1 calls | Whole documents by skill rule, or `--heading` with exact matching |
-| Cite | `logic/claims.md#C04` in 99% of answers, about 10 each; `src/` and `evidence/` paths | — | `show` takes ids or `--document`/`--heading`, not the cited form |
+| Orient | List the artifact and `logic/` names | 2.9 calls, 169 characters total | Entry-heavy `ls`; verbose `status` |
+| Search | Case-insensitive in 66%; context in 54% | 3.6 calls | Excerpts lack source match locations |
+| Read | Whole documents or ranges found by search; 35% use a range | 6.1 calls | Exact headings or whole-document reads |
+| Cite | `logic/claims.md#C04` form in 99% of answers | About 10 citations | Cited addresses are not accepted uniformly |
 
-**One address.** An address is `path#anchor`, where the anchor is an entry id (`C04`,
-`N09`) or a heading path (`Method/Step 3`), or a bare id (`C04`). The skill's
-`trace:N09` form is accepted too. `ls` and `find` print addresses, `show` takes
-them, and answers cite them, so the agent never invents a heading.
-
-| Command | Brief output |
+| Command | Default brief |
 |---|---|
-| `ls` | A document map, one line per document: `logic/claims.md  claims  C01–C08 (8)`; `trace/exploration_tree.yaml  nodes  N01–N22 (3 question, 6 experiment, …)`; one closing line naming `evidence/`, `src/` and `rubric/` as read directly. About 1k characters |
-| `ls <path>` | One line per entry in that document: `<address>  <title>`; `--type`, `--under` and `--status` filter as today |
-| `find <query>` | Grep-style hits, best first: `<address>:<line>: <matching line>`; case-insensitive; `-C N` adds context lines; BM25 ranking unchanged |
-| `show <address>…` | Per address, a header `== <address> lines A–B sha256:<digest>`, then that section once. `show <path>` returns the whole document; `--lines` and `--max-bytes` bound it (B8) |
-| `status` | Counts per kind on one line, `errors: N, warnings: N (codes)`, next free ids |
-| `path`, `refs`, `open` | One line per item, each starting with its address |
-| Any command | Validation warnings once on stderr as a count with codes and `run ara check`; errors as `error[code]: message`, then `hint:` and `candidates:` lines (candidates are addresses) |
+| `ls` | One line per knowledge document, with kind and counts, plus a direct-file boundary note |
+| `ls <path>` | One canonical entry or heading address and title per item; existing filters retain their meaning |
+| `find <query>` | Ranked addresses with one-based source line numbers and actual matching source lines |
+| `find ... --context N` | Context around matched lines, merged where ranges overlap; `N=0` means no extra lines |
+| `show <address>...` | A labeled block for each selection, native source when selected, and explicit projection or truncation metadata |
+| `status` | Counts when complete, original error/warning counts and codes, and next IDs only when safe to compute |
+| `path`, `refs`, `open` | Address-led items retaining relation type and other command-specific meaning |
 
-`--document` and `--heading` keep working as aliases for an address. The digest stays
-in the `show` header in full, since write skills pass it as `expected` to guarded
-edits. Brief layouts get snapshot tests and a section in `docs/agent-cli.md`, but they
-are not a versioned contract. `--json` output is unchanged, so no `ara.*/v1` format
-version changes.
+`--context` has no `-C` short form because global `-C` selects the artifact root. Search keeps BM25 ordering, existing tokenization and filter semantics; it adds source-mapped lexical hit locations instead of substituting an unrelated grep engine. A result without a literal source hit must label its existing excerpt as an excerpt and must not invent a matching line. Matching is case-insensitive under the documented search rules. Candidate and display ordering must be deterministic.
 
-### Skills
+Text diagnostics appear once per command on stderr, with separate error and warning counts, codes and a suggestion to run `ara check`. Deduplicate the display, not the underlying report. JSON continues to carry structured diagnostics on the command's existing channel; it does not acquire text noise. Tests assert addresses, source spans, digest correspondence, bounds and diagnostic semantics, not prose wording or complete layout snapshots.
 
-| # | Change | Cause |
+### Which bytes does a digest identify?
+
+A displayed projection, a selected native source body and a displayed page are different objects. For document/heading reads, retain the existing `digest` meaning: SHA-256 of the full exact selected source, before excerpts or pagination. For headings that is the native body range used by the corresponding replacement operation, not the title, ancestors or rendered body. Whole-document reads hash the entire original document. Entry projections must not label regenerated text with a source digest.
+
+Brief headers label a guarded-write digest as `source_digest` and include its exact native selector and selection scope. If an entry projection has no single matching write source selection, omit that digest and direct the caller to the exact document/heading `--source` read. JSON's existing document `digest` field is retained; additive display metadata distinguishes the selector, displayed range, `truncated` and continuation. No digest of a truncated page is presented as the digest for replacement. Computing an optional page hash would need a separate name and is not required.
+
+`--source` preserves original UTF-8 bytes, unknown fields, line endings and selection rules. It does not normalize dash headings or strip metadata. Unbounded `--source --full --json` remains the exact-byte path in the existing envelope. Explicit paging of source content returns exact slices plus metadata; callers must fetch the full selection and use its matching digest before replacing it. A digest alone does not authorize overwriting unseen content. Duplicate-heading occurrence addresses are read locators only unless the existing write selector can express that exact selection; no new write bypass is introduced.
+
+### How are reads bounded and resumed?
+
+Brief `show` defaults to a 16 KiB stdout budget; `--max-bytes N` changes that budget. The budget includes headers, separators and continuation metadata, not only body text. It does not apply implicitly to existing `--json` or to explicit unbounded `--source --full` reads. JSON is never cut at a byte boundary: an explicit bound must return a complete valid envelope with display metadata or reject if the envelope cannot fit. `--fields` and write inputs retain their current semantics. Other brief commands are compact but not guaranteed byte-bounded: use existing `find --limit`, filters and document-scoped `ls`. Measure large document maps and search output before claiming that the plan eliminates every truncation case.
+
+`--lines A:B` uses one-based inclusive lines within each full selected native source, with open endpoints allowed (`A:` or `:B`) and at least one endpoint required. It applies independently to each selected address; the byte budget applies to the whole response. A final newline belongs to the preceding line, not an extra empty line. Reject zero, negative, reversed, nonnumeric or overflowing bounds and an explicit start beyond EOF. An end beyond EOF clamps to EOF and reports the actual range. An empty selection without an explicit out-of-range start succeeds as empty. Line bounds on a projection without a native source range reject and suggest the source selector.
+
+For a single native selection, stop at a complete line and include the exact next `--lines A:B` window, retaining the original upper bound. Never split a UTF-8 code point or line. If the next whole line cannot fit even in an otherwise empty page, return `output_limit_too_small` with the minimum budget needed for that line and its metadata, and advise a larger `--max-bytes`. The error must not pretend that an empty page is progress or silently skip the oversized line. No byte-offset or cursor API is introduced. Every native-source page includes the full selection's source digest; the caller must restart if that digest changes between pages. An oversized entry projection without a native line mapping returns the same limit error and suggests an exact source read instead of inventing a continuation.
+
+For multi-address reads, preserve request order, resolve every address before output, and apply line bounds independently to each source selection. The byte budget covers the aggregate response. Return all requested windows if they fit; otherwise return an actionable limit error before writing stdout, naming the required budget and advising separate single-address reads for pagination. Do not return only the first address or silently truncate later selections. Overlapping explicitly requested selections remain separate items. This makes multi-address behavior predictable without adding cross-item cursor state.
+
+Reject `--max-bytes 0`, negative, nonnumeric and overflowing values. A budget too small for required metadata and the next complete line returns the actionable limit error before writing stdout. Long addresses and metadata count toward the required minimum, so tiny budgets cannot create a zero-progress loop. Bound text diagnostic summaries separately and report omitted counts without modifying structured severities. Tests cover one-line megabyte inputs, multibyte code points, CRLF, no trailing newline, empty input, changed source digests, multiple addresses and exact no-gap/no-overlap reassembly on unchanged source. No performance or maximum-output claim is accepted without these behavior tests.
+
+### When can parsing recover or reads continue?
+
+B5 must not infer “not YAML” from the absence of `key: value`. Keep generic `frontmatter_range` conservative: closed front matter is unchanged, and an unclosed leading fence hides the remainder unless a native-document-specific recognizer proves the supported stray-fence case. Initially that exception is only `logic/claims.md`: after optional blank lines/BOM, the opener must be followed by the exact top-level `# Claims`, then blanks and a recognized level-two claim heading, then a canonical claim field/body sufficient for the existing claim parser. The sequence cannot contain unrelated metadata, a second title, YAML directives or other nonblank material before that first claim. The full candidate claim document must parse without dropped entries. A heading-only or comment-only block is insufficient evidence.
+
+This deliberately leaves uncertain malformed front matter hidden. Test unclosed mappings with empty values or malformed colons, quoted and explicit keys, sequences, flow collections, anchors, aliases, tags, directives, block scalars, indentation, comments followed by metadata and comment headings without claim bodies. None may expose metadata headings. Add the reported stray-opener fixture, BOM/CRLF variants and closed-frontmatter regressions. If a reported corpus document does not meet the recognizer, C1 repairs it explicitly; do not widen the heuristic merely to pass the corpus. Emit one diagnostic naming the opener's file and line for each unclosed leading fence, distinguishing recovered source from protected metadata. The recovered stray-fence case is a warning; any associated parse/validation errors keep their original severity.
+
+B10 accepts only a well-formed native claim ID followed by `:` or a dash separator with surrounding whitespace. This prevents a hyphen within an ID or prose from creating a claim. Colons remain valid; all four separators preserve exact source bytes, and duplicate claims remain errors.
+
+B6 separates parse completeness from semantic validity. `find`, `ls`, `show`, `open`, `refs` and `path` may return data for a fully parsed dangling reference, with the original validation report. They still refuse I/O failure, malformed YAML or Markdown that loses entries, missing required structure, duplicate ambiguous IDs, unsafe root or symlink traversal, and unresolved recovery state. Relationship reads report unresolved references rather than inventing targets. Explicit source-document reads keep their existing partially initialized-root access and `artifact_validation: not_run` meaning; this is not evidence that the artifact passed validation.
+
+`status` already reports invalid artifacts. Preserve its `complete` semantics and null counts/next IDs when that existing completeness condition fails; do not turn invalid into healthy by moving errors into `warnings`. Any additive `parse_complete` field must remain separate from validity. `check` and `validate` continue to fail on errors and show original severities; a warning-only stray fence follows their existing warning exit policy. Writes remain strict, including guarded replacements and dry runs. No read-tolerance path is shared with write admission.
+
+### What changes in skills and other repositories?
+
+| # | Change | Ownership |
 |---|---|---|
-| S1 | A short "Running ara" section in `cli-access.md` and `SKILL.md`: one `ara` command per call, no pipes, redirects or `&&`, errors arrive without `2>&1`, bound output with addresses, `--lines` and `--max-bytes` | 1, 4 |
-| S2 | `research-foresight-cli`: list `rubric/`, `evidence/` and `src/` as files read with file tools (`grep`, `read`), and say which paths go through `show --document` | 2, 5 |
-| S3 | `compiler-cli`: write `rubric/requirements.md` as a plain file (the same verbatim conversion as `generate_rubric_requirements_md.py`); remove "the fixed compiler allowlisted case" from `ara-schema.md` and all three `cli-access.md` copies | 2 |
-| S4 | Orient with `ls`, search with `find`, read with `show <address>`, and cite the same address; on a miss, use a listed candidate instead of guessing | 2 |
-| S5 | All CLI skills drop `--json` from read commands and take the digest from the `show` header; write inputs (`apply` JSONL) are unchanged | 4 |
+| S1 | Teach one quoted `ara` invocation per shell tool call, no pipes, redirects or `&&`, and native bounds as a safe recipe across harnesses. Explain that harnesses may impose this rule and other shells may permit composition | Local CLI skill copies |
+| S2 | Route `rubric/`, `evidence/` and `src/` to file tools and name the native document boundary | `research-foresight-cli` |
+| S3 | Write the rubric as a plain file using the same verbatim compiler conversion; remove the fixed native rubric exception from schema/access guidance | `compiler-cli`, all three `cli-access.md` copies |
+| S4 | Orient, search, read and cite using returned canonical addresses; choose candidates after a miss | All CLI skills |
+| S5 | Use brief text for routine reads; retain JSON where a structured contract is needed and exact source reads before guarded replacement | All CLI skills |
+| H1 | Give denial messages the harness rule and permitted alternatives, only for new runs | `ara-eval` |
+| H2 | Permit direct compiler writes to the rubric within the compile-condition guard's explicit boundary | `ara-eval` |
+| C1 | Remove the seven reported stray openers in a reviewed new corpus revision | `ara-paperbench` |
 
-### Outside this repository
+Local CLI skills own these access changes; original upstream baseline skills remain untouched. Do not remove `--json` mechanically from write or structured-consumer examples. Keep the three shared access copies consistent and preserve research procedure, required source content and mutation ownership. H2 authorizes the rubric path only, not arbitrary knowledge-layer bypasses. C1 and new skill pins affect future conditions only; the vendored `e1-test` inputs stay frozen.
 
-- **H1 (`ara-eval`):** the guard's denial message names the rule and the
-  alternative ("run one `ara` command with no pipes or redirects; bound output with
-  `--max-bytes`"). The denial is when the agent learns. Applies only to new runs.
-- **H2 (`ara-eval`):** any compile-condition guard allows the compiler to write
-  `rubric/requirements.md` directly, since `ara` no longer writes it.
-- **C1 (`ara-paperbench`):** remove the stray `---` from the 7 `claims.md` files, so
-  the corpus is clean for any `ara` version. B5 already makes them parse. Applies
-  only to new runs; e1-test stays on the vendored corpus.
+## Alternatives considered
 
-## Implementation steps
+Indexing rubric requirements as native `R` entries would expand a benchmark-specific boundary and still duplicate direct file access, so this plan removes native handling. Shrinking existing `ls --json` fields would break consumers that need those fields; the default text path supplies the bounded agent view instead. A third `--brief` format would leave the default agent path unchanged and is unnecessary.
 
-Per the bug process, each PR starts with tests that reproduce the failure on the
-current binary.
+Treating every unclosed fence as a horizontal rule would expose metadata as headings. Keeping every such file unreadable would preserve the reported failure, so B5 uses a narrow positive native-claims recognizer and explicit corpus repair. Broad read leniency would conceal parse loss; B6 permits only fully represented invalid artifacts. Prefix-only heading lookup and slash-flattened addresses are rejected because they can select the wrong source.
 
-1. **Measurement (`ara-eval`).** Move the trace scripts (`events.py`, `calls.py`,
-   `roots.py`, now in the session scratchpad) into `ara-eval/src/analysis/` with a
-   frozen snapshot list, so every comparison uses the same root-cause attribution.
-2. **PR 18a — stop handling the rubric (B1, B2, B9 for `rubric/`, S2, S3).**
-   Reproducers: `show --document rubric/requirements.md` on a fixture currently
-   succeeds and must return `invalid_document` with a hint; a directory merge of two
-   artifacts with identical and with differing `rubric/` must behave like `evidence/`.
-   Remove the rubric cases from `ara-core` and update the four core test files that
-   cover them (`parse_fixtures.rs`, `write_logic_documents.rs`, `merge_identity.rs`,
-   `merge_markdown_layers.rs`). Check the `ara-core` public API diff, since
-   `EntryKind::Requirement` goes away.
-3. **PR 18b — heading selection (B3, B4, S4).** Reproducers in
-   `crates/ara-cli/tests/agent_reads.rs`: the full text of a heading stored with a
-   trailing `...`; a case-different heading; a guessed name that returns `candidates`;
-   an ambiguous prefix that still refuses; a fallback miss that returns `unknown_id`,
-   not `merge.unknown_identity`. Change `heading_matches`, `source_output` and the
-   `show_document` fallback in `agent.rs`, and the error shape in `output.rs`.
-4. **PR 18c — errors and invalid artifacts (B5, B6, B9).** Reproducers: a
-   `claims.md` that starts `---` then `# Claims` parses all its claims and `check`
-   warns once, naming line 1; `---` then `title: Broken` with no closing fence still
-   hides `## metadata only` (the existing `markdown.rs:407` case); closed front matter
-   is unchanged. A fixture with a dangling claim reference still answers `find`, `ls`
-   and `show` with `warnings`; writes and `incomplete_artifact` still refuse;
-   `show --document evidence/x.md` returns the `hint`; a `claims.md` with
-   `## C01 — Title` headings parses (B10). Change `frontmatter_range` and add the
-   warning in `ara-core`; split `Artifact::load` into strict and lenient loading.
-5. **PR 18d — brief output and bounds (B7, B8, S1, S4, S5).** Reproducers:
-   `status` and `show <ids>` without `--json` print JSON today; warnings repeat on
-   every command; `find` hits carry no line numbers. Tests: snapshot tests for each
-   brief layout; every address printed by `ls <path>` and `find` resolves with `show`
-   to the same section; `C04`, `logic/claims.md#C04` and `trace:N09` forms resolve;
-   `--json` output byte-identical before and after; the brief digest equals the JSON
-   digest; `--lines` bounds are inclusive; `--max-bytes` cuts at a line boundary and
-   the continuation range resumes with no gap or overlap. Measure brief against JSON
-   size on all corpus artifacts.
-6. Each PR bumps the patch version, adds a `CHANGELOG.md` entry, updates
-   `docs/agent-cli.md`, and updates the skills in the same change; `tests/skills.rs`
-   checks that every command the skills name exists. 18a changes a public API
-   (`EntryKind::Requirement`) and 18d changes default text output; record both for
-   the pending minor/major release decision.
-7. **H1, H2 and C1** as separate changes in their repositories, after e1-test finishes.
-8. **Pilot: 120 points.** A point is one session: a question × a condition × a
-   repetition. Run the 60 dev questions × 2 conditions (Files and the new `ara-cli`
-   commit, binary + skills) × 1 repetition, same model and Pi version; about 1.5 h at
-   82 sessions per hour. Compare against the dev pilot `runs/pilot-glm53flash`
-   (360 points, same binary and skills as e1-test) as the unchanged CLI baseline.
-   - Wasted calls: per-session standard deviation is 4.7, so 60 CLI points give a
-     standard error of about 0.6, enough to see 3.25 fall below 1.0.
-   - Time and cost ratios use only the Files arm of the same pilot: Files wall time
-     drifted from 119 s (dev pilot) to 162 s (e1-test) with the same model and skill,
-     while call counts held (8.9 vs 8.7).
-   - Accuracy is screened, not tested: report it against Files with the 0.03 margin;
-     non-inferiority is decided only by a registered run, which keeps 3 repetitions.
-   - Coverage: 4 papers, 40 Category A and 20 Category B questions, 2 artifacts with
-     the stray `---`; no Category C, no RE-Bench and no large artifacts, so truncation
-     is under-tested.
+## Tradeoffs
 
-   Report the root-cause table and the Category B rubric-access table above for all
-   three arms.
-9. After the pilot, rewrite this plan as a design record in
-   `docs/agent-cli-interface/` and remove it from `plans/`.
+Canonical percent-escaped addresses are less readable than short IDs, but they distinguish literal slashes and duplicate headings. Simple IDs remain available when unambiguous. Line-boundary pagination avoids a new cursor protocol; an oversized single line requires a larger explicit budget, and an oversized multi-address response requires separate reads. Compact listings can still exceed a harness limit on unusually large artifacts, so their size remains a measurement requirement.
 
-## Decisions
+The conservative frontmatter recognizer may leave other broken files unreadable. That is an accepted safety limit, with diagnostics and explicit corpus repair as the remedy. Semantic read tolerance lets agents inspect a dangling reference without claiming that the artifact is valid. Rubric removal breaks native consumers and a public Rust variant, so release notes and consumer migration are prerequisites to publishing it.
 
-- **2026-10-04:** the CLI stops handling `rubric/requirements.md` for reads, writes
-  and merge (B1, B2). It is benchmark grading material, the harness already allows
-  direct reads, and CLI access made Category B sessions slower. Indexing requirements
-  as entries and special-casing `R` ids in `--heading` were rejected.
-- **2026-10-04:** an unclosed opening `---` counts as front matter only when the next
-  non-blank line looks like YAML, with a warning either way (B5). A diagnostic alone
-  leaves the documents unreadable; treating every unclosed fence as a horizontal rule
-  would expose broken metadata as headings.
-- **2026-10-04:** `parse_claims` accepts dash separators in claim headings (B10).
-- **2026-10-04:** agents read the brief, not JSON (B7, S5). The brief follows Files
-  agents' loop (orient by names, search to a location, read a section, cite it) on one
-  `path#anchor` address. JSON stays the unchanged program contract. This replaces
-  shrinking default `ls --json` (a breaking contract change) and a separate `--brief`
-  flag (a third format).
-- **2026-10-04:** the pilot is 120 points (60 dev questions × Files and new CLI × 1
-  repetition), with the dev pilot as the unchanged CLI baseline. Registered runs keep
-  3 repetitions.
+## Migration
 
-## Open questions
+Functional sub-PRs target `feat/agent-cli-interface` and squash-merge there. Each bumps the workspace patch version, updates all local workspace versions in `Cargo.lock`, adds the repository-required changelog entry, and updates affected docs, CLI skills and behavior tests. Refresh the lockfile with the documented non-locked workspace command before final locked checks. Intermediate patch versions are bookkeeping; the final integration PR to `main` uses a merge commit and the [parent release policy](../agent-cli-interface.md#order-of-work). The pending minor/major release decision must explicitly account for removed Rust/API behavior and changed default text.
 
-None.
+Before landing B1/B2, inventory rubric consumers in CLI/core/viewer/WASM, public exports, fixtures, local skill copies, harness guards and compiler paths. Remove active native callers in the same cutover, but preserve historical serialized facts byte-for-byte. Add regressions that old history can still be inspected and that attempting a removed native rubric operation returns a clear error. If historical resolution requires a removed type, keep a private history representation rather than a public write alias or silent data rewrite. External changes land in their owning repositories and record adopted commits in the CLI stage PR.
+
+Keep successful JSON v1 field semantics unless an explicit change is listed here. Document additive canonical addresses, candidate metadata and display/pagination metadata, B4's corrected errors, B6's changed read admission, and B1/B2's removals. Existing unbounded JSON consumers should not receive the new default text limit. Update `docs/agent-cli.md` and typed consumers together; do not require byte-identical serialization or hide an incompatible schema change behind the same format marker. A required field/type change discovered during implementation requires explicit contract review before shipping.
+
+Protocol PR #38 remains draft. Future experimental conditions use the protocol's `feat/agent-cli-interface` branch through an exact external-harness submodule commit, not a moving branch name. Preserve the original skill archives, existing run manifests, historical corpus pins and scored-registration requirements. Plan approval is not upstream protocol approval, and protocol merge is not a prerequisite for a separately approved experimental run.
+
+The inspected implementation anchors are [`agent.rs`](../../crates/ara-cli/src/agent.rs) (`Artifact::load`, `status`, `knowledge_document`, `show_document`, `source_output`), [`markdown.rs`](../../crates/ara-core/src/markdown.rs) (`frontmatter_range` and its metadata-protection tests), [`merge/mod.rs`](../../crates/ara-core/src/merge/mod.rs) (external-file conflict classification), and [`agent_reads.rs`](../../crates/ara-cli/tests/agent_reads.rs) (actual-command source and relation contracts). The [command reference](../../docs/agent-cli.md#selecting-an-artifact-and-reading-it) documents global `-C`, exact heading vectors and source digest scope. These repository facts ground the proposed changes; the historical trace measurements remain separately attributed inputs.
+
+## Goals and acceptance
+
+Engineering acceptance requires exact address round-trips, truthful diagnostics, external read-only rubric behavior, preserved source/guard semantics and bounded, resumable output. Add reproducing fixtures before each implementation change and behavioral regressions for the cases named above. Do not add tests that inspect plan prose, skill wording or source-text layout; executable command/argument fixtures and typed contract checks cover skills without freezing prose.
+
+The research targets remain below 1.0 failed/blocked-call weight per CLI session, no native rubric calls in Category B, and no five-call bad sequence in more than 2% of sessions. Accuracy is compared with the registered 0.03 non-inferiority margin overall and for Category B against Files and the unchanged CLI condition. These are screening targets for the pilot, not implementation acceptance promises or proof of non-inferiority.
+
+The proposed pilot remains 120 points: 60 dev questions × Files and the revised CLI condition × one repetition. The supplied unchanged-CLI comparison is `runs/pilot-glm53flash`, a 360-point historical pilot with the reported e1-test binary/skill pins. It is not a randomized contemporaneous third arm. The supplied standard deviation of 4.7 implies an approximate standard error of 0.61 for 60 independent CLI observations, before accounting for question/paper clustering or changed variance. That uncertainty cannot establish a mean below 1.0 merely because the point estimate crosses it.
+
+Freeze the inclusion list, trace-script revision, attribution rules, timeout/missing-trace policy, paired question comparisons and uncertainty method before inspecting new outcomes. Report means, distributions and intervals, including uncertainty for the rare five-call-sequence rate. Report the historical CLI arm separately with its pins and exclusions; do not pool repetitions as independent comparable sessions. Historical model/service drift and simultaneous binary/skill changes prevent causal attribution to an individual fix. Accuracy differences and their uncertainty are descriptive; formal non-inferiority requires the separately registered analysis and its planned three repetitions.
+
+The proposed dev split covers 4 papers, 40 Category A and 20 Category B questions and 2 artifacts with stray fences. It lacks Category C, RE-Bench and large artifacts, so engineering fixtures must cover truncation and malformed source beyond the pilot. Use contemporaneous Files only for time/cost ratios: the supplied historical timing comparison was 119 versus 162 seconds while calls were 8.9 versus 8.7, distinct from the 166-second snapshot table. The earlier throughput estimate of 82 sessions/hour and about 1.5 hours for the pilot is historical scheduling input, not a guarantee. Report root-cause and Category B access tables for all three labeled arms; screened misses trigger review rather than silent target changes.
+
+## Next Steps
+
+1. Freeze the supplied analysis in `ara-eval`: move `events.py`, `calls.py` and `roots.py` from scratch space into versioned analysis code, capture the snapshot inclusion lists and separate 781-session navigation cohort, and retain original run pins. Do not rerun a paid experiment under this approval.
+2. Implement PR 18a for B1/B2/B9 and S2/S3. Reproduce native rubric acceptance, then prove removal, preserved history and external read-only merge behavior for identical, added, changed and deleted files. Coordinate H2 before testing a new compiler condition.
+3. Implement PR 18b for B3/B4 and address resolution. Test exact precedence, normalized collisions, literal slash vectors, escaping, duplicate occurrence selectors, capped candidates and truthful non-merge read errors.
+4. Implement PR 18c for B5/B6/B10 and remaining B9 errors. Test conservative metadata protection, the reported claim spellings, complete-but-invalid reads, unchanged status/check validity and every retained refusal boundary.
+5. Implement PR 18d for B7/B8 and S1/S4/S5. Test actual command behavior, source digests and guard correspondence, UTF-8-safe pagination, aggregate bounds, context without `-C` collision and JSON field compatibility. Measure output size on pinned corpus artifacts and ordinary-read overhead against the prior binary; record results without assuming a speedup.
+6. Land H1/H2/C1 in their owning repositories for new conditions only, after e1-test completes. Run the shared engineering checks once each sub-PR is complete, including workspace tests, pinned formatting/lint checks, viewer freshness when affected and relevant source/merge fixtures.
+7. Obtain separate run authorization and freeze the pilot analysis before collection. Publish the screening results and limitations without declaring non-inferiority. Registered collection and any follow-on scope require their own approval.
+8. After implementation and its evidence are complete, move the design record to `docs/agent-cli-interface/` and retire this plan. Until then, approval records the decisions above while implementation, external adoption, release compatibility and measurement remain open delivery requirements.

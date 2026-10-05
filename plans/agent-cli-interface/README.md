@@ -17,8 +17,12 @@ recorded. Historical reproduction and human protocol approval remain distinct ga
 | [14](14-shared-frontier-intentions.md) | Final-release two-process channel engineering smoke passes; scientific agent conditions deferred |
 | [15](15-experiment-harness.md) | Harness/collection remain deferred; revised external-repo, three-submodule, and sharing-disabled-control plan pending review; no E0–E6 experiment claimed |
 | [16](16-local-semantic-search.md), [17](17-cli-write-enforcement.md) | Closed conditionals for this delivery; evidence gates have not fired |
-| [18](18-failed-blocked-calls.md) | Draft pending review: stop the failed and blocked calls found in preliminary e1-test data |
-| [19](19-deterministic-bookkeeping.md) | Draft pending review: move derivable bookkeeping (turns, timestamps, sessions, event rows, reference rewrites) from the agent into `ara` |
+| [18](18-failed-blocked-calls.md) | Approved 2026-10-04: reduce failed and blocked calls; implementation, external-repository changes and pilot evidence pending |
+| [19](19-deterministic-bookkeeping.md) | Approved 2026-10-04: derive bookkeeping with explicit turn ownership and protected history; implementation and verification pending |
+
+Plans 18 and 19 are approved design revisions, not completed features. Plan 18 supersedes the parent plan's default-JSON agent workflow with brief text while retaining programmatic JSON access. Plan 19 moves deterministic recording work into the CLI without delegating research judgment to it. The shipped behavior remains documented in [the command reference](../../docs/agent-cli.md) until implementation lands.
+
+Their functional sub-PRs target `feat/agent-cli-interface` and are squash-merged there under the [parent rollout policy](../agent-cli-interface.md#order-of-work). Harness and corpus changes stay in their owning repositories. These approvals do not alter frozen experiment conditions, approve upstream protocol changes, authorize a paid run, or create a commit or PR.
 
 Actual browser and installed-agent smokes are recorded in the verification report.
 The final CLI PR targets main and must use a merge commit, preserving the integration
