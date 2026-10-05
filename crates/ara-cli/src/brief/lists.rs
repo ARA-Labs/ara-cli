@@ -182,12 +182,15 @@ pub fn refs(value: &Value, out: &mut impl Write) -> Result<()> {
         Some(line) => format!("{}:{line}", text(&row["source"])),
         None => text(&row["source"]).to_owned(),
     };
-    writeln!(out, "target: {}", text(&value["target"]))?;
+    let target = value["display"]["target"]
+        .as_str()
+        .unwrap_or_else(|| text(&value["target"]));
+    writeln!(out, "target: {target}")?;
     for row in rows(value, "structured") {
         writeln!(
             out,
             "{}\t{}\t{}\t{}",
-            text(&row["id"]),
+            row["address"].as_str().unwrap_or_else(|| text(&row["id"])),
             text(&row["field"]),
             location(row),
             text(&row["literal"])

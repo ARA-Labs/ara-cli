@@ -510,3 +510,134 @@ fn recorded_ambiguity_is_not_overridden_by_a_unique_current_section() {
         "literal\n"
     );
 }
+
+/// Stdout of a successful brief (default text) read.
+fn brief(root: &Path, args: &[&str]) -> String {
+    let output = ara(root).args(args).assert().success().get_output().clone();
+    String::from_utf8(output.stdout).unwrap()
+}
+/// The address that leads each item line of brief `ls`, `find`, `open`,
+/// `path` or `refs` output: the text before the first tab or ` [`.
+fn addresses(stdout: &str) -> Vec<String> {
+    stdout
+        .lines()
+        .filter(|line| !line.starts_with(' ') && !line.starts_with("target: "))
+        .filter(|line| !line.starts_with("direct files: "))
+        // A prose mention leads with `source:line`, not an address.
+        .filter(|line| !line.contains("\tpossible mention\t"))
+        .map(|line| {
+            let line = line.trim_start();
+            let end = [line.find('\t'), line.find(" [")]
+                .into_iter()
+                .flatten()
+                .min()
+                .unwrap_or(line.len());
+            line[..end].to_owned()
+        })
+        .collect()
+}
+/// The `== <address> [<label>]` header line of a single-block brief `show`.
+fn show_header(root: &Path, address: &str) -> String {
+    let stdout = brief(root, &["show", address]);
+    let header = stdout.lines().next().unwrap().to_owned();
+    assert!(header.starts_with("== "), "{address}: {stdout}");
+    header
+}
+fn header_address(header: &str) -> &str {
+    header[3..].split_once(" [").unwrap().0
+}
+
+#[test]
+fn colliding_entry_namespaces_print_addresses_that_round_trip() {
+    let dir = artifact("# M\n");
+    put(
+        dir.path(),
+        "trace/exploration_tree.yaml",
+        "tree:\n  - id: N01\n    type: question\n    title: Root widget\n    children:\n      - id: N02\n        type: experiment\n        title: Widget run\n        evidence: [C02]\n        result: widget measured\n",
+    );
+    put(
+        dir.path(),
+        "logic/claims.md",
+        "# Claims\n\n## C01: Mechanism\n- **Statement**: Known widget.\n- **Status**: hypothesis\n\n## C02: Other\n- **Statement**: Bound.\n- **Status**: hypothesis\n",
+    );
+    put(
+        dir.path(),
+        "logic/concepts.md",
+        "# Concepts\n\n## C01\n\n- **Definition**: A widget concept.\n\n## N02\n\n- **Definition**: Named like a node widget.\n",
+    );
+    ara(dir.path()).arg("status").assert().success().stderr("");
+    let reads_as = |address: &str, label: &str| {
+        let header = show_header(dir.path(), address);
+        assert!(header.contains(label), "{address} read as {header}");
+    };
+
+    // Document-scoped listings name one namespace each.
+    let claims = addresses(&brief(dir.path(), &["ls", "logic/claims.md"]));
+    assert_eq!(claims, ["logic/claims.md#C01", "C02"]);
+    reads_as(&claims[0], "[claim C01]");
+    let concepts = addresses(&brief(dir.path(), &["ls", "logic/concepts.md"]));
+    assert_eq!(concepts, ["logic/concepts.md#C01", "logic/concepts.md#N02"]);
+    for address in &concepts {
+        reads_as(address, "[concept ");
+    }
+    let experiments = addresses(&brief(dir.path(), &["ls", "--type", "experiment"]));
+    assert_eq!(experiments, ["trace/exploration_tree.yaml#N02"]);
+    reads_as(&experiments[0], "[experiment]");
+    // A key no other entry shares stays bare.
+    assert_eq!(
+        addresses(&brief(dir.path(), &["ls", "--type", "question"])),
+        ["N01"]
+    );
+
+    // Every producer prints addresses that read back.
+    for args in [
+        &["find", "widget"][..],
+        &["open"],
+        &["path", "trace:N02"],
+        &["refs", "C02"],
+    ] {
+        let found = addresses(&brief(dir.path(), args));
+        assert!(!found.is_empty(), "{args:?}");
+        let unique: std::collections::BTreeSet<_> = found.iter().collect();
+        assert_eq!(unique.len(), found.len(), "{args:?}: {found:?}");
+        for address in &found {
+            show_header(dir.path(), address);
+        }
+    }
+    let refs = brief(dir.path(), &["refs", "logic/claims.md#C01"]);
+    assert!(refs.contains("target: logic/claims.md#C01\n"), "{refs}");
+    let refs = brief(dir.path(), &["refs", "C02"]);
+    assert!(
+        refs.lines()
+            .any(|line| line.starts_with("trace/exploration_tree.yaml#N02\t")),
+        "{refs}"
+    );
+
+    // A projection header names the entry it shows.
+    let header = show_header(dir.path(), "trace:N02");
+    assert_eq!(header_address(&header), "trace/exploration_tree.yaml#N02");
+    assert_eq!(show_header(dir.path(), header_address(&header)), header);
+
+    // Miss candidates keep both namespaces apart, and each one reads.
+    let error = reject(dir.path(), &["C01"]);
+    assert_eq!(error["code"], "ambiguous_heading");
+    let listed = candidates(&error);
+    for expected in ["logic/claims.md#C01", "logic/concepts.md#C01"] {
+        assert!(listed.contains(&expected), "{listed:?}");
+    }
+    for address in listed {
+        show_header(dir.path(), address);
+    }
+
+    // `find --full` embeds each colliding entry's projection.
+    let output = ara(dir.path())
+        .args(["find", "widget", "--full", "--json"])
+        .assert()
+        .success()
+        .get_output()
+        .clone();
+    let value: Value = serde_json::from_slice(&output.stdout).unwrap();
+    for result in value["results"].as_array().unwrap() {
+        assert_eq!(result["entry"]["kind"], result["kind"], "{result}");
+    }
+}

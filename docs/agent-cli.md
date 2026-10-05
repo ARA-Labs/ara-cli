@@ -62,7 +62,15 @@ must not be reported as success.
 Without `--json`, `status`, `ls`, `show`, `path`, `refs`, `open` and `find`
 print address-led text ([`brief/`](../crates/ara-cli/src/brief)). Each item line
 starts with an address `show` accepts: a native ID (`C04`), a heading address
-or a document path. Data only the text needs is computed only without
+or a document path. A key that another loaded entry shares (claim `C01` and
+concept `C01`) is qualified by its source so it reads back that one entry:
+the section's cited form (`logic/claims.md#C01`, `logic/concepts.md#C01`, or
+the canonical heading address when the key needs escaping) for a
+heading-backed entry, and `path#ID` (`trace/exploration_tree.yaml#N02`) for
+any other. A key no other entry has stays bare. This applies to `ls`, `find`,
+`open`, `path`, `refs` (the target and each referencing entry), a `show`
+projection header and miss candidates; `--json` rows keep their `id`/`key`.
+Data only the text needs is computed only without
 `--json` (or, for `show`, with a JSON bound; see below). `--fields` keeps its row meaning: with it, reads print the projected
 rows in the previous row text (tab-separated rows; `show` rows as JSON) and
 the same once-per-command diagnostics summary as unprojected reads.
@@ -294,7 +302,8 @@ A miss returns `unknown_id`; more than one match, whether sections or
 entries, returns `ambiguous_heading`. Both carry `details.candidates`, at most
 40 addresses from loaded knowledge that `show` accepts (a section that alone
 heads a loaded entry is cited as `path#ID` and ranked by that ID; other
-sections use their canonical address), and `details.capped`, which is
+sections use their canonical address; an entry whose key another entry
+shares is qualified as in [brief text](#brief-text-output)), and `details.capped`, which is
 true when more existed. When a heading read finds several sections, the
 candidates are those sections in source order. Otherwise they are the
 document's headings (for a document selector) or the artifact's entries,

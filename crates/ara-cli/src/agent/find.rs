@@ -34,15 +34,20 @@ pub fn find(root: &Path, args: &FindArgs) -> Result<Value, AgentError> {
     )
     .map_err(|message| AgentError::semantic("invalid_search", message))?;
     let entries = artifact.entries();
+    let addresses = artifact.entry_addresses();
     let mut cache = SpanCache::default();
     let mut lines = BTreeMap::<String, LineIndex>::new();
     let mut results = Vec::with_capacity(hits.len());
     for hit in &hits {
         let mut result = serde_json::to_value(hit).expect("search result serialization");
         let object = result.as_object_mut().expect("search result object");
-        if let Some(span) =
-            located(&entries, hit).and_then(|entry| artifact.search_span(entry, &mut cache))
+        let entry = located(&entries, hit);
+        if args.output.brief()
+            && let Some(entry) = entry
         {
+            object.insert("address".into(), json!(addresses.address(entry)));
+        }
+        if let Some(span) = entry.and_then(|entry| artifact.search_span(entry, &mut cache)) {
             let index = lines
                 .entry(span.path.to_string())
                 .or_insert_with(|| LineIndex::new(span.text));
@@ -50,14 +55,17 @@ pub fn find(root: &Path, args: &FindArgs) -> Result<Value, AgentError> {
         } else {
             object.insert("match_count".into(), json!(0));
         }
+        let selector = entry
+            .map(|entry| addresses.selector(entry))
+            .or_else(|| hit.id.clone().or_else(|| hit.key.clone()));
         if args.output.full
-            && let Some(id) = hit.id.as_ref().or(hit.key.as_ref())
+            && let Some(id) = selector
         {
             // The embedded entry is the JSON projection, never brief data.
             let mut show = show_loaded(
                 &artifact,
                 &ShowArgs {
-                    ids: vec![id.clone()],
+                    ids: vec![id],
                     output: ReadOptions {
                         full: true,
                         json: true,

@@ -110,19 +110,12 @@ impl Artifact {
                 (Miss::Unknown, _) => candidates::unknown(id, ranked()),
             };
         }
-        let entries = self.entries();
+        let addresses = self.entry_addresses();
         let ranked = Candidates::ranked(
             id,
-            entries.iter().map(|entry| {
-                let address = match entry {
-                    Entry::Document { path, .. } => address::document(path),
-                    Entry::Recipe(recipe) => {
-                        address::document(&format!("logic/solution/{}.md", recipe.name))
-                    }
-                    _ => entry.key().to_owned(),
-                };
-                (address, entry.key())
-            }),
+            self.entries()
+                .into_iter()
+                .map(|entry| (addresses.address(entry), entry.key())),
         );
         match miss {
             Miss::Unknown => candidates::unknown(id, ranked),

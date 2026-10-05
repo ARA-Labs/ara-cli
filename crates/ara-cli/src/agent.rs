@@ -441,6 +441,17 @@ impl<'a> Entry<'a> {
         value
     }
 }
+/// Add the brief `address` of `entry` to its row; JSON rows stay unchanged.
+fn addressed<'a>(
+    addresses: &Option<display::EntryAddresses<'a>>,
+    entry: Entry<'a>,
+    mut row: Value,
+) -> Value {
+    if let Some(addresses) = addresses {
+        row["address"] = json!(addresses.address(entry));
+    }
+    row
+}
 pub fn node_kind(kind: &NodeKind) -> &str {
     match kind {
         NodeKind::Question => "question",
@@ -551,6 +562,7 @@ pub fn list(root: &Path, args: &ListArgs) -> Result<Value, AgentError> {
             json!({"format":"ara.ls/v1","documents":artifact.document_summaries(),"file_access":ara_core::FILE_ACCESS_ROOTS,"diagnostics":diagnostics(&artifact.report)}),
         );
     }
+    let addresses = args.output.brief().then(|| artifact.entry_addresses());
     let mut rows = artifact
         .entries()
         .into_iter()
@@ -577,7 +589,7 @@ pub fn list(root: &Path, args: &ListArgs) -> Result<Value, AgentError> {
                     .as_deref()
                     .is_none_or(|provenance| entry.provenance() == Some(provenance))
         })
-        .map(|entry| entry.value(args.output.full))
+        .map(|entry| addressed(&addresses, entry, entry.value(args.output.full)))
         .collect::<Vec<_>>();
     if let Some((path, text)) = document
         && rows.is_empty()
@@ -665,6 +677,7 @@ fn show_rows(artifact: &Artifact, args: &ShowArgs, brief: bool) -> Result<Value,
         .map(|id| documents::select(artifact, id, source_full))
         .collect::<Result<Vec<_>, _>>()?;
     let index = QueryIndex::new(&artifact.manifest);
+    let addresses = brief.then(|| artifact.entry_addresses());
     let mut rows = Vec::with_capacity(selected.len());
     let requested: Vec<_> = selected
         .iter()
@@ -701,7 +714,10 @@ fn show_rows(artifact: &Artifact, args: &ShowArgs, brief: bool) -> Result<Value,
         } else {
             None
         };
-        let mut value = native.unwrap_or_else(|| entry.value(full));
+        let mut value = match native {
+            Some(row) => row,
+            None => addressed(&addresses, entry, entry.value(full)),
+        };
         if let Entry::Node(node) = entry
             && let Some(raw) = raw_nodes.get(node.id.as_str())
         {
@@ -776,9 +792,15 @@ pub fn path(root: &Path, args: &IdArgs) -> Result<Value, AgentError> {
     let path = index
         .path(selected.key())
         .ok_or_else(|| AgentError::unknown(&args.id))?;
-    Ok(
-        json!({"format":"ara.path/v1","steps":path.into_iter().map(|n| Entry::Node(n).value(args.output.full)).collect::<Vec<_>>(),"diagnostics":artifact.diagnostics()}),
-    )
+    let addresses = args.output.brief().then(|| artifact.entry_addresses());
+    let steps: Vec<Value> = path
+        .into_iter()
+        .map(|node| {
+            let entry = Entry::Node(node);
+            addressed(&addresses, entry, entry.value(args.output.full))
+        })
+        .collect();
+    Ok(json!({"format":"ara.path/v1","steps":steps,"diagnostics":artifact.diagnostics()}))
 }
 /// In brief mode, `display` adds the rule codes behind the
 /// diagnostic counts.
@@ -967,6 +989,15 @@ pub fn refs(root: &Path, args: &IdArgs) -> Result<Value, AgentError> {
     let mut value = json!({"format":"ara.refs/v1","target":target.key(),"structured":structured.rows,"prose":prose,"diagnostics":diagnostics(&artifact.report)});
     if args.output.brief() {
         artifact.annotate_lines(&mut value);
+        let addresses = artifact.entry_addresses();
+        value["display"] = json!({"target": addresses.address(target)});
+        for row in value["structured"].as_array_mut().into_iter().flatten() {
+            if let (Some(owner), Some(source)) = (row["id"].as_str(), row["source"].as_str())
+                && let Some(address) = addresses.owner(owner, source)
+            {
+                row["address"] = json!(address);
+            }
+        }
     }
     Ok(value)
 }
@@ -975,6 +1006,7 @@ pub fn open(root: &Path, options: &ReadOptions) -> Result<Value, AgentError> {
     let index = QueryIndex::new(&artifact.manifest);
     let mut rows = Vec::new();
     let history = SessionHistory::new(&artifact.manifest);
+    let addresses = options.brief().then(|| artifact.entry_addresses());
     for entry in artifact.entries() {
         let mut reasons = Vec::new();
         match entry {
@@ -1001,7 +1033,7 @@ pub fn open(root: &Path, options: &ReadOptions) -> Result<Value, AgentError> {
             reasons.push("pending_binding");
         }
         if !reasons.is_empty() {
-            let mut value = entry.value(options.full);
+            let mut value = addressed(&addresses, entry, entry.value(options.full));
             value
                 .as_object_mut()
                 .unwrap()

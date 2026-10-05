@@ -155,7 +155,11 @@ fn range(display: &Value) -> Option<String> {
 }
 
 fn projection(row: &Value) -> Block {
-    let address = row["id"].as_str().or(row["key"].as_str()).unwrap_or("");
+    let address = row["address"]
+        .as_str()
+        .or(row["id"].as_str())
+        .or(row["key"].as_str())
+        .unwrap_or("");
     let kind = row["kind"].as_str().unwrap_or("");
     let source = row["source"].as_str().unwrap_or("");
     let mut lines = Vec::new();
@@ -193,7 +197,7 @@ fn fields(value: &Value, depth: usize, lines: &mut Vec<String>) {
     };
     let indent = "  ".repeat(depth);
     for (key, value) in object {
-        if depth == 0 && matches!(key.as_str(), "id" | "key" | "kind" | "source") {
+        if depth == 0 && matches!(key.as_str(), "id" | "key" | "kind" | "source" | "address") {
             continue;
         }
         match value {

@@ -65,7 +65,68 @@ pub fn annotate(row: &mut Value, text: &str, keys: Vec<&str>, replaceable: bool)
         .insert("display".into(), display);
 }
 
+/// The addresses reads print for loaded entries. Native namespaces can share
+/// a key (claim `C01` and concept `C01`), so a key another entry also has is
+/// qualified by its source to the address `show` resolves to that one entry.
+pub(super) struct EntryAddresses<'a> {
+    artifact: &'a Artifact,
+    shared: BTreeMap<&'a str, usize>,
+}
+impl<'a> EntryAddresses<'a> {
+    fn unique(&self, entry: Entry<'a>) -> bool {
+        self.shared.get(entry.key()).is_none_or(|count| *count <= 1)
+    }
+    /// The entry selector `show` resolves to this entry's projection: its
+    /// key, or `path#key` when another entry shares the key. A document or
+    /// recipe is selected by its raw path.
+    pub fn selector(&self, entry: Entry<'a>) -> String {
+        if matches!(entry, Entry::Document { .. } | Entry::Recipe(_)) {
+            entry.source_path().into_owned()
+        } else if self.unique(entry) {
+            entry.key().to_owned()
+        } else {
+            format!("{}#{}", entry.source_path(), entry.key())
+        }
+    }
+    /// The address brief text prints: a document path for a document or
+    /// recipe, a key no other entry has, else the section's cited address
+    /// for a heading-backed entry and `path#key` for any other.
+    pub fn address(&self, entry: Entry<'a>) -> String {
+        if matches!(entry, Entry::Document { .. } | Entry::Recipe(_)) {
+            return address::document(&entry.source_path());
+        }
+        if self.unique(entry) {
+            return entry.key().to_owned();
+        }
+        match self.artifact.entry_section(entry) {
+            Some((sections, index)) => sections
+                .with_entries(self.artifact.entry_keys(&entry.source_path()))
+                .cited(index),
+            None => self.selector(entry),
+        }
+    }
+    /// The address of the entry keyed `key` in `source`, when one is loaded.
+    pub fn owner(&self, key: &str, source: &str) -> Option<String> {
+        self.artifact
+            .entries()
+            .into_iter()
+            .find(|entry| entry.key() == key && entry.source_matches(source))
+            .map(|entry| self.address(entry))
+    }
+}
+
 impl Artifact {
+    /// Entry addresses over this artifact's loaded entries.
+    pub(super) fn entry_addresses(&self) -> EntryAddresses<'_> {
+        let mut shared = BTreeMap::new();
+        for entry in self.entries() {
+            *shared.entry(entry.key()).or_default() += 1;
+        }
+        EntryAddresses {
+            artifact: self,
+            shared,
+        }
+    }
     /// Annotate every source row of a `show` value.
     pub(super) fn annotate_rows(&self, value: &mut Value) {
         let paper = self.sources.get("PAPER.md").map(String::as_str);
