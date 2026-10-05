@@ -110,7 +110,7 @@ then tries to read the log, and the guard blocks it.
 
 ## Goals and acceptance
 
-On a dev-split pilot against the unchanged CLI condition and Files:
+On the dev-split pilot (step 8) against the unchanged CLI condition and Files:
 
 1. Model calls spent on failed or blocked tool calls fall from 3.25 to below 1.0 per
    CLI session.
@@ -119,8 +119,9 @@ On a dev-split pilot against the unchanged CLI condition and Files:
 4. Accuracy stays within the registered non-inferiority margin (0.03) of Files and
    of the unchanged CLI condition, overall and on Category B.
 
-The text output format (B7, S5) is in scope because oversized JSON causes the
-truncation in cause 4; its token savings come with it. Other token reductions that do
+The brief (B7, S5) is in scope because oversized JSON causes the truncation in
+cause 4 and guessed headings cause the misses in cause 2; its token savings come
+with it. Other token reductions that do
 not remove calls (smaller skills, the required `status`/`ls` opening) get their own
 plan after this one is measured.
 
@@ -136,41 +137,54 @@ plan after this one is measured.
 | B4 | A missed or ambiguous `--heading` returns `unknown_id` with `candidates`: the document's heading paths, closest first, capped at 40. Read paths never surface `merge.*` codes | 2 (general) | Additive error field; error code changes |
 | B5 | `frontmatter_range` treats an unclosed opening `---` as front matter only when the next non-blank line looks like YAML (`key: value`); otherwise it is a horizontal rule and the document parses. Either way `check`/`validate` warn about the unclosed fence, naming the file and line | 3 | Documents with a stray leading `---` now parse; new warning code |
 | B6 | Read-only commands (`find`, `ls`, `show`, `status`, `open`, `refs`, `path`) run on artifacts with validation errors and return the diagnostics in `warnings`; `incomplete_artifact` and writes still refuse | 3 | Refusal becomes success with warnings |
-| B7 | Text is the agent format: every read command prints compact text by default ([Agent text output](#agent-text-output)); `--json` keeps the complete `ara.*/v1` contracts for programs | 4 | Text output of `status` and `show <ids>` changes from JSON to text; JSON unchanged |
-| B8 | `show --document … --max-bytes N` cuts at a line boundary and reports `truncated` and `next_line`; `--from-line N` continues | 4 | Additive flags and fields |
+| B7 | Brief text is the agent format: `ls`, `find`, `show` and `status` print the [brief](#brief-text-output) by default, built on one `path#anchor` address; `--json` keeps the complete `ara.*/v1` contracts for programs | 2, 4 | Default text of `ls`, `find`, `show` and `status` changes; `show` accepts addresses; JSON unchanged |
+| B8 | `show … --lines A:B` returns a line range of a document; `--max-bytes N` cuts at a line boundary and ends with `… continue with --lines N:` | 4 | Additive flags |
 | B9 | `invalid_document` errors add a `hint`: the allowed `show --document` roots, and that `rubric/`, `evidence/` and `src/` are read directly | 2, 5 | Additive error field |
 | B10 | `parse_claims` accepts `C01 — Title`, `C01 – Title` and `C01 - Title` as well as `C01: Title` | 3 | More claim headings parse |
 
-### Agent text output
+### Brief text output
 
-Agents read text; programs read JSON. Text carries what an agent acts on, once, and
-nothing it would only re-read. Measured on `bam`, today's JSON is 50.2k characters
-for `ls` against 6.0k for its existing text form.
+Agents read text; programs read JSON. The brief is designed from what Files agents
+actually do in e1-test (781 Files sessions): they navigate by location, never by
+entry fields.
 
-| Command | Default text output |
+| Step | Files agents | Per session | CLI today |
+|---|---|---|---|
+| Orient | `ls .`, then `ls logic`: names only | 2.9 calls, 169 characters in total | `ls` lists every entry (6k text, 50k JSON); `status` 4–6k |
+| Search | `grep` over the whole artifact, case-insensitive (66%), with context lines (54%); hits are `path:line: text` | 3.6 calls | `find` returns entries with an excerpt of the document's opening and no line numbers |
+| Read | Whole `logic/*.md` files or the exploration tree; 35% of reads take a line range found by `grep` | 6.1 calls | Whole documents by skill rule, or `--heading` with exact matching |
+| Cite | `logic/claims.md#C04` in 99% of answers, about 10 each; `src/` and `evidence/` paths | — | `show` takes ids or `--document`/`--heading`, not the cited form |
+
+**One address.** An address is `path#anchor`, where the anchor is an entry id (`C04`,
+`N09`) or a heading path (`Method/Step 3`), or a bare id (`C04`). The skill's
+`trace:N09` form is accepted too. `ls` and `find` print addresses, `show` takes
+them, and answers cite them, so the agent never invents a heading.
+
+| Command | Brief output |
 |---|---|
-| `ls` | One line per entry: `ID<TAB>kind<TAB>title` (exists today) |
-| `find` | One line per hit: `ID<TAB>kind<TAB>title<TAB>excerpt`, the excerpt at most 160 characters around the match, not the document's opening |
-| `show <ids>` | Per entry, a header line `== C01 claim logic/claims.md sha256:<digest>` then its Markdown body once; requested relations as `parents: N01, N02` lines |
-| `show --document` | A header line `== <path>[#heading] sha256:<digest>` then the content; with `--max-bytes`, a footer `… truncated; continue with --from-line N` |
-| `status` | Counts per kind on one line, `errors: N, warnings: N (codes)`, and next free ids |
-| `path`, `refs`, `open` | One line per item |
-| Any command | Validation warnings once on stderr as a count with codes and `run ara check`; errors as `error[code]: message`, then `hint:` and `candidates:` lines |
+| `ls` | A document map, one line per document: `logic/claims.md  claims  C01–C08 (8)`; `trace/exploration_tree.yaml  nodes  N01–N22 (3 question, 6 experiment, …)`; one closing line naming `evidence/`, `src/` and `rubric/` as read directly. About 1k characters |
+| `ls <path>` | One line per entry in that document: `<address>  <title>`; `--type`, `--under` and `--status` filter as today |
+| `find <query>` | Grep-style hits, best first: `<address>:<line>: <matching line>`; case-insensitive; `-C N` adds context lines; BM25 ranking unchanged |
+| `show <address>…` | Per address, a header `== <address> lines A–B sha256:<digest>`, then that section once. `show <path>` returns the whole document; `--lines` and `--max-bytes` bound it (B8) |
+| `status` | Counts per kind on one line, `errors: N, warnings: N (codes)`, next free ids |
+| `path`, `refs`, `open` | One line per item, each starting with its address |
+| Any command | Validation warnings once on stderr as a count with codes and `run ara check`; errors as `error[code]: message`, then `hint:` and `candidates:` lines (candidates are addresses) |
 
-The digest stays in the header in full, since write skills pass it as `expected` to
-guarded edits. Text layouts get snapshot tests and a section in `docs/agent-cli.md`,
-but they are not a versioned JSON contract. `--json` output is unchanged, so no
-`ara.*/v1` format version changes.
+`--document` and `--heading` keep working as aliases for an address. The digest stays
+in the `show` header in full, since write skills pass it as `expected` to guarded
+edits. Brief layouts get snapshot tests and a section in `docs/agent-cli.md`, but they
+are not a versioned contract. `--json` output is unchanged, so no `ara.*/v1` format
+version changes.
 
 ### Skills
 
 | # | Change | Cause |
 |---|---|---|
-| S1 | A short "Running ara" section in `cli-access.md` and `SKILL.md`: one `ara` command per call, no pipes, redirects or `&&`, errors arrive without `2>&1`, bound output with `--heading`, `--max-bytes` and `--from-line` | 1, 4 |
+| S1 | A short "Running ara" section in `cli-access.md` and `SKILL.md`: one `ara` command per call, no pipes, redirects or `&&`, errors arrive without `2>&1`, bound output with addresses, `--lines` and `--max-bytes` | 1, 4 |
 | S2 | `research-foresight-cli`: list `rubric/`, `evidence/` and `src/` as files read with file tools (`grep`, `read`), and say which paths go through `show --document` | 2, 5 |
 | S3 | `compiler-cli`: write `rubric/requirements.md` as a plain file (the same verbatim conversion as `generate_rubric_requirements_md.py`); remove "the fixed compiler allowlisted case" from `ara-schema.md` and all three `cli-access.md` copies | 2 |
-| S4 | On a heading miss, retry with a listed `candidates` entry instead of guessing | 2 |
-| S5 | All CLI skills drop `--json` from read commands and take the digest from the text header; write inputs (`apply` JSONL) are unchanged | 4 |
+| S4 | Orient with `ls`, search with `find`, read with `show <address>`, and cite the same address; on a miss, use a listed candidate instead of guessing | 2 |
+| S5 | All CLI skills drop `--json` from read commands and take the digest from the `show` header; write inputs (`apply` JSONL) are unchanged | 4 |
 
 ### Outside this repository
 
@@ -214,22 +228,39 @@ current binary.
    `show --document evidence/x.md` returns the `hint`; a `claims.md` with
    `## C01 — Title` headings parses (B10). Change `frontmatter_range` and add the
    warning in `ara-core`; split `Artifact::load` into strict and lenient loading.
-5. **PR 18d — agent text output and bounds (B7, B8, S1, S5).** Reproducers:
+5. **PR 18d — brief output and bounds (B7, B8, S1, S4, S5).** Reproducers:
    `status` and `show <ids>` without `--json` print JSON today; warnings repeat on
-   every command. Snapshot tests for each command's text layout; `--json` output
-   byte-identical before and after; the text digest equals the JSON digest;
-   `--max-bytes` cuts at a line boundary; `--from-line` resumes with no gap or overlap.
-   Measure text against JSON size on the corpus artifacts.
+   every command; `find` hits carry no line numbers. Tests: snapshot tests for each
+   brief layout; every address printed by `ls <path>` and `find` resolves with `show`
+   to the same section; `C04`, `logic/claims.md#C04` and `trace:N09` forms resolve;
+   `--json` output byte-identical before and after; the brief digest equals the JSON
+   digest; `--lines` bounds are inclusive; `--max-bytes` cuts at a line boundary and
+   the continuation range resumes with no gap or overlap. Measure brief against JSON
+   size on all corpus artifacts.
 6. Each PR bumps the patch version, adds a `CHANGELOG.md` entry, updates
    `docs/agent-cli.md`, and updates the skills in the same change; `tests/skills.rs`
    checks that every command the skills name exists. 18a changes a public API
    (`EntryKind::Requirement`) and 18d changes default text output; record both for
    the pending minor/major release decision.
 7. **H1, H2 and C1** as separate changes in their repositories, after e1-test finishes.
-8. **Pilot** on the dev split with the new `ara-cli` commit (binary + skills), the
-   same model, Pi version and repetitions. Report the root-cause table and the
-   Category B rubric-access table above, next to accuracy against Files with the 0.03
-   margin.
+8. **Pilot: 120 points.** A point is one session: a question × a condition × a
+   repetition. Run the 60 dev questions × 2 conditions (Files and the new `ara-cli`
+   commit, binary + skills) × 1 repetition, same model and Pi version; about 1.5 h at
+   82 sessions per hour. Compare against the dev pilot `runs/pilot-glm53flash`
+   (360 points, same binary and skills as e1-test) as the unchanged CLI baseline.
+   - Wasted calls: per-session standard deviation is 4.7, so 60 CLI points give a
+     standard error of about 0.6, enough to see 3.25 fall below 1.0.
+   - Time and cost ratios use only the Files arm of the same pilot: Files wall time
+     drifted from 119 s (dev pilot) to 162 s (e1-test) with the same model and skill,
+     while call counts held (8.9 vs 8.7).
+   - Accuracy is screened, not tested: report it against Files with the 0.03 margin;
+     non-inferiority is decided only by a registered run, which keeps 3 repetitions.
+   - Coverage: 4 papers, 40 Category A and 20 Category B questions, 2 artifacts with
+     the stray `---`; no Category C, no RE-Bench and no large artifacts, so truncation
+     is under-tested.
+
+   Report the root-cause table and the Category B rubric-access table above for all
+   three arms.
 9. After the pilot, rewrite this plan as a design record in
    `docs/agent-cli-interface/` and remove it from `plans/`.
 
@@ -243,13 +274,16 @@ current binary.
   non-blank line looks like YAML, with a warning either way (B5). A diagnostic alone
   leaves the documents unreadable; treating every unclosed fence as a horizontal rule
   would expose broken metadata as headings.
-
 - **2026-10-04:** `parse_claims` accepts dash separators in claim headings (B10).
-- **2026-10-04:** agents read text, not JSON (B7, S5). Every read command gets a
-  complete compact text form and the skills stop passing `--json`; JSON stays the
-  unchanged program contract. This replaces both shrinking default `ls --json` (a
-  breaking contract change) and adding a `--brief` flag (a third format).
+- **2026-10-04:** agents read the brief, not JSON (B7, S5). The brief follows Files
+  agents' loop (orient by names, search to a location, read a section, cite it) on one
+  `path#anchor` address. JSON stays the unchanged program contract. This replaces
+  shrinking default `ls --json` (a breaking contract change) and a separate `--brief`
+  flag (a third format).
+- **2026-10-04:** the pilot is 120 points (60 dev questions × Files and new CLI × 1
+  repetition), with the dev pilot as the unchanged CLI baseline. Registered runs keep
+  3 repetitions.
 
 ## Open questions
 
-- **Q1.** Pilot size: the same 3 repetitions, or fewer to save budget?
+None.
