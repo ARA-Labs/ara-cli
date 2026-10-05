@@ -11,8 +11,10 @@ mod candidates;
 mod documents;
 mod headings;
 mod references;
+mod validity;
 use boundary::{invalid_document, knowledge_document};
 use documents::{Selected, show_document, show_source};
+use validity::representable;
 
 #[derive(Debug, Default, Clone, clap::Args)]
 pub struct ReadOptions {
@@ -68,6 +70,8 @@ pub struct Artifact {
     snapshot: std::cell::OnceCell<ara_core::write::ArtifactSnapshot>,
 }
 impl Artifact {
+    /// A structural read: a fully represented artifact, possibly with
+    /// dangling-reference errors kept in `report` ([`validity`]).
     pub fn load(root: &Path) -> Result<Self, AgentError> {
         let loaded = parse_dir_detailed(root);
         if !loaded.io_issues.is_empty() {
@@ -76,17 +80,10 @@ impl Artifact {
                 loaded.io_issues
             )));
         }
-        if !loaded.report.is_ok() {
-            return Err(AgentError::semantic(
-                "invalid_artifact",
-                loaded.report.to_string(),
-            ));
-        }
-        if !representable(&loaded.report) {
-            return Err(AgentError::semantic(
-                "incomplete_artifact",
-                loaded.report.to_string(),
-            ));
+        if let Some(refusal) =
+            validity::read_refusal(&loaded.report, &loaded.sources, loaded.manifest.as_ref())
+        {
+            return Err(refusal);
         }
         let manifest = loaded.manifest.ok_or_else(|| {
             AgentError::semantic(
@@ -102,6 +99,23 @@ impl Artifact {
             claim_redirects: loaded.claim_redirects,
             snapshot: std::cell::OnceCell::new(),
         })
+    }
+    /// The load's validation report, with original severities.
+    pub fn diagnostics(&self) -> Value {
+        diagnostics(&self.report)
+    }
+    /// [`Artifact::load`] for a write command: any validation error refuses.
+    pub fn load_valid(root: &Path) -> Result<Self, AgentError> {
+        let artifact = Self::load(root)?;
+        if !artifact.report.is_ok() {
+            let blocking = artifact.report.errors().iter().map(|d| d.code).collect();
+            return Err(validity::refusal(
+                "invalid_artifact",
+                &artifact.report,
+                blocking,
+            ));
+        }
+        Ok(artifact)
     }
     fn entries(&self) -> Vec<Entry<'_>> {
         let mut result = entries(&self.manifest);
@@ -143,7 +157,7 @@ impl Artifact {
                         | "logic/solution/heuristics.md"
                 );
                 let content = if typed {
-                    let end = ara_core::markdown::sections(text)
+                    let end = ara_core::markdown::document_sections(path, text)
                         .first()
                         .map_or(text.len(), |section| section.range.start);
                     &text[..end]
@@ -233,17 +247,6 @@ impl Artifact {
             (None, _) => Err(candidates::Miss::Unknown),
         })
     }
-}
-fn representable(report: &ara_core::ParseReport) -> bool {
-    !report.warnings().iter().any(|diagnostic| {
-        matches!(
-            diagnostic.code,
-            ara_core::RuleCode::MalformedAgentLayer
-                | ara_core::RuleCode::DuplicateAgentId
-                | ara_core::RuleCode::MalformedSameAs
-                | ara_core::RuleCode::MalformedNodeAnnotation
-        )
-    })
 }
 fn diagnostics(report: &ara_core::ParseReport) -> Value {
     json!({"errors":report.errors().iter().map(|diagnostic|json!({"code":diagnostic.code,"severity":diagnostic.severity,"path":diagnostic.path,"message":diagnostic.message})).collect::<Vec<_>>(),"warnings":report.warnings().iter().map(|diagnostic|json!({"code":diagnostic.code,"severity":diagnostic.severity,"path":diagnostic.path,"message":diagnostic.message})).collect::<Vec<_>>()})
@@ -712,7 +715,7 @@ pub fn path(root: &Path, args: &IdArgs) -> Result<Value, AgentError> {
         .path(selected.key())
         .ok_or_else(|| AgentError::unknown(&args.id))?;
     Ok(
-        json!({"format":"ara.path/v1","steps":path.into_iter().map(|n| Entry::Node(n).value(args.output.full)).collect::<Vec<_>>()}),
+        json!({"format":"ara.path/v1","steps":path.into_iter().map(|n| Entry::Node(n).value(args.output.full)).collect::<Vec<_>>(),"diagnostics":artifact.diagnostics()}),
     )
 }
 pub fn status(root: &Path) -> Result<Value, AgentError> {

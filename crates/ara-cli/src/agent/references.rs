@@ -308,8 +308,8 @@ pub fn structured(artifact: &Artifact, target: Entry<'_>) -> Result<References, 
         if !source.ends_with(".md") {
             continue;
         }
-        for section in ara_core::markdown::sections(text) {
-            let owner = section.heading.split_once(':').map(|(id, _)| id.trim());
+        for section in ara_core::markdown::document_sections(source, text) {
+            let owner = super::headings::heading_id(section.heading);
             for field in ara_core::markdown::fields(text, section.body_range) {
                 if !matches!(
                     field.name,

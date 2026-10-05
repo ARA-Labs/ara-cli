@@ -113,9 +113,9 @@ rules! {
     /// `justification:` on a `decision` node (canonical `rationale:`).
     DecisionRationaleAlias => ("ARA003", "decision-rationale-alias", Format, Error, true,
         "`justification:` on a `decision` node (canonical `rationale:`)"),
-    /// Claim header with a dash separator instead of a colon.
+    /// Claim header with a dash separator the parser does not accept.
     ClaimHeaderStyle => ("ARA004", "claim-header-style", Format, Error, true,
-        "claim header uses a dash separator instead of `## <id>: <title>`"),
+        "claim header uses an unspaced dash separator the parser drops (canonical `## <id>: <title>`)"),
     /// `from:` on a `pivot` node (canonical `prior_direction:`).
     PivotFromAlias => ("ARA005", "pivot-from-alias", Format, Error, true,
         "`from:` on a `pivot` node (canonical `prior_direction:`)"),
@@ -245,6 +245,12 @@ rules! {
         "node artifacts or concepts have malformed content"),
     UnknownNodeConcept => ("ARA227", "unknown-node-concept", Validate, Warning, false,
         "a node concept link references an absent concept term"),
+    /// `logic/claims.md` opens with a recognized stray `---` line; its claims are read.
+    RecoveredStrayFence => ("ARA228", "recovered-stray-fence", Validate, Warning, false,
+        "an unclosed leading `---` in `logic/claims.md` is a stray line before `# Claims` (claims after it are read)"),
+    /// A Markdown document's unclosed leading `---` hides the rest of it.
+    UnclosedFrontmatter => ("ARA229", "unclosed-frontmatter", Validate, Warning, false,
+        "an unclosed leading `---` fence hides the rest of a Markdown document as frontmatter"),
 }
 
 impl RuleCode {

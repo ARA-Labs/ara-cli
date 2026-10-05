@@ -252,7 +252,9 @@ fn main() -> ExitCode {
                         }
                     }
                 }
-                Ok(serde_json::json!({"format":"ara.find/v1","results":results}))
+                Ok(
+                    serde_json::json!({"format":"ara.find/v1","results":results,"diagnostics":artifact.diagnostics()}),
+                )
             })
         }
         Command::Add(args) => {

@@ -1355,7 +1355,7 @@ pub fn resolve_selector(
                     let Some((last, parents)) = before.split_last() else {
                         return false;
                     };
-                    (last == entry || last.split_once(':').is_some_and(|(id, _)| id == entry))
+                    (last == entry || identity::heading_entry(last) == entry)
                         && parents.ends_with(wanted)
                 } else {
                     !wanted.is_empty() && before.ends_with(wanted)

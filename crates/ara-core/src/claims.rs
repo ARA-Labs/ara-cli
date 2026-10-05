@@ -1,7 +1,9 @@
 //! Lenient Markdown parser for `logic/claims.md`.
 //!
 //! Claims are semi-structured prose: `## C01: Title` headers followed by
-//! `- **Key**: value` bullets. The corpus drifts (e.g. `Dependencies` appears as
+//! `- **Key**: value` bullets. A header may also separate the ID from the title
+//! with a spaced ASCII hyphen, en dash or em dash (`## C01 — Title`); see
+//! [`claim_heading`]. The corpus drifts (e.g. `Dependencies` appears as
 //! `none`, `[]`, `[C01]`, `C01`, or `C02, C04`), so bullet values are scanned
 //! for `C##` / `E##` tokens rather than parsed as a fixed shape. Missing bullets
 //! are tolerated. Duplicate claim ids are surfaced as data for the caller to
@@ -24,15 +26,10 @@ pub(crate) fn parse_claims(md: &str) -> ParsedClaims {
     let mut claims = Vec::new();
     let mut seen: BTreeSet<String> = BTreeSet::new();
     let mut duplicate_ids = Vec::new();
-    for section in crate::markdown::sections(md) {
-        let Some((raw_id, raw_title)) = section.heading.split_once(':') else {
+    for section in crate::markdown::document_sections(crate::stray_fence::CLAIMS, md) {
+        let Some((id, title)) = claim_heading(section.heading) else {
             continue;
         };
-        let id = raw_id.trim();
-        let title = raw_title.trim();
-        if !is_canonical_id(id, 'C') || title.is_empty() {
-            continue;
-        }
         let mut claim = Claim {
             id: ClaimId::new(id),
             title: title.to_string(),
@@ -91,6 +88,53 @@ pub(crate) fn parse_claims(md: &str) -> ParsedClaims {
         claims,
         duplicate_ids,
     }
+}
+
+/// Separators accepted between a claim ID and its title, besides `:`. Each
+/// needs whitespace on both sides, so a hyphen inside an ID or a hyphenated
+/// word never splits a heading.
+const DASH_SEPARATORS: [char; 3] = ['-', '\u{2013}', '\u{2014}'];
+
+/// The `(id, title)` of a level-two claim heading's text: a canonical `C##`
+/// ID, then `:` or a spaced dash separator, then a nonempty title. Both are
+/// trimmed slices of `heading`; the source spelling is never rewritten.
+pub fn claim_heading(heading: &str) -> Option<(&str, &str)> {
+    if let Some((id, title)) = heading.split_once(':')
+        && is_canonical_id(id.trim(), 'C')
+    {
+        let title = title.trim();
+        return (!title.is_empty()).then(|| (id.trim(), title));
+    }
+    let heading = heading.trim_start();
+    let id_end = heading.find(char::is_whitespace)?;
+    let (id, rest) = heading.split_at(id_end);
+    let rest = rest.trim_start();
+    let separator = rest.chars().next()?;
+    let title = rest[separator.len_utf8()..].strip_prefix(char::is_whitespace)?;
+    let title = title.trim();
+    (is_canonical_id(id, 'C') && DASH_SEPARATORS.contains(&separator) && !title.is_empty())
+        .then_some((id, title))
+}
+
+/// Level-two headings of `logic/claims.md` that start like a claim ID
+/// (`C` and digits, then no further alphanumeric) but do not parse as a claim,
+/// as `(one-based line, heading)`. Their claims are dropped by the parser.
+pub fn unparsed_claim_headings(md: &str) -> Vec<(usize, &str)> {
+    crate::markdown::document_sections(crate::stray_fence::CLAIMS, md)
+        .into_iter()
+        .filter(|section| {
+            let digits = section.heading.strip_prefix('C').map(|rest| {
+                let count = rest.bytes().take_while(u8::is_ascii_digit).count();
+                (count, rest[count..].chars().next())
+            });
+            matches!(digits, Some((1.., next)) if !next.is_some_and(char::is_alphanumeric))
+                && claim_heading(section.heading).is_none()
+        })
+        .map(|section| {
+            let line = md[..section.range.start].matches('\n').count() + 1;
+            (line, section.heading)
+        })
+        .collect()
 }
 
 /// Extracts every `^<prefix>\d+$` token, splitting on non-alphanumeric
@@ -231,6 +275,80 @@ mod tests {
         let out = parse_claims(md);
         assert_eq!(out.claims.len(), 1);
         assert_eq!(out.claims[0].statement.as_deref(), Some("ok"));
+    }
+
+    #[test]
+    fn claim_headings_accept_colon_and_spaced_dash_separators() {
+        let md = "# Claims\n## C01: Colon\n- **Statement**: a\n## C02 - Hyphen\n## C03 \u{2013} En dash\n## C04 \u{2014} Em dash: with colon\n## C05 :  Spaced colon\n";
+        let out = parse_claims(md);
+        let parsed: Vec<_> = out
+            .claims
+            .iter()
+            .map(|c| (c.id.as_str(), c.title.as_str()))
+            .collect();
+        assert_eq!(
+            parsed,
+            [
+                ("C01", "Colon"),
+                ("C02", "Hyphen"),
+                ("C03", "En dash"),
+                ("C04", "Em dash: with colon"),
+                ("C05", "Spaced colon"),
+            ]
+        );
+        // Bodies keep the exact source heading bytes.
+        assert!(
+            out.claims[3]
+                .body
+                .as_deref()
+                .unwrap()
+                .starts_with("## C04 \u{2014} Em dash")
+        );
+    }
+
+    #[test]
+    fn dashes_inside_ids_or_prose_do_not_create_claims() {
+        for heading in [
+            "C01-Title",
+            "C01 -Title",
+            "C01- Title",
+            "C01\u{2014}Title",
+            "C01 \u{2014}",
+            "C01 - ",
+            "C01-02 - Title",
+            "c01 - Title",
+            "Overview - C01 - Title",
+            "C01 ~ Title",
+            "C01 -- Title",
+        ] {
+            assert_eq!(claim_heading(heading), None, "{heading:?}");
+        }
+    }
+
+    #[test]
+    fn dropped_claim_like_headings_are_listed_with_lines() {
+        let md = "# Claims\n## C01: Kept\n## C02\u{2014}Dropped\n## C03\n## Claims overview\n## C4x - not an id\n## C05 - Kept\n";
+        assert_eq!(
+            unparsed_claim_headings(md),
+            [(3, "C02\u{2014}Dropped"), (4, "C03")]
+        );
+    }
+
+    #[test]
+    fn duplicate_dash_and_colon_claims_remain_duplicates() {
+        let out = parse_claims("## C01: First\n## C01 \u{2014} Second\n");
+        assert_eq!(out.claims.len(), 1);
+        assert_eq!(out.duplicate_ids, ["C01"]);
+    }
+
+    #[test]
+    fn stray_fence_claims_are_read_and_metadata_stays_hidden() {
+        let recovered = parse_claims("---\n# Claims\n\n## C01: A\n- **Statement**: x\n");
+        assert_eq!(recovered.claims.len(), 1);
+        let protected = parse_claims("---\ntitle: x\n# Claims\n## C01: A\n- **Statement**: x\n");
+        assert!(protected.claims.is_empty());
+        let closed = parse_claims("---\ntype: claims\n---\n## C01: A\n");
+        assert_eq!(closed.claims.len(), 1);
     }
 
     #[test]

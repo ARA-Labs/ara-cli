@@ -332,6 +332,19 @@ fn tree_cases() -> Vec<(RuleCode, &'static str, Files)> {
                 "tree:\n  - {id: N01, type: question, concepts: [Term, Term]}\n",
             )],
         ),
+        (
+            RuleCode::RecoveredStrayFence,
+            "",
+            vec![
+                (tree, Q),
+                (claims, "---\n# Claims\n\n## C01: A\n- **Statement**: x\n"),
+            ],
+        ),
+        (
+            RuleCode::UnclosedFrontmatter,
+            "",
+            vec![(tree, Q), ("logic/problem.md", "---\ntitle: x\n## Gap\n")],
+        ),
     ]
 }
 

@@ -1192,16 +1192,9 @@ pub(crate) fn local_redirects(
     fn underlying(selector: &crate::write::EntrySelector) -> Option<&str> {
         match selector {
             crate::write::EntrySelector::Id { id } => Some(id),
-            crate::write::EntrySelector::Document { heading, entry, .. } => {
-                entry.as_deref().or_else(|| {
-                    heading.last().map(|heading| {
-                        heading
-                            .split_once(':')
-                            .map_or(heading.as_str(), |(id, _)| id)
-                            .trim()
-                    })
-                })
-            }
+            crate::write::EntrySelector::Document { heading, entry, .. } => entry
+                .as_deref()
+                .or_else(|| heading.last().map(|heading| heading_entry(heading).trim())),
         }
     }
     fn insert(
@@ -1647,6 +1640,15 @@ pub(crate) fn reference_namespaces(
         }
     }
     Ok(())
+}
+/// The entry ID prefix a heading literal names: a claim heading's ID under
+/// any native separator (`:` or a spaced dash), else the text before `:`.
+/// The result is always a prefix slice of `heading`.
+pub(crate) fn heading_entry(heading: &str) -> &str {
+    crate::claims::claim_heading(heading)
+        .map(|(id, _)| id)
+        .filter(|id| heading.starts_with(id))
+        .unwrap_or_else(|| heading.split_once(':').map_or(heading, |(id, _)| id))
 }
 pub(crate) fn numeric_prefix(id: &str) -> Option<char> {
     let first = id.chars().next()?;

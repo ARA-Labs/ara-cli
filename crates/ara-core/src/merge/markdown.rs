@@ -201,6 +201,19 @@ pub(crate) fn selector_key(selector: &EntrySelector) -> Option<String> {
         }
     }
 }
+/// The title of an identified heading, split as the claims parser splits a
+/// claim heading (`:` or a spaced dash), else after the first `:`.
+fn identified_title(heading: &str) -> &str {
+    crate::claims::claim_heading(heading).map_or_else(
+        || {
+            heading
+                .split_once(':')
+                .map_or(heading, |(_, title)| title)
+                .trim()
+        },
+        |(_, title)| title,
+    )
+}
 fn rw_id(heading: &str) -> Option<&str> {
     let id = heading.split_once(':')?.0.trim();
     (id.starts_with("RW") && id.len() > 2 && !id.chars().any(char::is_whitespace)).then_some(id)
@@ -505,10 +518,7 @@ impl Document {
                 .map_or(text.len(), |next| next.range.start);
             let mut source_atoms = atoms(path, &text, h.body_range.start..own_end)?;
             let title = if n.is_some() || rw_id(h.heading).is_some() {
-                h.heading
-                    .split_once(':')
-                    .map_or(h.heading, |(_, title)| title)
-                    .trim()
+                identified_title(h.heading)
             } else {
                 h.heading
             };
@@ -955,10 +965,7 @@ fn semantic(atom: &Atom, raw: &str) -> Result<Option<Value>, MergeError> {
         AtomKind::Title { identified } => {
             let heading = raw.trim().trim_start_matches('#').trim();
             let title = if identified {
-                heading
-                    .split_once(':')
-                    .map_or(heading, |(_, tail)| tail)
-                    .trim()
+                identified_title(heading)
             } else {
                 heading
             };

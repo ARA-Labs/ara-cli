@@ -1378,17 +1378,14 @@ fn typed_heading(document: &str, ordinal: usize, heading: &str) -> bool {
         _ => return false,
     };
     ordinal == 1
-        && super::identity::numeric_prefix(heading.split_once(':').map_or(heading, |(id, _)| id))
-            == Some(prefix)
+        && super::identity::numeric_prefix(super::identity::heading_entry(heading)) == Some(prefix)
 }
 fn heading_prefix<'a>(
     heading: &'a str,
     map: &'a IdentityMap,
     historical: bool,
 ) -> Option<(&'a str, &'a str)> {
-    let prefix = heading
-        .split_once(':')
-        .map_or(heading, |(prefix, _)| prefix);
+    let prefix = super::identity::heading_entry(heading);
     super::identity::numeric_prefix(prefix)?;
     let stable = map.get(prefix)?;
     let target = if historical {
@@ -3501,11 +3498,7 @@ fn check_incoming_extensions(
                                 .and_then(|headings| headings.sequence().ok())
                                 .and_then(|headings| headings.last())
                                 .and_then(YamlNode::scalar)
-                                .map(|heading| {
-                                    heading
-                                        .split_once(':')
-                                        .map_or(heading, |(prefix, _)| prefix)
-                                })
+                                .map(super::identity::heading_entry)
                         });
                     if let Some(selected) = selected {
                         mapped = map.get(selected);
@@ -4472,12 +4465,8 @@ pub(crate) fn mutation_origins(view: &Inventory) -> Result<Vec<EntryIdentity>, M
                 let literal = node.scalar().ok_or_else(|| {
                     MergeError::content("merge.mutation", "literal heading must be a scalar")
                 })?;
-                let typed = typed_heading(path, ordinal, literal).then(|| {
-                    literal
-                        .split_once(':')
-                        .map_or(literal, |(id, _)| id)
-                        .to_owned()
-                });
+                let typed = typed_heading(path, ordinal, literal)
+                    .then(|| super::identity::heading_entry(literal).to_owned());
                 if let Some(id) = &typed {
                     retired.entry(id.clone()).or_insert_with(|| EntryIdentity {
                         address: id.clone(),

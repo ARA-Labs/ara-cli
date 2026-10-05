@@ -74,17 +74,24 @@ pub fn resolve(working: &WorkingArtifact, selector: &EntrySelector) -> Result<En
             vec![document.clone()]
         }
     };
-    for document in paths {
-        let headings = working.headings(&document)?;
+    let selects = |text: &str, path: &[&str]| match selector {
+        EntrySelector::Id { id } => heading_id(text) == id,
+        EntrySelector::Document { heading, entry, .. } => match entry {
+            Some(id) => heading_id(text) == id,
+            None => {
+                path.len() >= heading.len()
+                    && path[path.len() - heading.len()..]
+                        .iter()
+                        .zip(heading)
+                        .all(|(actual, wanted)| actual == wanted)
+            }
+        },
+    };
+    for document in &paths {
+        let headings = working.headings(document)?;
         for (index, h) in headings.iter().enumerate() {
-            let found = match selector {
-                EntrySelector::Id { id } => heading_id(&h.heading) == id,
-                EntrySelector::Document { heading, entry, .. } => match entry {
-                    Some(id) => heading_id(&h.heading) == id,
-                    None => h.path.ends_with(heading),
-                },
-            };
-            if found {
+            let path: Vec<&str> = h.path.iter().map(String::as_str).collect();
+            if selects(&h.heading, &path) {
                 let field_end = headings.get(index + 1).map_or(h.body_range.end, |next| {
                     next.range.start.min(h.body_range.end)
                 });
@@ -97,6 +104,20 @@ pub fn resolve(working: &WorkingArtifact, selector: &EntrySelector) -> Result<En
                     field_body: h.body_range.start..field_end,
                     level: h.level,
                 });
+            }
+        }
+    }
+    if matches.is_empty() {
+        // Reads may recover entries behind a stray `---`; writes never do.
+        // Name the fence only when it hides a heading this selector targets.
+        for document in &paths {
+            let text = working.text(document)?;
+            if crate::stray_fence::hidden_headings(text)
+                .iter()
+                .any(|h| selects(h.heading, &h.path))
+                && let Some(error) = super::source::unclosed_fence_error(document, text)
+            {
+                return Err(error);
             }
         }
     }

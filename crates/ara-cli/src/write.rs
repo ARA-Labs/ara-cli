@@ -621,7 +621,7 @@ pub fn session(root: &Path, args: &SessionArgs) -> Result<Value, AgentError> {
         }
         SessionCommand::Log(args) => {
             let timestamp = args.timestamp.clone().unwrap_or_else(now);
-            let artifact = crate::agent::Artifact::load(root)?;
+            let artifact = crate::agent::Artifact::load_valid(root)?;
             let session = if let Some(id) = &args.session {
                 id.clone()
             } else {

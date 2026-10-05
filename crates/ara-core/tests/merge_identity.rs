@@ -1545,3 +1545,35 @@ fn inventory_errors_keep_input_precedence_for_small_and_large_captures() {
         assert_eq!(error.code, "merge.encoding");
     }
 }
+
+#[test]
+fn dash_headed_claim_selectors_retire_and_renumber_like_colon_headings() {
+    for heading in [
+        "C77 \u{2014} retired source claim",
+        "C77 - retired source claim",
+    ] {
+        let base = base();
+        let mut theirs = base.clone();
+        let before = format!("## {heading}\n- **Statement**: archived complete source\n");
+        install_mutation_audit(
+            &mut theirs,
+            serde_json::json!({"action":"remove","from":"logic/claims.md:C77","to":null,"from_selector":{"document":"logic/claims.md","heading":["Claims",heading],"entry":null},"to_selector":null,"before":before,"after":"","session":"2026-10-01_001","turn":1,"signal":"user-directive","provenance":"user","historical_references":[]}),
+        );
+        let plan = plan_merge(&base, &base, &theirs, &options()).unwrap();
+        let retired = plan
+            .report
+            .imports
+            .iter()
+            .find(|mapping| mapping.original == "C77")
+            .unwrap_or_else(|| panic!("{heading}: not retired: {:?}", plan.report.imports));
+        assert_eq!(retired.layer, "historical_identity", "{heading}");
+        // The recorded selector is renumbered to the imported identity.
+        let result = materialized(&plan.working);
+        let ledger = text(&result, "trace/logic_mutations.yaml");
+        let renumbered = heading.replacen("C77", &retired.target, 1);
+        assert!(
+            retired.target != "C77" && ledger.contains(&renumbered),
+            "{heading}: {ledger}"
+        );
+    }
+}

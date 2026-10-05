@@ -29,7 +29,7 @@ pub struct Sections<'a> {
 }
 impl<'a> Sections<'a> {
     pub fn new(document: &'a str, text: &'a str) -> Self {
-        let items = ara_core::markdown::headings(text);
+        let items = ara_core::markdown::document_headings(document, text);
         let mut counts = BTreeMap::<&[&str], usize>::new();
         for item in &items {
             *counts.entry(&item.path).or_default() += 1;
@@ -182,10 +182,7 @@ fn spelled(segments: &[&str], display: &str) -> bool {
     let Some((first, rest)) = segments.split_first() else {
         return false;
     };
-    let shorthand = first
-        .split_once(':')
-        .map(|(id, _)| id.trim())
-        .filter(|id| native_shorthand(first, id));
+    let shorthand = heading_id(first).filter(|id| native_shorthand(first, id));
     [Some(*first), shorthand]
         .into_iter()
         .flatten()
@@ -203,9 +200,13 @@ fn native_shorthand(actual: &str, wanted: &str) -> bool {
         .is_some_and(|prefix| matches!(prefix, b'N' | b'C' | b'H' | b'E' | b'O' | b'T'))
         && wanted.len() > 1
         && wanted[1..].bytes().all(|byte| byte.is_ascii_digit())
-        && actual
-            .split_once(':')
-            .is_some_and(|(id, _)| id.trim() == wanted)
+        && heading_id(actual) == Some(wanted)
+}
+/// A claim heading's ID (any native separator), else the text before `:`.
+pub(super) fn heading_id(heading: &str) -> Option<&str> {
+    ara_core::claim_heading(heading)
+        .map(|(id, _)| id)
+        .or_else(|| heading.split_once(':').map(|(id, _)| id.trim()))
 }
 /// A whole-document or selected-range row; the digest covers exactly the
 /// selected source bytes.

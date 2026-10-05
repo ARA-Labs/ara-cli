@@ -20,6 +20,7 @@ pub mod query;
 pub mod report;
 pub mod rules;
 mod schema;
+pub(crate) mod stray_fence;
 // The fix applier reads/writes source files and re-parses through `parse_dir`'s
 // building blocks, so it is native-only like `check_dir`/`parse_dir`.
 #[cfg(feature = "native")]
@@ -40,6 +41,7 @@ mod sections;
 #[cfg(feature = "native")]
 pub mod write;
 
+pub use claims::{claim_heading, unparsed_claim_headings};
 pub use layout::{LayoutOptions, LayoutResult, NodePosition, Point, Rect};
 pub use manifest::{
     Binding, BindingRole, BuiltOn, Claim, ClaimId, Concept, Exhibit, ExhibitKind, ExperimentId,

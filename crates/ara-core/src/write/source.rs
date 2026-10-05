@@ -1174,7 +1174,31 @@ impl WorkingArtifact {
             self.create(".gitignore", &content)
         }
     }
+    /// A changed Markdown document must not end behind an unclosed leading
+    /// `---`. Reads may recover a stray line there; writes never produce one.
+    /// Only the candidate is checked, so a replacement that removes the fence
+    /// is accepted.
+    fn reject_unclosed_fences(&self) -> Result<(), WriteError> {
+        for (path, candidate) in self.files.iter().filter(|(path, _)| path.ends_with(".md")) {
+            let unchanged = self
+                .base
+                .files
+                .get(path)
+                .is_some_and(|file| file.existed && file.bytes == *candidate);
+            if unchanged || self.deleted_paths.contains(path) {
+                continue;
+            }
+            if let Some(error) = std::str::from_utf8(candidate)
+                .ok()
+                .and_then(|text| unclosed_fence_error(path, text))
+            {
+                return Err(error);
+            }
+        }
+        Ok(())
+    }
     pub fn validate(&self) -> Result<ValidatedArtifact, WriteError> {
+        self.reject_unclosed_fences()?;
         let tree = self.text("trace/exploration_tree.yaml")?;
         let claims = self.text("logic/claims.md").ok();
         let redirects = super::logic::claim_redirects_from_source(self)?;
@@ -1269,6 +1293,21 @@ impl WorkingArtifact {
             candidate_manifest,
         })
     }
+}
+
+/// `write.frontmatter` for a Markdown document whose leading `---` never
+/// closes. Writes do not share the reader's stray-fence recovery.
+pub(crate) fn unclosed_fence_error(path: &str, text: &str) -> Option<WriteError> {
+    let (line, _) = crate::stray_fence::unclosed_fence(path, text)?;
+    Some(
+        WriteError::semantic(
+            "write.frontmatter",
+            format!(
+                "`{path}` line {line} opens `---` frontmatter that never closes; close or remove it before writing this document"
+            ),
+        )
+        .at(path),
+    )
 }
 
 pub fn safe_relative(path: &str) -> Result<(), WriteError> {

@@ -123,6 +123,9 @@ pub(crate) fn parse_sources_detailed_with_claim_redirects(
         }
         None => (Vec::new(), Vec::new()),
     };
+    if let Some(md) = claims_md {
+        crate::stray_fence::report(crate::stray_fence::CLAIMS, md, &mut report);
+    }
     let claim_ids: BTreeSet<ClaimId> = claims.iter().map(|c| c.id.clone()).collect();
     for id in duplicate_claim_ids {
         report.error(
@@ -540,6 +543,21 @@ pub fn parse_dir_detailed(dir: &std::path::Path) -> NativeLoad {
     crate::agent_layers::read_layers(dir, &mut load, &mut manifest);
     load.read_remaining_logic(dir);
     load.read_knowledge_registry(dir);
+    // One diagnostic per fence: claims.md is reported by the claims parse,
+    // and the knowledge registry already rejects an unclosed PAPER.md fence.
+    let paper_reported =
+        load.report.warnings().iter().any(|d| {
+            d.code == RuleCode::MalformedAgentLayer && d.path == "PAPER.md.knowledge_paths"
+        });
+    for (path, text) in &load.sources {
+        if path.ends_with(".md")
+            && path != crate::stray_fence::CLAIMS
+            && !(path == "PAPER.md" && paper_reported)
+            && !crate::file_access_path(path)
+        {
+            crate::stray_fence::report(path, text, &mut load.report);
+        }
+    }
     let terms: BTreeSet<&str> = manifest.concepts.iter().map(|c| c.term.as_str()).collect();
     for node in &manifest.nodes {
         for concept in &node.concepts {

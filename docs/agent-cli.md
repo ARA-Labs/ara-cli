@@ -127,6 +127,66 @@ miss.
 Selection errors from `show`, `path`, `refs` and `ls --under` never carry
 internal `merge.*` codes; `ara resolve` and `merge` keep theirs.
 
+### Invalid artifacts, stray fences and claim spellings
+
+Structural reads (`find`, `ls`, `show`, `open`, `refs`, `path`) need a
+complete representation, not a valid artifact. Each result carries
+`diagnostics` with `errors` and `warnings` at their original severities. A
+validation error is read through only when its code is in this allowlist
+([`agent/validity.rs`](../crates/ara-cli/src/agent/validity.rs)):
+
+| Code | Read | Why the artifact is still fully represented |
+|---|---|---|
+| `ARA107` unknown-evidence-claim | admit | The node keeps its `evidence` source; only the binding is absent, as with no `claims.md` (`ARA207`) |
+| `ARA108` unknown-dependency-node | admit | The node keeps its `also_depends_on` source; no edge is created |
+| `ARA109` unknown-claim-dependency | admit | The claim keeps the ID verbatim in `deps` |
+| `ARA100`–`ARA103`, `ARA113` | refuse | The tree or identity history cannot be loaded |
+| `ARA104`–`ARA106` | refuse | Entries are dropped or identities are duplicated |
+| `ARA110` | refuse | A cycle; graph reads would have no root order |
+| `ARA111`, `ARA112` | refuse | A node's place in the hierarchy is unknown or contradictory |
+| any other error code | refuse | Unclassified rules refuse until added here |
+
+Admitted errors also need every typed native document (`claims`,
+`solution/heuristics`, `concepts`, `related_work`, `experiments`) to be fully
+represented: no `ARA229` fence hides one, no `logic/claims.md` heading that
+starts like a claim ID (`## C01—Speedup`) fails to parse, and no line of
+`logic/claims.md` starting with `#` names a dangling claim ID as a whole token
+(ignoring case, spaces, code fences and heading level, so `### C01: A`,
+`## c01 — A`, `## **C01**: A`, a heading swallowed by an unclosed code
+fence, and conservatively a claim title such as `## C02: Extends C01` all
+count). Dangling dependency IDs come from the parsed claims; an `ARA107` or
+`ARA109` whose claim ID cannot be identified also refuses. A dropped claim produces the same `ARA107` as a dangling
+reference, so this parse loss still refuses with `invalid_artifact` and `details.unrepresented` (`path:line:
+reason`). `ARA217`, `ARA218`, `ARA222` and `ARA226` warnings still refuse with
+`incomplete_artifact`, and I/O issues still fail as I/O errors. A refusal
+(`invalid_artifact` or `incomplete_artifact`) has `details.blocking` (the
+refusing rule codes) and `details.hint` (run `ara check`; source reads still
+work). Relationship reads never invent a missing target: `show --with
+claims,depends_on` omits it and `refs`/`show` on the missing ID return
+`unknown_id`. `status` is unchanged: `complete` is false, and counts and next
+IDs are null, whenever any error exists. `check` and `validate` still fail on
+these errors. Write commands do not use this tolerance; `session log` refuses
+any validation error. Explicit `--source` reads keep
+`artifact_validation: "not_run"`, which does not mean the artifact is valid.
+
+An unclosed leading `---` in a Markdown document hides the rest of it as
+frontmatter, and loads warn `ARA229` at `path:line` (for `PAPER.md`, the
+knowledge-registry warning `ARA217` reports it instead). A `logic/claims.md`
+whose opener is followed only by blank lines, the exact title `# Claims`, a
+claim heading and a known claim field is the one recovered case: reads skip
+that line and warn `ARA228` (rules in
+[stage-1](stage-1-core-parse-validate.md#validation-severity)). Writes never
+recover it. A write, including a dry run, fails with `write.frontmatter` and
+the opener's line when it would leave a changed document behind an unclosed
+fence, or when its selector names a heading the fence hides; other selector
+misses stay `write.selector`. A guarded whole-document `document.replace`
+that removes the fence is accepted.
+
+Claim headings accept `:` and a spaced `-`, U+2013 or U+2014 separator
+(`## C04 — Title`). `show C04`, `--heading C04`, `refs` and merge titles
+resolve them, source bytes keep the original spelling, and `ara check` does
+not report them (`ARA004` covers only unspaced dashes).
+
 ## Authoring commands and source inputs
 
 Convenience commands cover `add node`, `add edge`, `edit`, `claim add/set`,

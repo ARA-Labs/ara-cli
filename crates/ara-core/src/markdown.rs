@@ -61,17 +61,42 @@ pub fn frontmatter_range(md: &str) -> Option<Range<usize>> {
 /// ATX headings (up to three leading spaces), with hierarchical source ranges.
 /// Fenced code and canonical field continuations cannot create headings.
 pub fn headings(md: &str) -> Vec<MarkdownHeading<'_>> {
-    index_headings(md, true)
+    index_headings(md, body_start(md), true)
 }
 
-fn index_headings(md: &str, include_paths: bool) -> Vec<MarkdownHeading<'_>> {
+/// [`headings`] of the native document at `path`. They differ only for a
+/// `logic/claims.md` whose unclosed leading `---` is a recognized stray line
+/// ([`crate::stray_fence`]); its headings start after that line.
+pub fn document_headings<'a>(path: &str, md: &'a str) -> Vec<MarkdownHeading<'a>> {
+    index_headings(md, crate::stray_fence::body_start(path, md), true)
+}
+
+/// [`sections`] of the native document at `path`, as [`document_headings`].
+pub fn document_sections<'a>(path: &str, md: &'a str) -> Vec<MarkdownSection<'a>> {
+    level_two(index_headings(
+        md,
+        crate::stray_fence::body_start(path, md),
+        false,
+    ))
+}
+
+/// Headings indexed from `start`, ignoring any frontmatter.
+pub(crate) fn headings_from(md: &str, start: usize) -> Vec<MarkdownHeading<'_>> {
+    index_headings(md, start, true)
+}
+
+/// Where Markdown begins: after any frontmatter, or at 0.
+pub(crate) fn body_start(md: &str) -> usize {
+    frontmatter_range(md).map_or(0, |range| range.end)
+}
+
+fn index_headings(md: &str, body_start: usize, include_paths: bool) -> Vec<MarkdownHeading<'_>> {
     let mut result: Vec<MarkdownHeading<'_>> = Vec::new();
     let mut ancestors: Vec<(usize, &str)> = Vec::new();
     let mut open: Vec<usize> = Vec::new();
     let mut fence = None;
     let mut continuation = false;
     let mut offset = 0;
-    let body_start = frontmatter_range(md).map_or(0, |range| range.end);
     for line in md.split_inclusive('\n') {
         if offset < body_start {
             offset += line.len();
@@ -128,7 +153,11 @@ fn index_headings(md: &str, include_paths: bool) -> Vec<MarkdownHeading<'_>> {
 
 /// Level-two sections in source order; ranges include deeper subsections.
 pub fn sections(md: &str) -> Vec<MarkdownSection<'_>> {
-    index_headings(md, false)
+    level_two(index_headings(md, body_start(md), false))
+}
+
+fn level_two(headings: Vec<MarkdownHeading<'_>>) -> Vec<MarkdownSection<'_>> {
+    headings
         .into_iter()
         .filter(|h| h.level == 2)
         .map(|h| MarkdownSection {

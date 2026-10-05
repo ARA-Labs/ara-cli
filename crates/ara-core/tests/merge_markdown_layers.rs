@@ -1050,3 +1050,31 @@ fn complete_qualified_descendant_proof_follows_the_actual_relocated_inventory() 
         merge::fingerprint(&destination)
     );
 }
+
+#[test]
+fn dash_claim_titles_with_colons_keep_concurrent_edits_visible() {
+    let base = claims("## C01 \u{2014} Speedup: fast\n- **Statement**: base statement\n");
+    let ours = base.replace("Speedup: fast", "Speedup: faster");
+    let theirs = base.replace("Speedup: fast", "Slowdown: fast");
+    let merged = plan(
+        &snapshot(&[(CLAIMS, &base)]),
+        &snapshot(&[(CLAIMS, &ours)]),
+        &snapshot(&[(CLAIMS, &theirs)]),
+    );
+    let conflict = merged
+        .report
+        .conflicts
+        .iter()
+        .find(|conflict| conflict.field == "$title")
+        .unwrap_or_else(|| panic!("title edit lost: {:?}", merged.report.conflicts));
+    assert_eq!(conflict.path, CLAIMS);
+
+    // A one-sided edit of the text before the colon still merges cleanly.
+    let merged = plan(
+        &snapshot(&[(CLAIMS, &base)]),
+        &snapshot(&[(CLAIMS, &base)]),
+        &snapshot(&[(CLAIMS, &theirs)]),
+    );
+    assert!(merged.report.conflicts.is_empty());
+    assert_eq!(merged.working.text(CLAIMS).unwrap(), theirs);
+}
