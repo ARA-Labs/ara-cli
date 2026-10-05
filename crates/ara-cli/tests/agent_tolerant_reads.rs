@@ -768,13 +768,23 @@ fn unclosed_code_fence_hiding_a_claim_refuses_independently_of_dangling_ids() {
     // C99 dangles, so reads take the read-through path; the swallowed C02 is
     // referenced nowhere, so no dangling ID points at it.
     let tree = "tree:\n  - id: N01\n    type: experiment\n    evidence: [C01, C99]\n";
-    let body = "## C01: A\n- **Statement**: a\n\n```\n## C02: Hidden\n- **Statement**: b\n";
-    let stray = format!("---\n# Claims\n\n{body}");
-    for (claims, location) in [
-        (body.to_owned(), "logic/claims.md:5"),
-        // A leading stray opener must not be declared recovered (`ARA228`).
-        (stray, "logic/claims.md:1"),
-    ] {
+    // Every claim-like spelling counts, including a space-separated title.
+    let hidden = [
+        "## C02: Hidden",
+        "## C02 Hidden",
+        "## **C02** Hidden",
+        "### c02 - Hidden",
+    ];
+    let cases = hidden.iter().flat_map(|heading| {
+        let body = format!("## C01: A\n- **Statement**: a\n\n```\n{heading}\n- **Statement**: b\n");
+        let stray = format!("---\n# Claims\n\n{body}");
+        [
+            (body, "logic/claims.md:5"),
+            // A leading stray opener must not be declared recovered (`ARA228`).
+            (stray, "logic/claims.md:1"),
+        ]
+    });
+    for (claims, location) in cases {
         let dir = artifact(&[
             ("trace/exploration_tree.yaml", tree),
             ("logic/claims.md", &claims),

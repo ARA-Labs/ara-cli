@@ -156,19 +156,19 @@ pub(crate) fn hidden_claim_headings(md: &str, start: usize) -> Vec<(usize, &str)
         .collect()
 }
 
-/// A line starting with `#` whose text, ignoring `#`, `*`, whitespace and
-/// case, starts with a claim ID: `C` and digits, then no alphanumeric.
+/// A line starting with `#` whose text, ignoring leading `#`, `*`,
+/// whitespace and case, starts with a claim ID: `C` and digits (`C 02` too),
+/// then no alphanumeric. Markup is skipped only before the digits, so the
+/// separator after them (`C02 Title`) still marks the ID boundary.
 fn claim_like_heading(line: &str) -> bool {
     let Some(rest) = line.trim_start().strip_prefix('#') else {
         return false;
     };
-    let compact: String = rest
-        .chars()
-        .filter(|c| !c.is_whitespace() && !matches!(c, '#' | '*'))
-        .collect();
-    let Some(rest) = compact.strip_prefix(['C', 'c']) else {
+    let rest = rest.trim_start_matches(|c: char| c.is_whitespace() || matches!(c, '#' | '*'));
+    let Some(rest) = rest.strip_prefix(['C', 'c']) else {
         return false;
     };
+    let rest = rest.trim_start_matches(|c: char| c.is_whitespace() || c == '*');
     let digits = rest.bytes().take_while(u8::is_ascii_digit).count();
     digits > 0 && !rest[digits..].starts_with(char::is_alphanumeric)
 }
@@ -377,6 +377,15 @@ mod tests {
             fenced_claim_headings(md),
             [(9, "### c 03 - B"), (10, "## **C04**: D")]
         );
+        // A separator after the digits ends the ID; it is not skipped markup.
+        for heading in ["## C02 B", "## **C02** B", "### c02 - B", "#C02"] {
+            let md = format!("## C01: A\n```\n{heading}\n");
+            assert_eq!(fenced_claim_headings(&md), [(3, heading)], "{heading}");
+        }
+        for heading in ["## C02B", "## C 02B", "## Cats", "## C"] {
+            let md = format!("## C01: A\n```\n{heading}\n");
+            assert!(fenced_claim_headings(&md).is_empty(), "{heading}");
+        }
         // Closed fences, and fences opened inside field continuations, hide nothing.
         assert!(fenced_claim_headings("## C01: A\n```\n## C02: B\n```\n").is_empty());
         assert!(
