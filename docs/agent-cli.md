@@ -228,3 +228,9 @@ pinning remains unresolved: 465 available native questions versus 450 reported
 published questions.
 
 Final observed checks and remaining gates: [delivery verification](verification/agent-cli-2026-10-02/README.md).
+
+## Agent skills
+
+The skills that teach agents these commands live in [`skills/`](../skills); see
+[agent-cli-skills.md](agent-cli-skills.md) for their layout, provenance and
+change rules.

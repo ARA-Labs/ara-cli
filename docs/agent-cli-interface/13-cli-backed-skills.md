@@ -21,6 +21,8 @@ are not E0–E6 experiments or evidence of interface-only reasoning equivalence.
 ## Code and proof boundaries
 
 Implementation: `Protocol skills/{research-foresight-cli,research-manager-cli,compiler-cli}; evaluation/agent-cli/{access-diff,variant-lock}.json`.
+The skills now live in this repository's [`skills/`](../../skills), imported
+byte-for-byte from protocol commit `03f19c7`; see [agent-cli-skills.md](../agent-cli-skills.md).
 
 Permanent consumer regressions: `verify-variants.py; native 107-row proof`. Final locked workspace, Clippy, wasm
 and actual-release checks are linked from the delivery verification report.
