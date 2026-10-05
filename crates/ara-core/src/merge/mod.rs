@@ -1552,43 +1552,49 @@ fn selected<'a>(item: &'a MergeConflict, take: &str) -> Result<&'a MergeValue, M
         )),
     }
 }
-// Keep the complete three-source/audit context explicit at this internal boundary.
-#[allow(clippy::too_many_arguments)]
+/// Audit context for `merge resolve` and `merge repair`. These commands are
+/// themselves the explicit audit action: the session is always named and is
+/// never selected or created, while `turn`, `timestamp` and `summary` may be
+/// omitted. An omitted turn is the session's next turn; a supplied one must
+/// equal it. An omitted timestamp is the writer's locked batch time; an
+/// omitted summary keeps the session's rolling summary.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AuditOwner {
+    pub session: String,
+    pub turn: Option<u64>,
+    pub timestamp: Option<String>,
+    pub summary: Option<String>,
+    pub signal: String,
+    pub provenance: String,
+}
+
+/// A planned merge audit: the candidate plus the session turn that owns it.
+#[derive(Debug)]
+pub struct AuditedResolution {
+    pub working: WorkingArtifact,
+    pub session: String,
+    pub turn: u64,
+}
+
+/// Append the owning turn and its exact resolution audit. Returns the turn's
+/// effective timestamp and number.
 fn audit(
     working: &mut WorkingArtifact,
     item: &MergeConflict,
     value: &MergeValue,
-    session: &str,
-    turn: u64,
-    signal: &str,
-    provenance: &str,
+    owner: &AuditOwner,
     note: &str,
-) -> Result<String, MergeError> {
-    let path = format!("trace/sessions/{session}.yaml");
-    let document = working.yaml(&path)?;
-    let metadata = document.root.get("session")?.ok_or_else(|| {
-        MergeError::content("merge.resolution_session", "missing session metadata")
-    })?;
-    let count = metadata
-        .get("turn_count")?
-        .and_then(|node| node.scalar())
-        .and_then(|number| number.parse::<u64>().ok())
-        .ok_or_else(|| {
-            MergeError::content("merge.resolution_session", "session requires turn_count")
-        })?;
-    if count.checked_add(1) != Some(turn) {
+) -> Result<(String, u64), MergeError> {
+    let session = owner.session.as_str();
+    let next = crate::write::sessions::next_turn(working, session)?;
+    if let Some(turn) = owner.turn
+        && turn != next
+    {
         return Err(MergeError::content(
             "merge.resolution_session",
-            "resolution must explicitly name the next session turn",
+            format!("--turn {turn} differs from session {session}'s next turn {next}"),
         ));
     }
-    let time = metadata
-        .get("last_turn")?
-        .and_then(|node| node.scalar())
-        .ok_or_else(|| {
-            MergeError::content("merge.resolution_session", "session requires last_turn")
-        })?
-        .to_string();
     working
         .base
         .files
@@ -1599,12 +1605,12 @@ fn audit(
             permissions: None,
             digest: crate::write::source::digest(&[]),
         });
-    crate::write::sessions::plan(
+    let logged = crate::write::sessions::plan_log(
         working,
         &WriteOperation::SessionLog {
-            session: session.into(),
-            timestamp: time.clone(),
-            summary: None,
+            session: Some(session.into()),
+            timestamp: owner.timestamp.clone(),
+            summary: owner.summary.clone(),
             events: vec![],
             ai_actions: vec![],
             claims_touched: vec![],
@@ -1614,9 +1620,15 @@ fn audit(
             ai_suggestions_pending: None,
         },
     )?;
-    let record = serde_json::json!({"entry":item.selector,"field":item.field,"before":item.ours,"after":value,"signal":signal,"provenance":provenance,"note":note});
-    crate::write::sessions::append_revision(working, session, turn, &record)?;
-    Ok(time)
+    if logged.turn != next {
+        return Err(MergeError::content(
+            "merge.resolution_session",
+            "owner allocation changed while planning the audit turn",
+        ));
+    }
+    let record = serde_json::json!({"entry":item.selector,"field":item.field,"before":item.ours,"after":value,"signal":owner.signal,"provenance":owner.provenance,"note":note});
+    crate::write::sessions::append_revision(working, session, logged.turn, &record)?;
+    Ok((logged.timestamp, logged.turn))
 }
 fn apply_resolution(
     working: &mut WorkingArtifact,
@@ -1868,15 +1880,20 @@ pub fn authenticates_resolution_audit(
     Ok(false)
 }
 
+/// Plan `merge resolve` under the caller's lock. `batch_time` is the one
+/// clock value captured after lock and recovery.
 pub fn plan_resolution(
     snapshot: &ArtifactSnapshot,
     conflict_id: &str,
     take: &str,
-    session: &str,
-    turn: u64,
-    signal: &str,
-    provenance: &str,
-) -> Result<WorkingArtifact, MergeError> {
+    owner: &AuditOwner,
+    batch_time: &str,
+) -> Result<AuditedResolution, MergeError> {
+    let (session, signal, provenance) = (
+        owner.session.as_str(),
+        owner.signal.as_str(),
+        owner.provenance.as_str(),
+    );
     let ledger = identity::load(snapshot)?;
     let item = ledger
         .unresolved()
@@ -1892,15 +1909,13 @@ pub fn plan_resolution(
     let value = selected(&item, take)?.clone();
     let candidate_value = relocated_choice(snapshot, &ledger, &item, take)?;
     let mut working = WorkingArtifact::new(snapshot.clone());
+    working.batch_time = Some(batch_time.to_owned());
     apply_resolution(&mut working, &item, &candidate_value)?;
-    let time = audit(
+    let (time, turn) = audit(
         &mut working,
         &item,
         &candidate_value,
-        session,
-        turn,
-        signal,
-        provenance,
+        owner,
         &format!(
             "explicit resolution {} take {take}; selected source fingerprint {}",
             item.id, value.fingerprint
@@ -1925,20 +1940,27 @@ pub fn plan_resolution(
         }],
     )?;
     validate_candidate(&working)?;
-    Ok(working)
+    Ok(AuditedResolution {
+        working,
+        session: session.into(),
+        turn,
+    })
 }
-#[allow(clippy::too_many_arguments)]
+/// Plan `merge repair` under the caller's lock with the captured batch time.
 pub fn plan_protected_resolution(
     snapshot: &ArtifactSnapshot,
     item: &MergeConflict,
     decision: &str,
     expected_current: &str,
-    session: &str,
-    turn: u64,
-    signal: &str,
-    provenance: &str,
+    owner: &AuditOwner,
     reason: &str,
-) -> Result<WorkingArtifact, MergeError> {
+    batch_time: &str,
+) -> Result<AuditedResolution, MergeError> {
+    let (session, signal, provenance) = (
+        owner.session.as_str(),
+        owner.signal.as_str(),
+        owner.provenance.as_str(),
+    );
     validate_values(item)?;
     if !item.kind.starts_with("protected")
         || !matches!(decision, "reject_incoming" | "restore_base")
@@ -1951,6 +1973,7 @@ pub fn plan_protected_resolution(
         ));
     }
     let mut working = WorkingArtifact::new(snapshot.clone());
+    working.batch_time = Some(batch_time.to_owned());
     let chosen = if decision == "restore_base" {
         &item.base
     } else {
@@ -1973,16 +1996,7 @@ pub fn plan_protected_resolution(
             ));
         }
     }
-    audit(
-        &mut working,
-        item,
-        chosen,
-        session,
-        turn,
-        signal,
-        provenance,
-        reason,
-    )?;
+    let (_, turn) = audit(&mut working, item, chosen, owner, reason)?;
     identity::append(
         &mut working,
         LOG,
@@ -2000,5 +2014,9 @@ pub fn plan_protected_resolution(
         }],
     )?;
     validate_candidate(&working)?;
-    Ok(working)
+    Ok(AuditedResolution {
+        working,
+        session: session.into(),
+        turn,
+    })
 }

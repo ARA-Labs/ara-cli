@@ -387,6 +387,10 @@ not report them (`ARA004` covers only unspaced dashes).
 
 Convenience commands cover `add node`, `add edge`, `edit`, `claim add/set`,
 `heuristic add/set`, `stage`, `promote`, `session start/log`, and `link --same-as`.
+`session log` without `--session` asks the writer to select or create the
+session and therefore requires `--summary`; omitted `--timestamp`/`--started`
+values come from the writer's locked clock (see
+[One clock value per batch](#one-clock-value-per-batch)).
 `apply` exposes the complete typed operation contract in
 [`write/mod.rs`](../crates/ara-core/src/write/mod.rs).
 
@@ -479,6 +483,99 @@ Dry-run identities and turns are tentative. The whole batch plans in one working
 snapshot and validates the declared source delta before any source commit.
 A later failure leaves source bytes unchanged and reports the failing line.
 
+### One clock value per batch
+
+A commit-mode writer reads the clock once, after it takes the artifact lock and
+recovers any prepared transaction, and before it plans. A dry run reads one
+tentative value without taking a lock; its time, IDs and turns are not reserved.
+That value, `batch_time`, is a UTC `YYYY-MM-DDTHH:MM:SSZ` timestamp. Every
+omitted value in the batch uses it:
+
+| Omitted value | Default |
+|---|---|
+| `node.add` `fields.timestamp` (also promotion-created dead ends) | `batch_time` |
+| `observation.stage` `timestamp` | `batch_time` |
+| `session.log` `timestamp` | `batch_time` |
+| `session.start` `started` / `date` | `batch_time` / the date written in `started` |
+| `record.append` to `trace/taste_log.yaml`, `record.timestamp` | `batch_time` |
+| `entry.taste_append` `record.date` | the UTC date of `batch_time` |
+| Session created for an omitted-`session` log, `started` / `date` | the log's timestamp / its written date |
+
+An explicit timestamp or date is kept exactly after validation. A log's
+effective timestamp is its supplied value or `batch_time`, and session
+selection uses the date written in that value, so `2026-10-04T23:30:00-05:00`
+belongs to 2026-10-04. Chronology checks compare instants. An explicit past
+session with an omitted timestamp therefore fails with a message that names
+both dates; the writer does not swap the session or backdate the clock.
+
+`add node`, `stage`, `promote`, `session start` and `session log` send omitted
+values to this same locked path. The CLI never chooses an ID, session or
+timestamp from an unlocked pre-read.
+
+### Owner anchor for omitted audit context
+
+A batch can leave audit context to its one `session.log`, the owner anchor:
+
+| Operation | May omit | Caller still supplies |
+|---|---|---|
+| `logic.revise` | `session`, `turn` | target, complete change, `signal`, `provenance`, preconditions |
+| `entry.rename`, audited `entry.remove` | `session`, `turn` | target, name, `expected`, `signal`, `provenance`, reference edits |
+| `paper.edit.audit`, `observation.mark_stale.audit` | `session`, `turn` in the supplied `audit` | `signal`, `provenance`, note; stale `reason` |
+| reasoning `record.append` | `record.turn` | complete `notes` |
+| `session.log` | `session`, `timestamp` | a nonempty `summary` |
+
+```jsonl
+{"op":"session.log","summary":"Revised C01 after the ablation"}
+{"op":"logic.revise","target":{"id":"C01"},"set":{"Statement":"..."},"signal":"empirical-resolution","provenance":"user"}
+```
+
+Rules:
+
+- The batch must contain exactly one `session.log`, and it must carry a
+  nonempty caller-written `summary`. With no log the first omitting line fails
+  with `write.owner_required`; with several, `write.owner_ambiguous`. A missing
+  summary fails at the log with `write.owner_summary`.
+- The anchor must come before every operation that omits context
+  (`write.owner_order` otherwise). Its session is resolved and its next turn
+  reserved at its own line, from the locked snapshot and earlier operations
+  only. An earlier `session.start` can bind `$s` for it; unknown, forward,
+  duplicate and wrong-kind bindings still fail at their own line.
+- An explicit `session` or `turn` on an omitting operation must equal the
+  anchor's session and reserved turn (`write.owner_mismatch`). The writer never
+  overrides it or attaches a change to an earlier turn.
+- Revision rows and pending audits are attached after all ordered operations
+  succeed, then the complete candidate is validated.
+- No `session.log` is ever added because an operation needs a turn. Standalone
+  writes without audits stay possible and create no session.
+
+If the anchor omits `session`, the writer picks the session itself:
+
+- One open session dated on the log's date: it is selected.
+- None: a new session is created with the log's summary, timestamp and date.
+- Several: `write.session_ambiguous`, listing their IDs.
+- Closed sessions are never selected or reopened.
+
+The common case is work that runs past midnight UTC. If yesterday's session is
+still open, the writer creates today's session and leaves yesterday's open. The
+report lists it in an additive `open_sessions` field so the caller can close it
+on purpose. To continue yesterday's session, name it and give a timestamp on
+its date. The `session.log` operation result reports `session_created: true`
+when it created the session, and operations that took their owner from the
+anchor report `session` and `turn`.
+
+Fully explicit batches keep their order freedom: a revision may come before its
+owning log when it names a valid new turn, and several logs are allowed when
+every audited operation names its own session and turn. An operation with
+omitted context in a multi-log batch is an error, never a guess based on line
+proximity.
+
+An empty batch writes nothing. A batch of no-op operations with no
+`session.log` creates no turn or history. An explicit `session.log` is a
+requested turn even if everything else is a no-op, and no-op mutations add no
+revision rows.
+
+### Session history and transactions
+
 Session logging retains complete events, actions, touched claims, revisions,
 context, threads and suggestions. Mutable logic revisions carry exact
 before/after source history, signal, provenance and the owning next session turn.
@@ -538,12 +635,24 @@ Unknown/opaque source changes are evaluated explicitly rather than dropped from
 inventory or rewritten as regenerated normalized content. Ambiguous prose tokens
 and quoted historical values remain opaque and visible for review.
 
-`merge resolve <conflict> --take ours|theirs|base` requires an owning session,
-next turn, signal and provenance. Protected conflicts use the separate audited
-`merge repair --conflict-file ... --decision reject_incoming|restore_base
---expected-current ... --session ... --turn ... --signal ... --provenance ...
---reason ...` path with exact captured candidates/current fingerprint. Generic
-entry edits and mutable resolution cannot override immutable history.
+`merge resolve <conflict> --take ours|theirs|base --session ... --signal ...
+--provenance ...` records its decision in an owning session turn. Protected
+conflicts use the separate audited `merge repair --conflict-file ...
+--decision reject_incoming|restore_base --expected-current ... --session ...
+--signal ... --provenance ... --reason ...` path with exact captured
+candidates/current fingerprint. Generic entry edits and mutable resolution
+cannot override immutable history.
+
+Both commands are themselves the audit action, so they append their own turn
+without a JSONL anchor. `--session` stays required: they never select or create
+a session. Under the lock they resolve that open session and allocate
+`turn_count + 1` with the same allocator as `apply`. `--turn` is optional; when
+given it must equal that next turn. `--timestamp` defaults to the locked UTC
+clock, and `--summary` defaults to keeping the rolling summary, so a session
+from an earlier date needs an explicit timestamp on that date. The session
+turn, exact resolution audit, ledger decision, indexes and selected content
+commit as one transaction. Reports add the resolved `session` and `turn`. A
+conflict choice never implies a confirmed or refuted claim.
 
 Git mode resolves a local ref and merge base with the installed Git executable.
 It captures exact trees and blobs into temporary snapshots without changing

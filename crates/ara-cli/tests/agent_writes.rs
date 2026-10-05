@@ -1175,3 +1175,376 @@ fn created_list_references_fail_closed_on_dangling_ids() {
         assert_eq!(artifact_bytes(dir.path()), before, "{field}");
     }
 }
+
+fn utc_now() -> String {
+    ara_core::write::clock::system_utc().unwrap()
+}
+fn assert_native_utc(value: &Value) -> String {
+    let text = value.as_str().unwrap_or_else(|| panic!("{value:?}"));
+    let bytes = text.as_bytes();
+    assert_eq!(bytes.len(), 20, "{text}");
+    assert!(
+        text.chars().enumerate().all(|(i, c)| match i {
+            4 | 7 => c == '-',
+            10 => c == 'T',
+            13 | 16 => c == ':',
+            19 => c == 'Z',
+            _ => c.is_ascii_digit(),
+        }),
+        "{text}"
+    );
+    text.to_owned()
+}
+fn apply_failure(root: &Path, text: &str) -> Value {
+    let output = ara(root)
+        .args(["apply", "-", "--json", "--no-duplicate-check"])
+        .write_stdin(text.to_owned())
+        .assert()
+        .code(1)
+        .stdout("")
+        .get_output()
+        .clone();
+    serde_json::from_slice(&output.stderr).unwrap()
+}
+
+#[test]
+fn apply_derives_owner_from_one_summarized_log_and_stamps_one_clock_value() {
+    let dir = fixture();
+    let before = utc_now();
+    let report = apply(
+        dir.path(),
+        &[
+            json!({"op":"session.log","summary":"Caller-written turn summary"}),
+            json!({"op":"node.add","type":"question","parent":"N01","title":"Stamped","fields":{"description":"d"}}),
+            json!({"op":"observation.stage","content":"Seen","potential_type":"unknown","provenance":"user"}),
+            json!({"op":"logic.revise","target":{"id":"C01"},"set":{"Statement":"Revised by anchor"},"signal":"user-directive","provenance":"user"}),
+        ],
+        false,
+    );
+    let after = utc_now();
+    let session = report["operations"][0]["id"].as_str().unwrap().to_owned();
+    assert_eq!(report["operations"][0]["turn"], 1);
+    assert_eq!(report["operations"][0]["session_created"], true);
+    assert_eq!(report["operations"][3]["session"], session);
+    assert_eq!(report["operations"][3]["turn"], 1);
+    let record = yaml(dir.path(), &format!("trace/sessions/{session}.yaml"));
+    let stamps = [
+        record["session"]["started"].clone(),
+        record["session"]["last_turn"].clone(),
+        yaml(dir.path(), "trace/exploration_tree.yaml")["tree"][0]["children"][0]["timestamp"]
+            .clone(),
+        yaml(dir.path(), "staging/observations.yaml")["observations"][0]["timestamp"].clone(),
+    ];
+    let first = assert_native_utc(&stamps[0]);
+    for stamp in &stamps {
+        assert_eq!(assert_native_utc(stamp), first, "one clock value per batch");
+    }
+    assert!(
+        before <= first && first <= after,
+        "{before} <= {first} <= {after}"
+    );
+    assert_eq!(&session[..10], &first[..10]);
+    assert_eq!(record["logic_revisions"][0]["turn"], 1);
+}
+
+#[test]
+fn omitted_session_refuses_several_open_candidates_at_the_physical_line() {
+    let dir = fixture();
+    let day = utc_now();
+    let first = run(dir.path(), &["session", "start", "--summary", "First"]);
+    let second = run(dir.path(), &["session", "start", "--summary", "Second"]);
+    if utc_now()[..10] != day[..10] {
+        return; // The run crossed midnight UTC; the sessions are on two days.
+    }
+    let ids = [
+        first["id"].as_str().unwrap(),
+        second["id"].as_str().unwrap(),
+    ];
+    assert_eq!(&ids[0][..10], &day[..10]);
+    let before = artifact_bytes(dir.path());
+    // Explicit timestamps on the sessions' date keep the rest of this test
+    // independent of the wall clock crossing midnight.
+    let late = format!("{}T23:59:59Z", &day[..10]);
+    let error = apply_failure(
+        dir.path(),
+        &format!(
+            "\n{{\"op\":\"session.log\",\"summary\":\"Which session?\",\"timestamp\":\"{late}\"}}\n"
+        ),
+    );
+    assert_eq!(error["error"]["code"], "write.session_ambiguous");
+    assert_eq!(error["error"]["line"], 2);
+    assert_eq!(error["error"]["details"]["field"], "session");
+    let message = error["error"]["message"].as_str().unwrap();
+    assert!(
+        message.contains(&format!("{}, {}", ids[0], ids[1])),
+        "{message}"
+    );
+    let error = failure(
+        dir.path(),
+        &[
+            "session",
+            "log",
+            "--summary",
+            "Which?",
+            "--timestamp",
+            &late,
+            "--record",
+            "{}",
+        ],
+    );
+    assert_eq!(error["error"]["code"], "write.session_ambiguous");
+    // Omitted context without a log anchor is refused, not guessed.
+    let error = apply_failure(
+        dir.path(),
+        "{\"op\":\"logic.revise\",\"target\":{\"id\":\"C01\"},\"set\":{\"Statement\":\"x\"},\"signal\":\"user-directive\",\"provenance\":\"user\"}\n",
+    );
+    assert_eq!(error["error"]["code"], "write.owner_required");
+    assert_eq!(error["error"]["line"], 1);
+    assert_eq!(artifact_bytes(dir.path()), before);
+}
+
+#[test]
+fn convenience_commands_default_inside_the_writer_lock() {
+    let dir = fixture();
+    let before = utc_now();
+    let started = run(dir.path(), &["session", "start", "--summary", "Today"]);
+    let staged = run(
+        dir.path(),
+        &[
+            "stage",
+            "--content",
+            "Unstamped",
+            "--potential-type",
+            "unknown",
+            "--provenance",
+            "user",
+        ],
+    );
+    assert_eq!(staged["id"], "O01");
+    let logged = run(
+        dir.path(),
+        &["session", "log", "--summary", "Selected", "--record", "{}"],
+    );
+    let after = utc_now();
+    if before[..10] != after[..10] {
+        return; // Crossed midnight UTC between commands.
+    }
+    assert_eq!(logged["id"], started["id"]);
+    assert_eq!(logged["turn"], 1);
+    let session = started["id"].as_str().unwrap();
+    let record = yaml(dir.path(), &format!("trace/sessions/{session}.yaml"));
+    let stamp = assert_native_utc(&record["session"]["started"]);
+    assert!(before <= stamp && stamp <= after);
+    let observed = assert_native_utc(
+        &yaml(dir.path(), "staging/observations.yaml")["observations"][0]["timestamp"],
+    );
+    assert!(before <= observed && observed <= after);
+    // Omitting --session without --summary is refused; explicit logging keeps
+    // its rolling-summary behavior.
+    let error = failure(dir.path(), &["session", "log", "--record", "{}"]);
+    assert_eq!(error["error"]["code"], "write.owner_summary");
+    let late = format!("{}T23:59:59Z", &session[..10]);
+    let explicit = run(
+        dir.path(),
+        &[
+            "session",
+            "log",
+            "--session",
+            session,
+            "--timestamp",
+            &late,
+            "--record",
+            "{}",
+        ],
+    );
+    assert_eq!(explicit["turn"], 2);
+    assert_eq!(
+        yaml(dir.path(), &format!("trace/sessions/{session}.yaml"))["session"]["summary"],
+        "Selected"
+    );
+}
+
+fn merge_fixture(root: &Path, session: &str, threads: &str, open_threads: u64) {
+    let date = &session[..10];
+    write(
+        root,
+        "trace/exploration_tree.yaml",
+        "tree:\n  - id: N01\n    type: question\n    title: Existing\n    provenance: user\n",
+    );
+    write(
+        root,
+        &format!("trace/sessions/{session}.yaml"),
+        format!(
+            "session:\n  id: {session}\n  date: {date}\n  started: '{date}T00:00:00Z'\n  last_turn: '{date}T00:00:00Z'\n  turn_count: 1\n  summary: base\nevents_logged: []\nai_actions: []\nclaims_touched: []\nlogic_revisions: []\nkey_context: []\nopen_threads: {threads}\nai_suggestions_pending: []\n"
+        ),
+    );
+    write(
+        root,
+        "trace/sessions/session_index.yaml",
+        format!(
+            "sessions:\n  - id: {session}\n    date: {date}\n    summary: base\n    turn_count: 1\n    events_count: 0\n    claims_touched: []\n    open_threads: {open_threads}\n"
+        ),
+    );
+}
+
+#[test]
+fn merge_resolve_derives_turn_and_locked_timestamp_without_turn_flag() {
+    let parent = TempDir::new().unwrap();
+    let today = utc_now();
+    let session = format!("{}_001", &today[..10]);
+    let [base, ours, theirs] = ["base", "ours", "theirs"].map(|name| parent.path().join(name));
+    merge_fixture(&base, &session, "[]", 0);
+    merge_fixture(&ours, &session, "[our thread]", 1);
+    merge_fixture(&theirs, &session, "[their thread]", 1);
+    let output = ara(&ours)
+        .args(["merge", "--base"])
+        .arg(&base)
+        .arg("--theirs")
+        .arg(&theirs)
+        .args([
+            "--as",
+            "peer",
+            "--source-key",
+            "peer-fork",
+            "--json",
+            "--no-duplicate-check",
+        ])
+        .output()
+        .unwrap();
+    let report: Value = serde_json::from_slice(&output.stdout).unwrap();
+    let conflict = report["conflicts"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|item| item["field"] == "open_threads")
+        .unwrap_or_else(|| panic!("{report:#}"))["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let audit = [
+        "--take",
+        "theirs",
+        "--session",
+        session.as_str(),
+        "--signal",
+        "user-directive",
+        "--provenance",
+        "user",
+    ];
+    let before = artifact_bytes(&ours);
+    let error = failure(
+        &ours,
+        &[
+            &["merge", "resolve", &conflict][..],
+            &audit,
+            &["--turn", "5"],
+        ]
+        .concat(),
+    );
+    assert_eq!(error["error"]["code"], "merge.resolution_session");
+    assert_eq!(artifact_bytes(&ours), before);
+    let started = utc_now();
+    let output = ara(&ours)
+        .args([&["merge", "resolve", &conflict][..], &audit, &["--json"]].concat())
+        .output()
+        .unwrap();
+    let finished = utc_now();
+    if started[..10] != today[..10] || finished[..10] != today[..10] {
+        return; // Crossed midnight UTC; the session belongs to the previous day.
+    }
+    assert!(output.status.success(), "{output:?}");
+    let resolved: Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(resolved["session"], session);
+    assert_eq!(resolved["turn"], 2);
+    let record = yaml(&ours, &format!("trace/sessions/{session}.yaml"));
+    assert_eq!(record["session"]["turn_count"], 2);
+    assert_eq!(record["session"]["summary"], "base");
+    assert_eq!(record["open_threads"], json!(["their thread"]));
+    let stamp = assert_native_utc(&record["session"]["last_turn"]);
+    assert!(started <= stamp && stamp <= finished);
+    assert_eq!(record["logic_revisions"][0]["turn"], 2);
+}
+
+#[test]
+fn merge_repair_derives_turn_without_turn_flag() {
+    let parent = TempDir::new().unwrap();
+    let today = utc_now();
+    let session = format!("{}_001", &today[..10]);
+    let original = "entries:\n  - summary: Existing\n    title: 'Opaque extension'\n";
+    let [base, ours, theirs] = ["base", "ours", "theirs"].map(|name| parent.path().join(name));
+    for root in [&base, &ours, &theirs] {
+        merge_fixture(root, &session, "[]", 0);
+        write(root, "trace/reasoning.yaml", original);
+    }
+    write(
+        &theirs,
+        "trace/reasoning.yaml",
+        original.replace("'Opaque extension'", "\"Opaque extension\""),
+    );
+    let output = ara(&ours)
+        .args(["merge", "--base"])
+        .arg(&base)
+        .arg("--theirs")
+        .arg(&theirs)
+        .args([
+            "--as",
+            "peer",
+            "--source-key",
+            "peer-fork",
+            "--json",
+            "--no-duplicate-check",
+        ])
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code(), Some(1));
+    let error: Value = serde_json::from_slice(&output.stderr).unwrap();
+    assert_eq!(error["error"]["code"], "merge.protected_content");
+    let conflict = error["error"]["details"]["evidence"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|item| item["field"] == "title")
+        .unwrap()
+        .clone();
+    let conflict_file = parent.path().join("conflict.json");
+    fs::write(&conflict_file, conflict.to_string()).unwrap();
+    // An explicit timestamp on the session's date keeps this independent of
+    // the wall clock crossing midnight.
+    let late = format!("{}T23:59:59Z", &today[..10]);
+    let fingerprint = conflict["ours"]["fingerprint"].as_str().unwrap();
+    let conflict_path = conflict_file.to_str().unwrap();
+    let args = [
+        "merge",
+        "repair",
+        "--conflict-file",
+        conflict_path,
+        "--decision",
+        "reject_incoming",
+        "--expected-current",
+        fingerprint,
+        "--session",
+        session.as_str(),
+        "--timestamp",
+        late.as_str(),
+        "--signal",
+        "user-directive",
+        "--provenance",
+        "user",
+        "--reason",
+        "Keep local history",
+    ];
+    let before = artifact_bytes(&ours);
+    let error = failure(&ours, &[&args[..], &["--turn", "1"]].concat());
+    assert_eq!(error["error"]["code"], "merge.resolution_session");
+    assert_eq!(artifact_bytes(&ours), before);
+    let repaired = run(&ours, &args);
+    assert_eq!(repaired["session"], session);
+    assert_eq!(repaired["turn"], 2);
+    let record = yaml(&ours, &format!("trace/sessions/{session}.yaml"));
+    assert_eq!(record["session"]["last_turn"], late);
+    assert_eq!(record["logic_revisions"][0]["turn"], 2);
+    assert_eq!(
+        fs::read_to_string(ours.join("trace/reasoning.yaml")).unwrap(),
+        original
+    );
+}

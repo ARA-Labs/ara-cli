@@ -14,7 +14,9 @@ fn make_working(documents: &[(&str, &str)]) -> (TempDir, WorkingArtifact) {
         std::fs::create_dir_all(destination.parent().unwrap()).unwrap();
         std::fs::write(destination, text).unwrap();
     }
-    let artifact = WorkingArtifact::new(write::ArtifactSnapshot::load(root.path()).unwrap());
+    let mut artifact = WorkingArtifact::new(write::ArtifactSnapshot::load(root.path()).unwrap());
+    // Planner-level tests stand in for the writer's one locked clock read.
+    artifact.batch_time = Some("2026-10-01T12:00:00Z".into());
     (root, artifact)
 }
 fn selector(id: &str) -> EntrySelector {
@@ -526,8 +528,8 @@ fn revisions_record_exact_source_endpoints_and_revision_pointer() {
         &WriteOperation::LogicRevise {
             target: selector("C01"),
             set: fields(json!({"Statement":"After\n\nnew wording\n"})),
-            session: "2026-10-01_001".into(),
-            turn: 1,
+            session: Some("2026-10-01_001".into()),
+            turn: Some(1),
             signal: "user-directive".into(),
             provenance: "user-revised".into(),
             note: Some("Caller requested narrower scope".into()),
@@ -919,8 +921,8 @@ fn revision_batches_refuse_historical_turns_without_batch_ownership() {
     let revise = WriteOperation::LogicRevise {
         target: selector("C01"),
         set: fields(json!({"Statement":"After"})),
-        session: "2026-10-01_001".into(),
-        turn: 1,
+        session: Some("2026-10-01_001".into()),
+        turn: Some(1),
         signal: "user-directive".into(),
         provenance: "user-revised".into(),
         note: None,
@@ -954,8 +956,8 @@ fn body_revision_requires_digest_and_preserves_exact_before_after_with_owned_tur
         set: fields(
             json!({"Body":"Caller new component.\n\n### Algorithm\n```text\nx = y\n```\n"}),
         ),
-        session: "2026-10-01_001".into(),
-        turn: 1,
+        session: Some("2026-10-01_001".into()),
+        turn: Some(1),
         signal: "artifact-commitment".into(),
         provenance: "ai-executed".into(),
         note: Some("Caller component revision".into()),
@@ -973,14 +975,14 @@ fn body_revision_requires_digest_and_preserves_exact_before_after_with_owned_tur
     let operations = vec![
         WriteOperation::SessionStart {
             id: Some("2026-10-01_001".into()),
-            date: "2026-10-01".into(),
-            started: "2026-10-01T10:00".into(),
+            date: Some("2026-10-01".into()),
+            started: Some("2026-10-01T10:00".into()),
             summary: "Caller began research".into(),
         },
         operation,
         WriteOperation::SessionLog {
-            session: "2026-10-01_001".into(),
-            timestamp: "2026-10-01T10:05".into(),
+            session: Some("2026-10-01_001".into()),
+            timestamp: Some("2026-10-01T10:05".into()),
             summary: Some("Caller revised architecture".into()),
             events: vec![],
             ai_actions: vec![],
@@ -1079,8 +1081,8 @@ fn merged_claim_redirect_is_revision_owned_typed_and_cycle_checked() {
         &WriteOperation::LogicRevise {
             target: selector("C01"),
             set: fields(json!({"Merged into":"C02","Status":"withdrawn"})),
-            session: "2026-10-01_001".into(),
-            turn: 1,
+            session: Some("2026-10-01_001".into()),
+            turn: Some(1),
             signal: "dependency-change".into(),
             provenance: "user-revised".into(),
             note: None,
@@ -1101,8 +1103,8 @@ fn merged_claim_redirect_is_revision_owned_typed_and_cycle_checked() {
         &WriteOperation::LogicRevise {
             target: selector("C02"),
             set: fields(json!({"Merged into":"C01"})),
-            session: "2026-10-01_001".into(),
-            turn: 1,
+            session: Some("2026-10-01_001".into()),
+            turn: Some(1),
             signal: "dependency-change".into(),
             provenance: "user-revised".into(),
             note: None,
@@ -1267,8 +1269,8 @@ fn paper_audit_captures_the_entire_exact_document_and_skips_noops() {
         expected: None,
         content: None,
         audit: Some(write::RevisionContext {
-            session: "2026-10-01_001".into(),
-            turn: 1,
+            session: Some("2026-10-01_001".into()),
+            turn: Some(1),
             signal: "artifact-commitment".into(),
             provenance: "user-revised".into(),
             note: Some("Caller metadata update".into()),
@@ -1867,8 +1869,8 @@ fn generic_claim_body_and_document_replacement_cannot_remove_canonical_entries()
     let operation = WriteOperation::LogicRevise {
         target,
         set: fields(json!({"Body":"Replaced container body\n"})),
-        session: "2026-10-01_001".into(),
-        turn: 1,
+        session: Some("2026-10-01_001".into()),
+        turn: Some(1),
         signal: "user-directive".into(),
         provenance: "user".into(),
         note: None,
@@ -1915,8 +1917,8 @@ fn canonical_rename_is_owned_and_archived_while_withdrawal_and_merge_retain_clai
         &WriteOperation::LogicRevise {
             target: selector("C03"),
             set: fields(json!({"Status":"withdrawn","Merged into":"C02"})),
-            session: "2026-10-01_001".into(),
-            turn: 2,
+            session: Some("2026-10-01_001".into()),
+            turn: Some(2),
             signal: "user-directive".into(),
             provenance: "user".into(),
             note: None,

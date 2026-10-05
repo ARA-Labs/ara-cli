@@ -59,6 +59,21 @@ All notable changes to this project are documented here. The format follows
 - Core: claim headings accept a spaced hyphen, en dash or em dash separator; a
   stray leading `---` before `# Claims` in `logic/claims.md` is recovered with
   `ARA228`, and other unclosed front matter stays hidden with `ARA229`.
+- Agent CLI: a batch's one `session.log` with a summary can own omitted audit
+  context. `logic.revise`, audited `entry.rename`/`entry.remove`,
+  `paper.edit.audit`, `observation.mark_stale.audit` and reasoning
+  `record.append` may leave out `session`/`turn` (or `record.turn`) when they
+  follow that log. A log that omits `session` selects the one open session on
+  its date, or creates one with its summary; several open candidates are an
+  error that lists them, and other open sessions are reported in
+  `open_sessions`.
+- Agent CLI: omitted node, observation, session-log, session-start and taste
+  timestamps (and the inline taste date) use one UTC clock value that the
+  writer reads once, after it takes the lock and recovers. Explicit values stay
+  exact.
+- Merge: `merge resolve` and `merge repair` take an optional `--turn` (it must
+  equal the session's next turn), plus `--timestamp` and `--summary`, and report
+  the resolved `session` and `turn`.
 
 ### Changed
 - Agent reads default to brief address-led text; `--json` output keeps its
@@ -94,6 +109,12 @@ All notable changes to this project are documented here. The format follows
   (`ARA105 error: nodes[N01]: duplicate node id`), and each `--json`
   `validate.errors`/`validate.warnings` entry gains a `rule` field. `ara
   validate` output is unchanged (#43).
+- Agent CLI: `session log` without `--session` now requires `--summary`. The
+  writer picks or creates the session under its lock instead of the CLI
+  choosing a same-date session from an unlocked read.
+- Merge: an omitted `--timestamp` on `merge resolve`/`merge repair` uses the
+  locked clock rather than the session's last turn time, so a session from an
+  earlier date needs an explicit timestamp on that date.
 
 ### Removed
 - Native PaperBench rubric handling: `rubric/requirements.md` is no longer

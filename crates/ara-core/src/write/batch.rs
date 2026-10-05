@@ -193,15 +193,182 @@ struct Binding {
     kind: Namespace,
 }
 
+/// True when an operation leaves its audit owner (`session`/`turn`) for the
+/// batch's sole `session.log` anchor to supply.
+fn omits_owner(operation: &WriteOperation) -> bool {
+    match operation {
+        WriteOperation::SessionLog { session, .. } => session.is_none(),
+        WriteOperation::LogicRevise { session, turn, .. } => session.is_none() || turn.is_none(),
+        WriteOperation::EntryRename {
+            session,
+            turn,
+            signal,
+            provenance,
+            ..
+        }
+        | WriteOperation::EntryRemove {
+            session,
+            turn,
+            signal,
+            provenance,
+            ..
+        } => (session.is_none() || turn.is_none()) && signal.is_some() && provenance.is_some(),
+        WriteOperation::PaperEdit {
+            audit: Some(audit), ..
+        }
+        | WriteOperation::ObservationMarkStale { audit, .. } => {
+            audit.session.is_none() || audit.turn.is_none()
+        }
+        WriteOperation::RecordAppend {
+            document, record, ..
+        } => {
+            document == super::records::REASONING
+                && record
+                    .as_object()
+                    .is_some_and(|map| !map.contains_key("turn"))
+        }
+        _ => false,
+    }
+}
+
+/// The first audit-owner field an operation leaves to the anchor, named as
+/// the caller wrote it.
+fn omitted_field(operation: &WriteOperation) -> &'static str {
+    let pick = |session: bool, prefixed: bool| match (session, prefixed) {
+        (true, false) => "session",
+        (false, false) => "turn",
+        (true, true) => "audit.session",
+        (false, true) => "audit.turn",
+    };
+    match operation {
+        WriteOperation::LogicRevise { session, .. }
+        | WriteOperation::EntryRename { session, .. }
+        | WriteOperation::EntryRemove { session, .. }
+        | WriteOperation::SessionLog { session, .. } => pick(session.is_none(), false),
+        WriteOperation::PaperEdit {
+            audit: Some(audit), ..
+        }
+        | WriteOperation::ObservationMarkStale { audit, .. } => pick(audit.session.is_none(), true),
+        WriteOperation::RecordAppend { .. } => "record.turn",
+        _ => "session",
+    }
+}
+
+fn owner_mismatch(
+    field: &str,
+    supplied: impl std::fmt::Display,
+    owned: impl std::fmt::Display,
+) -> WriteError {
+    WriteError::semantic(
+        "write.owner_mismatch",
+        format!("explicit {field} `{supplied}` differs from the owning session.log's `{owned}`"),
+    )
+    .at(field)
+}
+
+fn fill_session(
+    session: &mut Option<String>,
+    turn: &mut Option<u64>,
+    owner: &super::sessions::OwnerAnchor,
+    prefix: &str,
+) -> Result<(), WriteError> {
+    match session {
+        Some(supplied) if supplied != &owner.session => {
+            return Err(owner_mismatch(
+                &format!("{prefix}session"),
+                supplied,
+                &owner.session,
+            ));
+        }
+        _ => *session = Some(owner.session.clone()),
+    }
+    match turn {
+        Some(supplied) if *supplied != owner.turn => {
+            return Err(owner_mismatch(
+                &format!("{prefix}turn"),
+                supplied,
+                owner.turn,
+            ));
+        }
+        _ => *turn = Some(owner.turn),
+    }
+    Ok(())
+}
+
+/// Supply omitted audit context from the planned anchor. Explicit values must
+/// equal the anchor's session and reserved turn; they are never overridden.
+fn fill_owner(
+    operation: &mut WriteOperation,
+    owner: &super::sessions::OwnerAnchor,
+) -> Result<(), WriteError> {
+    match operation {
+        WriteOperation::LogicRevise { session, turn, .. }
+        | WriteOperation::EntryRename { session, turn, .. }
+        | WriteOperation::EntryRemove { session, turn, .. } => {
+            fill_session(session, turn, owner, "")
+        }
+        WriteOperation::PaperEdit {
+            audit: Some(audit), ..
+        }
+        | WriteOperation::ObservationMarkStale { audit, .. } => {
+            fill_session(&mut audit.session, &mut audit.turn, owner, "audit.")
+        }
+        WriteOperation::RecordAppend { record, .. } => {
+            record
+                .as_object_mut()
+                .ok_or_else(|| {
+                    WriteError::semantic("write.record", "record must be an object").at("record")
+                })?
+                .insert("turn".into(), Value::String(owner.turn_reference()));
+            Ok(())
+        }
+        _ => Ok(()),
+    }
+}
+
+/// Plan an ordered batch in one working snapshot.
+///
+/// A batch may name one `session.log` as the owner of omitted audit context.
+/// That anchor is the only operation that authorizes automatic session
+/// selection or creation; it must be the batch's sole log, carry a nonempty
+/// summary, and precede every operation that omits `session`/`turn`. Its turn
+/// is reserved at its own line from the snapshot and earlier operations only.
 pub fn plan_batch(
     working: &mut WorkingArtifact,
     operations: &[WriteOperation],
 ) -> Result<(Vec<OperationResult>, BTreeMap<String, String>), WriteError> {
     let mut results = Vec::with_capacity(operations.len());
     let mut bindings: BTreeMap<String, Binding> = BTreeMap::new();
+    let logs: Vec<usize> = operations
+        .iter()
+        .enumerate()
+        .filter(|(_, operation)| matches!(operation, WriteOperation::SessionLog { .. }))
+        .map(|(index, _)| index)
+        .collect();
+    // The sole log owns omitted context; with zero or several logs, the
+    // first omitting line rejects below instead.
+    let anchored = logs.len() == 1 && operations.iter().any(omits_owner);
     for (index, operation) in operations.iter().enumerate() {
         let result = (|| {
             let mut operation = operation.clone();
+            let omits = omits_owner(&operation);
+            if omits && logs.len() != 1 {
+                return Err(if logs.is_empty() {
+                    WriteError::semantic(
+                        "write.owner_required",
+                        "omitted session/turn needs exactly one session.log with a summary in this batch",
+                    )
+                } else {
+                    WriteError::semantic(
+                        "write.owner_ambiguous",
+                        format!(
+                            "omitted session/turn is ambiguous with {} session.log operations; name the owning session and turn explicitly",
+                            logs.len()
+                        ),
+                    )
+                }
+                .at(omitted_field(&operation)));
+            }
             let binding = take_binding(&mut operation)?;
             if let Some((name, _)) = &binding
                 && bindings.contains_key(name)
@@ -213,7 +380,40 @@ pub fn plan_batch(
                 .at("id"));
             }
             substitute(&mut operation, &bindings)?;
-            let result = super::plan_operation(working, &operation)?;
+            if anchored
+                && let WriteOperation::SessionLog { summary, .. } = &operation
+                && summary.as_deref().is_none_or(|text| text.trim().is_empty())
+            {
+                return Err(WriteError::semantic(
+                    "write.owner_summary",
+                    "the session.log that owns omitted audit context needs a nonempty caller-written summary",
+                )
+                .at("summary"));
+            }
+            if omits && !matches!(operation, WriteOperation::SessionLog { .. }) {
+                let owner = working.owner.clone().ok_or_else(|| {
+                    WriteError::semantic(
+                        "write.owner_order",
+                        "an operation that omits session/turn must follow its owning session.log",
+                    )
+                    .at(omitted_field(&operation))
+                })?;
+                fill_owner(&mut operation, &owner)?;
+            }
+            let result = if let WriteOperation::SessionLog { .. } = &operation {
+                let logged = super::sessions::plan_log(working, &operation)?;
+                if anchored {
+                    working.owner = Some(super::sessions::OwnerAnchor::from_logged(&logged, index));
+                }
+                logged.result()
+            } else {
+                let mut result = super::plan_operation(working, &operation)?;
+                if omits && let Some(owner) = &working.owner {
+                    result.session = Some(owner.session.clone());
+                    result.turn = Some(owner.turn);
+                }
+                result
+            };
             if let Some((name, kind)) = binding {
                 let id = result
                     .id
@@ -252,7 +452,14 @@ pub fn plan_batch(
             .owned_turns
             .contains_key(&(pending.session.clone(), pending.turn))
         {
-            return Err(WriteError::semantic("write.revision_turn","logic revision requires exactly one session.log owning the referenced new turn in this batch").at("turn"));
+            return Err(WriteError::semantic(
+                "write.revision_turn",
+                format!(
+                    "audited change names {}#{}, which is not a new turn owned by a session.log in this batch",
+                    pending.session, pending.turn
+                ),
+            )
+            .at("turn"));
         }
         super::sessions::append_revision(working, &pending.session, pending.turn, &pending.record)?;
     }
@@ -493,12 +700,9 @@ fn substitute(
             observation, audit, ..
         } => {
             reference(observation, Namespace::Observation, bindings, "observation")?;
-            reference(
-                &mut audit.session,
-                Namespace::Session,
-                bindings,
-                "audit.session",
-            )?;
+            if let Some(session) = &mut audit.session {
+                reference(session, Namespace::Session, bindings, "audit.session")?;
+            }
         }
         WriteOperation::SessionLog {
             session,
@@ -507,7 +711,9 @@ fn substitute(
             logic_revisions,
             ..
         } => {
-            reference(session, Namespace::Session, bindings, "session")?;
+            if let Some(session) = session {
+                reference(session, Namespace::Session, bindings, "session")?;
+            }
             for (index, event) in events.iter_mut().enumerate() {
                 json_reference(
                     event,
@@ -570,13 +776,8 @@ fn substitute(
         WriteOperation::PaperEdit {
             frontmatter, audit, ..
         } => {
-            if let Some(context) = audit {
-                reference(
-                    &mut context.session,
-                    Namespace::Session,
-                    bindings,
-                    "audit.session",
-                )?;
+            if let Some(session) = audit.as_mut().and_then(|context| context.session.as_mut()) {
+                reference(session, Namespace::Session, bindings, "audit.session")?;
             }
             if let Some(Value::Array(claims)) = frontmatter.get_mut("claims_summary") {
                 for (index, value) in claims.iter_mut().enumerate() {
@@ -594,10 +795,11 @@ fn substitute(
         _ => {}
     }
     match operation {
-        WriteOperation::LogicRevise { session, .. } => {
-            reference(session, Namespace::Session, bindings, "session")?
+        WriteOperation::LogicRevise {
+            session: Some(session),
+            ..
         }
-        WriteOperation::EntryRename {
+        | WriteOperation::EntryRename {
             session: Some(session),
             ..
         }

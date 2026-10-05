@@ -385,6 +385,15 @@ fn edit(
     Ok(result)
 }
 
+/// Planner-level guard: omitted ownership is filled only by a batch anchor.
+pub(crate) fn missing_owner() -> WriteError {
+    WriteError::semantic(
+        "write.revision_required",
+        "omitted session/turn needs the batch's sole summarized session.log anchor",
+    )
+    .at("session")
+}
+
 pub(crate) fn revision_context(
     session: &str,
     turn: u64,
@@ -1165,9 +1174,17 @@ fn taste(
             "Inline taste applies only to claims and heuristics",
         ));
     }
+    let mut record = record.clone();
     let object = record
-        .as_object()
+        .as_object_mut()
         .ok_or_else(|| WriteError::semantic("write.taste_record", "Taste needs an object"))?;
+    if !object.contains_key("date") {
+        // An inline taste row carries a date, not a timestamp: the UTC date of
+        // the captured batch time.
+        let date = working.clock_time()?[..10].to_owned();
+        object.insert("date".into(), Value::String(date));
+    }
+    let object = &*object;
     for key in object.keys() {
         if !matches!(key.as_str(), "date" | "tag" | "object" | "comment") {
             return Err(WriteError::semantic(
@@ -1398,8 +1415,8 @@ pub fn plan(
             working,
             target,
             set,
-            session,
-            *turn,
+            session.as_deref().ok_or_else(missing_owner)?,
+            turn.ok_or_else(missing_owner)?,
             signal,
             provenance,
             note.as_deref(),

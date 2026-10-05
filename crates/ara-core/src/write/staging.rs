@@ -136,7 +136,8 @@ pub fn plan(
                 ));
             }
             super::sessions::validate_provenance(provenance)?;
-            super::sessions::validate_timestamp(timestamp)?;
+            let timestamp = working.explicit_or_clock(timestamp.as_ref())?;
+            super::sessions::validate_timestamp(&timestamp)?;
             let mut bounds = BTreeSet::new();
             for id in bound_to {
                 super::sessions::validate_id(id, "N")?;
@@ -321,12 +322,12 @@ pub fn plan(
                     "stale handling requires the caller's rationale",
                 ));
             }
-            super::logic::revision_context(
-                &audit.session,
-                audit.turn,
-                &audit.signal,
-                &audit.provenance,
-            )?;
+            let session = audit
+                .session
+                .as_deref()
+                .ok_or_else(super::logic::missing_owner)?;
+            let turn = audit.turn.ok_or_else(super::logic::missing_owner)?;
+            super::logic::revision_context(session, turn, &audit.signal, &audit.provenance)?;
             let (index, value) = locate(working, observation)?;
             if value.get("promoted").and_then(Value::as_bool) != Some(false) {
                 return Err(invalid(
@@ -340,7 +341,18 @@ pub fn plan(
                 result.no_op = true;
                 return Ok(result);
             }
-            let evidence = stale_evidence(working, observation, &value, session_days, audit)?;
+            let evidence = stale_evidence(
+                working,
+                observation,
+                &value,
+                session_days,
+                &StaleOwner {
+                    session,
+                    turn,
+                    signal: &audit.signal,
+                    provenance: &audit.provenance,
+                },
+            )?;
             working.replace_yaml_field(OBSERVATIONS, &selector(index), "stale", &json!(true))?;
             let stale_intent = working.intents.len() - 1;
             let mut notes = vec![
@@ -353,14 +365,14 @@ pub fn plan(
             }
             working.intents[stale_intent].reason = format!(
                 "observation.stale:{}",
-                json!({"observation":observation,"session":audit.session,"turn":audit.turn,"notes":notes})
+                json!({"observation":observation,"session":session,"turn":turn,"notes":notes})
             );
             super::records::plan(
                 working,
                 &WriteOperation::RecordAppend {
                     id: None,
                     document: super::records::REASONING.into(),
-                    record: json!({"turn":format!("{}#{}",audit.session,audit.turn),"notes":notes}),
+                    record: json!({"turn":format!("{session}#{turn}"),"notes":notes}),
                 },
             )?;
             Ok(OperationResult::new(
@@ -372,13 +384,28 @@ pub fn plan(
     }
 }
 
+/// The resolved owner of a stale decision: concrete session/turn plus the
+/// caller's signal and provenance.
+struct StaleOwner<'a> {
+    session: &'a str,
+    turn: u64,
+    signal: &'a str,
+    provenance: &'a str,
+}
+
 fn stale_evidence(
     working: &WorkingArtifact,
     observation: &str,
     value: &Value,
     session_days: &[String],
-    audit: &super::RevisionContext,
+    owner: &StaleOwner<'_>,
 ) -> Result<Value, WriteError> {
+    let StaleOwner {
+        session,
+        turn,
+        signal,
+        provenance,
+    } = *owner;
     let timestamp = value
         .get("timestamp")
         .and_then(Value::as_str)
@@ -430,7 +457,7 @@ fn stale_evidence(
             .get("date")?
             .and_then(|n| n.scalar())
             .ok_or_else(|| invalid("session_days", "session date is missing"))?;
-        if date <= &timestamp[..10] || date > &audit.session[..10] {
+        if date <= &timestamp[..10] || date > &session[..10] {
             continue;
         }
         if metadata
@@ -462,14 +489,14 @@ fn stale_evidence(
             "three session-days after the observation's most recent reference are not proven",
         ));
     }
-    if &audit.session[..10] < latest.as_str() {
+    if &session[..10] < latest.as_str() {
         return Err(invalid(
             "audit",
             "audit owner cannot precede the proven session-days",
         ));
     }
     Ok(
-        json!({"operation":"observation.mark_stale","observation":observation,"session_days":session_days,"last_reference":last_reference,"bound_to":bounds,"signal":audit.signal,"provenance":audit.provenance,"session_sources":session_sources,"audit":{"session":audit.session,"turn":audit.turn,"source_refs":[format!("trace/sessions/{}.yaml",audit.session)]}}),
+        json!({"operation":"observation.mark_stale","observation":observation,"session_days":session_days,"last_reference":last_reference,"bound_to":bounds,"signal":signal,"provenance":provenance,"session_sources":session_sources,"audit":{"session":session,"turn":turn,"source_refs":[format!("trace/sessions/{session}.yaml")]}}),
     )
 }
 
@@ -681,18 +708,15 @@ pub fn validate_references(working: &WorkingArtifact) -> Result<(), WriteError> 
             .map_err(|error| invalid("audit", error.to_string()))?;
             let days: Vec<String> = serde_json::from_value(captured["session_days"].clone())
                 .map_err(|error| invalid("audit", error.to_string()))?;
-            let context = super::RevisionContext {
-                session: owner.0.clone(),
+            let context = StaleOwner {
+                session: &owner.0,
                 turn: owner.1,
                 signal: captured["signal"]
                     .as_str()
-                    .ok_or_else(|| invalid("audit", "missing signal"))?
-                    .into(),
+                    .ok_or_else(|| invalid("audit", "missing signal"))?,
                 provenance: captured["provenance"]
                     .as_str()
-                    .ok_or_else(|| invalid("audit", "missing provenance"))?
-                    .into(),
-                note: None,
+                    .ok_or_else(|| invalid("audit", "missing provenance"))?,
             };
             let (_, value) = locate(working, observation)?;
             if value.get("promoted").and_then(Value::as_bool) != Some(false)

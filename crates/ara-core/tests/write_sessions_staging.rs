@@ -30,7 +30,9 @@ fn fixture() -> (tempfile::TempDir, WorkingArtifact) {
         std::fs::create_dir_all(target.parent().unwrap()).unwrap();
         std::fs::write(target, text).unwrap();
     }
-    let working = WorkingArtifact::new(ArtifactSnapshot::load(dir.path()).unwrap());
+    let mut working = WorkingArtifact::new(ArtifactSnapshot::load(dir.path()).unwrap());
+    // Planner-level tests stand in for the writer's one locked clock read.
+    working.batch_time = Some("2026-10-01T12:00:00Z".into());
     (dir, working)
 }
 fn op(value: Value) -> WriteOperation {

@@ -560,7 +560,7 @@ pub fn stage(root: &Path, args: &StageArgs) -> Result<Value, AgentError> {
             .map(|s| read_input(s, &mut stdin))
             .transpose()?,
         provenance: args.provenance.clone(),
-        timestamp: args.timestamp.clone().unwrap_or_else(now),
+        timestamp: args.timestamp.clone(),
         bound_to: args.bound_to.clone(),
     };
     execute(root, &[operation], ApplyMode::Commit, "ara.stage/v1", true)
@@ -598,49 +598,18 @@ pub fn promote(root: &Path, args: &PromoteArgs) -> Result<Value, AgentError> {
 }
 pub fn session(root: &Path, args: &SessionArgs) -> Result<Value, AgentError> {
     let operation = match &args.command {
-        SessionCommand::Start(args) => {
-            let timestamp = args.started.clone().unwrap_or_else(now);
-            let date = if let Some(date) = &args.date {
-                date.clone()
-            } else {
-                timestamp
-                    .get(..10)
-                    .ok_or_else(|| {
-                        AgentError::semantic(
-                            "invalid_timestamp",
-                            "--started must begin with a calendar date",
-                        )
-                    })?
-                    .into()
-            };
-            WriteOperation::SessionStart {
-                id: None,
-                date,
-                started: timestamp,
-                summary: args.summary.clone(),
-            }
-        }
+        // Omitted dates, timestamps and sessions are resolved by the writer
+        // under its lock from one captured clock value, never from a pre-read.
+        SessionCommand::Start(args) => WriteOperation::SessionStart {
+            id: None,
+            date: args.date.clone(),
+            started: args.started.clone(),
+            summary: args.summary.clone(),
+        },
         SessionCommand::Log(args) => {
-            let timestamp = args.timestamp.clone().unwrap_or_else(now);
+            // The node lookup below reads event text only; it never chooses
+            // the session, turn or timestamp.
             let artifact = crate::agent::Artifact::load_valid(root)?;
-            let session = if let Some(id) = &args.session {
-                id.clone()
-            } else {
-                let candidates = artifact
-                    .manifest
-                    .sessions
-                    .iter()
-                    .filter(|s| s.date.as_deref() == timestamp.get(..10))
-                    .map(|s| s.id.to_string())
-                    .collect::<Vec<_>>();
-                if candidates.len() != 1 {
-                    return Err(AgentError::semantic(
-                        "ambiguous_session",
-                        "Use --session to select one current-day session",
-                    ));
-                }
-                candidates[0].clone()
-            };
             let mut record = if let Some(input) = &args.record {
                 if !args.node.is_empty() {
                     return Err(AgentError::semantic(
@@ -700,10 +669,12 @@ pub fn session(root: &Path, args: &SessionArgs) -> Result<Value, AgentError> {
             };
             let object = record.as_object_mut().unwrap();
             object.insert("op".into(), json!("session.log"));
-            object.insert("session".into(), json!(session));
-            object
-                .entry("timestamp")
-                .or_insert_with(|| json!(timestamp));
+            if let Some(session) = &args.session {
+                object.insert("session".into(), json!(session));
+            }
+            if let Some(timestamp) = &args.timestamp {
+                object.insert("timestamp".into(), json!(timestamp));
+            }
             if let Some(summary) = &args.summary {
                 object.insert("summary".into(), json!(summary));
             }
@@ -808,28 +779,4 @@ pub fn apply_discover(explicit: Option<&Path>, args: &ApplyArgs) -> Result<Value
         args.no_duplicate_check,
     )
     .map_err(|error| physical_error(error, &lines))
-}
-/// Native adapters capture a UTC clock once; planners receive explicit dates.
-pub fn now() -> String {
-    let seconds = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .expect("clock precedes Unix epoch")
-        .as_secs();
-    let days = (seconds / 86400) as i64;
-    let z = days + 719468;
-    let era = if z >= 0 { z } else { z - 146096 } / 146097;
-    let doe = z - era * 146097;
-    let yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;
-    let mut year = yoe + era * 400;
-    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
-    let mp = (5 * doy + 2) / 153;
-    let day = doy - (153 * mp + 2) / 5 + 1;
-    let month = mp + if mp < 10 { 3 } else { -9 };
-    year += i64::from(month <= 2);
-    format!(
-        "{year:04}-{month:02}-{day:02}T{:02}:{:02}:{:02}Z",
-        seconds / 3600 % 24,
-        seconds / 60 % 60,
-        seconds % 60
-    )
 }

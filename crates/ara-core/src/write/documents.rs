@@ -237,8 +237,16 @@ fn paper(
     audit: Option<&RevisionContext>,
 ) -> Result<OperationResult, WriteError> {
     validate_paper_fields(fields)?;
-    if let Some(audit) = audit {
-        logic::revision_context(&audit.session, audit.turn, &audit.signal, &audit.provenance)?;
+    let owner = audit
+        .map(|audit| {
+            Ok::<_, WriteError>((
+                audit.session.clone().ok_or_else(logic::missing_owner)?,
+                audit.turn.ok_or_else(logic::missing_owner)?,
+            ))
+        })
+        .transpose()?;
+    if let (Some(audit), Some((session, turn))) = (audit, &owner) {
+        logic::revision_context(session, *turn, &audit.signal, &audit.provenance)?;
     }
     if content.is_none() && (!heading.is_empty() || expected.is_some()) {
         return Err(WriteError::semantic(
@@ -430,15 +438,15 @@ fn paper(
     let mut result = OperationResult::new("paper.edit", None);
     result.target = Some("PAPER.md".into());
     result.no_op = no_op;
-    if !no_op && let Some(audit) = audit {
+    if !no_op && let (Some(audit), Some((session, turn))) = (audit, owner) {
         let after = working.text("PAPER.md")?;
         let record = json!({"entry":"PAPER.md","field":"document","before":before,"after":after,"signal":audit.signal,"provenance":audit.provenance,"note":audit.note});
         working.revisions.push(PendingRevision {
-            session: audit.session.clone(),
-            turn: audit.turn,
+            session,
+            turn,
             record,
         });
-        result.turn = Some(audit.turn);
+        result.turn = Some(turn);
     }
     Ok(result)
 }

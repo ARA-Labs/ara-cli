@@ -21,6 +21,80 @@ fn invalid(field: &str, message: impl Into<String>) -> WriteError {
     WriteError::semantic("write.session", message).at(field)
 }
 
+/// How a `session.log` found its session.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OwnerSelection {
+    /// The caller named the session.
+    Explicit,
+    /// The one open session on the log's written date.
+    Selected,
+    /// No open session existed on that date; the log created one.
+    Created,
+}
+
+/// The owner of a batch's audit context: one planned `session.log` and the
+/// next turn it reserved. Operations that omit `session`/`turn` attach to it,
+/// and later bookkeeping can attach operation facts to the same anchor.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct OwnerAnchor {
+    pub session: String,
+    pub turn: u64,
+    /// The log's effective timestamp: supplied, or the captured batch time.
+    pub timestamp: String,
+    /// Zero-based operation index of the owning `session.log`.
+    pub operation: usize,
+    pub selection: OwnerSelection,
+    /// Other open sessions left untouched by selection or creation.
+    pub open_sessions: Vec<String>,
+}
+impl OwnerAnchor {
+    /// The anchor for the `session.log` planned at operation index `operation`.
+    pub fn from_logged(logged: &LoggedTurn, operation: usize) -> Self {
+        Self {
+            session: logged.session.clone(),
+            turn: logged.turn,
+            timestamp: logged.timestamp.clone(),
+            operation,
+            selection: logged.selection,
+            open_sessions: logged.open_sessions.clone(),
+        }
+    }
+    pub fn turn_reference(&self) -> String {
+        format!("{}#{}", self.session, self.turn)
+    }
+}
+
+/// The outcome of planning one `session.log`.
+#[derive(Debug, Clone)]
+pub struct LoggedTurn {
+    pub session: String,
+    pub turn: u64,
+    pub timestamp: String,
+    pub selection: OwnerSelection,
+    pub open_sessions: Vec<String>,
+}
+
+impl LoggedTurn {
+    /// The `session.log` operation result. `session` is reported when the
+    /// writer selected or created the session rather than the caller naming it.
+    pub fn result(&self) -> OperationResult {
+        let mut result = OperationResult::new("session.log", Some(self.session.clone()));
+        result.turn = Some(self.turn);
+        result.session_created = self.selection == OwnerSelection::Created;
+        if self.selection != OwnerSelection::Explicit {
+            result.session = Some(self.session.clone());
+        }
+        result
+    }
+}
+
+fn closed(metadata: &Value) -> bool {
+    metadata.get("closed").and_then(Value::as_bool) == Some(true)
+        || metadata.get("status").and_then(Value::as_str) == Some("closed")
+        || metadata.get("ended").is_some_and(|v| !v.is_null())
+        || metadata.get("closed_at").is_some_and(|v| !v.is_null())
+}
+
 pub fn validate_date(date: &str) -> Result<(), WriteError> {
     let b = date.as_bytes();
     if b.len() != 10
@@ -624,12 +698,18 @@ pub fn plan(
             started,
             summary,
         } => {
+            let started = working.explicit_or_clock(started.as_ref())?;
+            validate_timestamp(&started)?;
+            let date = date.clone().unwrap_or_else(|| started[..10].to_owned());
+            let date = &date;
             validate_date(date)?;
-            validate_timestamp(started)?;
             if &started[..10] != date {
                 return Err(invalid(
                     "started",
-                    "session start timestamp date must equal date",
+                    format!(
+                        "session start timestamp `{started}` is dated {} but the session date is {date}",
+                        &started[..10]
+                    ),
                 ));
             }
             let rows = validate_index(working)?;
@@ -668,101 +748,207 @@ pub fn plan(
             working.append_yaml(INDEX, &[PathPart::from("sessions")], &derived(&value)?)?;
             Ok(OperationResult::new("session.start", Some(assigned)))
         }
-        WriteOperation::SessionLog {
-            session,
-            timestamp,
-            summary,
-            events,
-            ai_actions,
-            claims_touched,
-            logic_revisions,
-            key_context,
-            open_threads,
-            ai_suggestions_pending,
-        } => {
-            validate_timestamp(timestamp)?;
-            let rows = validate_index(working)?;
-            let row = *rows
-                .get(session)
-                .ok_or_else(|| invalid("session", "session is absent from index"))?;
-            let before = read_session(working, session)?;
-            let metadata = &before["session"];
-            if &timestamp[..10] != string(metadata, "date")? {
-                return Err(invalid(
-                    "timestamp",
-                    "only the caller timestamp's active session-day can be appended",
-                ));
-            }
-            if metadata.get("closed").and_then(Value::as_bool) == Some(true)
-                || metadata.get("status").and_then(Value::as_str) == Some("closed")
-                || metadata.get("ended").is_some_and(|v| !v.is_null())
-                || metadata.get("closed_at").is_some_and(|v| !v.is_null())
-            {
-                return Err(invalid("session", "closed sessions are immutable"));
-            }
-            if timestamp_key(timestamp)? < timestamp_key(string(metadata, "last_turn")?)? {
-                return Err(invalid(
-                    "timestamp",
-                    "turn timestamp precedes previous turn",
-                ));
-            }
-            let turn = count(metadata, "turn_count")?
-                .checked_add(1)
-                .ok_or_else(|| invalid("turn", "turn count overflow"))?;
-            if working.owned_turns.contains_key(&(session.clone(), turn)) {
-                return Err(invalid("turn", "duplicate batch turn ownership"));
-            }
-            let arrays = [
-                events,
-                ai_actions,
-                claims_touched,
-                logic_revisions,
-                key_context,
-            ];
-            let stamped: Vec<Vec<Value>> = ARRAYS
-                .iter()
-                .zip(arrays)
-                .map(|(key, values)| stamp(values, key, turn))
-                .collect::<Result<_, _>>()?;
-            let path = session_path(session);
-            for (key, values) in ARRAYS.iter().zip(stamped) {
-                if !values.is_empty() && before.get(*key).is_none() {
-                    working.replace_yaml_field(&path, &[], key, &json!([]))?;
-                }
-                for value in values {
-                    working.append_yaml(&path, &[PathPart::from(*key)], &value)?;
-                }
-            }
-            let selector = [PathPart::from("session")];
-            working.replace_yaml_field(&path, &selector, "last_turn", &json!(timestamp))?;
-            working.replace_yaml_field(&path, &selector, "turn_count", &json!(turn))?;
-            if let Some(summary) = summary {
-                working.replace_yaml_field(&path, &selector, "summary", &json!(summary))?;
-            }
-            if let Some(values) = open_threads {
-                working.replace_yaml_field(&path, &[], "open_threads", &json!(values))?;
-            }
-            if let Some(values) = ai_suggestions_pending {
-                working.replace_yaml_field(&path, &[], "ai_suggestions_pending", &json!(values))?;
-            }
-            let after = read_session(working, session)?;
-            super::records::append_archive(
-                working,
-                &format!("{session}#{turn}"),
-                session,
-                archive_state(&before),
-                archive_state(&after),
-            )?;
-            update_index(working, session, row)?;
-            working
-                .owned_turns
-                .insert((session.clone(), turn), timestamp.clone());
-            let mut result = OperationResult::new("session.log", Some(session.clone()));
-            result.turn = Some(turn);
-            Ok(result)
-        }
+        WriteOperation::SessionLog { .. } => Ok(plan_log(working, operation)?.result()),
         _ => Err(invalid("op", "not a session operation")),
     }
+}
+
+/// The shared owner allocator: validate that `session` is an indexed, open,
+/// well-formed session and return its next turn (`turn_count + 1`).
+pub fn next_turn(working: &WorkingArtifact, session: &str) -> Result<u64, WriteError> {
+    validate_session_id(session)?;
+    let rows = validate_index(working)?;
+    if !rows.contains_key(session) {
+        return Err(invalid("session", "session is absent from index"));
+    }
+    let value = read_session(working, session)?;
+    if closed(&value["session"]) {
+        return Err(invalid("session", "closed sessions are immutable"));
+    }
+    count(&value["session"], "turn_count")?
+        .checked_add(1)
+        .ok_or_else(|| invalid("turn", "turn count overflow"))
+}
+
+/// A3: choose the owner for a `session.log` that omits `session`. Select the
+/// single open session dated `date`; create one with `summary` when none is
+/// open on that date; refuse when several are. Closed sessions are never
+/// selected or reopened. Other open sessions are returned, untouched.
+fn select_or_create(
+    working: &mut WorkingArtifact,
+    timestamp: &str,
+    summary: Option<&str>,
+) -> Result<(String, OwnerSelection, Vec<String>), WriteError> {
+    let summary = summary
+        .filter(|text| !text.trim().is_empty())
+        .ok_or_else(|| {
+            WriteError::semantic(
+                "write.owner_summary",
+                "a session.log that omits `session` needs a nonempty caller-written summary",
+            )
+            .at("summary")
+        })?;
+    let date = &timestamp[..10];
+    let rows = validate_index(working)?;
+    let mut open = Vec::new();
+    let mut candidates = Vec::new();
+    for id in rows.keys() {
+        let value = read_session(working, id)?;
+        if closed(&value["session"]) {
+            continue;
+        }
+        if &id[..10] == date {
+            candidates.push(id.clone());
+        }
+        open.push(id.clone());
+    }
+    let (session, selection) = match candidates.as_slice() {
+        [] => {
+            let created = plan(
+                working,
+                &WriteOperation::SessionStart {
+                    id: None,
+                    date: Some(date.to_owned()),
+                    started: Some(timestamp.to_owned()),
+                    summary: summary.to_owned(),
+                },
+            )?
+            .id
+            .ok_or_else(|| invalid("session", "session creation returned no ID"))?;
+            (created, OwnerSelection::Created)
+        }
+        [only] => (only.clone(), OwnerSelection::Selected),
+        many => {
+            return Err(WriteError::semantic(
+                "write.session_ambiguous",
+                format!(
+                    "{} open sessions are dated {date}: {}; name one with `session`",
+                    many.len(),
+                    many.join(", ")
+                ),
+            )
+            .at("session"));
+        }
+    };
+    open.retain(|id| id != &session);
+    Ok((session, selection, open))
+}
+
+/// Plan one `session.log`, resolving an omitted timestamp from the captured
+/// batch clock and an omitted session through [`select_or_create`].
+pub fn plan_log(
+    working: &mut WorkingArtifact,
+    operation: &WriteOperation,
+) -> Result<LoggedTurn, WriteError> {
+    let WriteOperation::SessionLog {
+        session,
+        timestamp,
+        summary,
+        events,
+        ai_actions,
+        claims_touched,
+        logic_revisions,
+        key_context,
+        open_threads,
+        ai_suggestions_pending,
+    } = operation
+    else {
+        return Err(invalid("op", "not a session.log operation"));
+    };
+    let timestamp = working.explicit_or_clock(timestamp.as_ref())?;
+    validate_timestamp(&timestamp)?;
+    let (session, selection, open_sessions) = match session {
+        Some(session) => (session.clone(), OwnerSelection::Explicit, Vec::new()),
+        None => select_or_create(working, &timestamp, summary.as_deref())?,
+    };
+    let session = &session;
+    validate_session_id(session)?;
+    let rows = validate_index(working)?;
+    let row = *rows
+        .get(session)
+        .ok_or_else(|| invalid("session", "session is absent from index"))?;
+    let before = read_session(working, session)?;
+    let metadata = &before["session"];
+    let session_date = string(metadata, "date")?;
+    if &timestamp[..10] != session_date {
+        return Err(invalid(
+            "timestamp",
+            format!(
+                "turn timestamp `{timestamp}` is dated {} but session {session} is dated {session_date}; \
+                 supply a timestamp on {session_date}, or omit `session` to select or create a session for {}",
+                &timestamp[..10],
+                &timestamp[..10]
+            ),
+        ));
+    }
+    if closed(metadata) {
+        return Err(invalid("session", "closed sessions are immutable"));
+    }
+    let last_turn = string(metadata, "last_turn")?;
+    if timestamp_key(&timestamp)? < timestamp_key(last_turn)? {
+        return Err(invalid(
+            "timestamp",
+            format!("turn timestamp `{timestamp}` precedes the previous turn `{last_turn}`"),
+        ));
+    }
+    let turn = count(metadata, "turn_count")?
+        .checked_add(1)
+        .ok_or_else(|| invalid("turn", "turn count overflow"))?;
+    if working.owned_turns.contains_key(&(session.clone(), turn)) {
+        return Err(invalid("turn", "duplicate batch turn ownership"));
+    }
+    let arrays = [
+        events,
+        ai_actions,
+        claims_touched,
+        logic_revisions,
+        key_context,
+    ];
+    let stamped: Vec<Vec<Value>> = ARRAYS
+        .iter()
+        .zip(arrays)
+        .map(|(key, values)| stamp(values, key, turn))
+        .collect::<Result<_, _>>()?;
+    let path = session_path(session);
+    for (key, values) in ARRAYS.iter().zip(stamped) {
+        if !values.is_empty() && before.get(*key).is_none() {
+            working.replace_yaml_field(&path, &[], key, &json!([]))?;
+        }
+        for value in values {
+            working.append_yaml(&path, &[PathPart::from(*key)], &value)?;
+        }
+    }
+    let selector = [PathPart::from("session")];
+    working.replace_yaml_field(&path, &selector, "last_turn", &json!(timestamp))?;
+    working.replace_yaml_field(&path, &selector, "turn_count", &json!(turn))?;
+    if let Some(summary) = summary {
+        working.replace_yaml_field(&path, &selector, "summary", &json!(summary))?;
+    }
+    if let Some(values) = open_threads {
+        working.replace_yaml_field(&path, &[], "open_threads", &json!(values))?;
+    }
+    if let Some(values) = ai_suggestions_pending {
+        working.replace_yaml_field(&path, &[], "ai_suggestions_pending", &json!(values))?;
+    }
+    let after = read_session(working, session)?;
+    super::records::append_archive(
+        working,
+        &format!("{session}#{turn}"),
+        session,
+        archive_state(&before),
+        archive_state(&after),
+    )?;
+    update_index(working, session, row)?;
+    working
+        .owned_turns
+        .insert((session.clone(), turn), timestamp.clone());
+    Ok(LoggedTurn {
+        session: session.clone(),
+        turn,
+        timestamp,
+        selection,
+        open_sessions,
+    })
 }
 
 /// Coupled revisions may attach only to turns allocated by this working batch.

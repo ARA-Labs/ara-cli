@@ -2,6 +2,7 @@
 //! Policy permissions implement the agent-interface proposal; upstream approval is separate.
 
 pub mod batch;
+pub mod clock;
 pub mod documents;
 pub mod fields;
 pub mod intent;
@@ -51,8 +52,11 @@ pub struct ReferenceEdit {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RevisionContext {
-    pub session: String,
-    pub turn: u64,
+    /// Omitted only with the batch's sole summarized `session.log` anchor.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub turn: Option<u64>,
     pub signal: String,
     pub provenance: String,
     #[serde(default)]
@@ -104,7 +108,9 @@ pub enum WriteOperation {
         #[serde(default)]
         context: Option<String>,
         provenance: String,
-        timestamp: String,
+        /// Omitted: the writer's captured `batch_time`.
+        #[serde(default)]
+        timestamp: Option<String>,
         #[serde(default)]
         bound_to: Vec<String>,
     },
@@ -134,14 +140,23 @@ pub enum WriteOperation {
     SessionStart {
         #[serde(default)]
         id: Option<String>,
-        date: String,
-        started: String,
+        /// Omitted: the calendar date written in `started`.
+        #[serde(default)]
+        date: Option<String>,
+        /// Omitted: the writer's captured `batch_time`.
+        #[serde(default)]
+        started: Option<String>,
         summary: String,
     },
     #[serde(rename = "session.log")]
     SessionLog {
-        session: String,
-        timestamp: String,
+        /// Omitted: select the one open session on the log's written date, or
+        /// create one with `summary` when none is open on that date.
+        #[serde(default)]
+        session: Option<String>,
+        /// Omitted: the writer's captured `batch_time`.
+        #[serde(default)]
+        timestamp: Option<String>,
         #[serde(default)]
         summary: Option<String>,
         #[serde(default)]
@@ -193,8 +208,12 @@ pub enum WriteOperation {
     LogicRevise {
         target: EntrySelector,
         set: Fields,
-        session: String,
-        turn: u64,
+        /// `session`/`turn` may be omitted only with the batch's sole
+        /// summarized `session.log` anchor, which must precede this line.
+        #[serde(default)]
+        session: Option<String>,
+        #[serde(default)]
+        turn: Option<u64>,
         signal: String,
         provenance: String,
         #[serde(default)]
@@ -274,6 +293,12 @@ pub struct OperationResult {
     pub target: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub turn: Option<u64>,
+    /// Owning session, reported when the writer resolved or derived it.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub session: Option<String>,
+    /// True when an omitted-`session` log created its session.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub session_created: bool,
     pub no_op: bool,
 }
 impl OperationResult {
@@ -296,6 +321,10 @@ pub struct WriteReport {
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub created_directories: Vec<String>,
     pub diagnostics: Vec<crate::report::Diagnostic>,
+    /// Other open sessions left untouched when the writer selected or created
+    /// the owner of an omitted-`session` log. Close them deliberately.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub open_sessions: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -359,19 +388,49 @@ pub fn execute_with_observer<T>(
     mode: ApplyMode,
     observer: impl FnOnce(&WorkingArtifact, &[OperationResult]) -> T,
 ) -> Result<(WriteReport, T), WriteError> {
-    let lock = if mode == ApplyMode::Commit {
-        Some(ArtifactLock::acquire(root)?)
+    execute_at(root, operations, mode, clock::system_utc, observer)
+}
+
+/// Acquire the cooperating-writer lock, recover any prepared transaction, and
+/// only then read `clock` once. Writers outside `apply` (merge audits) use
+/// this so their omitted timestamps come from the same locked boundary.
+pub fn lock_and_capture(
+    root: &Path,
+    clock: impl FnOnce() -> Result<String, WriteError>,
+) -> Result<(ArtifactLock, String), WriteError> {
+    let lock = ArtifactLock::acquire(root)?;
+    journal::recover(root)?;
+    let batch_time = clock()?;
+    clock::validate_batch_time(&batch_time)?;
+    Ok((lock, batch_time))
+}
+
+/// The guarded batch entry point with an injectable clock. Commit mode reads
+/// `clock` once after lock and recovery; a dry run reads one tentative value
+/// without creating a lock. Every omitted timestamp/date in the batch uses
+/// that single value.
+pub fn execute_at<T>(
+    root: &Path,
+    operations: &[WriteOperation],
+    mode: ApplyMode,
+    clock: impl FnOnce() -> Result<String, WriteError>,
+    observer: impl FnOnce(&WorkingArtifact, &[OperationResult]) -> T,
+) -> Result<(WriteReport, T), WriteError> {
+    let (lock, batch_time) = if mode == ApplyMode::Commit {
+        let (lock, batch_time) = lock_and_capture(root, clock)?;
+        (Some(lock), batch_time)
     } else {
-        None
+        if journal::pending_prepared(root)? {
+            return Err(WriteError::io(
+                "artifact has a prepared transaction; run a commit-mode writer to recover before dry-run planning",
+            ));
+        }
+        let batch_time = clock()?;
+        clock::validate_batch_time(&batch_time)?;
+        (None, batch_time)
     };
-    if lock.is_some() {
-        journal::recover(root)?;
-    } else if journal::pending_prepared(root)? {
-        return Err(WriteError::io(
-            "artifact has a prepared transaction; run a commit-mode writer to recover before dry-run planning",
-        ));
-    }
     let mut working = WorkingArtifact::new(ArtifactSnapshot::load(root)?);
+    working.batch_time = Some(batch_time);
     let (results, bindings) = batch::plan_batch(&mut working, operations)?;
     let diagnostics = if operations.is_empty() {
         Vec::new()
@@ -398,6 +457,11 @@ pub fn execute_with_observer<T>(
             changed_paths: working.changed_paths(),
             created_directories: working.created_dirs.iter().cloned().collect(),
             diagnostics,
+            open_sessions: working
+                .owner
+                .as_ref()
+                .map(|owner| owner.open_sessions.clone())
+                .unwrap_or_default(),
         },
         advisory,
     ))

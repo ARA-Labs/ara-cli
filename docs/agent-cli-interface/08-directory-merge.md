@@ -61,6 +61,17 @@ Flow-map child insertion uses quoted keys, retaining valid JSON when all existin
 and incoming fragments are JSON. Native SHA-256 uses RustCrypto's guarded CPU
 dispatch and software fallback; digest bytes and durable rechecks are unchanged.
 
+Plan 19 (step 19b): `merge resolve` and `merge repair` take their lock through
+`write::lock_and_capture`, which recovers before reading the clock once.
+`merge::AuditOwner` keeps `--session` explicit (never selected or created) and
+makes `--turn`, `--timestamp` and `--summary` optional. The audit allocates the
+session's next turn with `sessions::next_turn`; a supplied turn must equal it.
+An omitted timestamp is the locked clock value, no longer the session's
+`last_turn`, and the ledger `Resolution.time` records that effective
+timestamp. An omitted summary keeps the rolling summary. The planners return
+`merge::AuditedResolution` (candidate, session, turn), and reports add the
+resolved `session` and `turn`. Protected-history repair checks are unchanged.
+
 ## Boundaries and remaining gates
 
 The final frozen binary passes all five 10k process samples at 868.62–894.49 ms

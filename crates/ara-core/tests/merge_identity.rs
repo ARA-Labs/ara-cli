@@ -650,12 +650,18 @@ fn mutable_resolution_is_explicit_audited_and_stale_fingerprints_reject() {
         &current,
         &conflict.id,
         "ours",
-        "2026-09-30_001",
-        2,
-        "user-directive",
-        "user",
+        &ara_core::merge::AuditOwner {
+            session: "2026-09-30_001".into(),
+            turn: Some(2),
+            timestamp: None,
+            summary: None,
+            signal: "user-directive".into(),
+            provenance: "user".into(),
+        },
+        "2026-09-30T23:59:00Z",
     )
-    .unwrap();
+    .unwrap()
+    .working;
     let result = materialized(&resolved);
     assert_eq!(
         text(&result, "logic/claims.md"),
@@ -717,10 +723,15 @@ fn mutable_resolution_is_explicit_audited_and_stale_fingerprints_reject() {
             &stale,
             &conflict.id,
             "theirs",
-            "2026-09-30_001",
-            2,
-            "user-directive",
-            "user"
+            &ara_core::merge::AuditOwner {
+                session: "2026-09-30_001".into(),
+                turn: Some(2),
+                timestamp: None,
+                summary: None,
+                signal: "user-directive".into(),
+                provenance: "user".into(),
+            },
+            "2026-09-30T23:59:00Z",
         )
         .err()
         .unwrap()
@@ -1130,10 +1141,15 @@ fn acknowledging_read_only_external_conflict_is_audited_without_copying_its_body
             &current,
             &item.id,
             "theirs",
-            "2026-09-30_001",
-            2,
-            "user-directive",
-            "user"
+            &ara_core::merge::AuditOwner {
+                session: "2026-09-30_001".into(),
+                turn: Some(2),
+                timestamp: None,
+                summary: None,
+                signal: "user-directive".into(),
+                provenance: "user".into(),
+            },
+            "2026-09-30T23:59:00Z",
         )
         .err()
         .unwrap()
@@ -1144,12 +1160,18 @@ fn acknowledging_read_only_external_conflict_is_audited_without_copying_its_body
         &current,
         &item.id,
         "ours",
-        "2026-09-30_001",
-        2,
-        "user-directive",
-        "user",
+        &ara_core::merge::AuditOwner {
+            session: "2026-09-30_001".into(),
+            turn: Some(2),
+            timestamp: None,
+            summary: None,
+            signal: "user-directive".into(),
+            provenance: "user".into(),
+        },
+        "2026-09-30T23:59:00Z",
     )
-    .unwrap();
+    .unwrap()
+    .working;
     assert!(!acknowledged.exists("evidence/results.bin"));
     assert!(
         !acknowledged
