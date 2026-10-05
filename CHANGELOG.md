@@ -99,7 +99,8 @@ All notable changes to this project are documented here. The format follows
 - Native PaperBench rubric handling: `rubric/requirements.md` is no longer
   parsed, read, written or merged as native knowledge, and the public
   `EntryKind::Requirement` variant and `R` IDs are gone. `rubric/` joins
-  `evidence/` and `src/` as a direct-file, external read-only merge root;
+  `evidence/` and `src/` as a direct-file, external read-only merge root
+  (matched in any letter case);
   `invalid_document` errors name these roots. Old rubric history stays readable.
 
 ### Fixed

@@ -63,7 +63,7 @@ Without `--json`, `status`, `ls`, `show`, `path`, `refs`, `open` and `find`
 print address-led text ([`brief/`](../crates/ara-cli/src/brief)). Each item line
 starts with an address `show` accepts: a native ID (`C04`), a heading address
 or a document path. Data only the text needs is computed only without
-`--json`. `--fields` keeps its row meaning: with it, reads print the projected
+`--json` (or, for `show`, with a JSON bound; see below). `--fields` keeps its row meaning: with it, reads print the projected
 rows in the previous row text (tab-separated rows; `show` rows as JSON).
 Write commands keep their previous text.
 
@@ -99,7 +99,10 @@ printed. A value starting with `-` prints as `--heading=<value>`. The display ad
 final one. `--source --json` remains the exact-byte path. Entries without a
 native section (nodes, observations, sessions) print a labeled projection with
 no digest. The projection ends with the exact source read, such as
-`ara show --document trace/exploration_tree.yaml --source`.
+`ara show --document trace/exploration_tree.yaml --source`. A session
+projection omits the raw `body` (its whole YAML file, which the fields
+already show); JSON keeps it. Multi-line list items print as `- |` blocks,
+and a list whose items contain `,`, `[` or `]` prints one `- item` per line.
 
 `find` keeps BM25 order, tokenization and filters. Each result prints
 `<address> [<kind>] <source>`. Under it are the one-based source lines of the
@@ -223,11 +226,14 @@ alone keeps JSON entry projections. With either bound, source rows carry
 their full exact `content` (or the page's slice) even without `--full`, keep
 `digest` as the SHA-256 of the full selection, and gain a `display` object:
 `scope`, `selector` (`{document, heading}`, or null with `no_selector`),
-`cited` for a section that heads an entry, `lines` (`{start, end, total}`,
+`cited` (the address brief headers print: `path#ID` for a section that alone
+heads a loaded entry, otherwise the canonical heading address), `lines` (`{start, end, total}`,
 with `end = start - 1` when empty), `truncated` and `next` (the next
 `--lines` value, or null). JSON is never cut at a byte boundary: the
 envelope, diagnostics included, fits the budget or the read rejects.
 
+An empty brief result prints `no results` (`find`), `no entries` (`ls`) or
+`no open items` (`open`) on stdout; JSON keeps the empty array.
 Other brief commands are compact but not byte-bounded. Use `find --limit`,
 filters and `ls <path>` to narrow them.
 
@@ -513,7 +519,25 @@ measurement.
 
 Brief text migration: default output of the read commands is now brief text,
 so scripts that parsed the old tab-separated or pretty-JSON text must add
-`--json`. JSON is unchanged except for these additive fields. `find` results
+`--json`. Successful JSON fields keep their meanings; the additive fields
+are listed below. Some outcomes change:
+
+- New error codes: `ambiguous_heading`, `identity_lookup_failed`,
+  `invalid_address`, `line_out_of_range`, `lines_unavailable` and
+  `output_limit_too_small`.
+- Reads (`show`, `path`, `refs`, `ls --under`) no longer return internal
+  `merge.*` codes; `ara resolve` and `merge` keep them.
+- Reads of artifacts whose only errors are `ARA107`–`ARA109` now succeed and
+  carry those errors in `diagnostics`; `status`, `check` and `validate` still
+  report them.
+- `invalid_document` errors and `invalid_artifact`/`incomplete_artifact`
+  refusals gain `details` (hint, document lists, blocking codes,
+  unrepresented documents).
+- `rubric/` documents and `R` entries are no longer readable (see the rubric
+  migration below), and file-access roots compare ASCII case-insensitively,
+  so `Rubric/requirements.md` is refused too.
+
+Additive fields: `find` results
 gain `match_count` and, when a source line matches, `line` (the first hit) and
 `matches` (`[{line, text}]`, at most 20). With `--context N` they also gain
 `context` (`[{start, end, lines}]`). `ls <path>` is a new positional filter.

@@ -215,6 +215,49 @@ fn registered_rubric_path_does_not_bypass_the_native_boundary() {
 }
 
 #[test]
+fn file_access_roots_compare_ascii_case_insensitively() {
+    // On a case-insensitive filesystem `Rubric/` is the rubric directory.
+    for path in [
+        "Rubric/requirements.md",
+        "RUBRIC/notes.md",
+        "Evidence/x.md",
+        "SRC/a.md",
+    ] {
+        assert!(ara_core::file_access_path(path), "{path}");
+        let paper = format!("---\nknowledge_paths: [{path}]\n---\n");
+        assert!(ara_core::knowledge_paths(&paper).is_err(), "{path}");
+    }
+    for path in ["Rubric", "EVIDENCE", "Src"] {
+        assert!(ara_core::file_access_location(path), "{path}");
+    }
+    assert!(!ara_core::file_access_path("rubrics/notes.md"));
+    assert!(!ara_core::file_access_path("logic/rubric/notes.md"));
+
+    let dir = fixture(
+        "---\ntitle: Rubric fixture\nknowledge_paths: [Rubric/requirements.md]\n---\n# Rubric fixture\n",
+    );
+    for args in [
+        &["show", "--document", "Rubric/requirements.md", "--source"][..],
+        &["show", "--document", "Rubric/requirements.md"],
+        &["show", "--document", "RUBRIC"],
+    ] {
+        assert_file_access_hint(&failure(dir.path(), args));
+    }
+    let before = artifact_bytes(dir.path());
+    let error = apply_failure(
+        dir.path(),
+        &[
+            json!({"op":"document.replace","document":"Rubric/requirements.md","expected":"sha256:00","content":"# Replaced\n"}),
+        ],
+    );
+    assert!(
+        error["code"].as_str().unwrap().starts_with("write."),
+        "{error}"
+    );
+    assert_eq!(artifact_bytes(dir.path()), before);
+}
+
+#[test]
 fn removed_native_rubric_writes_reject_without_changing_bytes() {
     let empty = plain();
     fs::remove_dir_all(empty.path().join("rubric")).unwrap();

@@ -39,8 +39,20 @@ fn title(row: &Value) -> String {
 fn rows<'a>(value: &'a Value, key: &str) -> impl Iterator<Item = &'a Value> {
     value[key].as_array().into_iter().flatten()
 }
+/// Print `note` when `value[key]` is empty, so an empty result is visible.
+/// Returns whether it was empty.
+fn none(value: &Value, key: &str, note: &str, out: &mut impl Write) -> Result<bool> {
+    let empty = rows(value, key).next().is_none();
+    if empty {
+        writeln!(out, "{note}")?;
+    }
+    Ok(empty)
+}
 
 pub fn find(value: &Value, out: &mut impl Write) -> Result<()> {
+    if none(value, "results", "no results", out)? {
+        return Ok(());
+    }
     for result in rows(value, "results") {
         writeln!(
             out,
@@ -118,6 +130,9 @@ pub fn ls(value: &Value, out: &mut impl Write) -> Result<()> {
         )?;
         return Ok(());
     }
+    if none(value, "entries", "no entries", out)? {
+        return Ok(());
+    }
     for row in rows(value, "entries") {
         writeln!(
             out,
@@ -131,6 +146,9 @@ pub fn ls(value: &Value, out: &mut impl Write) -> Result<()> {
 }
 
 pub fn open(value: &Value, out: &mut impl Write) -> Result<()> {
+    if none(value, "items", "no open items", out)? {
+        return Ok(());
+    }
     for row in rows(value, "items") {
         let reasons: Vec<&str> = rows(row, "reasons").map(text).collect();
         writeln!(

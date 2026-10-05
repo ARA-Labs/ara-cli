@@ -257,11 +257,14 @@ impl Artifact {
         let recipe_key = key
             .strip_prefix("logic/solution/")
             .and_then(|path| path.strip_suffix(".md"));
+        // As in `entries`, the heuristics file is a document, not a recipe.
         let has_recipe = recipe_key.is_some_and(|name| {
-            self.manifest
-                .recipes
-                .iter()
-                .any(|recipe| recipe.name == name)
+            name != "heuristics"
+                && self
+                    .manifest
+                    .recipes
+                    .iter()
+                    .any(|recipe| recipe.name == name)
         });
         let mut matching = self.entries().into_iter().filter(|entry|scope.is_none_or(|path|entry.source_matches(path))&&(entry.key()==key||matches!(entry,Entry::Recipe(recipe) if recipe_key==Some(recipe.name.as_str())))&&!(has_recipe&&matches!(entry,Entry::Document{..})));
         Ok(match (matching.next(), matching.next()) {

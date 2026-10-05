@@ -159,7 +159,17 @@ fn projection(row: &Value) -> Block {
     let kind = row["kind"].as_str().unwrap_or("");
     let source = row["source"].as_str().unwrap_or("");
     let mut lines = Vec::new();
-    fields(row, 0, &mut lines);
+    if kind == "session" {
+        // A session's `body` is its whole YAML file, which the structured
+        // fields already show; the exact-source hint names the file.
+        let mut row = row.clone();
+        if let Some(object) = row.as_object_mut() {
+            object.remove("body");
+        }
+        fields(&row, 0, &mut lines);
+    } else {
+        fields(row, 0, &mut lines);
+    }
     let mut body = lines.join("\n");
     if !body.is_empty() {
         body.push('\n');
@@ -194,7 +204,7 @@ fn fields(value: &Value, depth: usize, lines: &mut Vec<String>) {
                 }
             }
             _ if empty(value) => {}
-            Value::Array(items) if items.iter().all(scalar) => {
+            Value::Array(items) if items.iter().all(inline) => {
                 let items: Vec<String> = items.iter().map(plain).collect();
                 lines.push(format!("{indent}{key}: [{}]", items.join(", ")));
             }
@@ -203,6 +213,11 @@ fn fields(value: &Value, depth: usize, lines: &mut Vec<String>) {
                 for item in items.iter().filter(|item| !empty(item)) {
                     if scalar(item) {
                         lines.push(format!("{indent}  - {}", plain(item)));
+                    } else if let Some(text) = item.as_str() {
+                        lines.push(format!("{indent}  - |"));
+                        for line in text.lines() {
+                            lines.push(format!("{indent}    {line}"));
+                        }
                     } else {
                         lines.push(format!("{indent}  -"));
                         fields(item, depth + 2, lines);
@@ -229,6 +244,10 @@ fn empty(value: &Value) -> bool {
 fn scalar(value: &Value) -> bool {
     !value.is_array() && !value.is_object() && !value.as_str().is_some_and(|s| s.contains('\n'))
 }
+/// A scalar that reads unambiguously inside `[a, b]`.
+fn inline(value: &Value) -> bool {
+    scalar(value) && !plain(value).contains([',', '[', ']'])
+}
 fn plain(value: &Value) -> String {
     value
         .as_str()
@@ -239,6 +258,32 @@ fn plain(value: &Value) -> String {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    fn rendered(value: Value) -> Vec<String> {
+        let mut lines = Vec::new();
+        fields(&value, 0, &mut lines);
+        lines
+    }
+
+    #[test]
+    fn list_items_keep_multiline_text_and_ambiguous_scalars_become_lists() {
+        assert_eq!(
+            rendered(json!({"evidence": ["first line\nsecond line", "one"]})),
+            [
+                "evidence:",
+                "  - |",
+                "    first line",
+                "    second line",
+                "  - one"
+            ]
+        );
+        assert_eq!(rendered(json!({"tags": ["a", "b"]})), ["tags: [a, b]"]);
+        assert_eq!(
+            rendered(json!({"tags": ["a, b", "c"]})),
+            ["tags:", "  - a, b", "  - c"]
+        );
+        assert_eq!(rendered(json!({"tags": ["[x]"]})), ["tags:", "  - [x]"]);
+    }
 
     #[test]
     fn source_blocks_keep_exact_bodies_and_projections_have_no_digest() {

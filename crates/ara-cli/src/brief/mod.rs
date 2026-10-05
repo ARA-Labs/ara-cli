@@ -3,9 +3,10 @@
 //! Each read command builds its `ara.<command>/v1` value; without `--json`
 //! this module renders that value as address-led text. Data that only the
 //! text needs (a native section for `show C04`, write selectors, document
-//! summaries, status rule codes) is computed only in brief mode and lives in
-//! `display` objects that JSON output never carries. Diagnostics print once
-//! per command on stderr as counts and codes.
+//! summaries, status rule codes) is computed only in brief mode, or for
+//! `show` when `--lines`/`--max-bytes` bound a JSON read, and lives in
+//! `display` objects. Unbounded JSON reads never carry them. Diagnostics
+//! print once per command on stderr as counts and codes.
 mod lists;
 mod show;
 

@@ -129,11 +129,13 @@ impl Artifact {
             Miss::Ambiguous => candidates::ambiguous(id, ranked),
         }
     }
+    /// A solution document read as its recipe entry. `heuristics.md` is not
+    /// one: its H entries replace the recipe ([`super::entries`]), so the
+    /// file reads as a document.
     fn is_recipe_document(&self, path: &str) -> bool {
-        self.manifest
-            .recipes
-            .iter()
-            .any(|recipe| format!("logic/solution/{}.md", recipe.name) == path)
+        self.manifest.recipes.iter().any(|recipe| {
+            recipe.name != "heuristics" && format!("logic/solution/{}.md", recipe.name) == path
+        })
     }
 }
 

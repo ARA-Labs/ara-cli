@@ -1,7 +1,8 @@
-//! Data that only brief text needs, computed only when `--json` is absent:
-//! the write selector a source digest guards, the native section of a
-//! heading-backed entry and per-document summaries. JSON output never
-//! carries them. Also the heading rows `ls <path>` lists in both modes.
+//! Display data computed only for brief text, or for a bounded JSON `show`
+//! (`--lines`/`--max-bytes`): the write selector a source digest guards, the
+//! native section of a heading-backed entry and per-document summaries.
+//! Unbounded JSON reads never carry it. Also the heading rows `ls <path>`
+//! lists in both modes.
 use super::address;
 use super::headings::{Sections, source_row};
 use super::hits::LineIndex;

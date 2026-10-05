@@ -423,17 +423,24 @@ fn session_sequence(id: &str) -> u64 {
 /// external read-only bytes.
 pub const FILE_ACCESS_ROOTS: [&str; 3] = ["rubric/", "evidence/", "src/"];
 
-/// Whether `path` lies under one of [`FILE_ACCESS_ROOTS`].
+/// Whether `path` lies under one of [`FILE_ACCESS_ROOTS`]. Roots compare
+/// ASCII case-insensitively: on a case-insensitive filesystem `Rubric/` is
+/// the same directory as `rubric/`.
 pub fn file_access_path(path: &str) -> bool {
-    FILE_ACCESS_ROOTS.iter().any(|root| path.starts_with(root))
+    FILE_ACCESS_ROOTS.iter().any(|root| {
+        path.get(..root.len())
+            .is_some_and(|prefix| prefix.eq_ignore_ascii_case(root))
+    })
 }
 
-/// Whether `path` is a bare file-access root (`rubric`) or lies under one.
+/// Whether `path` is a bare file-access root (`rubric`, any ASCII case) or
+/// lies under one.
 pub fn file_access_location(path: &str) -> bool {
     file_access_path(path)
         || FILE_ACCESS_ROOTS
             .iter()
-            .any(|root| root.strip_suffix('/') == Some(path))
+            .filter_map(|root| root.strip_suffix('/'))
+            .any(|root| root.eq_ignore_ascii_case(path))
 }
 
 /// Proposed explicit knowledge-document registry in PAPER frontmatter. This

@@ -20,7 +20,7 @@ recorded. Historical reproduction and human protocol approval remain distinct ga
 | [18](18-failed-blocked-calls.md) | Approved 2026-10-04; CLI changes B1–B10 and skills S1–S5 implemented in 0.1.24; external H1/H2/C1, viewer embed rebuild and pilot evidence pending |
 | [19](19-deterministic-bookkeeping.md) | Approved 2026-10-04: derive bookkeeping with explicit turn ownership and protected history; implementation and verification pending |
 
-Plans 18 and 19 are approved design revisions, not completed features. Plan 18 supersedes the parent plan's default-JSON agent workflow with brief text while retaining programmatic JSON access. Plan 19 moves deterministic recording work into the CLI without delegating research judgment to it. The shipped behavior remains documented in [the command reference](../../docs/agent-cli.md) until implementation lands.
+Plan 18's CLI and skill changes are implemented; its external changes and pilot evidence are not, so it stays a plan. Plan 18 supersedes the parent plan's default-JSON agent workflow with brief text while retaining programmatic JSON access, and [the command reference](../../docs/agent-cli.md) documents the shipped behavior. Plan 19 is an approved design revision, not a completed feature; it moves deterministic recording work into the CLI without delegating research judgment to it.
 
 Their functional sub-PRs target `feat/agent-cli-interface` and are squash-merged there under the [parent rollout policy](../agent-cli-interface.md#order-of-work). Harness and corpus changes stay in their owning repositories. These approvals do not alter frozen experiment conditions, approve upstream protocol changes, authorize a paid run, or create a commit or PR.
 
