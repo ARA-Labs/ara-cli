@@ -28,7 +28,10 @@ words read, open, search, write, append and edit retain their original procedura
 but never authorize direct knowledge-file tools. For complete source use
 `show --document <native-path> --source --full --json` (exact content and SHA-256 digest);
 `ls`, `find`, `path`, `refs`, `open` and `status` are access aids, not semantic judgments.
-Source/evidence bodies and skill pages remain direct only within the baseline scope.
+Native `ara` documents are `PAPER.md`, `logic/`, `trace/`, `staging/` and paths registered
+in `PAPER.md` `knowledge_paths`. `rubric/`, `evidence/` and `src/` are not: when the procedure
+or question directs you to them, read and search them directly with Read/Grep/Glob
+(`ara show --document rubric/...` returns `invalid_document`). Skill pages remain direct.
 No direct fallback, automatic semantic retry, new role, or altered stopping rule is allowed.
 The entrypoint loads `references/cli-access.md` directly for executable wire details.
 Pending protocol review and binary proof remain visible in the variant lock.

@@ -30,6 +30,7 @@ but never authorize direct knowledge-file tools. For complete source use
 `show --document <native-path> --source --full --json` (exact content and SHA-256 digest);
 `ls`, `find`, `path`, `refs`, `open` and `status` are access aids, not semantic judgments.
 Source/evidence bodies and skill pages remain direct only within the baseline scope.
+`rubric/`, `evidence/` and `src/` are files, not `ara` documents.
 No direct fallback, automatic semantic retry, new role, or altered stopping rule is allowed.
 The entrypoint loads `references/cli-access.md` directly for executable wire details.
 Pending protocol review and binary proof remain visible in the variant lock.
@@ -202,8 +203,9 @@ A concrete artifact is real content the cognitive layer doesn't already hold —
 in the real repo/files when provided), in whatever directory fits. But a method conveyed only in
 natural language already lives in `logic/solution/`; manufacturing a stub or pseudo-code from it just
 duplicates it. Capture what exists, no more, no less — so a lone `environment.md` is correct when the
-work has no concrete artifact, and wrong when it does. (If a rubric was provided, also produce
-`rubric/requirements.md`.)
+work has no concrete artifact, and wrong when it does. (If a rubric was provided, also write
+`rubric/requirements.md` as a plain file with your Write tool, in the rubric format of
+`references/ara-schema.md`; `ara` neither writes nor reads it.)
 
 **Code grounding.** When you include `src/execution/*.py`, tag it `# Grounding: transcribed` (repo
 code, cite `file:line`) or `reconstructed` (printed pseudocode/equations, cite §/eq). Never invent

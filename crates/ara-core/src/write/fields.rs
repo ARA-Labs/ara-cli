@@ -12,7 +12,6 @@ pub enum EntryKind {
     Experiment,
     Problem,
     Solution,
-    Requirement,
 }
 
 pub fn kind(document: &str) -> Result<EntryKind, WriteError> {
@@ -23,7 +22,6 @@ pub fn kind(document: &str) -> Result<EntryKind, WriteError> {
         "logic/related_work.md" => Ok(EntryKind::RelatedWork),
         "logic/experiments.md" => Ok(EntryKind::Experiment),
         "logic/problem.md" => Ok(EntryKind::Problem),
-        "rubric/requirements.md" => Ok(EntryKind::Requirement),
         p if super::documents::allowed(p) => Ok(EntryKind::Solution),
         _ => Err(WriteError::semantic(
             "write.document",
@@ -154,15 +152,6 @@ fn registry(kind: EntryKind) -> &'static [&'static str] {
             "Appears in",
             "Dependencies",
             "Tags",
-            "Last revised",
-        ],
-        EntryKind::Requirement => &[
-            "Rubric ID",
-            "Category",
-            "Weight",
-            "Requirement",
-            "ARA coverage",
-            "Key detail",
             "Last revised",
         ],
     }

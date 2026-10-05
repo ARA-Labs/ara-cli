@@ -836,12 +836,10 @@ pub(crate) fn selector_address(
                 "logic/claims.md"
             } else if fields::typed_id(id, "H") {
                 "logic/solution/heuristics.md"
-            } else if fields::typed_id(id, "R") {
-                "rubric/requirements.md"
             } else {
                 return Err(MergeError::content(
                     "merge.selector_namespace",
-                    "Bare mutable ID selectors require C/H/R; E and RW use explicit document selectors",
+                    "Bare mutable ID selectors require C/H; E and RW use explicit document selectors",
                 ));
             };
             match view.docs.get(path) {
@@ -857,8 +855,8 @@ pub(crate) fn selector_address(
             crate::write::source::safe_relative(path)
                 .map_err(|error| MergeError::from(error).at(path))?;
             if !path.ends_with(".md")
-                || ["src", "evidence", "trace", "staging"]
-                    .contains(&path.split('/').next().unwrap_or(""))
+                || crate::file_access_path(path)
+                || ["trace", "staging"].contains(&path.split('/').next().unwrap_or(""))
                 || (heading.is_empty() && entry.is_none())
                 || (!heading.is_empty() && entry.is_some())
             {
@@ -927,8 +925,7 @@ pub(crate) fn selector_for_address(
     }
     let heading = entry.literal_path.last().expect("nonempty literal path");
     let id = heading.split([':', ' ', '\t']).next().unwrap_or(heading);
-    let bare = matches!(entry.numeric, Some('C' | 'H'))
-        || (identity.path == "rubric/requirements.md" && fields::typed_id(id, "R"));
+    let bare = matches!(entry.numeric, Some('C' | 'H'));
     if bare && document.by_entry.get(id) == Some(&Some(*position)) {
         return Ok(Some(EntrySelector::Id { id: id.into() }));
     }
@@ -1759,9 +1756,8 @@ pub(crate) fn validate_references(
                     if local {
                         let direct = resolves(token, identities, redirects);
                         let qualified = parts.is_some_and(|(doc, entry)| {
-                            let external_location = (doc.starts_with("src/")
-                                || doc.starts_with("evidence/"))
-                                && !entry.is_empty();
+                            let external_location =
+                                crate::file_access_path(doc) && !entry.is_empty();
                             resolves(doc, identities, redirects)
                                 && (external_location
                                     || resolves(entry, identities, redirects)

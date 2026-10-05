@@ -48,7 +48,7 @@ evidence/                           # derived + observed: diffs, run records, re
   results/                          # as warranted: per-node run records (run tables: run_id, params, metrics, export_id)
   logs/                             # as warranted: log_pointers.md — direct per-run log pointers (by export_id)
   proofs/                           # as warranted: derivations / proofs
-rubric/requirements.md              # (Only if a rubric is provided)
+rubric/requirements.md              # (Only if a rubric is provided) plain file, written directly
 ```
 
 Every numbered table and figure in the source gets BOTH a markdown file and a screenshot `.png`
@@ -631,13 +631,16 @@ per-entry descriptive fields for taxonomies rather than collapsing to names + fr
 The existing layer conventions above apply; create additional files only when no existing
 file is a natural home. Knowledge creation uses ara document operations. An additional
 knowledge path outside logic must first be explicitly registered as a safe relative `.md`
-path in PAPER frontmatter `knowledge_paths` through `paper.edit`/initialization;
-`rubric/requirements.md` is the fixed allowlisted case. This does not authorize direct
-knowledge writes or limit source-supported content/granularity.
+path in PAPER frontmatter `knowledge_paths` through `paper.edit`/initialization. This does
+not authorize direct knowledge writes or limit source-supported content/granularity.
 
 ---
 
 ## rubric/requirements.md (Only if rubric provided)
+
+Write this file directly with your file-writing tool. It is grading material, not ARA
+knowledge: `ara` does not create, read, search or merge-import it, and it cannot be registered
+in `knowledge_paths`. Keep the conversion verbatim.
 
 ```markdown
 # Rubric Requirements — {paper_id}

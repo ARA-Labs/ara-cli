@@ -46,6 +46,17 @@ unresolved merge, and exit 2 means setup, argument, I/O or lock failure.
 Default excerpts are bounded to 160 Unicode characters; `--full` retains source
 content. Incomplete source representation must not be reported as success.
 
+Native documents are `PAPER.md`, `logic/**/*.md`, `trace/**/*.yaml`,
+`staging/observations.yaml` and paths registered in `PAPER.md` `knowledge_paths`.
+`rubric/`, `evidence/` and `src/` are file-access roots: agents read and search
+them with their own file tools. `show --document` on one of them, on a bare
+root such as `rubric`, or on any path outside the native set, fails with
+`invalid_document` and a `details` object:
+`hint` (plain text), `native_documents`, `registered_documents` and
+`file_access` (`["rubric/", "evidence/", "src/"]`). The check runs on the path
+alone, so a registry entry cannot serve a file-access path. `find` and `ls` do
+not index these roots, and rubric headings such as `R84` are not entry IDs.
+
 Native nodes, claims, heuristics, observations, sessions, experiment plans,
 concepts and typed documents keep their own namespaces. A concept named `C05`
 is a concept name, not an instruction to relocate claim C05. Repeated `--heading`
@@ -102,6 +113,9 @@ withdrawal/merge states or renamed canonically; physical claim deletion is not
 allowed. Compiler heuristics retain singular scalar `Source` and complete Bounds
 prose without inventing PM fields. Extra knowledge documents are bounded by
 native registration/allowlists; arbitrary filesystem writing is not an operation.
+`knowledge_paths` rejects `rubric/`, `evidence/` and `src/` entries, and no
+operation creates, edits, renames or removes a `rubric/` document or `R` entry.
+A compiler writes `rubric/requirements.md` as a plain file.
 
 Trace and staging content is immutable except for declared pointer/metadata
 transitions. Terminal nodes cannot acquire children. `same_as` points from a
@@ -163,6 +177,13 @@ references to descendants use the complete persisted token mapping. Closed
 session histories compare in destination identity/occurrence space during replay;
 actual frozen history edits still reject before mutation.
 
+Files under `rubric/`, `evidence/` and `src/` merge as external read-only bytes.
+Identical or unchanged incoming bytes need no decision. An incoming addition,
+change or deletion that differs from the destination becomes an
+`external_read_only` conflict: ours stays in place and `ours` is the only
+allowed resolution, so acknowledging it never copies incoming bytes. These files
+get one file-level identity (`layer: "external"`) and no entry identities.
+
 Mutable conflicts preserve exact base/ours/theirs candidates, keep ours and
 commit safe imports with portable unresolved records; exit 1 exposes unfinished
 work. Protected violations block mutation and carry complete conflict evidence.
@@ -213,6 +234,22 @@ have changed, so source compatibility is distinct from JSON compatibility.
 Rust literals must supply its `extra` map. Its richer value domain does not
 implement `Eq`. Legacy dotted bold-field labels still resolve without changing
 their original Markdown spelling or bytes.
+
+Rubric migration: `rubric/requirements.md` is no longer a native document. The
+public `EntryKind::Requirement` variant, native `R` IDs and rubric write and
+merge-entry handling are removed. Existing rubric records (session
+`logic_revisions`, `trace/logic_mutations.yaml` renames and removals, and
+`trace/aliases.yaml` imports of rubric entries, local or incoming) stay
+byte-exact and readable as history. They no longer resolve or redirect, so
+`show R04` fails like any unknown ID, and no replacement identity is invented.
+A retained private journal that names a `rubric/` target still recovers: a
+committed one is only verified and retired, and a prepared one rolls back to
+its authenticated preimage bytes. New transactions cannot target `rubric/`.
+Before this change, an artifact holding such a rename record failed
+`show <id>` and `merge` with `merge.redirect_data`. A `PAPER.md` that registers
+a `rubric/` path now has an invalid registry, as one that registers `evidence/`
+already did.
+
 Workspace version is 0.1.23 for this integration. The minor/major release
 decision remains pending; no tag or release is implied by engineering checks.
 

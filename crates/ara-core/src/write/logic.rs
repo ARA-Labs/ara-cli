@@ -30,7 +30,6 @@ fn native_document_prefix(document: &str) -> Option<&'static str> {
         "logic/solution/heuristics.md" => Some("H"),
         "logic/experiments.md" => Some("E"),
         "logic/related_work.md" => Some("RW"),
-        "rubric/requirements.md" => Some("R"),
         _ => None,
     }
 }
@@ -48,11 +47,10 @@ pub fn resolve(working: &WorkingArtifact, selector: &EntrySelector) -> Result<En
             let document = match id.as_str() {
                 _ if fields::typed_id(id, "C") => "logic/claims.md",
                 _ if fields::typed_id(id, "H") => "logic/solution/heuristics.md",
-                _ if fields::typed_id(id, "R") => "rubric/requirements.md",
                 _ => {
                     return Err(WriteError::semantic(
                         "write.namespace",
-                        "Native ID selectors require claims, heuristics or rubric IDs; named entries need document-qualified heading paths",
+                        "Native ID selectors require claim or heuristic IDs; named entries need document-qualified heading paths",
                     ));
                 }
             };
@@ -1266,7 +1264,7 @@ fn annotate(
         ));
     }
     for reference in references {
-        let typed = ["C", "H", "N", "O", "T", "E", "RW", "R"]
+        let typed = ["C", "H", "N", "O", "T", "E", "RW"]
             .iter()
             .any(|prefix| fields::typed_id(reference, prefix));
         let document = reference.split(['#', ':']).next().unwrap_or(reference);
@@ -2379,7 +2377,6 @@ fn native_id_document(id: &str) -> Option<&'static str> {
         ("H", "logic/solution/heuristics.md"),
         ("E", "logic/experiments.md"),
         ("RW", "logic/related_work.md"),
-        ("R", "rubric/requirements.md"),
     ]
     .into_iter()
     .find_map(|(prefix, document)| fields::typed_id(id, prefix).then_some(document))

@@ -418,9 +418,27 @@ fn session_sequence(id: &str) -> u64 {
         .unwrap_or(0)
 }
 
+/// Roots an agent reads and searches with ordinary file tools. Native reads,
+/// writes and merge entries never cover them; merge treats their files as
+/// external read-only bytes.
+pub const FILE_ACCESS_ROOTS: [&str; 3] = ["rubric/", "evidence/", "src/"];
+
+/// Whether `path` lies under one of [`FILE_ACCESS_ROOTS`].
+pub fn file_access_path(path: &str) -> bool {
+    FILE_ACCESS_ROOTS.iter().any(|root| path.starts_with(root))
+}
+
+/// Whether `path` is a bare file-access root (`rubric`) or lies under one.
+pub fn file_access_location(path: &str) -> bool {
+    file_access_path(path)
+        || FILE_ACCESS_ROOTS
+            .iter()
+            .any(|root| root.strip_suffix('/') == Some(path))
+}
+
 /// Proposed explicit knowledge-document registry in PAPER frontmatter. This
 /// validates identity, not filesystem existence; native loading separately
-/// rejects symlink components. The fixed rubric document needs no registration.
+/// rejects symlink components. File-access roots cannot be registered.
 pub fn knowledge_paths(paper: &str) -> Result<Vec<String>, String> {
     let Some(yaml) = crate::paper::extract_frontmatter(paper) else {
         if paper
@@ -460,10 +478,8 @@ pub fn knowledge_paths(paper: &str) -> Result<Vec<String>, String> {
             || path
                 .split('/')
                 .any(|part| part.is_empty() || part == "." || part == "..")
-            || matches!(
-                first,
-                "src" | "evidence" | ".git" | ".ara" | "trace" | "staging"
-            )
+            || file_access_location(&path)
+            || matches!(first, ".git" | ".ara" | "trace" | "staging")
         {
             return Err(format!("unsafe registered knowledge path `{path}`"));
         }

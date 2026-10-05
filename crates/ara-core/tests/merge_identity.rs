@@ -566,7 +566,6 @@ fn generated_full_layer_histories_preserve_directional_union_and_all_import_addr
                 "incoming method",
             ),
             ("PAPER.md", "base overview", "incoming overview"),
-            ("rubric/requirements.md", "base rubric", "incoming rubric"),
             ("appendix/details.md", "base appendix", "incoming appendix"),
         ] {
             put(&mut theirs, path, text(&base, path).replace(old, new));
@@ -610,12 +609,15 @@ fn generated_full_layer_histories_preserve_directional_union_and_all_import_addr
             "logic/problem.md",
             "logic/solution/algorithm.md",
             "PAPER.md",
-            "rubric/requirements.md",
             "appendix/details.md",
         ] {
             assert_eq!(text(&result, path), text(&theirs, path));
             assert_eq!(resolve(&result, &format!("bob:{path}")).unwrap(), path);
         }
+        assert_eq!(
+            text(&result, "rubric/requirements.md"),
+            text(&base, "rubric/requirements.md")
+        );
         let replay = plan_merge(&base, &result, &theirs, &options()).unwrap();
         assert_eq!(replay.report.exit_code(), 0);
         assert!(replay.working.changed_paths().is_empty());

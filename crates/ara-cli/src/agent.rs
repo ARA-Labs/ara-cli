@@ -5,7 +5,9 @@ use ara_core::{Manifest, NodeFields, NodeKind, parse_dir_detailed};
 use serde_json::{Value, json};
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
+mod boundary;
 mod references;
+use boundary::{invalid_document, knowledge_document};
 
 #[derive(Debug, Default, Clone, clap::Args)]
 pub struct ReadOptions {
@@ -107,7 +109,7 @@ impl Artifact {
         result
     }
     fn is_knowledge(&self, path: &str) -> bool {
-        knowledge_document(path) || !matches!(path.split('/').next(), Some("evidence" | "src"))
+        knowledge_document(path) || !ara_core::file_access_path(path)
     }
     pub fn searchable_documents(&self) -> Vec<(&str, &str)> {
         self.sources
@@ -523,6 +525,15 @@ pub fn list(root: &Path, args: &ListArgs) -> Result<Value, AgentError> {
     Ok(json!({"format":"ara.ls/v1","entries":rows,"diagnostics":diagnostics(&artifact.report)}))
 }
 pub fn show(root: &Path, args: &ShowArgs) -> Result<Value, AgentError> {
+    // File-access roots are rejected by path alone, before any registry or
+    // artifact load can fail or serve them.
+    if args
+        .document
+        .as_deref()
+        .is_some_and(ara_core::file_access_location)
+    {
+        return Err(invalid_document());
+    }
     if args.source {
         let document = args.document.as_deref().ok_or_else(|| {
             AgentError::semantic("invalid_selector", "--source requires --document")
@@ -975,22 +986,12 @@ pub fn validate_date(date: &str) -> Result<(), AgentError> {
         ))
     }
 }
-pub fn knowledge_document(path: &str) -> bool {
-    path == "PAPER.md"
-        || path == "rubric/requirements.md"
-        || path.starts_with("logic/") && path.ends_with(".md")
-        || path.starts_with("trace/") && path.ends_with(".yaml")
-        || path == "staging/observations.yaml"
-}
 fn valid_document_path(document: &str) -> bool {
     !document.contains('\\')&&Path::new(document).components().all(|component|matches!(component,std::path::Component::Normal(name) if name!=".git"&&name!=".ara"))
 }
 fn show_source(root: &Path, document: &str, headings: &[String]) -> Result<Value, AgentError> {
     if !valid_document_path(document) {
-        return Err(AgentError::semantic(
-            "invalid_document",
-            "Document outside the knowledge boundary",
-        ));
+        return Err(invalid_document());
     }
     if !knowledge_document(document) {
         let paper_path = ara_core::write::transaction::checked_destination(root, "PAPER.md")
@@ -1002,10 +1003,7 @@ fn show_source(root: &Path, document: &str, headings: &[String]) -> Result<Value
             .iter()
             .any(|path| path == document)
         {
-            return Err(AgentError::semantic(
-                "invalid_document",
-                "Document outside the knowledge boundary",
-            ));
+            return Err(invalid_document());
         }
     }
     let path = ara_core::write::transaction::checked_destination(root, document)
@@ -1026,10 +1024,7 @@ fn show_document(
     full: bool,
 ) -> Result<Value, AgentError> {
     if !valid_document_path(document) || !artifact.is_knowledge(document) {
-        return Err(AgentError::semantic(
-            "invalid_document",
-            "Document outside the knowledge boundary",
-        ));
+        return Err(invalid_document());
     }
     let direct = artifact
         .sources

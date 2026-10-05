@@ -131,7 +131,7 @@ pub fn commit_with_hooks<O: TransactionObserver, H: TransactionHooks>(
         checked_destination(&working.base.root, path)?;
         if !matches!(
             path.as_str(),
-            "PAPER.md" | ".gitignore" | "evidence/README.md" | "rubric/requirements.md"
+            "PAPER.md" | ".gitignore" | "evidence/README.md"
         ) && !path.starts_with("logic/")
             && !path.starts_with("trace/")
             && !path.starts_with("staging/")

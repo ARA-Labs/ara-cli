@@ -49,7 +49,6 @@ const CANONICAL_SOURCES: &[&str] = &[
     "trace/logic_mutations.yaml",
     "trace/aliases.yaml",
     "trace/merge_log.yaml",
-    "rubric/requirements.md",
 ];
 
 #[derive(Debug, Clone)]
@@ -157,7 +156,7 @@ impl ArtifactSnapshot {
         for path in CANONICAL_SOURCES {
             result.capture(path)?;
         }
-        for directory in ["logic", "trace", "staging", "rubric"] {
+        for directory in ["logic", "trace", "staging"] {
             result.walk(directory)?;
         }
         if let Some(paper) = result.files.get("PAPER.md").filter(|f| f.existed) {
@@ -538,7 +537,6 @@ impl WorkingArtifact {
                         ('C', "logic/claims.md")
                             | ('H', "logic/solution/heuristics.md")
                             | ('E', "logic/experiments.md")
-                            | ('R', "rubric/requirements.md")
                     )
                 {
                     reserve_numeric(prefix, identity, &mut reserved)?;
@@ -1297,20 +1295,17 @@ pub fn allowed_document(path: &str) -> bool {
                 | "logic/concepts.md"
                 | "logic/experiments.md"
                 | "logic/related_work.md"
-                | "rubric/requirements.md"
         ) || (path.starts_with("logic/solution/") && path.ends_with(".md")))
 }
 pub fn allowed_write_path(path: &str) -> bool {
     safe_relative(path).is_ok()
-        && (matches!(
-            path,
-            "PAPER.md" | ".gitignore" | "evidence/README.md" | "rubric/requirements.md"
-        ) || path.starts_with("logic/")
+        && (matches!(path, "PAPER.md" | ".gitignore" | "evidence/README.md")
+            || path.starts_with("logic/")
             || path.starts_with("trace/")
             || path.starts_with("staging/")
             || (path.ends_with(".md")
                 && !path.split('/').any(|component| component.starts_with('.'))
-                && !matches!(path.split('/').next(), Some("src" | "evidence"))))
+                && !crate::file_access_path(path)))
 }
 /// Exact reserved same-directory transaction temp namespace. Unauthenticated
 /// pre-prepared crash leftovers are excluded, never prefix-deleted.

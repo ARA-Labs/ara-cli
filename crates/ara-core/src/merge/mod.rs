@@ -89,7 +89,7 @@ fn inventory_with_yaml(
         if !identity::private_path(path) && known.insert(path.clone()) {
             entries.push(EntryIdentity {
                 address: path.clone(),
-                layer: if path.starts_with("src/") || path.starts_with("evidence/") {
+                layer: if crate::file_access_path(path) {
                     "external"
                 } else {
                     "document"
@@ -245,7 +245,7 @@ fn candidate(working: &WorkingArtifact) -> ArtifactSnapshot {
             .base
             .files
             .iter()
-            .filter(|(path, _)| !path.starts_with("src/") && !path.starts_with("evidence/"))
+            .filter(|(path, _)| !crate::file_access_path(path))
             .map(|(path, file)| (path.clone(), file.clone()))
             .collect(),
     };
@@ -341,7 +341,7 @@ fn validate_candidate_view(
         working
             .paths()
             .into_iter()
-            .filter(|path| path.starts_with("src/") || path.starts_with("evidence/")),
+            .filter(|path| crate::file_access_path(path)),
     );
     let references = identity::alias_index(
         &if working.exists(ALIASES) {
@@ -842,7 +842,7 @@ pub fn plan_merge_with_observer(
             if t == b || t == o {
                 continue;
             }
-            let kind = if path.starts_with("src/") || path.starts_with("evidence/") {
+            let kind = if crate::file_access_path(path) {
                 "external_read_only"
             } else {
                 "opaque_file"
@@ -873,7 +873,7 @@ pub fn plan_merge_with_observer(
         working
             .paths()
             .into_iter()
-            .filter(|path| path.starts_with("src/") || path.starts_with("evidence/")),
+            .filter(|path| crate::file_access_path(path)),
     );
     available.insert(LOG.into());
     available.insert(ALIASES.into());

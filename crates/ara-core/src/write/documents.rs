@@ -23,7 +23,6 @@ pub fn allowed(path: &str) -> bool {
             | "logic/concepts.md"
             | "logic/experiments.md"
             | "logic/related_work.md"
-            | "rubric/requirements.md"
     ) || path
         .strip_prefix("logic/solution/")
         .is_some_and(|name| !name.contains('/') && name.ends_with(".md") && name.len() > 3)

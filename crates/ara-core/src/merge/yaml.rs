@@ -3647,6 +3647,9 @@ pub(crate) fn validate_references(
                     format!("invalid native selector: {error}"),
                 )
             })?;
+        if super::identity::retired_rubric_selector(&value) {
+            return Ok(());
+        }
         let literal = match &value {
             crate::write::EntrySelector::Id { id } => {
                 if id.is_empty() {
@@ -3667,8 +3670,7 @@ pub(crate) fn validate_references(
             } => {
                 if document == "PAPER.md"
                     || !document.ends_with(".md")
-                    || document.starts_with("src/")
-                    || document.starts_with("evidence/")
+                    || crate::file_access_path(document)
                     || !historical && !identities.contains(document)
                 {
                     return Err(MergeError::content(

@@ -58,7 +58,9 @@ pub use lint::{check_dir, check_sources};
 pub use fix::{AppliedFix, FixOutcome, SkippedFix, fix_dir, fix_dir_with};
 
 #[cfg(feature = "native")]
-pub use agent_layers::knowledge_paths;
+pub use agent_layers::{
+    FILE_ACCESS_ROOTS, file_access_location, file_access_path, knowledge_paths,
+};
 pub use flat_yaml::source_node_fields;
 #[cfg(feature = "native")]
 pub use parse::{LoadIssue, LoadIssueKind, NativeLoad, parse_dir, parse_dir_detailed};
