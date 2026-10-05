@@ -89,7 +89,7 @@ fn inventory_with_yaml(
         if !identity::private_path(path) && known.insert(path.clone()) {
             entries.push(EntryIdentity {
                 address: path.clone(),
-                layer: if path.starts_with("src/") || path.starts_with("evidence/") {
+                layer: if crate::file_access_path(path) {
                     "external"
                 } else {
                     "document"
@@ -245,7 +245,7 @@ fn candidate(working: &WorkingArtifact) -> ArtifactSnapshot {
             .base
             .files
             .iter()
-            .filter(|(path, _)| !path.starts_with("src/") && !path.starts_with("evidence/"))
+            .filter(|(path, _)| !crate::file_access_path(path))
             .map(|(path, file)| (path.clone(), file.clone()))
             .collect(),
     };
@@ -341,7 +341,7 @@ fn validate_candidate_view(
         working
             .paths()
             .into_iter()
-            .filter(|path| path.starts_with("src/") || path.starts_with("evidence/")),
+            .filter(|path| crate::file_access_path(path)),
     );
     let references = identity::alias_index(
         &if working.exists(ALIASES) {
@@ -842,7 +842,7 @@ pub fn plan_merge_with_observer(
             if t == b || t == o {
                 continue;
             }
-            let kind = if path.starts_with("src/") || path.starts_with("evidence/") {
+            let kind = if crate::file_access_path(path) {
                 "external_read_only"
             } else {
                 "opaque_file"
@@ -873,7 +873,7 @@ pub fn plan_merge_with_observer(
         working
             .paths()
             .into_iter()
-            .filter(|path| path.starts_with("src/") || path.starts_with("evidence/")),
+            .filter(|path| crate::file_access_path(path)),
     );
     available.insert(LOG.into());
     available.insert(ALIASES.into());
@@ -1127,6 +1127,16 @@ pub fn resolve(snapshot: &ArtifactSnapshot, address: &str) -> Result<String, Mer
 pub fn resolve_local(snapshot: &ArtifactSnapshot, address: &str) -> Result<String, MergeError> {
     resolve(snapshot, &identity::normalize_local(address))
 }
+/// Build the request-independent identity view that local resolution
+/// consults. A failure here belongs to the artifact's records, not to the
+/// selector that happened to reach them.
+pub fn check_identities(snapshot: &ArtifactSnapshot) -> Result<(), MergeError> {
+    let view = inventory(snapshot)?;
+    let identities = ids(&view);
+    let aliases = identity::aliases(snapshot)?;
+    identity::alias_index(&aliases, &identities, &view.redirects, &view.markdown)?;
+    Ok(())
+}
 /// Resolve an exact concept name/native reference against staged concepts and
 /// authenticated rename archives, without copying or parsing the source tree.
 pub fn concept_reference_exists(working: &WorkingArtifact, name: &str) -> Result<bool, MergeError> {
@@ -1345,7 +1355,7 @@ pub fn resolve_selector(
                     let Some((last, parents)) = before.split_last() else {
                         return false;
                     };
-                    (last == entry || last.split_once(':').is_some_and(|(id, _)| id == entry))
+                    (last == entry || identity::heading_entry(last) == entry)
                         && parents.ends_with(wanted)
                 } else {
                     !wanted.is_empty() && before.ends_with(wanted)

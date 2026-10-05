@@ -117,7 +117,7 @@ fn values(
                     let names: Vec<_> = rows(heading).filter_map(YamlNode::scalar).collect();
                     if target.source_matches(document)
                         && names.last().is_some_and(|name| {
-                            super::heading_matches(name, target.key())
+                            super::headings::heading_matches(name, target.key())
                                 || name
                                     .split_once(':')
                                     .is_some_and(|(id, _)| target.key_matches(id.trim()))
@@ -308,8 +308,8 @@ pub fn structured(artifact: &Artifact, target: Entry<'_>) -> Result<References, 
         if !source.ends_with(".md") {
             continue;
         }
-        for section in ara_core::markdown::sections(text) {
-            let owner = section.heading.split_once(':').map(|(id, _)| id.trim());
+        for section in ara_core::markdown::document_sections(source, text) {
+            let owner = super::headings::heading_id(section.heading);
             for field in ara_core::markdown::fields(text, section.body_range) {
                 if !matches!(
                     field.name,

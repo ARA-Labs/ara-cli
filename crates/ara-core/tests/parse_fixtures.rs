@@ -1297,10 +1297,7 @@ fn knowledge_registry_retains_exact_registered_bodies_and_rejects_unsafe_paths()
         load.sources["appendix/notes.md"],
         "# Notes\r\n\r\nEquation $x$.\r\n"
     );
-    assert_eq!(
-        load.sources["rubric/requirements.md"],
-        "# Requirements\n## R01: Source grounding\n"
-    );
+    assert!(!load.sources.contains_key("rubric/requirements.md"));
     assert_eq!(
         load.sources["logic/solution/nested/details.md"],
         "## Detail\nComplete source.\n"
@@ -1312,6 +1309,8 @@ fn knowledge_registry_retains_exact_registered_bodies_and_rejects_unsafe_paths()
         "trace/history.md",
         "src/code.md",
         "evidence/table.md",
+        "rubric/requirements.md",
+        "rubric/notes.md",
         ".ara/cache.md",
         ".git/config.md",
         "a//b.md",

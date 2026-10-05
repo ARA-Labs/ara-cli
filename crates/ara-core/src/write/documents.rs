@@ -23,7 +23,6 @@ pub fn allowed(path: &str) -> bool {
             | "logic/concepts.md"
             | "logic/experiments.md"
             | "logic/related_work.md"
-            | "rubric/requirements.md"
     ) || path
         .strip_prefix("logic/solution/")
         .is_some_and(|name| !name.contains('/') && name.ends_with(".md") && name.len() > 3)
@@ -121,7 +120,7 @@ fn replace(
     expected: &str,
     content: &str,
 ) -> Result<OperationResult, WriteError> {
-    if document == "PAPER.md" || !working.is_allowed_document(document)? {
+    if !working.is_replaceable(document)? {
         return Err(WriteError::semantic(
             "write.document",
             "Replacement is restricted to mutable knowledge documents",

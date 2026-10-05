@@ -816,6 +816,9 @@ pub(crate) fn alias_index(
         validate_name(&record.source_key, false)?;
         validate_name(&record.label, true)?;
         bind_label(&mut labels, &record.label, &record.source_key)?;
+        if retired_rubric_alias(record) {
+            continue;
+        }
         for prefix in [&record.source_key, &record.label] {
             if prefix == "trace" || (identities.contains(prefix) && prefix.ends_with(".md")) {
                 return Err(MergeError::content(
@@ -843,7 +846,10 @@ pub(crate) fn alias_index(
         }
     }
     let mut displayed = BTreeMap::<String, Option<(String, String)>>::new();
-    for record in records {
+    for record in records
+        .iter()
+        .filter(|record| !retired_rubric_alias(record))
+    {
         let display = super::markdown::display_address(&record.original);
         for scope in [&record.source_key, &record.label] {
             let address = format!("{scope}:{display}");
@@ -1039,6 +1045,29 @@ pub(crate) fn reject_ambiguous_display(
         Ok(())
     }
 }
+/// Rubric entries (`R` IDs, `rubric/` selectors) were native before `rubric/`
+/// became a file-access root. Records that name them remain exact history;
+/// they neither resolve nor redirect.
+pub(crate) fn retired_rubric_selector(selector: &crate::write::EntrySelector) -> bool {
+    match selector {
+        crate::write::EntrySelector::Id { id } => crate::write::fields::typed_id(id, "R"),
+        crate::write::EntrySelector::Document { document, .. } => document.starts_with("rubric/"),
+    }
+}
+/// Entry addresses inside `rubric/` (or bare `R` IDs), optionally source
+/// scoped, that earlier binaries recorded while rubric entries were native.
+/// Alias records naming them stay exact history and never resolve.
+pub(crate) fn retired_rubric_address(address: &str) -> bool {
+    let local = address
+        .split_once(':')
+        .filter(|(scope, _)| !scope.contains('/'))
+        .map_or(address, |(_, rest)| rest);
+    crate::write::fields::typed_id(local, "R")
+        || local.starts_with("rubric/") && local.contains(['#', ':'])
+}
+fn retired_rubric_alias(record: &Alias) -> bool {
+    retired_rubric_address(&record.original) || retired_rubric_address(&record.target)
+}
 pub(crate) fn native_numeric(document: &str, id: &str) -> bool {
     match numeric_prefix(id) {
         Some('N') => matches!(document, "trace" | "trace/exploration_tree.yaml"),
@@ -1063,20 +1092,17 @@ pub(crate) fn normalize_local(address: &str) -> String {
             address.into()
         };
     }
-    if let Some((document, entry)) = address.split_once(':') {
-        let external = document.starts_with("src/") || document.starts_with("evidence/");
-        if !external
-            && (document == "trace"
-                || document.starts_with("logic/")
-                || document == "PAPER.md"
-                || document.starts_with("rubric/")
-                || document.ends_with(".md") && !document.contains("://"))
-        {
-            if native_numeric(document, entry) {
-                return entry.into();
-            }
-            return format!("{document}#{entry}");
+    if let Some((document, entry)) = address.split_once(':')
+        && !crate::file_access_path(document)
+        && (document == "trace"
+            || document.starts_with("logic/")
+            || document == "PAPER.md"
+            || document.ends_with(".md") && !document.contains("://"))
+    {
+        if native_numeric(document, entry) {
+            return entry.into();
         }
+        return format!("{document}#{entry}");
     }
     if let Some((document, entry)) = address.rsplit_once('#')
         && native_numeric(document, entry)
@@ -1166,16 +1192,9 @@ pub(crate) fn local_redirects(
     fn underlying(selector: &crate::write::EntrySelector) -> Option<&str> {
         match selector {
             crate::write::EntrySelector::Id { id } => Some(id),
-            crate::write::EntrySelector::Document { heading, entry, .. } => {
-                entry.as_deref().or_else(|| {
-                    heading.last().map(|heading| {
-                        heading
-                            .split_once(':')
-                            .map_or(heading.as_str(), |(id, _)| id)
-                            .trim()
-                    })
-                })
-            }
+            crate::write::EntrySelector::Document { heading, entry, .. } => entry
+                .as_deref()
+                .or_else(|| heading.last().map(|heading| heading_entry(heading).trim())),
         }
     }
     fn insert(
@@ -1217,6 +1236,10 @@ pub(crate) fn local_redirects(
             .split_once(':')
             .map(|(document, _)| document)
             .ok_or_else(|| error("mutation origin must include its mutable document"))?;
+        // See `retired_rubric_selector`: rubric records do not redirect.
+        if retired_rubric_address(from) {
+            continue;
+        }
         let archived = row
             .get("from_selector")
             .is_some_and(serde_json::Value::is_object)
@@ -1227,7 +1250,8 @@ pub(crate) fn local_redirects(
             && document.ends_with(".md")
             && safe_path(document).is_ok()
             && !private_path(document)
-            && !["trace/", "staging/", "src/", "evidence/"]
+            && !crate::file_access_path(document)
+            && !["trace/", "staging/"]
                 .iter()
                 .any(|prefix| document.starts_with(prefix));
         if !crate::write::source::allowed_document(document)
@@ -1616,6 +1640,15 @@ pub(crate) fn reference_namespaces(
         }
     }
     Ok(())
+}
+/// The entry ID prefix a heading literal names: a claim heading's ID under
+/// any native separator (`:` or a spaced dash), else the text before `:`.
+/// The result is always a prefix slice of `heading`.
+pub(crate) fn heading_entry(heading: &str) -> &str {
+    crate::claims::claim_heading(heading)
+        .map(|(id, _)| id)
+        .filter(|id| heading.starts_with(id))
+        .unwrap_or_else(|| heading.split_once(':').map_or(heading, |(id, _)| id))
 }
 pub(crate) fn numeric_prefix(id: &str) -> Option<char> {
     let first = id.chars().next()?;

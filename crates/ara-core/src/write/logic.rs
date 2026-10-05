@@ -30,7 +30,6 @@ fn native_document_prefix(document: &str) -> Option<&'static str> {
         "logic/solution/heuristics.md" => Some("H"),
         "logic/experiments.md" => Some("E"),
         "logic/related_work.md" => Some("RW"),
-        "rubric/requirements.md" => Some("R"),
         _ => None,
     }
 }
@@ -48,11 +47,10 @@ pub fn resolve(working: &WorkingArtifact, selector: &EntrySelector) -> Result<En
             let document = match id.as_str() {
                 _ if fields::typed_id(id, "C") => "logic/claims.md",
                 _ if fields::typed_id(id, "H") => "logic/solution/heuristics.md",
-                _ if fields::typed_id(id, "R") => "rubric/requirements.md",
                 _ => {
                     return Err(WriteError::semantic(
                         "write.namespace",
-                        "Native ID selectors require claims, heuristics or rubric IDs; named entries need document-qualified heading paths",
+                        "Native ID selectors require claim or heuristic IDs; named entries need document-qualified heading paths",
                     ));
                 }
             };
@@ -76,17 +74,24 @@ pub fn resolve(working: &WorkingArtifact, selector: &EntrySelector) -> Result<En
             vec![document.clone()]
         }
     };
-    for document in paths {
-        let headings = working.headings(&document)?;
+    let selects = |text: &str, path: &[&str]| match selector {
+        EntrySelector::Id { id } => heading_id(text) == id,
+        EntrySelector::Document { heading, entry, .. } => match entry {
+            Some(id) => heading_id(text) == id,
+            None => {
+                path.len() >= heading.len()
+                    && path[path.len() - heading.len()..]
+                        .iter()
+                        .zip(heading)
+                        .all(|(actual, wanted)| actual == wanted)
+            }
+        },
+    };
+    for document in &paths {
+        let headings = working.headings(document)?;
         for (index, h) in headings.iter().enumerate() {
-            let found = match selector {
-                EntrySelector::Id { id } => heading_id(&h.heading) == id,
-                EntrySelector::Document { heading, entry, .. } => match entry {
-                    Some(id) => heading_id(&h.heading) == id,
-                    None => h.path.ends_with(heading),
-                },
-            };
-            if found {
+            let path: Vec<&str> = h.path.iter().map(String::as_str).collect();
+            if selects(&h.heading, &path) {
                 let field_end = headings.get(index + 1).map_or(h.body_range.end, |next| {
                     next.range.start.min(h.body_range.end)
                 });
@@ -99,6 +104,20 @@ pub fn resolve(working: &WorkingArtifact, selector: &EntrySelector) -> Result<En
                     field_body: h.body_range.start..field_end,
                     level: h.level,
                 });
+            }
+        }
+    }
+    if matches.is_empty() {
+        // Reads may recover entries behind a stray `---`; writes never do.
+        // Name the fence only when it hides a heading this selector targets.
+        for document in &paths {
+            let text = working.text(document)?;
+            if crate::stray_fence::hidden_headings(text)
+                .iter()
+                .any(|h| selects(h.heading, &h.path))
+                && let Some(error) = super::source::unclosed_fence_error(document, text)
+            {
+                return Err(error);
             }
         }
     }
@@ -122,13 +141,15 @@ pub fn preserve_canonical_ids(
     let Some(prefix) = native_document_prefix(document) else {
         return Ok(());
     };
-    let before = working.headings(document)?;
-    let after = markdown::headings(content);
+    // Selectors stay strict, but retention counts every identity reads see,
+    // including claims recovered behind a stray leading `---`.
+    let before = markdown::document_headings(document, working.text(document)?);
+    let after = markdown::document_headings(document, content);
     for entry in before
         .iter()
         .filter(|h| h.range.start >= range.start && h.range.start < range.end)
     {
-        let id = heading_id(&entry.heading);
+        let id = heading_id(entry.heading);
         if fields::typed_id(id, prefix) && !after.iter().any(|h| heading_id(h.heading) == id) {
             if document == "logic/claims.md" {
                 return Err(WriteError::semantic(
@@ -1266,7 +1287,7 @@ fn annotate(
         ));
     }
     for reference in references {
-        let typed = ["C", "H", "N", "O", "T", "E", "RW", "R"]
+        let typed = ["C", "H", "N", "O", "T", "E", "RW"]
             .iter()
             .any(|prefix| fields::typed_id(reference, prefix));
         let document = reference.split(['#', ':']).next().unwrap_or(reference);
@@ -2379,7 +2400,6 @@ fn native_id_document(id: &str) -> Option<&'static str> {
         ("H", "logic/solution/heuristics.md"),
         ("E", "logic/experiments.md"),
         ("RW", "logic/related_work.md"),
-        ("R", "rubric/requirements.md"),
     ]
     .into_iter()
     .find_map(|(prefix, document)| fields::typed_id(id, prefix).then_some(document))
@@ -2889,12 +2909,13 @@ fn validate_claim_retention(working: &WorkingArtifact) -> Result<(), WriteError>
     } else {
         ""
     };
-    let current: BTreeSet<_> = markdown::headings(after)
+    // Recovery-aware on both sides: any claim reads list must stay retained.
+    let current: BTreeSet<_> = markdown::document_headings(CLAIMS, after)
         .into_iter()
         .map(|heading| heading_id(heading.heading))
         .filter(|id| fields::typed_id(id, "C"))
         .collect();
-    let removed: BTreeSet<_> = markdown::headings(before)
+    let removed: BTreeSet<_> = markdown::document_headings(CLAIMS, before)
         .into_iter()
         .map(|heading| heading_id(heading.heading))
         .filter(|id| fields::typed_id(id, "C") && !current.contains(id))

@@ -399,9 +399,7 @@ pub(crate) fn references_equal(
                 || path == "PAPER.md"
                 || path.starts_with("logic/")
                 || path.starts_with("trace/")
-                || (map.contains_key(path)
-                    && !path.starts_with("src/")
-                    && !path.starts_with("evidence/"));
+                || (map.contains_key(path) && !crate::file_access_path(path));
             if local && super::identity::native_numeric(path, id) {
                 std::borrow::Cow::Borrowed(id)
             } else if local && value.contains(':') {

@@ -61,17 +61,49 @@ pub fn frontmatter_range(md: &str) -> Option<Range<usize>> {
 /// ATX headings (up to three leading spaces), with hierarchical source ranges.
 /// Fenced code and canonical field continuations cannot create headings.
 pub fn headings(md: &str) -> Vec<MarkdownHeading<'_>> {
-    index_headings(md, true)
+    index_headings(md, body_start(md), true)
 }
 
-fn index_headings(md: &str, include_paths: bool) -> Vec<MarkdownHeading<'_>> {
+/// [`headings`] of the native document at `path`. They differ only for a
+/// `logic/claims.md` whose unclosed leading `---` is a recognized stray line
+/// ([`crate::stray_fence`]); its headings start after that line.
+pub fn document_headings<'a>(path: &str, md: &'a str) -> Vec<MarkdownHeading<'a>> {
+    index_headings(md, crate::stray_fence::body_start(path, md), true)
+}
+
+/// [`sections`] of the native document at `path`, as [`document_headings`].
+pub fn document_sections<'a>(path: &str, md: &'a str) -> Vec<MarkdownSection<'a>> {
+    level_two(index_headings(
+        md,
+        crate::stray_fence::body_start(path, md),
+        false,
+    ))
+}
+
+/// Headings indexed from `start`, ignoring any frontmatter.
+pub(crate) fn headings_from(md: &str, start: usize) -> Vec<MarkdownHeading<'_>> {
+    index_headings(md, start, true)
+}
+
+/// Where Markdown begins: after any frontmatter, or at 0.
+/// Whether reads recover the native document at `path` from a stray leading
+/// `---` ([`crate::stray_fence`]). Writes never recover it: a heading
+/// selector there fails with `write.frontmatter`.
+pub fn recovered_fence(path: &str, md: &str) -> bool {
+    crate::stray_fence::body_start(path, md) != body_start(md)
+}
+
+pub(crate) fn body_start(md: &str) -> usize {
+    frontmatter_range(md).map_or(0, |range| range.end)
+}
+
+fn index_headings(md: &str, body_start: usize, include_paths: bool) -> Vec<MarkdownHeading<'_>> {
     let mut result: Vec<MarkdownHeading<'_>> = Vec::new();
     let mut ancestors: Vec<(usize, &str)> = Vec::new();
     let mut open: Vec<usize> = Vec::new();
     let mut fence = None;
     let mut continuation = false;
     let mut offset = 0;
-    let body_start = frontmatter_range(md).map_or(0, |range| range.end);
     for line in md.split_inclusive('\n') {
         if offset < body_start {
             offset += line.len();
@@ -126,9 +158,48 @@ fn index_headings(md: &str, include_paths: bool) -> Vec<MarkdownHeading<'_>> {
     result
 }
 
+/// Lines from `start` to EOF that a code fence left open at EOF hides, as
+/// `(one-based line, text)`, scanned exactly as [`index_headings`] scans
+/// (field continuations cannot open a fence). Empty when every fence closes.
+pub(crate) fn unclosed_code_fence_lines(md: &str, start: usize) -> Vec<(usize, &str)> {
+    let mut fence = None;
+    let mut continuation = false;
+    let mut hidden = Vec::new();
+    let mut offset = 0;
+    for (index, line) in md.split_inclusive('\n').enumerate() {
+        let skip = offset < start;
+        offset += line.len();
+        if skip {
+            continue;
+        }
+        let text = line.trim_end_matches(['\r', '\n']);
+        if continuation && text.starts_with("  ") {
+            continue;
+        }
+        continuation = false;
+        let was_open = fence.is_some();
+        if outside_fence(text, &mut fence) {
+            continuation = field_label(text).is_some_and(|(_, start)| start == text.len());
+        } else if !was_open {
+            // This line opened a fence; anything hidden so far was closed.
+            hidden.clear();
+        } else if fence.is_some() {
+            hidden.push((index + 1, text));
+        }
+    }
+    if fence.is_none() {
+        hidden.clear();
+    }
+    hidden
+}
+
 /// Level-two sections in source order; ranges include deeper subsections.
 pub fn sections(md: &str) -> Vec<MarkdownSection<'_>> {
-    index_headings(md, false)
+    level_two(index_headings(md, body_start(md), false))
+}
+
+fn level_two(headings: Vec<MarkdownHeading<'_>>) -> Vec<MarkdownSection<'_>> {
+    headings
         .into_iter()
         .filter(|h| h.level == 2)
         .map(|h| MarkdownSection {

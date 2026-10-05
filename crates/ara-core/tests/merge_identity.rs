@@ -566,7 +566,6 @@ fn generated_full_layer_histories_preserve_directional_union_and_all_import_addr
                 "incoming method",
             ),
             ("PAPER.md", "base overview", "incoming overview"),
-            ("rubric/requirements.md", "base rubric", "incoming rubric"),
             ("appendix/details.md", "base appendix", "incoming appendix"),
         ] {
             put(&mut theirs, path, text(&base, path).replace(old, new));
@@ -610,12 +609,15 @@ fn generated_full_layer_histories_preserve_directional_union_and_all_import_addr
             "logic/problem.md",
             "logic/solution/algorithm.md",
             "PAPER.md",
-            "rubric/requirements.md",
             "appendix/details.md",
         ] {
             assert_eq!(text(&result, path), text(&theirs, path));
             assert_eq!(resolve(&result, &format!("bob:{path}")).unwrap(), path);
         }
+        assert_eq!(
+            text(&result, "rubric/requirements.md"),
+            text(&base, "rubric/requirements.md")
+        );
         let replay = plan_merge(&base, &result, &theirs, &options()).unwrap();
         assert_eq!(replay.report.exit_code(), 0);
         assert!(replay.working.changed_paths().is_empty());
@@ -1541,5 +1543,37 @@ fn inventory_errors_keep_input_precedence_for_small_and_large_captures() {
         let theirs = snapshot(&[(tree, &format!("tree: []\n{comment}"))]);
         let error = plan_merge(&base, &ours, &theirs, &options()).err().unwrap();
         assert_eq!(error.code, "merge.encoding");
+    }
+}
+
+#[test]
+fn dash_headed_claim_selectors_retire_and_renumber_like_colon_headings() {
+    for heading in [
+        "C77 \u{2014} retired source claim",
+        "C77 - retired source claim",
+    ] {
+        let base = base();
+        let mut theirs = base.clone();
+        let before = format!("## {heading}\n- **Statement**: archived complete source\n");
+        install_mutation_audit(
+            &mut theirs,
+            serde_json::json!({"action":"remove","from":"logic/claims.md:C77","to":null,"from_selector":{"document":"logic/claims.md","heading":["Claims",heading],"entry":null},"to_selector":null,"before":before,"after":"","session":"2026-10-01_001","turn":1,"signal":"user-directive","provenance":"user","historical_references":[]}),
+        );
+        let plan = plan_merge(&base, &base, &theirs, &options()).unwrap();
+        let retired = plan
+            .report
+            .imports
+            .iter()
+            .find(|mapping| mapping.original == "C77")
+            .unwrap_or_else(|| panic!("{heading}: not retired: {:?}", plan.report.imports));
+        assert_eq!(retired.layer, "historical_identity", "{heading}");
+        // The recorded selector is renumbered to the imported identity.
+        let result = materialized(&plan.working);
+        let ledger = text(&result, "trace/logic_mutations.yaml");
+        let renumbered = heading.replacen("C77", &retired.target, 1);
+        assert!(
+            retired.target != "C77" && ledger.contains(&renumbered),
+            "{heading}: {ledger}"
+        );
     }
 }

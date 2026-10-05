@@ -86,6 +86,7 @@ pub fn convert_error(error: merge::MergeError) -> AgentError {
         id: None,
         line: None,
         details,
+        summary: None,
     }
 }
 fn fingerprint(snapshot: &ArtifactSnapshot) -> Vec<(&str, &str)> {

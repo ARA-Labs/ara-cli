@@ -201,6 +201,19 @@ pub(crate) fn selector_key(selector: &EntrySelector) -> Option<String> {
         }
     }
 }
+/// The title of an identified heading, split as the claims parser splits a
+/// claim heading (`:` or a spaced dash), else after the first `:`.
+fn identified_title(heading: &str) -> &str {
+    crate::claims::claim_heading(heading).map_or_else(
+        || {
+            heading
+                .split_once(':')
+                .map_or(heading, |(_, title)| title)
+                .trim()
+        },
+        |(_, title)| title,
+    )
+}
 fn rw_id(heading: &str) -> Option<&str> {
     let id = heading.split_once(':')?.0.trim();
     (id.starts_with("RW") && id.len() > 2 && !id.chars().any(char::is_whitespace)).then_some(id)
@@ -505,10 +518,7 @@ impl Document {
                 .map_or(text.len(), |next| next.range.start);
             let mut source_atoms = atoms(path, &text, h.body_range.start..own_end)?;
             let title = if n.is_some() || rw_id(h.heading).is_some() {
-                h.heading
-                    .split_once(':')
-                    .map_or(h.heading, |(_, title)| title)
-                    .trim()
+                identified_title(h.heading)
             } else {
                 h.heading
             };
@@ -836,12 +846,10 @@ pub(crate) fn selector_address(
                 "logic/claims.md"
             } else if fields::typed_id(id, "H") {
                 "logic/solution/heuristics.md"
-            } else if fields::typed_id(id, "R") {
-                "rubric/requirements.md"
             } else {
                 return Err(MergeError::content(
                     "merge.selector_namespace",
-                    "Bare mutable ID selectors require C/H/R; E and RW use explicit document selectors",
+                    "Bare mutable ID selectors require C/H; E and RW use explicit document selectors",
                 ));
             };
             match view.docs.get(path) {
@@ -857,8 +865,8 @@ pub(crate) fn selector_address(
             crate::write::source::safe_relative(path)
                 .map_err(|error| MergeError::from(error).at(path))?;
             if !path.ends_with(".md")
-                || ["src", "evidence", "trace", "staging"]
-                    .contains(&path.split('/').next().unwrap_or(""))
+                || crate::file_access_path(path)
+                || ["trace", "staging"].contains(&path.split('/').next().unwrap_or(""))
                 || (heading.is_empty() && entry.is_none())
                 || (!heading.is_empty() && entry.is_some())
             {
@@ -927,8 +935,7 @@ pub(crate) fn selector_for_address(
     }
     let heading = entry.literal_path.last().expect("nonempty literal path");
     let id = heading.split([':', ' ', '\t']).next().unwrap_or(heading);
-    let bare = matches!(entry.numeric, Some('C' | 'H'))
-        || (identity.path == "rubric/requirements.md" && fields::typed_id(id, "R"));
+    let bare = matches!(entry.numeric, Some('C' | 'H'));
     if bare && document.by_entry.get(id) == Some(&Some(*position)) {
         return Ok(Some(EntrySelector::Id { id: id.into() }));
     }
@@ -958,10 +965,7 @@ fn semantic(atom: &Atom, raw: &str) -> Result<Option<Value>, MergeError> {
         AtomKind::Title { identified } => {
             let heading = raw.trim().trim_start_matches('#').trim();
             let title = if identified {
-                heading
-                    .split_once(':')
-                    .map_or(heading, |(_, tail)| tail)
-                    .trim()
+                identified_title(heading)
             } else {
                 heading
             };
@@ -1759,9 +1763,8 @@ pub(crate) fn validate_references(
                     if local {
                         let direct = resolves(token, identities, redirects);
                         let qualified = parts.is_some_and(|(doc, entry)| {
-                            let external_location = (doc.starts_with("src/")
-                                || doc.starts_with("evidence/"))
-                                && !entry.is_empty();
+                            let external_location =
+                                crate::file_access_path(doc) && !entry.is_empty();
                             resolves(doc, identities, redirects)
                                 && (external_location
                                     || resolves(entry, identities, redirects)

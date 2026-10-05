@@ -326,10 +326,10 @@ tree:
     evidence: [C02]
 ";
     let claims = "\
-## C01 - First recovered claim
+## C01 -First recovered claim
 - **Statement**: first
 
-## C02 — Second recovered claim
+## C02—Second recovered claim
 - **Statement**: second
 ";
     let dir = artifact(tree, Some(claims));

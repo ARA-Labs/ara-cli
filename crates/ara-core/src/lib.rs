@@ -20,6 +20,7 @@ pub mod query;
 pub mod report;
 pub mod rules;
 mod schema;
+pub(crate) mod stray_fence;
 // The fix applier reads/writes source files and re-parses through `parse_dir`'s
 // building blocks, so it is native-only like `check_dir`/`parse_dir`.
 #[cfg(feature = "native")]
@@ -40,6 +41,7 @@ mod sections;
 #[cfg(feature = "native")]
 pub mod write;
 
+pub use claims::{claim_heading, fenced_claim_headings, unparsed_claim_headings};
 pub use layout::{LayoutOptions, LayoutResult, NodePosition, Point, Rect};
 pub use manifest::{
     Binding, BindingRole, BuiltOn, Claim, ClaimId, Concept, Exhibit, ExhibitKind, ExperimentId,
@@ -58,7 +60,9 @@ pub use lint::{check_dir, check_sources};
 pub use fix::{AppliedFix, FixOutcome, SkippedFix, fix_dir, fix_dir_with};
 
 #[cfg(feature = "native")]
-pub use agent_layers::knowledge_paths;
+pub use agent_layers::{
+    FILE_ACCESS_ROOTS, file_access_location, file_access_path, knowledge_paths,
+};
 pub use flat_yaml::source_node_fields;
 #[cfg(feature = "native")]
 pub use parse::{LoadIssue, LoadIssueKind, NativeLoad, parse_dir, parse_dir_detailed};

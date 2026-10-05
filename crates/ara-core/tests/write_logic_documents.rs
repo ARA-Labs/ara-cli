@@ -735,7 +735,7 @@ fn inline_taste_and_conflicts_are_typed_additive_records() {
 }
 
 #[test]
-fn registered_knowledge_paths_and_rubric_are_explicit_bounded_documents() {
+fn registered_knowledge_paths_are_bounded_documents_and_rubric_is_not_native() {
     let (_root, mut working) = make_working(&[("PAPER.md", "# Caller research\n")]);
     assert!(
         write::plan_operation(
@@ -781,32 +781,42 @@ fn registered_knowledge_paths_and_rubric_are_explicit_bounded_documents() {
         working.text("appendix/details.md").unwrap(),
         "# Details\nRevised caller body.\n"
     );
-    let rubric = "# Requirements\n\n## R01: Requirement\n- **Rubric ID**: source-uuid\n- **Category**: code/development\n- **Weight**: 1.5\n- **Requirement**: original text\n- **ARA coverage**: Not covered\n- **Key detail**: Not specified in paper\n";
-    write::plan_operation(
+    let rubric = "# Requirements\n\n## R01: Requirement\n- **Rubric ID**: source-uuid\n- **Requirement**: original text\n";
+    let error = write::plan_operation(
         &mut working,
         &WriteOperation::DocumentCreate {
             document: "rubric/requirements.md".into(),
             content: rubric.into(),
         },
     )
-    .unwrap();
-    let target = EntrySelector::Document {
-        document: "rubric/requirements.md".into(),
-        entry: Some("R01".into()),
-        heading: vec![],
-    };
-    write::plan_operation(&mut working,&WriteOperation::EntryEdit{target:target.clone(),set:fields(json!({"Requirement":"Exact caller requirement\n\nSecond paragraph.\n","ARA coverage":"logic/claims.md:C01","Weight":2.5}))}).unwrap();
-    assert_eq!(
-        write::logic::field_value(&working, &target, "Requirement").unwrap(),
-        "Exact caller requirement\n\nSecond paragraph.\n"
-    );
-    assert_eq!(
-        write::logic::field_value(&working, &target, "Weight").unwrap(),
-        "2.5"
-    );
+    .unwrap_err();
+    assert_eq!(error.code, "write.document");
+    assert!(!working.exists("rubric/requirements.md"));
+    for (target, code) in [
+        (EntrySelector::Id { id: "R01".into() }, "write.namespace"),
+        (
+            EntrySelector::Document {
+                document: "rubric/requirements.md".into(),
+                entry: Some("R01".into()),
+                heading: vec![],
+            },
+            "write.selector",
+        ),
+    ] {
+        let error = write::plan_operation(
+            &mut working,
+            &WriteOperation::EntryEdit {
+                target,
+                set: fields(json!({"Requirement":"Exact caller requirement"})),
+            },
+        )
+        .unwrap_err();
+        assert_eq!(error.code, code);
+    }
     for paths in [
         json!(["src/code.md"]),
         json!(["evidence/result.md"]),
+        json!(["rubric/requirements.md"]),
         json!(["appendix/details.md", "appendix/details.md"]),
         json!(["appendix/../secret.md"]),
     ] {

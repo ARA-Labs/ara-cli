@@ -8,7 +8,7 @@
 mod check;
 mod check_config;
 mod serve;
-use ara_cli::{agent, context, merge, output, search, write};
+use ara_cli::{agent, context, merge, output, write};
 
 use std::path::PathBuf;
 use std::process::ExitCode;
@@ -49,7 +49,7 @@ enum Command {
     /// List unfinished work without changing its state.
     Open(agent::ReadOptions),
     /// Rank knowledge entries with offline BM25 keyword search.
-    Find(FindArgs),
+    Find(agent::FindArgs),
     /// Append nodes or validated dependency edges.
     Add(write::AddArgs),
     /// Edit mutable logic or permitted metadata fields.
@@ -96,16 +96,6 @@ struct LayoutArgs {
     /// Emit the positioned manifest as JSON.
     #[arg(long)]
     json: bool,
-}
-#[derive(clap::Args)]
-struct FindArgs {
-    query: String,
-    #[arg(long = "type")]
-    kind: Option<String>,
-    #[arg(long, default_value_t = 10)]
-    limit: usize,
-    #[command(flatten)]
-    output: agent::ReadOptions,
 }
 
 fn agent_command(
@@ -179,9 +169,9 @@ fn main() -> ExitCode {
         Command::Layout(args) => layout_cmd(args),
         Command::Check(args) => check::run(args),
         Command::Serve(args) => serve::run(args),
-        Command::Status(args) => {
-            agent_command(directory, "ara.status/v1", &args, false, agent::status)
-        }
+        Command::Status(args) => agent_command(directory, "ara.status/v1", &args, false, |root| {
+            agent::status(root, args.brief())
+        }),
         Command::Ls(args) => agent_command(directory, "ara.ls/v1", &args.output, false, |root| {
             agent::list(root, &args)
         }),
@@ -216,43 +206,7 @@ fn main() -> ExitCode {
         }),
         Command::Find(args) => {
             agent_command(directory, "ara.find/v1", &args.output, false, |root| {
-                let artifact = agent::Artifact::load(root)?;
-                let hits = search::run_search_with_documents(
-                    &artifact.manifest,
-                    artifact.searchable_documents(),
-                    &args.query,
-                    args.kind.as_deref(),
-                    args.limit,
-                )
-                .map_err(|message| output::AgentError::semantic("invalid_search", message))?;
-                let mut results = serde_json::to_value(hits).expect("search result serialization");
-                if args.output.full {
-                    for hit in results.as_array_mut().unwrap() {
-                        let id = hit
-                            .get("id")
-                            .or_else(|| hit.get("key"))
-                            .and_then(serde_json::Value::as_str)
-                            .map(str::to_owned);
-                        if let Some(id) = id {
-                            let mut show = agent::show_loaded(
-                                &artifact,
-                                &agent::ShowArgs {
-                                    ids: vec![id],
-                                    output: agent::ReadOptions {
-                                        full: true,
-                                        ..Default::default()
-                                    },
-                                    ..Default::default()
-                                },
-                            )?;
-                            hit.as_object_mut().unwrap().insert(
-                                "entry".into(),
-                                show["entries"].as_array_mut().unwrap().remove(0),
-                            );
-                        }
-                    }
-                }
-                Ok(serde_json::json!({"format":"ara.find/v1","results":results}))
+                agent::find(root, &args)
             })
         }
         Command::Add(args) => {

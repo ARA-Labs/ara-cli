@@ -126,7 +126,7 @@ def artifact_info(root: Path) -> dict[str, Any]:
     return {"path": str(root), "bytes": sum(map(len, files.values())),
             "files": len(files), "inventory_sha256": digest.hexdigest(),
             "knowledge_bytes": sum(len(b) for p, b in files.items()
-                                   if p == "PAPER.md" or p.startswith(("logic/", "trace/", "staging/", "rubric/")))}
+                                   if p == "PAPER.md" or p.startswith(("logic/", "trace/", "staging/")))}
 
 
 def node_source(root: Path) -> tuple[list[dict[str, Any]], dict[str, str | None]]:
@@ -1108,20 +1108,35 @@ class Runner:
                             "Compiler heuristic invented manager-profile values")
                 return {"document": path, "before": original, "after": replacement}
             self.prove(["compiler." + operation], operation, replace)
-        for operation, path in [("write_architecture", "logic/solution/architecture.md"), ("write_algorithm", "logic/solution/algorithm.md"), ("arbitrary_solution", "logic/solution/domain-specific.md"), ("additional_knowledge", "appendix/domain-notes.md"), ("rubric", "rubric/requirements.md")]:
+        for operation, path in [("write_architecture", "logic/solution/architecture.md"), ("write_algorithm", "logic/solution/algorithm.md"), ("arbitrary_solution", "logic/solution/domain-specific.md"), ("additional_knowledge", "appendix/domain-notes.md")]:
             def create(path=path):
                 if path.startswith("appendix/"):
                     self.apply(root, [{"op": "paper.edit", "frontmatter": {"knowledge_paths": [path]}}])
                 text = "# Synthetic " + path + "\n\n## Caller section\n\n" + FULL_TEXT
-                if path == "rubric/requirements.md":
-                    text = "# Synthetic supplied rubric\n\n" + markdown_entry("R01", "Caller requirement", {
-                        "Rubric ID": "00000000-0000-4000-8000-000000000001", "Category": "synthetic",
-                        "Weight": "1", "Requirement": FULL_TEXT, "ARA coverage": "logic/claims.md#C01",
-                        "Key detail": "Exact source content, not generated paraphrase"})
                 self.apply(root, [{"op": "document.create", "document": path, "content": text}])
                 require(self.source(root, path) == text, "Created native document not exact")
                 return {"document": path, "content": text}
             self.prove(["compiler." + operation], operation, create)
+        def rubric():
+            # The rubric is a plain file the compiler writes with its own file
+            # tool; ara rejects native rubric creation and reads.
+            path = "rubric/requirements.md"
+            text = "# Synthetic supplied rubric\n\n" + markdown_entry("R01", "Caller requirement", {
+                "Rubric ID": "00000000-0000-4000-8000-000000000001", "Category": "synthetic",
+                "Weight": "1", "Requirement": FULL_TEXT, "ARA coverage": "logic/claims.md#C01",
+                "Key detail": "Exact source content, not generated paraphrase"})
+            before = source_files(root)
+            rejected = self.apply(root, [{"op": "document.create", "document": path, "content": text}], expected=(1,))
+            require(rejected["error"]["code"] == "write.document", "Native rubric creation was not rejected")
+            require(source_files(root) == before, "Rejected native rubric creation changed source bytes")
+            (root / "rubric").mkdir(exist_ok=True)
+            (root / path).write_bytes(text.encode())
+            read, _ = self.command(root, ["show", "--document", path, "--json"], expected=(1,))
+            require(read["error"]["code"] == "invalid_document" and "rubric/" in read["error"]["details"]["file_access"],
+                    "Native rubric read did not point to direct file access")
+            require((root / path).read_bytes() == text.encode(), "Direct rubric file not exact")
+            return {"document": path, "content": text, "native_create_rejected": True}
+        self.prove(["compiler.rubric"], "rubric", rubric)
         def paper():
             body = self.source(root, "PAPER.md", ("Layer Index",))
             content = "\nCaller-selected revised layer index — α.\n"
@@ -1370,7 +1385,7 @@ class Runner:
 
     def read_coverage(self, root: Path) -> None:
         def full_reads():
-            documents = [p for p in source_files(root) if p == "PAPER.md" or p.startswith(("logic/", "trace/", "staging/", "rubric/", "appendix/"))]
+            documents = [p for p in source_files(root) if p == "PAPER.md" or p.startswith(("logic/", "trace/", "staging/", "appendix/"))]
             exact = {path: self.source(root, path) for path in documents}
             status, _ = self.command(root, ["status", "--json"])
             listed, _ = self.command(root, ["ls", "--full", "--json"])

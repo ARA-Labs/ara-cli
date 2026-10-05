@@ -5,7 +5,22 @@ use ara_core::{Manifest, NodeFields, NodeKind, parse_dir_detailed};
 use serde_json::{Value, json};
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
+pub(crate) mod address;
+mod boundary;
+mod candidates;
+mod display;
+mod documents;
+mod find;
+mod headings;
+mod hits;
 mod references;
+mod spans;
+mod validity;
+mod window;
+use boundary::{invalid_document, knowledge_document};
+use documents::{Selected, show_document, show_source};
+pub use find::{FindArgs, find};
+use validity::representable;
 
 #[derive(Debug, Default, Clone, clap::Args)]
 pub struct ReadOptions {
@@ -16,8 +31,16 @@ pub struct ReadOptions {
     #[arg(long)]
     pub fields: Option<String>,
 }
+impl ReadOptions {
+    /// Brief text: no `--json`, and no `--fields`, which keeps the row text.
+    pub fn brief(&self) -> bool {
+        !self.json && self.fields.is_none()
+    }
+}
 #[derive(Debug, Default, Clone, clap::Args)]
 pub struct ListArgs {
+    /// List one document's entries, or its headings when it has none.
+    pub path: Option<String>,
     #[command(flatten)]
     pub output: ReadOptions,
     #[arg(long = "type")]
@@ -44,6 +67,12 @@ pub struct ShowArgs {
     pub heading: Vec<String>,
     #[arg(long)]
     pub source: bool,
+    /// One-based inclusive source lines `A:B`, `A:` or `:B` of each selection.
+    #[arg(long, allow_hyphen_values = true, conflicts_with = "fields")]
+    pub lines: Option<String>,
+    /// Response byte budget; brief text defaults to 16 KiB.
+    #[arg(long, allow_hyphen_values = true, conflicts_with = "fields")]
+    pub max_bytes: Option<String>,
 }
 #[derive(Debug, Clone, clap::Args)]
 pub struct IdArgs {
@@ -61,6 +90,8 @@ pub struct Artifact {
     snapshot: std::cell::OnceCell<ara_core::write::ArtifactSnapshot>,
 }
 impl Artifact {
+    /// A structural read: a fully represented artifact, possibly with
+    /// dangling-reference errors kept in `report` ([`validity`]).
     pub fn load(root: &Path) -> Result<Self, AgentError> {
         let loaded = parse_dir_detailed(root);
         if !loaded.io_issues.is_empty() {
@@ -69,17 +100,10 @@ impl Artifact {
                 loaded.io_issues
             )));
         }
-        if !loaded.report.is_ok() {
-            return Err(AgentError::semantic(
-                "invalid_artifact",
-                loaded.report.to_string(),
-            ));
-        }
-        if !representable(&loaded.report) {
-            return Err(AgentError::semantic(
-                "incomplete_artifact",
-                loaded.report.to_string(),
-            ));
+        if let Some(refusal) =
+            validity::read_refusal(&loaded.report, &loaded.sources, loaded.manifest.as_ref())
+        {
+            return Err(refusal);
         }
         let manifest = loaded.manifest.ok_or_else(|| {
             AgentError::semantic(
@@ -96,6 +120,23 @@ impl Artifact {
             snapshot: std::cell::OnceCell::new(),
         })
     }
+    /// The load's validation report, with original severities.
+    pub fn diagnostics(&self) -> Value {
+        diagnostics(&self.report)
+    }
+    /// [`Artifact::load`] for a write command: any validation error refuses.
+    pub fn load_valid(root: &Path) -> Result<Self, AgentError> {
+        let artifact = Self::load(root)?;
+        if !artifact.report.is_ok() {
+            let blocking = artifact.report.errors().iter().map(|d| d.code).collect();
+            return Err(validity::refusal(
+                "invalid_artifact",
+                &artifact.report,
+                blocking,
+            ));
+        }
+        Ok(artifact)
+    }
     fn entries(&self) -> Vec<Entry<'_>> {
         let mut result = entries(&self.manifest);
         result.extend(
@@ -107,45 +148,48 @@ impl Artifact {
         result
     }
     fn is_knowledge(&self, path: &str) -> bool {
-        knowledge_document(path) || !matches!(path.split('/').next(), Some("evidence" | "src"))
+        knowledge_document(path) || !ara_core::file_access_path(path)
     }
     pub fn searchable_documents(&self) -> Vec<(&str, &str)> {
         self.sources
             .iter()
             .filter(|(path, _)| path.ends_with(".md") && self.is_knowledge(path))
-            .filter_map(|(path, text)| {
-                if path != "logic/solution/heuristics.md"
-                    && path
-                        .strip_prefix("logic/solution/")
-                        .and_then(|path| path.strip_suffix(".md"))
-                        .is_some_and(|name| {
-                            self.manifest
-                                .recipes
-                                .iter()
-                                .any(|recipe| recipe.name == name)
-                        })
-                {
-                    return None;
-                }
-                let typed = matches!(
-                    path.as_str(),
-                    "logic/claims.md"
-                        | "logic/concepts.md"
-                        | "logic/related_work.md"
-                        | "logic/experiments.md"
-                        | "logic/solution/heuristics.md"
-                );
-                let content = if typed {
-                    let end = ara_core::markdown::sections(text)
-                        .first()
-                        .map_or(text.len(), |section| section.range.start);
-                    &text[..end]
-                } else {
-                    text.as_str()
-                };
-                (!content.trim().is_empty()).then_some((path.as_str(), content))
-            })
+            .filter_map(|(path, text)| Some((path.as_str(), self.searchable_text(path, text)?)))
             .collect()
+    }
+    /// The prefix of a Markdown document that search indexes as the document
+    /// itself: typed documents index only the text before their entries.
+    fn searchable_text<'a>(&self, path: &str, text: &'a str) -> Option<&'a str> {
+        if path != "logic/solution/heuristics.md"
+            && path
+                .strip_prefix("logic/solution/")
+                .and_then(|path| path.strip_suffix(".md"))
+                .is_some_and(|name| {
+                    self.manifest
+                        .recipes
+                        .iter()
+                        .any(|recipe| recipe.name == name)
+                })
+        {
+            return None;
+        }
+        let typed = matches!(
+            path,
+            "logic/claims.md"
+                | "logic/concepts.md"
+                | "logic/related_work.md"
+                | "logic/experiments.md"
+                | "logic/solution/heuristics.md"
+        );
+        let content = if typed {
+            let end = ara_core::markdown::document_sections(path, text)
+                .first()
+                .map_or(text.len(), |section| section.range.start);
+            &text[..end]
+        } else {
+            text
+        };
+        (!content.trim().is_empty()).then_some(content)
     }
     fn snapshot(&self) -> Result<&ara_core::write::ArtifactSnapshot, AgentError> {
         if self.snapshot.get().is_none() {
@@ -169,18 +213,36 @@ impl Artifact {
         Ok(self.snapshot.get().expect("initialized"))
     }
     fn entry(&self, id: &str) -> Result<Entry<'_>, AgentError> {
-        let resolved = if id.contains(':')
-            || id.contains('#')
-            || id.contains('@')
+        self.lookup_entry(id)?.map_err(|miss| self.miss(id, miss))
+    }
+    /// The outer error is a read failure; the inner one is a selection miss
+    /// whose ranked error is built only if the caller cannot recover.
+    fn lookup_entry(&self, id: &str) -> Result<Result<Entry<'_>, candidates::Miss>, AgentError> {
+        // Without identity records there is nothing to redirect: native
+        // `path#ID`, `path:ID` and `trace:N01` forms resolve locally, so an
+        // unrelated document the merge index cannot represent never blocks them.
+        let resolved = if id.contains('@')
             || self.sources.contains_key("trace/logic_mutations.yaml")
             || self.sources.contains_key("trace/merge_log.yaml")
+            || id.contains([':', '#']) && self.has_identity_records()
         {
-            Some(
-                ara_core::merge::resolve_local(self.snapshot()?, id)
-                    .map_err(crate::merge::convert_error)?,
-            )
+            let snapshot = self.snapshot()?;
+            match ara_core::merge::resolve_local(snapshot, id) {
+                Ok(resolved) => Some(resolved),
+                Err(error) => return Ok(Err(candidates::classify(error, snapshot)?)),
+            }
         } else {
-            None
+            id.split_once(':')
+                .filter(|(document, entry)| {
+                    !entry.is_empty()
+                        && (*document == "trace"
+                            || *document == "PAPER.md"
+                            || document.contains('/') && self.is_knowledge(document))
+                })
+                .map(|(document, entry)| match document {
+                    "trace" => format!("trace/exploration_tree.yaml#{entry}"),
+                    _ => format!("{document}#{entry}"),
+                })
         };
         let resolved = resolved.as_deref().unwrap_or(id);
         let native = id
@@ -195,30 +257,22 @@ impl Artifact {
         let recipe_key = key
             .strip_prefix("logic/solution/")
             .and_then(|path| path.strip_suffix(".md"));
+        // As in `entries`, the heuristics file is a document, not a recipe.
         let has_recipe = recipe_key.is_some_and(|name| {
-            self.manifest
-                .recipes
-                .iter()
-                .any(|recipe| recipe.name == name)
+            name != "heuristics"
+                && self
+                    .manifest
+                    .recipes
+                    .iter()
+                    .any(|recipe| recipe.name == name)
         });
         let mut matching = self.entries().into_iter().filter(|entry|scope.is_none_or(|path|entry.source_matches(path))&&(entry.key()==key||matches!(entry,Entry::Recipe(recipe) if recipe_key==Some(recipe.name.as_str())))&&!(has_recipe&&matches!(entry,Entry::Document{..})));
-        let entry = matching.next().ok_or_else(|| AgentError::unknown(id))?;
-        if matching.next().is_some() {
-            return Err(AgentError::unknown(id));
-        }
-        Ok(entry)
+        Ok(match (matching.next(), matching.next()) {
+            (Some(entry), None) => Ok(entry),
+            (Some(_), Some(_)) => Err(candidates::Miss::Ambiguous),
+            (None, _) => Err(candidates::Miss::Unknown),
+        })
     }
-}
-fn representable(report: &ara_core::ParseReport) -> bool {
-    !report.warnings().iter().any(|diagnostic| {
-        matches!(
-            diagnostic.code,
-            ara_core::RuleCode::MalformedAgentLayer
-                | ara_core::RuleCode::DuplicateAgentId
-                | ara_core::RuleCode::MalformedSameAs
-                | ara_core::RuleCode::MalformedNodeAnnotation
-        )
-    })
 }
 fn diagnostics(report: &ara_core::ParseReport) -> Value {
     json!({"errors":report.errors().iter().map(|diagnostic|json!({"code":diagnostic.code,"severity":diagnostic.severity,"path":diagnostic.path,"message":diagnostic.message})).collect::<Vec<_>>(),"warnings":report.warnings().iter().map(|diagnostic|json!({"code":diagnostic.code,"severity":diagnostic.severity,"path":diagnostic.path,"message":diagnostic.message})).collect::<Vec<_>>()})
@@ -373,20 +427,7 @@ impl<'a> Entry<'a> {
         if let Some(status) = self.status() {
             object.insert("status".into(), json!(status));
         }
-        let source = match self {
-            Self::Node(_) => "trace/exploration_tree.yaml".to_owned(),
-            Self::Claim(_) => "logic/claims.md".into(),
-            Self::Observation(v) => v.source_file.clone(),
-            Self::Session(v) => v.source_file.clone(),
-            Self::Heuristic(v) => v.source_file.clone(),
-            Self::Experiment(v) => v.source_file.clone(),
-            Self::Taste(v) => v.source_file.clone(),
-            Self::Concept(_) => "logic/concepts.md".into(),
-            Self::RelatedWork(_) => "logic/related_work.md".into(),
-            Self::Recipe(v) => format!("logic/solution/{}.md", v.name),
-            Self::Exhibit(v) => v.file.clone(),
-            Self::Document { path, .. } => path.into(),
-        };
+        let source = self.source_path();
         object.insert("source".into(), json!(source));
         if matches!(self, Self::Recipe(_)) {
             object.insert("key".into(), json!(source));
@@ -399,6 +440,17 @@ impl<'a> Entry<'a> {
         }
         value
     }
+}
+/// Add the brief `address` of `entry` to its row; JSON rows stay unchanged.
+fn addressed<'a>(
+    addresses: &Option<display::EntryAddresses<'a>>,
+    entry: Entry<'a>,
+    mut row: Value,
+) -> Value {
+    if let Some(addresses) = addresses {
+        row["address"] = json!(addresses.address(entry));
+    }
+    row
 }
 pub fn node_kind(kind: &NodeKind) -> &str {
     match kind {
@@ -495,11 +547,30 @@ pub fn list(root: &Path, args: &ListArgs) -> Result<Value, AgentError> {
             })
         })
         .transpose()?;
-    let rows = artifact
+    let document = args
+        .path
+        .as_deref()
+        .map(|path| artifact.list_document(path))
+        .transpose()?;
+    let filtered = args.kind.is_some()
+        || args.under.is_some()
+        || args.since.is_some()
+        || args.status.is_some()
+        || args.provenance.is_some();
+    if args.output.brief() && document.is_none() && !filtered {
+        return Ok(
+            json!({"format":"ara.ls/v1","documents":artifact.document_summaries(),"file_access":ara_core::FILE_ACCESS_ROOTS,"diagnostics":diagnostics(&artifact.report)}),
+        );
+    }
+    let addresses = args.output.brief().then(|| artifact.entry_addresses());
+    let mut rows = artifact
         .entries()
         .into_iter()
         .filter(|entry| {
-            args.kind.as_deref().is_none_or(|kind| entry.kind() == kind)
+            document.as_ref().is_none_or(|(path, _)| {
+                !matches!(entry, Entry::Document { .. } | Entry::Recipe(_))
+                    && entry.source_matches(path)
+            }) && args.kind.as_deref().is_none_or(|kind| entry.kind() == kind)
                 && descendants
                     .as_ref()
                     .is_none_or(|ids| matches!(entry, Entry::Node(_)) && ids.contains(entry.key()))
@@ -518,11 +589,28 @@ pub fn list(root: &Path, args: &ListArgs) -> Result<Value, AgentError> {
                     .as_deref()
                     .is_none_or(|provenance| entry.provenance() == Some(provenance))
         })
-        .map(|entry| entry.value(args.output.full))
+        .map(|entry| addressed(&addresses, entry, entry.value(args.output.full)))
         .collect::<Vec<_>>();
+    if let Some((path, text)) = document
+        && rows.is_empty()
+        && !filtered
+        && path.ends_with(".md")
+    {
+        rows = display::heading_rows(&path, text);
+    }
     Ok(json!({"format":"ara.ls/v1","entries":rows,"diagnostics":diagnostics(&artifact.report)}))
 }
 pub fn show(root: &Path, args: &ShowArgs) -> Result<Value, AgentError> {
+    let bounds = window::Bounds::new(args)?;
+    // File-access roots are rejected by path alone, before any registry or
+    // artifact load can fail or serve them.
+    if args
+        .document
+        .as_deref()
+        .is_some_and(ara_core::file_access_location)
+    {
+        return Err(invalid_document());
+    }
     if args.source {
         let document = args.document.as_deref().ok_or_else(|| {
             AgentError::semantic("invalid_selector", "--source requires --document")
@@ -533,20 +621,38 @@ pub fn show(root: &Path, args: &ShowArgs) -> Result<Value, AgentError> {
                 "Source selection cannot be mixed with entry IDs or relations",
             ));
         }
-        return show_source(root, document, &args.heading);
+        let annotate = args.output.brief() || bounded(args);
+        let mut value = show_source(root, document, &args.heading, annotate)?;
+        bounds.apply(&mut value)?;
+        return Ok(value);
     }
     let artifact = Artifact::load(root)?;
-    show_loaded(&artifact, args)
+    let mut value = show_loaded(&artifact, args)?;
+    bounds.apply(&mut value)?;
+    Ok(value)
 }
+/// Whether `--lines` or `--max-bytes` bounds this read.
+fn bounded(args: &ShowArgs) -> bool {
+    args.lines.is_some() || args.max_bytes.is_some()
+}
+/// `show` over a loaded artifact. In brief mode ([`ReadOptions::brief`]), selections print in
+/// full and carry brief display data ([`display`]). Explicit bounds also
+/// read source selections in full and annotate them, and `--lines` selects
+/// an entry's native section as brief mode does.
 pub fn show_loaded(artifact: &Artifact, args: &ShowArgs) -> Result<Value, AgentError> {
+    let brief = args.output.brief();
+    let mut value = show_rows(artifact, args, brief)?;
+    if brief || bounded(args) {
+        artifact.annotate_rows(&mut value);
+    }
+    Ok(value)
+}
+fn show_rows(artifact: &Artifact, args: &ShowArgs, brief: bool) -> Result<Value, AgentError> {
+    let full = args.output.full || brief;
+    let native = brief || args.lines.is_some();
+    let source_full = full || bounded(args);
     if let Some(document) = &args.document {
-        return show_document(
-            artifact,
-            document,
-            &args.heading,
-            args.source,
-            args.output.full,
-        );
+        return show_document(artifact, document, &args.heading, args.source, source_full);
     }
     if args.ids.is_empty() || !args.heading.is_empty() || args.source {
         return Err(AgentError::semantic(
@@ -565,27 +671,18 @@ pub fn show_loaded(artifact: &Artifact, args: &ShowArgs) -> Result<Value, AgentE
             ));
         }
     }
-    if args.ids.len() == 1
-        && artifact.sources.contains_key(&args.ids[0])
-        && !artifact
-            .manifest
-            .recipes
-            .iter()
-            .any(|recipe| format!("logic/solution/{}.md", recipe.name) == args.ids[0])
-    {
-        return show_document(artifact, &args.ids[0], &[], false, args.output.full);
-    }
     let selected = args
         .ids
         .iter()
-        .map(|id| artifact.entry(id))
+        .map(|id| documents::select(artifact, id, source_full))
         .collect::<Result<Vec<_>, _>>()?;
     let index = QueryIndex::new(&artifact.manifest);
+    let addresses = brief.then(|| artifact.entry_addresses());
     let mut rows = Vec::with_capacity(selected.len());
     let requested: Vec<_> = selected
         .iter()
-        .filter_map(|entry| {
-            if let Entry::Node(node) = entry {
+        .filter_map(|selected| {
+            if let Selected::Entry(Entry::Node(node)) = selected {
                 Some(node.id.as_str())
             } else {
                 None
@@ -604,8 +701,23 @@ pub fn show_loaded(artifact: &Artifact, args: &ShowArgs) -> Result<Value, AgentE
     } else {
         BTreeMap::new()
     };
-    for entry in selected {
-        let mut value = entry.value(args.output.full);
+    for selected in selected {
+        let entry = match selected {
+            Selected::Entry(entry) => entry,
+            Selected::Source(row) => {
+                rows.push(row);
+                continue;
+            }
+        };
+        let native = if native {
+            artifact.native_row(entry)
+        } else {
+            None
+        };
+        let mut value = match native {
+            Some(row) => row,
+            None => addressed(&addresses, entry, entry.value(full)),
+        };
         if let Entry::Node(node) = entry
             && let Some(raw) = raw_nodes.get(node.id.as_str())
         {
@@ -680,11 +792,19 @@ pub fn path(root: &Path, args: &IdArgs) -> Result<Value, AgentError> {
     let path = index
         .path(selected.key())
         .ok_or_else(|| AgentError::unknown(&args.id))?;
-    Ok(
-        json!({"format":"ara.path/v1","steps":path.into_iter().map(|n| Entry::Node(n).value(args.output.full)).collect::<Vec<_>>()}),
-    )
+    let addresses = args.output.brief().then(|| artifact.entry_addresses());
+    let steps: Vec<Value> = path
+        .into_iter()
+        .map(|node| {
+            let entry = Entry::Node(node);
+            addressed(&addresses, entry, entry.value(args.output.full))
+        })
+        .collect();
+    Ok(json!({"format":"ara.path/v1","steps":steps,"diagnostics":artifact.diagnostics()}))
 }
-pub fn status(root: &Path) -> Result<Value, AgentError> {
+/// In brief mode, `display` adds the rule codes behind the
+/// diagnostic counts.
+pub fn status(root: &Path, brief: bool) -> Result<Value, AgentError> {
     let loaded = parse_dir_detailed(root);
     if !loaded.io_issues.is_empty() {
         return Err(AgentError::io(format!(
@@ -760,9 +880,20 @@ pub fn status(root: &Path) -> Result<Value, AgentError> {
         .iter()
         .try_fold(0u64, |total, file| total.checked_add(file.bytes))
         .ok_or_else(|| AgentError::io("Artifact byte size exceeds u64"))?;
-    Ok(
-        json!({"format":"ara.status/v1","artifact_location":root.canonicalize().map_err(|error|AgentError::io(error.to_string()))?,"file_count":files.len(),"total_bytes":total_bytes,"files":files,"complete":complete,"counts":if complete {json!(counts)}else{Value::Null},"next_ids":if complete{json!(next_ids)}else{Value::Null},"next_id_errors":next_id_errors,"latest_session":latest,"diagnostics":{"errors":loaded.report.errors().len(),"warnings":loaded.report.warnings().len(),"report":loaded.report}}),
-    )
+    let mut value = json!({"format":"ara.status/v1","artifact_location":root.canonicalize().map_err(|error|AgentError::io(error.to_string()))?,"file_count":files.len(),"total_bytes":total_bytes,"files":files,"complete":complete,"counts":if complete {json!(counts)}else{Value::Null},"next_ids":if complete{json!(next_ids)}else{Value::Null},"next_id_errors":next_id_errors,"latest_session":latest,"diagnostics":{"errors":loaded.report.errors().len(),"warnings":loaded.report.warnings().len(),"report":loaded.report}});
+    if brief {
+        let codes = |diagnostics: &[ara_core::Diagnostic]| {
+            diagnostics
+                .iter()
+                .map(|d| json!(d.code))
+                .collect::<Vec<_>>()
+        };
+        value["display"] = json!({
+            "error_codes": codes(loaded.report.errors()),
+            "warning_codes": codes(loaded.report.warnings()),
+        });
+    }
+    Ok(value)
 }
 #[derive(serde::Serialize)]
 struct ArtifactFile {
@@ -855,15 +986,27 @@ pub fn refs(root: &Path, args: &IdArgs) -> Result<Value, AgentError> {
             prose.push(json!({"source":source,"field":"source_text","literal":token.literal,"range":token.range,"certainty":"possible","context":excerpt(&text[start..end])}));
         }
     }
-    Ok(
-        json!({"format":"ara.refs/v1","target":target.key(),"structured":structured.rows,"prose":prose,"diagnostics":diagnostics(&artifact.report)}),
-    )
+    let mut value = json!({"format":"ara.refs/v1","target":target.key(),"structured":structured.rows,"prose":prose,"diagnostics":diagnostics(&artifact.report)});
+    if args.output.brief() {
+        artifact.annotate_lines(&mut value);
+        let addresses = artifact.entry_addresses();
+        value["display"] = json!({"target": addresses.address(target)});
+        for row in value["structured"].as_array_mut().into_iter().flatten() {
+            if let (Some(owner), Some(source)) = (row["id"].as_str(), row["source"].as_str())
+                && let Some(address) = addresses.owner(owner, source)
+            {
+                row["address"] = json!(address);
+            }
+        }
+    }
+    Ok(value)
 }
 pub fn open(root: &Path, options: &ReadOptions) -> Result<Value, AgentError> {
     let artifact = Artifact::load(root)?;
     let index = QueryIndex::new(&artifact.manifest);
     let mut rows = Vec::new();
     let history = SessionHistory::new(&artifact.manifest);
+    let addresses = options.brief().then(|| artifact.entry_addresses());
     for entry in artifact.entries() {
         let mut reasons = Vec::new();
         match entry {
@@ -890,7 +1033,7 @@ pub fn open(root: &Path, options: &ReadOptions) -> Result<Value, AgentError> {
             reasons.push("pending_binding");
         }
         if !reasons.is_empty() {
-            let mut value = entry.value(options.full);
+            let mut value = addressed(&addresses, entry, entry.value(options.full));
             value
                 .as_object_mut()
                 .unwrap()
@@ -974,155 +1117,4 @@ pub fn validate_date(date: &str) -> Result<(), AgentError> {
             format!("Invalid calendar date `{date}`; expected YYYY-MM-DD"),
         ))
     }
-}
-pub fn knowledge_document(path: &str) -> bool {
-    path == "PAPER.md"
-        || path == "rubric/requirements.md"
-        || path.starts_with("logic/") && path.ends_with(".md")
-        || path.starts_with("trace/") && path.ends_with(".yaml")
-        || path == "staging/observations.yaml"
-}
-fn valid_document_path(document: &str) -> bool {
-    !document.contains('\\')&&Path::new(document).components().all(|component|matches!(component,std::path::Component::Normal(name) if name!=".git"&&name!=".ara"))
-}
-fn show_source(root: &Path, document: &str, headings: &[String]) -> Result<Value, AgentError> {
-    if !valid_document_path(document) {
-        return Err(AgentError::semantic(
-            "invalid_document",
-            "Document outside the knowledge boundary",
-        ));
-    }
-    if !knowledge_document(document) {
-        let paper_path = ara_core::write::transaction::checked_destination(root, "PAPER.md")
-            .map_err(crate::write::convert_error)?;
-        let paper = std::fs::read_to_string(paper_path)
-            .map_err(|error| AgentError::io(error.to_string()))?;
-        if !ara_core::knowledge_paths(&paper)
-            .map_err(|message| AgentError::semantic("invalid_knowledge_registry", message))?
-            .iter()
-            .any(|path| path == document)
-        {
-            return Err(AgentError::semantic(
-                "invalid_document",
-                "Document outside the knowledge boundary",
-            ));
-        }
-    }
-    let path = ara_core::write::transaction::checked_destination(root, document)
-        .map_err(crate::write::convert_error)?;
-    let text = std::fs::read_to_string(path).map_err(|error| AgentError::io(error.to_string()))?;
-    let mut value = source_output(document, headings, true, &text)?;
-    value
-        .as_object_mut()
-        .unwrap()
-        .insert("artifact_validation".into(), json!("not_run"));
-    Ok(value)
-}
-fn show_document(
-    artifact: &Artifact,
-    document: &str,
-    headings: &[String],
-    source: bool,
-    full: bool,
-) -> Result<Value, AgentError> {
-    if !valid_document_path(document) || !artifact.is_knowledge(document) {
-        return Err(AgentError::semantic(
-            "invalid_document",
-            "Document outside the knowledge boundary",
-        ));
-    }
-    let direct = artifact
-        .sources
-        .get(document)
-        .map(|text| source_output(document, headings, source || full, text))
-        .unwrap_or_else(|| Err(AgentError::unknown(document)));
-    let mut value = match direct {
-        Ok(value) => value,
-        Err(error) if !source && !headings.is_empty() => {
-            let selector = ara_core::write::EntrySelector::Document {
-                document: document.into(),
-                heading: headings.to_vec(),
-                entry: None,
-            };
-            let resolved = ara_core::merge::resolve_selector(artifact.snapshot()?, &selector)
-                .map_err(crate::merge::convert_error)?;
-            if resolved == selector {
-                return Err(error);
-            }
-            let (current_document, current_headings) = match resolved {
-                ara_core::write::EntrySelector::Document {
-                    document,
-                    heading,
-                    entry,
-                } => {
-                    let heading = if heading.is_empty() {
-                        entry.into_iter().collect()
-                    } else {
-                        heading
-                    };
-                    (document, heading)
-                }
-                ara_core::write::EntrySelector::Id { id } if id.starts_with('C') => {
-                    ("logic/claims.md".into(), vec![id])
-                }
-                ara_core::write::EntrySelector::Id { id } if id.starts_with('H') => {
-                    ("logic/solution/heuristics.md".into(), vec![id])
-                }
-                _ => return Err(error),
-            };
-            let text = artifact
-                .sources
-                .get(&current_document)
-                .ok_or_else(|| AgentError::unknown(&current_document))?;
-            source_output(&current_document, &current_headings, full, text)?
-        }
-        Err(error) => return Err(error),
-    };
-    value
-        .as_object_mut()
-        .unwrap()
-        .insert("diagnostics".into(), diagnostics(&artifact.report));
-    Ok(value)
-}
-fn heading_matches(actual: &str, wanted: &str) -> bool {
-    actual == wanted
-        || (wanted
-            .as_bytes()
-            .first()
-            .is_some_and(|prefix| matches!(prefix, b'N' | b'C' | b'H' | b'E' | b'O' | b'T'))
-            && wanted.len() > 1
-            && wanted[1..].bytes().all(|byte| byte.is_ascii_digit())
-            && actual
-                .split_once(':')
-                .is_some_and(|(id, _)| id.trim() == wanted))
-}
-fn source_output(
-    document: &str,
-    headings: &[String],
-    full: bool,
-    text: &str,
-) -> Result<Value, AgentError> {
-    let content = if headings.is_empty() {
-        text
-    } else {
-        let selected = ara_core::markdown::headings(text)
-            .into_iter()
-            .filter(|section| {
-                section.path.len() >= headings.len()
-                    && section.path[section.path.len() - headings.len()..]
-                        .iter()
-                        .zip(headings)
-                        .all(|(actual, wanted)| heading_matches(actual, wanted))
-            })
-            .collect::<Vec<_>>();
-        if selected.len() != 1 {
-            return Err(AgentError::unknown(&headings.join(" / ")));
-        }
-        &text[selected[0].body_range.clone()]
-    };
-    use sha2::{Digest, Sha256};
-    let digest = format!("sha256:{:x}", Sha256::digest(content.as_bytes()));
-    Ok(
-        json!({"format":"ara.show/v1","entries":[{"key":document,"kind":"source_document","document":document,"heading":headings,"source":document,"content":if full{content.to_owned()}else{excerpt(content)},"digest":digest}]}),
-    )
 }

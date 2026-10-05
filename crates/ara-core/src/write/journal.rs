@@ -447,7 +447,7 @@ fn validate_record(record: &Record) -> Result<(), WriteError> {
     let mut prior: Option<&str> = None;
     let mut ancestors = BTreeSet::new();
     for entry in &record.entries {
-        validate_target(&entry.path)?;
+        validate_recorded_target(&entry.path)?;
         if prior.is_some_and(|path| path >= entry.path.as_str()) {
             return Err(corrupt(
                 "transaction targets are duplicated or out of order",
@@ -718,6 +718,20 @@ fn validate_target(path: &str) -> Result<(), WriteError> {
     Ok(())
 }
 
+/// Recorded targets also include `rubric/` documents, which earlier binaries
+/// wrote natively. Recovery only verifies a committed journal, or rolls a
+/// prepared one back to its authenticated preimages, so accepting them never
+/// writes new rubric content. New journals still use `validate_target`.
+fn validate_recorded_target(path: &str) -> Result<(), WriteError> {
+    if path.starts_with("rubric/")
+        && path.ends_with(".md")
+        && !path.split('/').any(|part| part.starts_with('.'))
+    {
+        return validate_relative(path);
+    }
+    validate_target(path)
+}
+
 fn validate_relative(path: &str) -> Result<(), WriteError> {
     source::safe_relative(path).map_err(|_| corrupt(format!("unsafe journal path {path}")))?;
     if path
@@ -731,7 +745,7 @@ fn validate_relative(path: &str) -> Result<(), WriteError> {
 }
 
 fn current_digest(root: &Path, relative: &str) -> Result<Option<String>, WriteError> {
-    validate_target(relative)?;
+    validate_recorded_target(relative)?;
     validate_ancestors(root, relative)?;
     let path = root.join(relative);
     if metadata(&path)?.is_none() {

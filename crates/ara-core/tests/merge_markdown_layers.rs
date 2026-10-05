@@ -176,7 +176,6 @@ fn every_supported_layer_has_native_inventory_and_only_canonical_ids_are_numeric
         ("logic/related_work.md", "# Related work\n"),
         ("logic/problem.md", "# Problem\n"),
         ("logic/solution/method.md", "# Method\n"),
-        ("rubric/requirements.md", "# Requirements\n"),
         ("appendix/derivation.md", "# Derivation\n"),
     ]);
     let mut theirs = base.clone();
@@ -208,10 +207,6 @@ fn every_supported_layer_has_native_inventory_and_only_canonical_ids_are_numeric
         (
             "logic/solution/method.md",
             "# Method\n\n## Architecture\nMechanism body.\n",
-        ),
-        (
-            "rubric/requirements.md",
-            "# Requirements\n\n## Acceptance\nBounded requirements.\n",
         ),
         (
             "appendix/derivation.md",
@@ -248,7 +243,6 @@ fn every_supported_layer_has_native_inventory_and_only_canonical_ids_are_numeric
         "logic/problem.md#Problem/Observations/O1: Problem observation",
         "logic/solution/method.md",
         "logic/solution/method.md#Method/Architecture",
-        "rubric/requirements.md#Requirements/Acceptance",
         "appendix/derivation.md#Derivation/Proof",
     ] {
         let mapping = merged
@@ -273,6 +267,59 @@ fn every_supported_layer_has_native_inventory_and_only_canonical_ids_are_numeric
             .unwrap()
             .contains("## RWalpha: Native citation\n- **Title**: Full title")
     );
+}
+
+#[test]
+fn rubric_files_merge_as_external_read_only_bytes() {
+    const RUBRIC: &str = "rubric/requirements.md";
+    let original = "# Requirements\n\n## R01: Grounding\n- **Requirement**: base\n";
+    let changed = "# Requirements\n\n## R01: Grounding\n- **Requirement**: incoming\n\n## R02: Added\n- **Requirement**: incoming\n";
+    let with = |text: &str| snapshot(&[(RUBRIC, text)]);
+    let without = snapshot(&[]);
+    let (base, unchanged, edited) = (with(original), with(original), with(changed));
+    // Identical, unchanged-incoming and agreeing bytes need no decision.
+    for (base, ours, theirs, kept) in [
+        (&base, &unchanged, &unchanged, Some(original)),
+        (&base, &edited, &unchanged, Some(changed)),
+        (&base, &edited, &edited, Some(changed)),
+        (&without, &without, &without, None),
+    ] {
+        let merged = plan(base, ours, theirs);
+        assert!(
+            merged.report.conflicts.is_empty(),
+            "{:?}",
+            merged.report.conflicts
+        );
+        assert_eq!(merged.working.text(RUBRIC).ok(), kept);
+        assert!(!merged.working.changed_paths().contains(&RUBRIC.to_owned()));
+    }
+    // Incoming addition, modification and deletion keep destination bytes.
+    for (base, ours, theirs, kept) in [
+        (&without, &without, &edited, None),
+        (&base, &unchanged, &edited, Some(original)),
+        (&base, &unchanged, &without, Some(original)),
+    ] {
+        let merged = plan(base, ours, theirs);
+        assert_eq!(merged.report.exit_code(), 1);
+        let [conflict] = merged.report.conflicts.as_slice() else {
+            panic!("{:?}", merged.report.conflicts);
+        };
+        assert_eq!(conflict.kind, "external_read_only");
+        assert_eq!(conflict.path, RUBRIC);
+        assert_eq!(conflict.allowed, ["ours"]);
+        assert_eq!(merged.working.text(RUBRIC).ok(), kept);
+        assert!(!merged.working.changed_paths().contains(&RUBRIC.to_owned()));
+        // Like src/ and evidence/, only the file itself has an identity.
+        for mapping in &merged.report.imports {
+            assert!(!mapping.original.starts_with('R'), "{mapping:?}");
+            if mapping.path == RUBRIC {
+                assert_eq!(
+                    (mapping.original.as_str(), mapping.layer.as_str()),
+                    (RUBRIC, "external")
+                );
+            }
+        }
+    }
 }
 
 #[test]
@@ -1002,4 +1049,32 @@ fn complete_qualified_descendant_proof_follows_the_actual_relocated_inventory() 
         merge::fingerprint(&captured(&replay.working)),
         merge::fingerprint(&destination)
     );
+}
+
+#[test]
+fn dash_claim_titles_with_colons_keep_concurrent_edits_visible() {
+    let base = claims("## C01 \u{2014} Speedup: fast\n- **Statement**: base statement\n");
+    let ours = base.replace("Speedup: fast", "Speedup: faster");
+    let theirs = base.replace("Speedup: fast", "Slowdown: fast");
+    let merged = plan(
+        &snapshot(&[(CLAIMS, &base)]),
+        &snapshot(&[(CLAIMS, &ours)]),
+        &snapshot(&[(CLAIMS, &theirs)]),
+    );
+    let conflict = merged
+        .report
+        .conflicts
+        .iter()
+        .find(|conflict| conflict.field == "$title")
+        .unwrap_or_else(|| panic!("title edit lost: {:?}", merged.report.conflicts));
+    assert_eq!(conflict.path, CLAIMS);
+
+    // A one-sided edit of the text before the colon still merges cleanly.
+    let merged = plan(
+        &snapshot(&[(CLAIMS, &base)]),
+        &snapshot(&[(CLAIMS, &base)]),
+        &snapshot(&[(CLAIMS, &theirs)]),
+    );
+    assert!(merged.report.conflicts.is_empty());
+    assert_eq!(merged.working.text(CLAIMS).unwrap(), theirs);
 }

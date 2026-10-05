@@ -49,7 +49,6 @@ const CANONICAL_SOURCES: &[&str] = &[
     "trace/logic_mutations.yaml",
     "trace/aliases.yaml",
     "trace/merge_log.yaml",
-    "rubric/requirements.md",
 ];
 
 #[derive(Debug, Clone)]
@@ -157,7 +156,7 @@ impl ArtifactSnapshot {
         for path in CANONICAL_SOURCES {
             result.capture(path)?;
         }
-        for directory in ["logic", "trace", "staging", "rubric"] {
+        for directory in ["logic", "trace", "staging"] {
             result.walk(directory)?;
         }
         if let Some(paper) = result.files.get("PAPER.md").filter(|f| f.existed) {
@@ -459,13 +458,23 @@ impl WorkingArtifact {
         if allowed_document(path) {
             return Ok(true);
         }
-        if !self.exists("PAPER.md") {
-            return Ok(false);
+        registered_document(path, self.paper()?)
+            .map_err(|e| WriteError::semantic("write.knowledge_paths", e))
+    }
+    /// Whether `document.replace` can target `path` ([`replaceable`]).
+    pub fn is_replaceable(&self, path: &str) -> Result<bool, WriteError> {
+        if path == "PAPER.md" || allowed_document(path) {
+            return Ok(path != "PAPER.md");
         }
-        Ok(crate::knowledge_paths(self.text("PAPER.md")?)
-            .map_err(|e| WriteError::semantic("write.knowledge_paths", e))?
-            .iter()
-            .any(|registered| registered == path))
+        replaceable(path, self.paper()?)
+            .map_err(|e| WriteError::semantic("write.knowledge_paths", e))
+    }
+    fn paper(&self) -> Result<Option<&str>, WriteError> {
+        if self.exists("PAPER.md") {
+            self.text("PAPER.md").map(Some)
+        } else {
+            Ok(None)
+        }
     }
     pub fn allocate_id(
         &self,
@@ -538,7 +547,6 @@ impl WorkingArtifact {
                         ('C', "logic/claims.md")
                             | ('H', "logic/solution/heuristics.md")
                             | ('E', "logic/experiments.md")
-                            | ('R', "rubric/requirements.md")
                     )
                 {
                     reserve_numeric(prefix, identity, &mut reserved)?;
@@ -1176,7 +1184,31 @@ impl WorkingArtifact {
             self.create(".gitignore", &content)
         }
     }
+    /// A changed Markdown document must not end behind an unclosed leading
+    /// `---`. Reads may recover a stray line there; writes never produce one.
+    /// Only the candidate is checked, so a replacement that removes the fence
+    /// is accepted.
+    fn reject_unclosed_fences(&self) -> Result<(), WriteError> {
+        for (path, candidate) in self.files.iter().filter(|(path, _)| path.ends_with(".md")) {
+            let unchanged = self
+                .base
+                .files
+                .get(path)
+                .is_some_and(|file| file.existed && file.bytes == *candidate);
+            if unchanged || self.deleted_paths.contains(path) {
+                continue;
+            }
+            if let Some(error) = std::str::from_utf8(candidate)
+                .ok()
+                .and_then(|text| unclosed_fence_error(path, text))
+            {
+                return Err(error);
+            }
+        }
+        Ok(())
+    }
     pub fn validate(&self) -> Result<ValidatedArtifact, WriteError> {
+        self.reject_unclosed_fences()?;
         let tree = self.text("trace/exploration_tree.yaml")?;
         let claims = self.text("logic/claims.md").ok();
         let redirects = super::logic::claim_redirects_from_source(self)?;
@@ -1273,6 +1305,21 @@ impl WorkingArtifact {
     }
 }
 
+/// `write.frontmatter` for a Markdown document whose leading `---` never
+/// closes. Writes do not share the reader's stray-fence recovery.
+pub(crate) fn unclosed_fence_error(path: &str, text: &str) -> Option<WriteError> {
+    let (line, _) = crate::stray_fence::unclosed_fence(path, text)?;
+    Some(
+        WriteError::semantic(
+            "write.frontmatter",
+            format!(
+                "`{path}` line {line} opens `---` frontmatter that never closes; close or remove it before writing this document"
+            ),
+        )
+        .at(path),
+    )
+}
+
 pub fn safe_relative(path: &str) -> Result<(), WriteError> {
     if path.is_empty()
         || path.contains('\\')
@@ -1297,20 +1344,32 @@ pub fn allowed_document(path: &str) -> bool {
                 | "logic/concepts.md"
                 | "logic/experiments.md"
                 | "logic/related_work.md"
-                | "rubric/requirements.md"
         ) || (path.starts_with("logic/solution/") && path.ends_with(".md")))
+}
+/// Whether `PAPER.md` text (when present) registers `path` in
+/// `knowledge_paths`. An invalid registry is an error.
+pub fn registered_document(path: &str, paper: Option<&str>) -> Result<bool, String> {
+    let Some(paper) = paper else {
+        return Ok(false);
+    };
+    Ok(crate::knowledge_paths(paper)?
+        .iter()
+        .any(|registered| registered == path))
+}
+/// Whether `document.replace` can target `path`: an allowed native document
+/// or a registered knowledge path, never `PAPER.md` itself.
+pub fn replaceable(path: &str, paper: Option<&str>) -> Result<bool, String> {
+    Ok(path != "PAPER.md" && (allowed_document(path) || registered_document(path, paper)?))
 }
 pub fn allowed_write_path(path: &str) -> bool {
     safe_relative(path).is_ok()
-        && (matches!(
-            path,
-            "PAPER.md" | ".gitignore" | "evidence/README.md" | "rubric/requirements.md"
-        ) || path.starts_with("logic/")
+        && (matches!(path, "PAPER.md" | ".gitignore" | "evidence/README.md")
+            || path.starts_with("logic/")
             || path.starts_with("trace/")
             || path.starts_with("staging/")
             || (path.ends_with(".md")
                 && !path.split('/').any(|component| component.starts_with('.'))
-                && !matches!(path.split('/').next(), Some("src" | "evidence"))))
+                && !crate::file_access_path(path)))
 }
 /// Exact reserved same-directory transaction temp namespace. Unauthenticated
 /// pre-prepared crash leftovers are excluded, never prefix-deleted.

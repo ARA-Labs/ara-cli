@@ -198,6 +198,7 @@ pub fn convert_error(error: write::WriteError) -> AgentError {
         id: None,
         line: error.line,
         details,
+        summary: None,
     }
 }
 fn read_input(value: &str, used_stdin: &mut bool) -> Result<String, AgentError> {
@@ -621,7 +622,7 @@ pub fn session(root: &Path, args: &SessionArgs) -> Result<Value, AgentError> {
         }
         SessionCommand::Log(args) => {
             let timestamp = args.timestamp.clone().unwrap_or_else(now);
-            let artifact = crate::agent::Artifact::load(root)?;
+            let artifact = crate::agent::Artifact::load_valid(root)?;
             let session = if let Some(id) = &args.session {
                 id.clone()
             } else {

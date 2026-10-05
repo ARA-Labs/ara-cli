@@ -32,10 +32,10 @@ different ways — none of which hands the author a fixable signal (see
   `unknown field` **warning**; `reason:` names the pivot-canonical key, so on a
   `dead_end` it surfaces as a `field dropped for type` warning — either way the
   value is **dropped** (the canonical keys are `why_failed:` / `rationale:`).
-- **em-dash / hyphen claim headers** (item 7) — `parse_header` requires a `:`
-  separator, so `## C01 — Title` makes the **entire claim silently disappear**;
-  it only surfaces indirectly as an "unknown claim" error if some node still
-  references the dropped id.
+- **unspaced dash claim headers** (item 7) — the claims parser accepts `:` or
+  a spaced `-`, `–` or `—`, so `## C01—Title` makes the **entire claim
+  silently disappear**; it only surfaces indirectly as an "unknown claim"
+  error if some node still references the dropped id.
 
 `check` makes all four visible and, for each, offers a safe in-place fix.
 
@@ -95,8 +95,11 @@ already warns about: the unmodeled spellings (`justification:`, `from:`,
 while `reason:` on a `dead_end` names the pivot-canonical key and surfaces as
 a `field dropped for type` warning — either way the value is dropped. `check`
 upgrades that drift to `[fixable]`, and the fix stops the value being dropped.
-`ARA001` and `ARA004` cover drift `validate` is currently silent
-about, so the lint layer is what first makes them visible.
+`ARA001` and `ARA004` cover drift `validate` is silent about, so the lint
+layer is what first makes them visible. A claim header with `:` or a spaced
+`-`, `–` or `—` (`## C01 — Title`) is a native spelling: `validate` reads it
+and `ARA004` does not fire. An unspaced or half-spaced dash (`## C01—Title`,
+`## C01 -Title`) drops the claim, and `ARA004` repairs it.
 
 ## The fixable rules
 
@@ -109,7 +112,7 @@ added in `0.1.15` with the published-fields widening (issue #75).
 | `ARA001` root-dialect | top-level `root:` (a single node) | rewrite to `tree:` with a one-element list (re-indent the block) | item 2 (`tree:` vs `root:`) |
 | `ARA002` dead-end-reason-alias | `reason:` on a `dead_end` node | rename the key to `why_failed:` **and recover the value** validate drops | item 5 (`why_failed` vs `reason`) |
 | `ARA003` decision-rationale-alias | `justification:` on a `decision` node | rename the key to `rationale:` (recovering the dropped value) | item 4 (type-specific body fields) |
-| `ARA004` claim-header-style | `## C01 — Title` / `## C01 - Title` in `logic/claims.md` | rewrite the separator to `## C01: Title` (recovering the otherwise-dropped claim) | item 7 (claims in Markdown) |
+| `ARA004` claim-header-style | `## C01—Title` / `## C01 -Title` / `## C01- Title` in `logic/claims.md` (not the native spaced forms) | rewrite the separator to `## C01: Title` (recovering the otherwise-dropped claim) | item 7 (claims in Markdown) |
 | `ARA005` pivot-from-alias | `from:` on a `pivot` node | rename the key to `prior_direction:` (recovering the dropped value) | item 13 (`from`/`to`/`trigger` on pivots) |
 | `ARA006` pivot-to-alias | `to:` on a `pivot` node | rename the key to `new_direction:` (recovering the dropped value) | item 13 |
 | `ARA007` pivot-trigger-alias | `trigger:` on a `pivot` node | rename the key to `reason:` (recovering the dropped value) | item 13 |
@@ -143,7 +146,7 @@ retired rule keeps its number). The code space is split by layer:
 | `ARA001` | root-dialect | top-level `root:` instead of a `tree:` list | error | yes |
 | `ARA002` | dead-end-reason-alias | `reason:` on a `dead_end` node (canonical `why_failed:`) | error | yes |
 | `ARA003` | decision-rationale-alias | `justification:` on a `decision` node (canonical `rationale:`) | error | yes |
-| `ARA004` | claim-header-style | claim header uses a dash separator instead of `## <id>: <title>` | error | yes |
+| `ARA004` | claim-header-style | claim header uses an unspaced dash separator the parser drops (canonical `## <id>: <title>`) | error | yes |
 | `ARA005` | pivot-from-alias | `from:` on a `pivot` node (canonical `prior_direction:`) | error | yes |
 | `ARA006` | pivot-to-alias | `to:` on a `pivot` node (canonical `new_direction:`) | error | yes |
 | `ARA007` | pivot-trigger-alias | `trigger:` on a `pivot` node (canonical `reason:`) | error | yes |
@@ -175,6 +178,8 @@ retired rule keeps its number). The code space is split by layer:
 | `ARA214` | exhibit-missing-index-row | an `evidence/` body file has no row in `evidence/README.md` | warning | no |
 | `ARA215` | index-row-missing-exhibit | an `evidence/README.md` row references a body file that does not exist | warning | no |
 | `ARA216` | invalid-figure-image | a figure image declaration is missing, unsafe, unsupported, or ambiguous | warning | no |
+| `ARA228` | recovered-stray-fence | an unclosed leading `---` in `logic/claims.md` is a stray line before `# Claims` (claims after it are read) | warning | no |
+| `ARA229` | unclosed-frontmatter | an unclosed leading `---` fence hides the rest of a Markdown document as frontmatter | warning | no |
 
 Some drift fires one rule in each layer: `reason:` on a `dead_end` is both
 `ARA002` (fixable) and `ARA206`; `justification:` / pivot `from:` / `to:` /

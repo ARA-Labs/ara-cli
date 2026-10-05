@@ -27,6 +27,9 @@ pub struct SearchHit {
     pub source: String,
     pub score: f64,
     pub excerpt: String,
+    /// Query terms this result's indexed text contains, in lexical order.
+    #[serde(skip)]
+    pub terms: Vec<String>,
 }
 
 struct Document<'a> {
@@ -78,7 +81,8 @@ impl<'a> Document<'a> {
     }
 }
 
-fn tokens(text: &str) -> impl Iterator<Item = (String, usize, usize)> + '_ {
+/// Lowercased maximal alphanumeric runs with their byte ranges.
+pub(crate) fn tokens(text: &str) -> impl Iterator<Item = (String, usize, usize)> + '_ {
     let mut start = None;
     text.char_indices()
         .chain(std::iter::once((text.len(), ' ')))
@@ -377,6 +381,11 @@ fn rank(
             source: ranked.document.source.clone(),
             score: ranked.score,
             excerpt: excerpt(&ranked.document.text, &query),
+            terms: query
+                .iter()
+                .filter(|term| ranked.document.terms.contains_key(*term))
+                .cloned()
+                .collect(),
         })
         .collect())
 }

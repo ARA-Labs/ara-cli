@@ -49,12 +49,33 @@ All notable changes to this project are documented here. The format follows
   Original source and visible errors remain on malformed equations or local
   renderer, stylesheet, or font failures. Protected code and non-math text stay
   unchanged; untrusted commands and macros are isolated and bounded (#31).
+- Agent reads: canonical addresses (`path#h/<segment>/…[;occurrence=N]`, plus
+  cited `logic/claims.md#C04`, `C04`, `trace:N09`) are accepted by `show` and
+  printed by every brief read. Misses report `unknown_id` and ambiguities
+  `ambiguous_heading`, each with up to 40 ranked candidates.
+- Agent reads: `show --lines A:B` and `--max-bytes N` page native source on whole
+  lines; each page carries the full selection's digest and the next `--lines`
+  window. `find --context N` and `ls <path>` are new.
+- Core: claim headings accept a spaced hyphen, en dash or em dash separator; a
+  stray leading `---` before `# Claims` in `logic/claims.md` is recovered with
+  `ARA228`, and other unclosed front matter stays hidden with `ARA229`.
 
 ### Changed
+- Agent reads default to brief address-led text; `--json` output keeps its
+  fields, with additive `find` hit lines and opt-in bounded `display` metadata.
+  Text diagnostics print once on stderr as counts and codes.
+- Heading lookup is exact-first, then case-insensitive equality, unique prefix
+  and a trailing literal `...`. Read errors no longer expose `merge.*` codes;
+  broken identity records report `identity_lookup_failed`.
+- Structural reads succeed on fully represented artifacts whose only errors are
+  dangling references (`ARA107`–`ARA109`); other errors still refuse, now with
+  `details.blocking` and `details.hint`. Writes reject unclosed front matter.
+- CLI skills teach one quoted `ara` call per shell call, native bounds, and
+  orient/search/read/cite with printed addresses.
 - `ara check --fix` shares the guarded writer's lock and durable recovery journal.
 - Public Rust node constructors and typed bodies include the native agent fields;
   JSON additions remain optional. The integration minor/major release decision
-  is pending; version 0.1.23 is the unreleased engineering revision.
+  is pending; version 0.1.24 is the unreleased engineering revision.
 - Native parsing and merge planning avoid repeated YAML work and unchanged-field
   copies while preserving strict duplicate-key/resource guards, opaque historical
   data, exact source bytes, and deterministic duplicate-candidate ordering.
@@ -73,6 +94,19 @@ All notable changes to this project are documented here. The format follows
   (`ARA105 error: nodes[N01]: duplicate node id`), and each `--json`
   `validate.errors`/`validate.warnings` entry gains a `rule` field. `ara
   validate` output is unchanged (#43).
+
+### Removed
+- Native PaperBench rubric handling: `rubric/requirements.md` is no longer
+  parsed, read, written or merged as native knowledge, and the public
+  `EntryKind::Requirement` variant and `R` IDs are gone. `rubric/` joins
+  `evidence/` and `src/` as a direct-file, external read-only merge root
+  (matched in any letter case);
+  `invalid_document` errors name these roots. Old rubric history stays readable.
+
+### Fixed
+- Artifacts with a rubric rename record no longer fail `merge` and `show` with
+  `merge.redirect_data`; old rubric aliases and retained journals no longer
+  block reads, writes or merges.
 
 ## [0.1.16] - 2026-08-23
 
