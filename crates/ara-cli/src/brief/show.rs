@@ -210,25 +210,41 @@ fn fields(value: &Value, depth: usize, lines: &mut Vec<String>) {
             }
             Value::Array(items) => {
                 lines.push(format!("{indent}{key}:"));
-                for item in items.iter().filter(|item| !empty(item)) {
-                    if scalar(item) {
-                        lines.push(format!("{indent}  - {}", plain(item)));
-                    } else if let Some(text) = item.as_str() {
-                        lines.push(format!("{indent}  - |"));
-                        for line in text.lines() {
-                            lines.push(format!("{indent}    {line}"));
-                        }
-                    } else {
-                        lines.push(format!("{indent}  -"));
-                        fields(item, depth + 2, lines);
-                    }
-                }
+                list(items, depth, lines);
             }
             Value::Object(_) => {
                 lines.push(format!("{indent}{key}:"));
                 fields(value, depth + 1, lines);
             }
             _ => lines.push(format!("{indent}{key}: {}", plain(value))),
+        }
+    }
+}
+/// `- item` lines two spaces under `depth`; a nested list renders
+/// recursively so none of its values are dropped.
+fn list(items: &[Value], depth: usize, lines: &mut Vec<String>) {
+    let indent = "  ".repeat(depth);
+    for item in items.iter().filter(|item| !empty(item)) {
+        match item {
+            _ if scalar(item) => lines.push(format!("{indent}  - {}", plain(item))),
+            Value::String(text) => {
+                lines.push(format!("{indent}  - |"));
+                for line in text.lines() {
+                    lines.push(format!("{indent}    {line}"));
+                }
+            }
+            Value::Array(inner) if inner.iter().all(inline) => {
+                let inner: Vec<String> = inner.iter().map(plain).collect();
+                lines.push(format!("{indent}  - [{}]", inner.join(", ")));
+            }
+            Value::Array(inner) => {
+                lines.push(format!("{indent}  -"));
+                list(inner, depth + 1, lines);
+            }
+            _ => {
+                lines.push(format!("{indent}  -"));
+                fields(item, depth + 2, lines);
+            }
         }
     }
 }
@@ -283,6 +299,24 @@ mod tests {
             ["tags:", "  - a, b", "  - c"]
         );
         assert_eq!(rendered(json!({"tags": ["[x]"]})), ["tags:", "  - [x]"]);
+    }
+
+    #[test]
+    fn nested_list_items_keep_their_values() {
+        assert_eq!(
+            rendered(json!({"events": [["a", "b"], ["c", ["d", "e, f"], {"k": "v"}]]})),
+            [
+                "events:",
+                "  - [a, b]",
+                "  -",
+                "    - c",
+                "    -",
+                "      - d",
+                "      - e, f",
+                "    -",
+                "      k: v",
+            ]
+        );
     }
 
     #[test]

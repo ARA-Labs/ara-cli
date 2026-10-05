@@ -742,3 +742,28 @@ fn selectors_quote_values_that_start_with_a_dash() {
     let read: Value = serde_json::from_slice(&output.stdout).unwrap();
     assert_eq!(read["entries"][0]["digest"], shown.as_str());
 }
+
+#[test]
+fn session_projections_render_nested_array_items() {
+    let dir = artifact();
+    let root = dir.path();
+    put(
+        root,
+        "trace/sessions/session_example.yaml",
+        "session:\n  id: session_example\n  date: '2026-10-01'\n  summary: Nested lists\nevents_logged:\n  - [alpha, beta]\n  - - gamma\n    - [delta, 'eps, ilon']\n    - key: zeta\n",
+    );
+    let full = json(root, &["show", "session_example", "--full"]);
+    assert_eq!(
+        full["entries"][0]["events_logged"],
+        json!([["alpha", "beta"], ["gamma", ["delta", "eps, ilon"], {"key": "zeta"}]])
+    );
+    for args in [
+        vec!["show", "session_example"],
+        vec!["show", "session_example", "--full"],
+    ] {
+        let (stdout, _) = brief(root, &args);
+        for value in ["alpha", "beta", "gamma", "delta", "eps, ilon", "key: zeta"] {
+            assert!(stdout.contains(value), "{value} missing: {stdout}");
+        }
+    }
+}
