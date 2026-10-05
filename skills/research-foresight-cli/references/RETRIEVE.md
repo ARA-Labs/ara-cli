@@ -20,8 +20,10 @@ metadata:
 
 Every knowledge-layer or root `PAPER.md` read/write in this page uses `ara -C <artifact>`; the
 words read, open, search, write, append and edit retain their original procedural meaning,
-but never authorize direct knowledge-file tools. For complete source use
-`show --document <native-path> --source --full --json` (exact content and SHA-256 digest);
+but never authorize direct knowledge-file tools. Run one quoted `ara` command per shell call,
+with no pipes, redirects, `&&`, `;` or globs, and read brief text: `ls`, `find`, then `show`
+the address the output prints, and cite that address. `cli-access.md` covers bounds, misses
+and the exact-source read before a guarded write;
 `ls`, `find`, `path`, `refs`, `open` and `status` are access aids, not semantic judgments.
 Source/evidence bodies and skill pages remain direct only within the baseline scope.
 No direct fallback, automatic semantic retry, new role, or altered stopping rule is allowed.
@@ -101,10 +103,15 @@ yardstick every hit is measured against. Keep it semantic — do not reduce it t
 single field name.
 
 ### Step 2 — Search the ARA's native files through ara
-Use `ara -C <ara_dir> status --json`, `ls --json`, and `find <query> --json` to locate
-knowledge; use `show --document <path> --source --full --json` for complete bodies and
-unique repeated `--heading` components for sections. Use `path`/`refs` for structured
-relations and possible prose mentions. Permitted source/evidence bodies remain direct.
+Orient, search, read and cite in brief text, one quoted `ara` command per shell call
+(`references/cli-access.md`). Orient with `ara -C <ara_dir> ls`, then `ls <path>` for one
+document's entries or heading addresses. Search with `find '<terms>' --context 2`; it is
+case-insensitive and prints addresses with their matching lines. Read with `show <address>`
+using an address the output printed, a whole document or section or a `--lines A:B` window
+around a hit, and follow `next:` when a block is truncated. On `unknown_id` or
+`ambiguous_heading`, choose from the printed candidates instead of guessing again. Use
+`path`/`refs` for structured relations and possible prose mentions. Permitted
+source/evidence bodies (`evidence/`, `src/`) remain direct file reads.
 Find every location whose prose bears on the frame. Cast
 across **all** the native files, because the highest-value context is frequently outside the
 experiment logs:
@@ -126,9 +133,11 @@ experiment logs:
 - **`related_work.md`, `PAPER.md`, `src/`** — context and the literal code/configs when the frame
   turns on a specific mechanism.
 
-A find excerpt is never grounding proof. Retrieve and verify the complete knowledge
-source/section with `show --document ... --source --full --json`, including its content
-digest; read permitted source/evidence bodies directly. Rank on the real prose, not a
+A find hit line or excerpt is never grounding proof. Retrieve and verify the complete knowledge
+source/section with `show <address>` (exact source bytes and `source_digest`), and cite the
+address it printed. A trace node (`trace:N01`) prints a projection with no digest; when you need
+its exact bytes, read the source document the projection names (`ara show --document
+trace/exploration_tree.yaml --source`). Read permitted source/evidence bodies directly. Rank on the real prose, not a
 keyword coincidence, and verify every cited body even when an excerpt seems sufficient.
 
 ### Step 3 — Rank hits by semantic match to the frame

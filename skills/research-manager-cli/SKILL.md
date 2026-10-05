@@ -27,8 +27,10 @@ metadata:
 
 Every knowledge-layer or root `PAPER.md` read/write in this page uses `ara -C <artifact>`; the
 words read, open, search, write, append and edit retain their original procedural meaning,
-but never authorize direct knowledge-file tools. For complete source use
-`show --document <native-path> --source --full --json` (exact content and SHA-256 digest);
+but never authorize direct knowledge-file tools. Run one quoted `ara` command per shell call,
+with no pipes, redirects, `&&`, `;` or globs, and read brief text: `ls`, `find`, then `show`
+the address the output prints, and cite that address. `cli-access.md` covers bounds, misses
+and the exact-source read before a guarded write;
 `ls`, `find`, `path`, `refs`, `open` and `status` are access aids, not semantic judgments.
 Source/evidence bodies and skill pages remain direct only within the baseline scope.
 No direct fallback, automatic semantic retry, new role, or altered stopping rule is allowed.

@@ -10,32 +10,54 @@ Exit 1 means rejected/unknown/invalid operation; exit 2 means setup/IO failure. 
 
 Source contradictions remain recorded in the shared baseline contract, not repaired only in the CLI condition. The PM's early crystallization notes versus later current-snapshot rule, and compiler reference run-index contradictions, require the same reviewed disposition in both future comparison conditions. Pending F3/F4/F6/F7 decisions prevent declaring the variants integrated even if local code runs.
 
-## Complete reads and native grounding
+## Shell calls
+
+Run each `ara` command as its own shell tool call: one invocation with quoted arguments and nothing else on the line. Do not pipe (`|`), redirect (`>`, `2>&1`), chain (`&&`, `;`), `cd` first, or glob (`*`, `?`, `[...]`). Quote every argument that contains spaces, `#`, `$` or other shell characters, such as `'logic/claims.md#C04'` and `'failure boundary'`. Some harnesses reject an unquoted `#`, and in a POSIX shell a `#` after a space starts a comment that silently drops the rest of the line. Some harnesses enforce this rule and reject a composed command before it runs. Other shells may allow composition, but the single-call form works in all of them, so use it everywhere.
+
+Bound output with `ara`'s own options instead of `head`, `tail`, `grep` or `jq`: `ls <path>` lists one document instead of the whole artifact; `find --limit N` caps results and `find --context N` adds surrounding lines (long form only, because `-C` selects the artifact); `show --lines A:B` selects a line window and `show --max-bytes N` sets the response budget. A paged `show` block ends with `lines: S-E of N; truncated; next: --lines X:`. Rerun the same selection with that `--lines` value (and the same `--max-bytes`, if you set one). Do not read harness logs or temporary files to recover cut-off output.
+
+## Reading: orient, search, read, cite
 
 ```sh
-ara -C <artifact> status --json
-ara -C <artifact> ls --json
-ara -C <artifact> find '<keyword query>' --json
-ara -C <artifact> show C01 N01 --full --json
-ara -C <artifact> show --document PAPER.md --source --full --json
-ara -C <artifact> show --document logic/solution/method.md --source --full --json
-ara -C <artifact> show --document logic/solution/method.md --heading 'Method' --heading 'Step 3' --source --full --json
-ara -C <artifact> show --document trace/exploration_tree.yaml --source --full --json
-ara -C <artifact> show --document trace/sessions/session_index.yaml --source --full --json
-ara -C <artifact> show --document trace/sessions/2026-10-01_001.yaml --source --full --json
-ara -C <artifact> show --document trace/pm_reasoning_log.yaml --source --full --json
-ara -C <artifact> show --document trace/taste_log.yaml --source --full --json
-ara -C <artifact> show --document staging/observations.yaml --source --full --json
-ara -C <artifact> path N01 --json
-ara -C <artifact> refs C01 --json
-ara -C <artifact> open --json
+ara -C <artifact> status
+ara -C <artifact> ls
+ara -C <artifact> ls logic/claims.md
+ara -C <artifact> find '<keyword query>' --context 2
+ara -C <artifact> find '<keyword query>' --type claim --limit 5
+ara -C <artifact> show 'logic/claims.md#C04'
+ara -C <artifact> show logic/solution/method.md --lines 40:120
+ara -C <artifact> show trace/exploration_tree.yaml --lines 300: --max-bytes 8192
+ara -C <artifact> show C01 trace:N01
+ara -C <artifact> path N01
+ara -C <artifact> refs C01
+ara -C <artifact> open
 ```
 
-`ls` enumerates structured entries; `status` identifies the selected artifact and knowledge revision. Do not infer that typed-entry enumeration exhausts arbitrary documents: inspect the native document inventory supplied by reads/status, root Layer Index and registered `knowledge_paths`. Read all documents required by the source procedure. `find` is only a retrieval aid, never semantic ranking or sufficient evidence for a cited assertion. A snippet is not a full source.
+1. **Orient.** `ls` prints one line per knowledge document with its entry counts by kind (or heading count) and line count, then the direct-file roots. `ls <path>` lists that document's entries, or its heading addresses when it has none. `status` gives layer counts, next IDs and diagnostic codes.
+2. **Search.** `find` is case-insensitive keyword search. Each result prints `<address> [<kind>] <source>` and the matching source lines (`N:`); `--context 2` adds neighbouring lines (`N-`). Narrow with `--type` and `--limit`.
+3. **Read.** `show` an address that `ls`, `find` or an error printed. A native section prints `== <address>`, its `heading:` path, a `source_digest=… selector: …` line and its exact source bytes; a node, observation or session prints a projection and names the exact source read. Read a whole document or section, or the lines around a `find` hit with `--lines A:B`. Brief `show` stops at 16 KiB and pages at whole lines; follow `next:` until you have read every line you rely on.
+4. **Cite** the address the output printed: `logic/claims.md#C04`, `trace:N01`, a canonical heading address such as `logic/problem.md#h/Problem/Observations`, or a document path. Never cite a generated display ID or a heading spelling you guessed.
 
-For grounding retrieve the **source document** with `show --document PATH --source --full --json`, or its unique complete heading path. Output retains exact `content` and a `sha256:` digest of the returned UTF-8 content. Use the original native anchor in the answer (`trace:N01`, `logic/claims.md#C01`, concept names and path/heading refs); never cite a generated display ID. For YAML entries obtain the complete document as well as typed fields when source spelling, unknown fields, comments, raw observation context or full history matters. For Markdown obtain the whole document/unique section rather than treating a typed projection as exhaustive. An ambiguous selector is an error, not permission to pick the first candidate.
+A miss returns `unknown_id`; a selector that matches several sections or entries returns `ambiguous_heading`. Both print `candidates:` that `show` accepts. Choose the candidate whose address or heading path is the one you need, or run `ls <path>` to see the document's headings, instead of guessing another spelling. An ambiguous selector is an error, not permission to take the first candidate. `invalid_document` on a `rubric/`, `evidence/` or `src/` path means a file tool reads it.
+
+`ls` enumerates structured entries; `status` identifies the selected artifact and knowledge revision. Do not infer that typed-entry enumeration exhausts arbitrary documents: inspect the native document inventory supplied by `ls`, the root Layer Index and registered `knowledge_paths`. Read all documents required by the source procedure. `find` is only a retrieval aid, never semantic ranking or sufficient evidence for a cited assertion. A hit line or excerpt is not a full source.
+
+For grounding read the source document or its unique section with `show`: brief text prints the exact source bytes and the `source_digest` of the whole selection. A node, observation or session address prints a projection with no digest; read the exact source it names (such as `ara show --document trace/exploration_tree.yaml --source`) when you need the bytes or the digest. Use the original native anchor in the answer (`trace:N01`, `logic/claims.md#C01`, concept names and path/heading addresses); never cite a generated display ID. For YAML entries obtain the complete document as well as typed fields when source spelling, unknown fields, comments, raw observation context or full history matters. For Markdown obtain the whole document/unique section rather than treating a typed projection as exhaustive.
 
 `path` and `refs` recover graph/native relations; distinguish structured references from possible prose mentions. `open` is local unresolved context, not proof of freshness or remote community progress. Verify every body you cite. Directly read only allowed actual evidence/source bodies, preserve all original source quotes and screenshots, and stay within reader isolation.
+
+## Structured output and exact source before writes
+
+Brief text is the reading format. Add `--json` where a step consumes structured fields: write and `apply` results with their `bindings`, `merge` reports and conflicts, `status --json` revision and file counts used in a report, `ls --json` typed counts, or rows another program parses. `--full` lifts the 160-character JSON excerpt bound and, on a brief `--source` read, the 16 KiB page budget; brief `show` already prints exact source either way.
+
+A full source show means the whole selection: a brief `show` without `--lines` that prints no `truncated` line, pages that together cover lines 1 to N of the selection (`lines: S-E of N`), or `--source --full`, which is unbounded. A window you chose with `--lines` is not a full read even when it prints no `truncated` line. Before a guarded write (`document.replace`, `logic.revise` with `Body`, `entry.rename`, `entry.remove`, or `paper.edit` with `expected`), read the exact selection you will replace in full:
+
+```sh
+ara -C <artifact> show --document logic/solution/method.md --heading 'Method' --heading 'Step 3' --source --full
+ara -C <artifact> show --document logic/solution/method.md --heading 'Method' --heading 'Step 3' --source --full --json
+```
+
+Pass its `source_digest` (JSON `digest`) as `expected` and build the replacement from the complete bytes you read. Every page prints the digest of the whole selection, so a page's digest never authorizes replacing content you have not seen; if the digest changes between pages, the source changed and you restart. A `selector: none` line means `document.replace` cannot target that selection; the reason follows `none`.
 
 ## JSONL transactions
 
@@ -46,7 +68,7 @@ ara -C <artifact> apply <request.jsonl> --dry-run --json
 ara -C <artifact> apply <request.jsonl> --json
 ```
 
-`apply - --json` consumes JSONL on stdin. Dry run is optional access inspection, not a maturity judgment. Use one committed batch for related present-state/history/session/index changes. Operation results and `bindings` identify assigned IDs; do not scan files to allocate them. Omit `id` for allocation; only use documented provisional batch names when binding several operations in one transaction. The agent still decides every research signal, provenance, fact and relationship.
+`apply - --json` consumes JSONL on stdin, which needs a pipe or redirect; under the shell-call rule pass the request file path instead. Dry run is optional access inspection, not a maturity judgment. Use one committed batch for related present-state/history/session/index changes. Operation results and `bindings` identify assigned IDs; do not scan files to allocate them. Omit `id` for allocation; only use documented provisional batch names when binding several operations in one transaction. The agent still decides every research signal, provenance, fact and relationship.
 
 The following is the supported writer union; `?` means an optional key, not literal JSON syntax. Keys and value kinds are native wire names. Text payloads retain full prose/equations/unknown fields; JSON arrays/mappings must not be flattened into comma-separated strings.
 

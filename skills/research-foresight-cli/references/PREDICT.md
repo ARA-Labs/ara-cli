@@ -21,8 +21,10 @@ metadata:
 
 Every knowledge-layer or root `PAPER.md` read/write in this page uses `ara -C <artifact>`; the
 words read, open, search, write, append and edit retain their original procedural meaning,
-but never authorize direct knowledge-file tools. For complete source use
-`show --document <native-path> --source --full --json` (exact content and SHA-256 digest);
+but never authorize direct knowledge-file tools. Run one quoted `ara` command per shell call,
+with no pipes, redirects, `&&`, `;` or globs, and read brief text: `ls`, `find`, then `show`
+the address the output prints, and cite that address. `cli-access.md` covers bounds, misses
+and the exact-source read before a guarded write;
 `ls`, `find`, `path`, `refs`, `open` and `status` are access aids, not semantic judgments.
 Source/evidence bodies and skill pages remain direct only within the baseline scope.
 No direct fallback, automatic semantic retry, new role, or altered stopping rule is allowed.
@@ -113,7 +115,7 @@ object: the `coverage` verdict (`in-artifact | edge | thin`), the `ranked` nativ
 weakened claims, each with a `caution`), and any `warnings`.
 
 Treat RETRIEVE's `rationale`/`caution` as **framing, not as the basis itself**: you then **read the
-real body** of every ref you intend to cite (knowledge: `ara show --document <path> --source --full --json`; permitted source/evidence bodies: direct) (CONTRACT.md §2 ref-honesty — a ref promises the cited
+real body** of every ref you intend to cite (knowledge: `ara show <address>` in brief text, with the address RETRIEVE returned; permitted source/evidence bodies: direct) (CONTRACT.md §2 ref-honesty — a ref promises the cited
 location actually contains the claim). The highest-value context is frequently **not** the experiment
 logs but the `problem.md` framing, the `solution/` method, a `decision`/`pivot` node, or an evidence
 figure — read across all of it, not just `experiment`/`dead_end`. **Never ignore a surfaced

@@ -9,19 +9,28 @@ Before choosing work, build a source-qualified frontier from the exact selected 
 
 ```sh
 ara -C <fork> status --json
-ara -C <fork> open --full --json
-ara -C <fork> ls --json
-ara -C <fork> show --document PAPER.md --source --full --json
-ara -C <fork> show --document staging/observations.yaml --source --full --json
-ara -C <fork> show --document trace/exploration_tree.yaml --source --full --json
-ara -C <fork> refs <native-selector> --json
+ara -C <fork> open
+ara -C <fork> ls
+ara -C <fork> show PAPER.md
+ara -C <fork> show staging/observations.yaml
+ara -C <fork> show trace/exploration_tree.yaml
+ara -C <fork> refs <native-selector>
 ```
 
-Retrieve every relevant complete logic/session/merge/conflict body via `show --document ...
---source --full --json`. Respect the source skill's scope and roles. `open` reasons and excerpts
-are aids, not a complete research judgment. Include unresolved questions, unpromoted or stale
-observations, pending forensic bindings, unfinished claims, unresolved merge conflicts, and
-relevant negative evidence. Use ls/full show to recover items outside open's bounded categories.
+Run each command as its own shell call with quoted arguments and no pipes, redirects, `&&`, `;`
+or globs; some harnesses reject composed commands. Reads print brief text: follow a
+`next: --lines X:` window until a paged document is complete, and pick from printed
+`candidates:` after a miss.
+`status --json` stays JSON because its fields feed the record below. Retrieve every relevant
+complete logic/session/merge/conflict body with `show <address>`, using the address `ls` or
+`find` printed; for a document or section its `source_digest` is the record's `body_digest`.
+A node, observation or session address (`trace:N01`, `O01`) prints a projection with no digest;
+read the exact source it names and use that `source_digest`, for example:
+`ara -C <fork> show --document trace/exploration_tree.yaml --source`.
+Respect the source skill's scope and roles. `open` reasons and excerpts are aids, not a complete
+research judgment. Include unresolved questions, unpromoted or stale observations, pending
+forensic bindings, unfinished claims, unresolved merge conflicts, and relevant negative evidence.
+Use `ls`/`show` to recover items outside open's bounded categories.
 No new public frontier command is assumed.
 
 Return context for the agent's original reasoning, not an automatic priority schedule. Example

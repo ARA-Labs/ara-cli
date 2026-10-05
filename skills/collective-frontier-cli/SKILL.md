@@ -21,6 +21,13 @@ Read directly, in this order:
 - `references/failure-policy.md` — exact common budget/failure page used by every control.
 - `references/frontier.md` — only this selected component's additional context/protocol.
 
+Run each `ara` command as its own shell call with quoted arguments (quote any argument
+containing spaces or `#`, such as `'logic/claims.md#C04'`) and no pipes, redirects, `&&`, `;` or
+globs. Some harnesses reject composed commands; other shells may allow them, but the single-call
+form is the portable recipe. Bound output with `ara`'s own `show --lines`, `show --max-bytes`,
+`find --limit`, `find --context` and `ls <path>`, and follow a printed `next: --lines X:` window
+instead of reading harness logs.
+
 Do not load the other component unless separately installed and selected by the immutable run
 configuration. Both components can compose, deduplicating common pages by their exact digest
 but recording/counting every supplied page. The plain Files and plain CLI collective controls

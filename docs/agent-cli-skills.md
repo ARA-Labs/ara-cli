@@ -52,11 +52,43 @@ The proof tooling that derives the variants from upstream pages
 protocol repository and remains valid for that commit. It does not check later
 edits made here.
 
+The skills have since been edited here (rubric and file-access routing, then the
+read interface below), so they no longer match the imported `03f19c7` bytes or
+the digests in those locks. The `e1-test` run keeps the digest it registered and
+its vendored inputs stay frozen; only conditions pinned to a later `ara-cli`
+commit see the edited skills. The upstream Files baseline skills are unchanged.
+
+## How the skills read
+
+The access pages (`references/cli-access.md`, the "CLI-only access boundary"
+block at the top of each page, and the collective `SKILL.md` files) teach one
+recipe:
+
+- **One shell call per `ara` command.** Quote arguments that contain spaces or
+  `#` (`'logic/claims.md#C04'`); no pipes, redirects, `&&`, `;` or globs. Some
+  harnesses reject composed commands; the single-call form works in all shells.
+- **`ara`'s own bounds instead of shell filters:** `ls <path>`, `find --limit`,
+  `find --context` (never `-C`, which selects the artifact), `show --lines` and
+  `show --max-bytes`, following a printed `next: --lines X:` window rather than
+  reading harness logs.
+- **Orient, search, read, cite:** `ls`, then `ls <path>`; `find '<terms>'
+  --context 2`; `show` an address the output printed; cite that address
+  (`logic/claims.md#C04`, `trace:N01`, a canonical `#h/` heading address). On
+  `unknown_id` or `ambiguous_heading`, choose from the printed candidates.
+- **Brief text for reading, JSON for structured use.** `--json` stays on write,
+  `apply` and `merge` commands and where a step consumes fields (`status --json`
+  counts, `ls --json` typed counts, frontier records). Before a guarded write,
+  the skill reads the exact selection with `show --document … --heading …
+  --source --full` and uses its `source_digest` as `expected`; a page's digest
+  never authorizes replacing unseen content.
+
 ## Changing a skill
 
 - Edit the skill here, in the same change as the binary behavior it describes.
 - Keep the `cli-access.md` copies identical until they are split into shared
-  read and write references.
+  read and write references. The two `frontier.md` copies and the common
+  collective pages (`roles.md`, `failure-policy.md`, `intentions.md`) are also
+  identical across the collective skills.
 - A changed skill gets a new digest. Registered runs keep the digest they
   recorded, so pin the new commit in the harness for any new condition.
 - Skills are not part of a published crate. A skill-only edit does not bump the
@@ -65,4 +97,8 @@ edits made here.
 `crates/ara-cli/tests/skills.rs` checks that every skill's `name:` matches its
 directory, that each has a `LICENSE`, that the `cli-access.md` copies are
 identical, and that every `ara <subcommand>` command line in a skill names a
-subcommand the binary has.
+subcommand the binary has. It also walks nested subcommands (`merge resolve`)
+and checks that every long flag in such a command line appears in that
+subcommand's `--help`, so renaming or removing a flag the skills use, such as
+`--lines`, `--max-bytes`, `--context`, `--limit` or `--heading`, fails the test.
+An inline command that wraps onto the next line is checked as one command.

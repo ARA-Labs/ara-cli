@@ -23,6 +23,13 @@ procedure merely by being installed. Read these pages directly:
 - `references/frontier.md` — load directly only when frontier is selected.
 - `references/intentions.md` — load directly only when intentions are selected.
 
+Run each `ara` command as its own shell call with quoted arguments (quote any argument
+containing spaces or `#`, such as `'logic/claims.md#C04'`) and no pipes, redirects, `&&`, `;` or
+globs. Some harnesses reject composed commands; other shells may allow them, but the single-call
+form is the portable recipe. Bound output with `ara`'s own `show --lines`, `show --max-bytes`,
+`find --limit`, `find --context` and `ls <path>`, and follow a printed `next: --lines X:` window
+instead of reading harness logs.
+
 Load neither component unless the immutable run configuration selects it. Frontier-only
 installs `collective-frontier-cli`; intention-only installs `collective-intentions-cli`;
 both install both component surfaces. Each carries the same common pages so either is
