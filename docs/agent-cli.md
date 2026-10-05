@@ -24,6 +24,7 @@ ara -C ./ara ls --type question --under N01 --status open
 ara -C ./ara find 'failure boundary' --context 2
 ara -C ./ara show C01 'logic/solution/architecture.md#h/Architecture/A%2FB'
 ara -C ./ara show --document logic/problem.md --source
+ara -C ./ara show logic/problem.md --lines 120:200 --max-bytes 32768
 ara -C ./ara path N12
 ara -C ./ara refs C01
 ara -C ./ara open
@@ -40,7 +41,7 @@ ara -C ./ara find 'failure boundary' --limit 10 --full --json
 |---|---|---|
 | `status` | Layer counts, diagnostics and advisory next IDs | Counts and next IDs only when complete; error and warning counts with rule codes |
 | `ls` | Source-order entries; intersecting type, subtree, date, status and provenance filters | No arguments: one line per knowledge document with entry counts by kind (or heading count) and line count, then the direct-file roots. `ls <path>`: that document's entries, or its heading addresses when it has none. Filters: matching entries |
-| `show` | Entry projection, relations via `--with`, full body or bounded native document | One labeled block per selection: native source with its `source_digest`, or a projection without a digest |
+| `show` | Entry projection, relations via `--with`, full body or bounded native document; `--lines A:B` windows and `--max-bytes` budgets | One labeled block per selection: native source with its `source_digest`, or a projection without a digest; 16 KiB budget, paged at whole lines |
 | `path` | Root-to-node nesting, with cross-edges kept distinct | Root-to-node IDs, indented by depth |
 | `refs` | Typed references with source spans, separately reported possible prose mentions | Referencing ID, field, `source:line`, literal; prose mentions labeled as possible |
 | `open` | Unfinished questions/experiments, unpromoted observations and active continuity | Address, kind, reasons, title |
@@ -69,7 +70,8 @@ Write commands keep their previous text.
 `show` prints one block per selection. The block starts with `== <address>
 [<label>]`. A native source selection (a document, a heading, or an entry that
 heads exactly one Markdown section, such as `C04` or `H18`) then prints the
-`heading:` path, a metadata line and the exact selected bytes in full:
+`heading:` path, a metadata line and the exact selected bytes, in full when
+they fit the [read budget](#bounded-and-resumable-reads):
 
 ```text
 == logic/claims.md#C04 [claim C04]
@@ -112,7 +114,9 @@ lines use `N-`. `--context 0` adds nothing.
 
 Load diagnostics print once on stderr, after the output, as one line. It gives
 the error and warning counts with each rule code once (`ARA219×3`) and suggests
-`ara check`. `status` prints its codes on stdout instead. Text errors print
+`ara check`. It names at most 12 distinct codes per severity and then counts
+the rest (`… 5 more codes`); the error and warning counts stay exact and
+`--json` keeps every diagnostic at its severity. `status` prints its codes on stdout instead. Text errors print
 `error [code]: message`, then the `hint`, up to 10 ranked `candidates`, the
 `blocking` codes, `file_access` roots and `unrepresented` documents from
 `details`. A refusal (`invalid_artifact`, `incomplete_artifact`) replaces the
@@ -140,6 +144,92 @@ original UTF-8 source rather than regenerated normalized YAML/Markdown. Source
 digests refer to the selected exact bytes; replacement preconditions must use
 the corresponding source selection. Pure parser and native source spans are
 both bounded; see [deep-tree-parsing.md](deep-tree-parsing.md).
+
+### Bounded and resumable reads
+
+`show` accepts two read bounds ([`agent/window.rs`](../crates/ara-cli/src/agent/window.rs)):
+
+- `--lines A:B` keeps one-based inclusive lines of each selected native
+  source: a document, a heading body, or an entry's native section. `A:` and
+  `:B` leave one end open; one end is required. A line ends after its `\n`,
+  so `\r\n` stays whole and a final newline belongs to the last line
+  (`a\nb\n` has two lines). An end beyond EOF clamps and the reported range
+  shows the actual end. A start beyond EOF rejects with `line_out_of_range`
+  (`id`, `details.start`, `details.total`); `--lines :B` on an empty selection
+  succeeds as empty. Zero, negative, signed, reversed, nonnumeric and
+  overflowing values reject with `invalid_lines`. Each selection of a
+  multi-address read gets its own window. An entry without a native section
+  (node, observation, session) rejects with `lines_unavailable`, whose hint
+  names the exact source read (`ara show --document trace/exploration_tree.yaml
+  --source --lines A:B`).
+- `--max-bytes N` is the budget of the whole stdout response, counting
+  headers, digest lines, relations and range lines, not only source bytes.
+  Brief `show` uses 16 KiB (16384 bytes) without it. `--json` reads have no
+  budget unless `--max-bytes` is given, and brief `--source --full` is the
+  explicit unbounded read. `0`, negative, signed, nonnumeric and overflowing
+  values reject with `invalid_max_bytes`.
+
+Argument errors exit 2 and reject before any source is read. `--fields`
+cannot be combined with either bound, so it keeps its row meaning; the
+argument parser rejects the combination with exit 2 (with `--json` the
+error code is `argument_error`; brief text prints the parser's usage error).
+Every rejection writes nothing to stdout. `line_out_of_range`,
+`lines_unavailable` and a single-selection `output_limit_too_small` name the
+selection in `id`, using its cited form (`logic/claims.md#C04`) when it has
+one.
+
+When a response does not fit:
+
+- A single native selection pages. The page holds as many whole lines from
+  the start of the window as fit; a UTF-8 code point or a line is never
+  split. Its block ends with the range and the next window, which keeps the
+  original upper bound (an open bound stays open):
+
+  ```text
+  == logic/claims.md [document]
+  source_digest=sha256:2ef90ab0… scope=whole_document selector: --document logic/claims.md
+  …
+  lines: 18-31 of 84; truncated; next: --lines 32:
+  ```
+
+  Rerun the same selection with `--lines 32:` and the same budget. In JSON,
+  concatenating the pages' `content` of an unchanged source gives the
+  selection's exact bytes. Brief text shows the same lines, except that the
+  display adds one newline after a final line that has none, as for any
+  brief block. Each page prints the `source_digest` of the full selection,
+  not of the page; when it changes between pages, the source changed and
+  the caller restarts. Use a page for reading. Before a `document.replace`,
+  read the full selection and use its digest: a digest does not authorize
+  replacing content the caller has not seen.
+- When the next line cannot fit even alone, the read fails with
+  `output_limit_too_small`. `details.required` is the smallest budget that
+  returns that line with its metadata, `details.line` is the line and
+  `details.max_bytes` the budget in force; the hint says to rerun with that
+  `--max-bytes`. No empty page is returned and no line is skipped, so a tiny
+  budget cannot loop without progress.
+- Several selections fit together or not at all: `output_limit_too_small`
+  names the aggregate `required` and advises reading each address
+  separately to page through it. No selection is dropped or truncated, the
+  request order is kept, and overlapping selections stay separate items.
+- A single entry projection has no line mapping, so it fails with
+  `output_limit_too_small` and a hint naming the exact source read.
+
+A brief block prints its range line (`lines: S-E of N`, or `lines: none of 0`)
+only when `--lines` is given or the page is truncated, so a read that fits
+prints as before. In JSON, `--lines` returns each native selection as a
+`source_document` row, as brief reads do: `show C04 --lines 1:5 --json`
+returns the C04 section's lines, not the claim projection. `--max-bytes`
+alone keeps JSON entry projections. With either bound, source rows carry
+their full exact `content` (or the page's slice) even without `--full`, keep
+`digest` as the SHA-256 of the full selection, and gain a `display` object:
+`scope`, `selector` (`{document, heading}`, or null with `no_selector`),
+`cited` for a section that heads an entry, `lines` (`{start, end, total}`,
+with `end = start - 1` when empty), `truncated` and `next` (the next
+`--lines` value, or null). JSON is never cut at a byte boundary: the
+envelope, diagnostics included, fits the budget or the read rejects.
+
+Other brief commands are compact but not byte-bounded. Use `find --limit`,
+filters and `ls <path>` to narrow them.
 
 ### Headings and canonical addresses
 
@@ -429,6 +519,10 @@ gain `match_count` and, when a source line matches, `line` (the first hit) and
 `context` (`[{start, end, lines}]`). `ls <path>` is a new positional filter.
 For a Markdown document without typed entries, it returns rows with
 `kind: "heading"`, `address`, `heading_path`, `title` and `source`.
+`show --lines` and `--max-bytes` are new opt-in options: with either, JSON
+source rows gain `display` (see [bounded reads](#bounded-and-resumable-reads)),
+and with `--lines` an entry with a native section returns that section's
+`source_document` row. Reads without them keep their JSON unchanged.
 Selection-error `details.candidates` now cite a section that alone heads a
 loaded entry as `path#ID` (`logic/claims.md#C04`) instead of its `#h/`
 address, and rank it by that ID; both forms resolve to the same section, and

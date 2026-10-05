@@ -6,8 +6,9 @@
 use serde_json::Value;
 use std::io::Write;
 
-/// One selection's display. A later byte budget can bound `body` and
-/// append continuation metadata to `trailer` without re-rendering headers.
+/// One selection's display. A byte budget pages the row's `content` before
+/// rendering ([`crate::agent`] `window`), and each candidate page is
+/// measured by rendering its blocks again.
 pub struct Block {
     pub header: Vec<String>,
     pub body: String,
@@ -128,11 +129,29 @@ fn source(row: &Value) -> Block {
             &mut trailer,
         );
     }
+    trailer.extend(range(display));
     Block {
         header,
         body: row["content"].as_str().unwrap_or("").to_owned(),
         trailer,
     }
+}
+
+/// `lines: S-E of N` for a windowed or paged selection, adding
+/// `; truncated; next: --lines A:B` when lines remain.
+fn range(display: &Value) -> Option<String> {
+    let lines = display.get("lines")?;
+    let number = |key: &str| lines[key].as_u64().unwrap_or(0);
+    let (start, end, total) = (number("start"), number("end"), number("total"));
+    let mut text = if end < start {
+        format!("lines: none of {total}")
+    } else {
+        format!("lines: {start}-{end} of {total}")
+    };
+    if let Some(next) = display["next"].as_str() {
+        text.push_str(&format!("; truncated; next: --lines {next}"));
+    }
+    Some(text)
 }
 
 fn projection(row: &Value) -> Block {

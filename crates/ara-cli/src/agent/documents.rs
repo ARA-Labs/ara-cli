@@ -195,7 +195,7 @@ pub(super) fn show_source(
     root: &Path,
     document: &str,
     headings: &[String],
-    brief: bool,
+    annotate: bool,
 ) -> Result<Value, AgentError> {
     if !valid_document_path(document) {
         return Err(invalid_document());
@@ -232,7 +232,7 @@ pub(super) fn show_source(
             true,
         )?
     };
-    if brief {
+    if annotate {
         let paper = ara_core::write::transaction::checked_destination(root, "PAPER.md")
             .ok()
             .and_then(|path| std::fs::read_to_string(path).ok());

@@ -11,11 +11,14 @@ mod show;
 
 use crate::output::AgentError;
 use serde_json::Value;
+pub(crate) use show::quote;
 use std::collections::BTreeMap;
 use std::io::Write;
 
 /// Ranked candidates a text error lists; `--json` keeps the full list.
 const TEXT_CANDIDATES: usize = 10;
+/// Distinct rule codes a text summary names per severity; counts stay exact.
+const TEXT_CODES: usize = 12;
 
 /// Read formats rendered as brief text; other commands keep their text.
 pub(crate) fn handles(format: &str) -> bool {
@@ -67,13 +70,16 @@ pub(crate) fn render(value: &Value, out: &mut impl Write) -> std::io::Result<()>
 }
 
 /// Rule codes with repeat counts, sorted by code: `ARA206×2, ARA208`.
+/// Past [`TEXT_CODES`] distinct codes, the rest are counted, not named.
 fn codes(codes: &[&str]) -> String {
     let mut counts = BTreeMap::<&str, usize>::new();
     for code in codes {
         *counts.entry(code).or_default() += 1;
     }
-    counts
+    let omitted = counts.len().saturating_sub(TEXT_CODES);
+    let mut named: Vec<String> = counts
         .into_iter()
+        .take(TEXT_CODES)
         .map(|(code, count)| {
             if count > 1 {
                 format!("{code}×{count}")
@@ -81,8 +87,11 @@ fn codes(codes: &[&str]) -> String {
                 code.to_owned()
             }
         })
-        .collect::<Vec<_>>()
-        .join(", ")
+        .collect();
+    if omitted > 0 {
+        named.push(format!("… {omitted} more codes"));
+    }
+    named.join(", ")
 }
 
 /// `N errors (codes), M warnings (codes)` from rule codes, one per
@@ -188,6 +197,18 @@ mod tests {
         assert!(summary.contains("1 warnings (ARA206)"), "{summary}");
         assert_eq!(summary.matches("ARA107").count(), 1);
         assert!(diagnostics(&json!({"errors":[],"warnings":[]})).is_none());
+    }
+
+    #[test]
+    fn diagnostic_summaries_name_a_bounded_number_of_codes() {
+        let many: Vec<String> = (100..130).map(|code| format!("ARA{code}")).collect();
+        let mut rows: Vec<Value> = many.iter().map(|code| json!({"code": code})).collect();
+        rows.push(json!({"code": "ARA100"}));
+        let summary = diagnostics(&json!({"errors": rows, "warnings": []})).unwrap();
+        // The count keeps every diagnostic; the names stop at the cap.
+        assert!(summary.contains("31 errors (ARA100×2, "), "{summary}");
+        assert_eq!(summary.matches("ARA1").count(), TEXT_CODES);
+        assert!(summary.contains(&format!("… {} more codes", 30 - TEXT_CODES)));
     }
 
     #[test]

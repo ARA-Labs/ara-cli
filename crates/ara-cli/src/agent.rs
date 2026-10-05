@@ -16,6 +16,7 @@ mod hits;
 mod references;
 mod spans;
 mod validity;
+mod window;
 use boundary::{invalid_document, knowledge_document};
 use documents::{Selected, show_document, show_source};
 pub use find::{FindArgs, find};
@@ -66,6 +67,12 @@ pub struct ShowArgs {
     pub heading: Vec<String>,
     #[arg(long)]
     pub source: bool,
+    /// One-based inclusive source lines `A:B`, `A:` or `:B` of each selection.
+    #[arg(long, allow_hyphen_values = true, conflicts_with = "fields")]
+    pub lines: Option<String>,
+    /// Response byte budget; brief text defaults to 16 KiB.
+    #[arg(long, allow_hyphen_values = true, conflicts_with = "fields")]
+    pub max_bytes: Option<String>,
 }
 #[derive(Debug, Clone, clap::Args)]
 pub struct IdArgs {
@@ -579,6 +586,7 @@ pub fn list(root: &Path, args: &ListArgs) -> Result<Value, AgentError> {
     Ok(json!({"format":"ara.ls/v1","entries":rows,"diagnostics":diagnostics(&artifact.report)}))
 }
 pub fn show(root: &Path, args: &ShowArgs) -> Result<Value, AgentError> {
+    let bounds = window::Bounds::new(args)?;
     // File-access roots are rejected by path alone, before any registry or
     // artifact load can fail or serve them.
     if args
@@ -598,25 +606,38 @@ pub fn show(root: &Path, args: &ShowArgs) -> Result<Value, AgentError> {
                 "Source selection cannot be mixed with entry IDs or relations",
             ));
         }
-        return show_source(root, document, &args.heading, args.output.brief());
+        let annotate = args.output.brief() || bounded(args);
+        let mut value = show_source(root, document, &args.heading, annotate)?;
+        bounds.apply(&mut value)?;
+        return Ok(value);
     }
     let artifact = Artifact::load(root)?;
-    show_loaded(&artifact, args)
+    let mut value = show_loaded(&artifact, args)?;
+    bounds.apply(&mut value)?;
+    Ok(value)
+}
+/// Whether `--lines` or `--max-bytes` bounds this read.
+fn bounded(args: &ShowArgs) -> bool {
+    args.lines.is_some() || args.max_bytes.is_some()
 }
 /// `show` over a loaded artifact. In brief mode ([`ReadOptions::brief`]), selections print in
-/// full and carry brief display data ([`display`]).
+/// full and carry brief display data ([`display`]). Explicit bounds also
+/// read source selections in full and annotate them, and `--lines` selects
+/// an entry's native section as brief mode does.
 pub fn show_loaded(artifact: &Artifact, args: &ShowArgs) -> Result<Value, AgentError> {
     let brief = args.output.brief();
     let mut value = show_rows(artifact, args, brief)?;
-    if brief {
+    if brief || bounded(args) {
         artifact.annotate_rows(&mut value);
     }
     Ok(value)
 }
 fn show_rows(artifact: &Artifact, args: &ShowArgs, brief: bool) -> Result<Value, AgentError> {
     let full = args.output.full || brief;
+    let native = brief || args.lines.is_some();
+    let source_full = full || bounded(args);
     if let Some(document) = &args.document {
-        return show_document(artifact, document, &args.heading, args.source, full);
+        return show_document(artifact, document, &args.heading, args.source, source_full);
     }
     if args.ids.is_empty() || !args.heading.is_empty() || args.source {
         return Err(AgentError::semantic(
@@ -638,7 +659,7 @@ fn show_rows(artifact: &Artifact, args: &ShowArgs, brief: bool) -> Result<Value,
     let selected = args
         .ids
         .iter()
-        .map(|id| documents::select(artifact, id, full))
+        .map(|id| documents::select(artifact, id, source_full))
         .collect::<Result<Vec<_>, _>>()?;
     let index = QueryIndex::new(&artifact.manifest);
     let mut rows = Vec::with_capacity(selected.len());
@@ -672,7 +693,7 @@ fn show_rows(artifact: &Artifact, args: &ShowArgs, brief: bool) -> Result<Value,
                 continue;
             }
         };
-        let native = if brief {
+        let native = if native {
             artifact.native_row(entry)
         } else {
             None
