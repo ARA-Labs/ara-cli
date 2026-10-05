@@ -3,7 +3,7 @@
 
 Status: **draft, pending review**. Repository: `ARA-Labs/ara-cli` (binary and
 [skills](../../docs/agent-cli-skills.md)). Dependencies outside this repository: the
-`ara-eval` harness (H1) and the `ara-paperbench` corpus (C1). Evidence: preliminary
+`ara-eval` harness (H1, H2) and the `ara-paperbench` corpus (C1). Evidence: preliminary
 `runs/e1-test` ([analysis doc](https://claude.ai/code/artifact/70b438b7-c4a1-4a12-9899-d107136b03fe)).
 Parent: [agent CLI interface](../agent-cli-interface.md). Shared checks: [PR index](README.md).
 
@@ -11,12 +11,15 @@ Parent: [agent CLI interface](../agent-cli-interface.md). Shared checks: [PR ind
 
 A CLI session spends **3.25 model calls on tool calls that fail or are blocked**,
 out of 5.3 more calls than a Files session. Each wasted call costs about 20 s and
-re-sends about 39k prompt tokens. Five causes account for 93% of them. Three are
-fixable in the binary: exact-only `--heading` matching, a parser rule that hides a
-whole document behind one stray `---`, and errors that don't say what to do next.
-The largest cause is the skill never telling the agent that bash runs only single
-`ara` commands. Fix each cause with a regression test first, then pilot on the dev
-split.
+re-sends about 39k prompt tokens. Five causes account for 93% of them. The largest
+is the skill never telling the agent that bash runs only single `ara` commands.
+The second is the CLI serving `rubric/requirements.md`, a PaperBench grading file
+that is not research knowledge: agents make about 10 `ara` calls per Category B
+session to read a file one `grep` answers. The fix is to stop handling the rubric
+in the CLI, not to make it handle the rubric better. The rest are an unclosed `---`
+that hides a whole document, output larger than the agent's tool shows, and errors
+that do not say what to do next. Each fix starts with a reproducing test, then a
+dev-split pilot.
 
 ## Problem
 
@@ -42,7 +45,7 @@ A model call that issues k tool calls counts 1/k toward each of their causes.
 | # | Cause | Model calls / session | Share |
 |---|---|---|---|
 | 1 | The agent doesn't know bash runs only one `ara` command | 1.10 | 34% |
-| 2 | `--heading` misses in `rubric/requirements.md` | 0.77 | 24% |
+| 2 | The CLI serves the PaperBench rubric; `--heading` misses on it | 0.77 | 24% |
 | 3 | A stray `---` makes 8 artifacts invalid | 0.53 | 16% |
 | 4 | Truncated output, then reading Pi's log | 0.38 | 12% |
 | 5 | `show --document` on `evidence/` or `src/` | 0.24 | 7% |
@@ -55,16 +58,29 @@ Neither the harness nor the skill says so; the agent learns from denials. Typica
 piped commands pipe `find`, whose output has a median of 2.7k characters, so most
 of this is habit, not a reaction to long output. Real harnesses usually allow
 pipes, so this cause is partly specific to the experiment, but it counts in its
-results.
+results. The registration's dev pilot recorded the same pattern
+(`ara-eval/plans/registration-reading-wave.md`, "3.2 denied calls per session").
 
-**2. Rubric heading misses.** 95% of `--heading` misses are in
-`rubric/requirements.md`, which `knowledge_document` (`agent.rs:978`) treats as
-knowledge. Its compiler-written headings are cut off with a literal `...`
-(`### R84: The salience density is only calculated for blocks...`), so a request
-for the same text without `...` fails exact matching. `heading_matches`
-(`agent.rs:1087`) accepts bare ids only for `N C H E O T`, not `R84`. 66% of misses
-are guessed names ("Experiments", "Coverage"); the `unknown_id` error does not list
-the headings that exist.
+**2. The rubric.** `rubric/requirements.md` is PaperBench's expert-written
+reproduction rubric, flattened by `generate_rubric_requirements_md.py` into
+`R01`…`Rnn` with headings cut to 60 characters plus a literal `...`. It is grading
+material, present only in artifacts compiled for the benchmark. The eval uses it as
+reading material: Category B questions are generated from it and tell the agent to
+open it. The CLI handles it because `compiler-cli` needed an allowlisted write path
+for it (`compiler-cli/references/cli-access.md`, "the fixed compiler allowlisted
+case"); read access followed. The handling is partial: `show --document` returns the
+whole file, but `show R84` fails with `unknown_id`, `--heading R84` fails with a
+`merge.unknown_identity` code, and `find`/`ls` do not index requirements. Meanwhile
+the guard lets CLI agents `grep` and `read` the file directly, as Files agents do.
+
+| Rubric access per Category B CLI session (139 sessions) | Count |
+|---|---|
+| `ara show` that fails | 5.84 |
+| `ara show` that succeeds | 3.22 |
+| `ara show` blocked by the harness | 1.15 |
+| `grep`/`read` tool (allowed) | 0.07 |
+
+95% of all `--heading` misses are on this file.
 
 **3. Stray `---`.** In 8 of 9 invalid corpus artifacts, `logic/claims.md` starts
 with `---` and never closes it. `frontmatter_range` (`ara-core/src/markdown.rs:36`)
@@ -91,9 +107,10 @@ On a dev-split pilot against the unchanged CLI condition and Files:
 
 1. Model calls spent on failed or blocked tool calls fall from 3.25 to below 1.0 per
    CLI session.
-2. No run of five or more consecutive bad tool calls in more than 2% of sessions.
-3. Accuracy stays within the registered non-inferiority margin (0.03) of Files and
-   of the unchanged CLI condition.
+2. Category B CLI sessions reach the rubric with file tools, with no `ara` calls on it.
+3. No run of five or more consecutive bad tool calls in more than 2% of sessions.
+4. Accuracy stays within the registered non-inferiority margin (0.03) of Files and
+   of the unchanged CLI condition, overall and on Category B.
 
 Token and context reductions that do not remove calls (compact `show`, smaller
 skills, the required `status`/`ls` opening) are out of scope; they get their own
@@ -105,28 +122,32 @@ plan after this one is measured.
 
 | # | Change | Cause | Contract impact |
 |---|---|---|---|
-| B1 | `--heading` accepts any `LETTERS+DIGITS` id before `:` (`R84`, `RW06`), not only `N C H E O T` | 2 | More inputs match |
-| B2 | `--heading` ignores case and surrounding whitespace, treats a trailing `...` on the real heading as a truncation marker, and accepts a unique prefix | 2 | More inputs match; ambiguity still refuses |
-| B3 | A missed or ambiguous `--heading` returns `candidates`: the document's heading paths, closest first, capped at 40 | 2 | Additive error field |
-| B4 | `check`/`validate` report an unclosed opening `---` in a Markdown knowledge document as one root-cause diagnostic, naming the file and how many headings it hides | 3 | New diagnostic code |
-| B5 | Read-only commands (`find`, `ls`, `show`, `status`, `open`, `refs`, `path`) run on artifacts with validation errors and return the diagnostics in `warnings`; `incomplete_artifact` and writes still refuse | 3 | Refusal becomes success with warnings |
-| B6 | `ls --json` without `--full` omits `body` and `source_fields` | 4 | Changes default `ara.ls/v1` output (see Q3) |
-| B7 | `show --document … --max-bytes N` cuts at a line boundary and reports `truncated` and `next_line`; `--from-line N` continues | 4 | Additive flags and fields |
-| B8 | `invalid_document` errors add a `hint`: the allowed `show --document` roots, and that `evidence/` and `src/` are read directly | 5 | Additive error field |
+| B1 | Remove `rubric/requirements.md` from the read boundary (`knowledge_document`, `agent.rs:980`) and from parsing (`parse.rs:444`). `show --document rubric/…` returns `invalid_document` with the B8 hint | 2 | Breaking for `show --document rubric/…` callers |
+| B2 | Remove rubric handling from writes and merge: the `Requirement` entry kind and `R` ids (`write/fields.rs`, `write/logic.rs`), the document and transaction allowlists (`write/documents.rs`, `write/transaction.rs`, `write/source.rs`), and the merge special cases (`merge/identity.rs`, `merge/markdown.rs`). `rubric/` becomes a plain source directory, merged like `evidence/` | 2 | Breaking: removes `EntryKind::Requirement` from `ara-core`'s public API |
+| B3 | `--heading` ignores case and surrounding whitespace, treats a trailing `...` on the real heading as a truncation marker, and accepts a unique prefix | 2 (general) | More inputs match; ambiguity still refuses |
+| B4 | A missed or ambiguous `--heading` returns `unknown_id` with `candidates`: the document's heading paths, closest first, capped at 40. Read paths never surface `merge.*` codes | 2 (general) | Additive error field; error code changes |
+| B5 | `check`/`validate` report an unclosed opening `---` in a Markdown knowledge document as one root-cause diagnostic, naming the file and how many headings it hides | 3 | New diagnostic code |
+| B6 | Read-only commands (`find`, `ls`, `show`, `status`, `open`, `refs`, `path`) run on artifacts with validation errors and return the diagnostics in `warnings`; `incomplete_artifact` and writes still refuse | 3 | Refusal becomes success with warnings |
+| B7 | `ls --json` without `--full` omits `body` and `source_fields` | 4 | Changes default `ara.ls/v1` output (see Q2) |
+| B8 | `show --document … --max-bytes N` cuts at a line boundary and reports `truncated` and `next_line`; `--from-line N` continues | 4 | Additive flags and fields |
+| B9 | `invalid_document` errors add a `hint`: the allowed `show --document` roots, and that `rubric/`, `evidence/` and `src/` are read directly | 2, 5 | Additive error field |
 
 ### Skills
 
 | # | Change | Cause |
 |---|---|---|
 | S1 | A short "Running ara" section in `cli-access.md` and `SKILL.md`: one `ara` command per call, no pipes, redirects or `&&`, errors arrive without `2>&1`, bound output with `--heading`, `--max-bytes` and `--from-line` | 1, 4 |
-| S2 | On a heading miss, retry with a listed `candidates` entry instead of guessing | 2 |
-| S3 | State which paths go through `show --document` and which are read directly | 5 |
+| S2 | `research-foresight-cli`: list `rubric/`, `evidence/` and `src/` as files read with file tools (`grep`, `read`), and say which paths go through `show --document` | 2, 5 |
+| S3 | `compiler-cli`: write `rubric/requirements.md` as a plain file (the same verbatim conversion as `generate_rubric_requirements_md.py`); remove "the fixed compiler allowlisted case" from `ara-schema.md` and all three `cli-access.md` copies | 2 |
+| S4 | On a heading miss, retry with a listed `candidates` entry instead of guessing | 2 |
 
 ### Outside this repository
 
 - **H1 (`ara-eval`):** the guard's denial message names the rule and the
   alternative ("run one `ara` command with no pipes or redirects; bound output with
   `--max-bytes`"). The denial is when the agent learns. Applies only to new runs.
+- **H2 (`ara-eval`):** any compile-condition guard allows the compiler to write
+  `rubric/requirements.md` directly, since `ara` no longer writes it.
 - **C1 (`ara-paperbench`):** remove the stray `---` from the 8 `claims.md` files.
   Applies only to new runs; e1-test stays on the vendored corpus.
 
@@ -138,39 +159,53 @@ current binary.
 1. **Measurement (`ara-eval`).** Move the trace scripts (`events.py`, `calls.py`,
    `roots.py`, now in the session scratchpad) into `ara-eval/src/analysis/` with a
    frozen snapshot list, so every comparison uses the same root-cause attribution.
-2. **PR 18a — heading selection (B1–B3, S2).** Reproducers in
-   `crates/ara-cli/tests/agent_reads.rs`: `--heading R84` on a rubric fixture with
-   truncated `...` headings; the full text of a truncated heading; a
-   case-different heading; a guessed name that returns `candidates`; an ambiguous
-   prefix that still refuses. Change `heading_matches` and `source_output` in
-   `agent.rs`, and the error shape in `output.rs`.
-3. **PR 18b — errors and invalid artifacts (B4, B5, B8, S3).** Reproducers: a
-   fixture with a stray `---` in `logic/claims.md` gets one named diagnostic from
-   `check`; the same fixture with a dangling claim reference still answers `find`,
-   `ls` and `show` with `warnings`; writes and `incomplete_artifact` still refuse;
-   `show --document evidence/x.md` returns the `hint`. Add the lint in `ara-core`;
-   split `Artifact::load` into strict and lenient loading.
-4. **PR 18c — output bounds (B6, B7, S1).** Reproducers: `ls --json` field set with
+2. **PR 18a — stop handling the rubric (B1, B2, B9 for `rubric/`, S2, S3).**
+   Reproducers: `show --document rubric/requirements.md` on a fixture currently
+   succeeds and must return `invalid_document` with a hint; a directory merge of two
+   artifacts with identical and with differing `rubric/` must behave like `evidence/`.
+   Remove the rubric cases from `ara-core` and update the four core test files that
+   cover them (`parse_fixtures.rs`, `write_logic_documents.rs`, `merge_identity.rs`,
+   `merge_markdown_layers.rs`). Check the `ara-core` public API diff, since
+   `EntryKind::Requirement` goes away.
+3. **PR 18b — heading selection (B3, B4, S4).** Reproducers in
+   `crates/ara-cli/tests/agent_reads.rs`: the full text of a heading stored with a
+   trailing `...`; a case-different heading; a guessed name that returns `candidates`;
+   an ambiguous prefix that still refuses; a fallback miss that returns `unknown_id`,
+   not `merge.unknown_identity`. Change `heading_matches`, `source_output` and the
+   `show_document` fallback in `agent.rs`, and the error shape in `output.rs`.
+4. **PR 18c — errors and invalid artifacts (B5, B6, B9).** Reproducers: a fixture
+   with a stray `---` in `logic/claims.md` gets one named diagnostic from `check`; the
+   same fixture still answers `find`, `ls` and `show` with `warnings`; writes and
+   `incomplete_artifact` still refuse; `show --document evidence/x.md` returns the
+   `hint`. Add the lint in `ara-core`; split `Artifact::load` into strict and lenient
+   loading.
+5. **PR 18d — output bounds (B7, B8, S1).** Reproducers: `ls --json` field set with
    and without `--full`; `--max-bytes` cuts at a line boundary; `--from-line` resumes
-   with no gap or overlap. Update `docs/agent-cli.md`.
-5. Each PR bumps the patch version, adds a `CHANGELOG.md` entry, and updates the
-   skills in the same change; `tests/skills.rs` checks that every command the skills
-   name exists.
-6. **H1 and C1** as separate changes in their repositories, after e1-test finishes.
-7. **Pilot** on the dev split with the new `ara-cli` commit (binary + skill),
-   the same model, Pi version and repetitions. Report the root-cause table above
-   next to accuracy against Files with the 0.03 margin.
-8. After the pilot, rewrite this plan as a design record in
+   with no gap or overlap.
+6. Each PR bumps the patch version, adds a `CHANGELOG.md` entry, updates
+   `docs/agent-cli.md`, and updates the skills in the same change; `tests/skills.rs`
+   checks that every command the skills name exists. 18a and 18d change public
+   contracts; record them for the pending minor/major release decision.
+7. **H1, H2 and C1** as separate changes in their repositories, after e1-test finishes.
+8. **Pilot** on the dev split with the new `ara-cli` commit (binary + skills), the
+   same model, Pi version and repetitions. Report the root-cause table and the
+   Category B rubric-access table above, next to accuracy against Files with the 0.03
+   margin.
+9. After the pilot, rewrite this plan as a design record in
    `docs/agent-cli-interface/` and remove it from `plans/`.
+
+## Decisions
+
+- **2026-10-04:** the CLI stops handling `rubric/requirements.md` for reads, writes
+  and merge (B1, B2). It is benchmark grading material, the harness already allows
+  direct reads, and CLI access made Category B sessions slower. Indexing requirements
+  as entries and special-casing `R` ids in `--heading` were rejected.
 
 ## Open questions
 
-- **Q1.** Should `rubric/requirements.md` stay readable? It is the PaperBench
-  grading rubric, both conditions can read it, and `knowledge_document` hard-codes
-  it. Removing it from the artifact copy would also remove most of cause 2.
-- **Q2.** For the stray `---`: is B4's diagnostic enough, or should the parser stop
+- **Q1.** For the stray `---`: is B5's diagnostic enough, or should the parser stop
   treating an unclosed fence followed by a heading as front matter? The current rule
   is deliberate: it keeps metadata comments from becoming selectable sections.
-- **Q3.** B6 changes default `ls --json` output for existing consumers. Accept the
+- **Q2.** B7 changes default `ls --json` output for existing consumers. Accept the
   change (bump the format version), or add `--brief` and leave the default?
-- **Q4.** Pilot size: the same 3 repetitions, or fewer to save budget?
+- **Q3.** Pilot size: the same 3 repetitions, or fewer to save budget?
