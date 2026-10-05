@@ -744,6 +744,45 @@ fn selectors_quote_values_that_start_with_a_dash() {
 }
 
 #[test]
+fn projected_text_reads_keep_the_error_summary() {
+    let dir = TempDir::new().unwrap();
+    let root = dir.path();
+    put(
+        root,
+        "trace/exploration_tree.yaml",
+        "tree:\n  - id: N01\n    type: question\n    title: Root\n    also_depends_on: [N99]\n",
+    );
+    let (_, plain) = brief(root, &["ls"]);
+    assert!(plain.contains("1 errors (ARA108)"), "{plain}");
+    for args in [
+        vec!["ls", "--fields", "id"],
+        vec!["show", "N01", "--fields", "id"],
+        vec!["path", "N01", "--fields", "id"],
+        vec!["find", "root", "--fields", "id"],
+    ] {
+        let (stdout, stderr) = brief(root, &args);
+        assert!(stdout.contains("N01"), "{args:?}: {stdout}");
+        assert_eq!(stderr.lines().count(), 1, "{args:?}: {stderr}");
+        assert!(stderr.contains("1 errors (ARA108)"), "{args:?}: {stderr}");
+    }
+}
+
+#[test]
+fn projected_text_reads_summarize_warnings_once() {
+    let fixture =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../ara-core/tests/fixtures/agent-cli");
+    let value = json(&fixture, &["ls"]);
+    let warnings = value["diagnostics"]["warnings"].as_array().unwrap();
+    assert!(!warnings.is_empty());
+    let (_, stderr) = brief(&fixture, &["ls", "--fields", "id"]);
+    assert_eq!(stderr.lines().count(), 1, "{stderr}");
+    assert!(
+        stderr.contains(&format!("{} warnings", warnings.len())),
+        "{stderr}"
+    );
+}
+
+#[test]
 fn session_projections_render_nested_array_items() {
     let dir = artifact();
     let root = dir.path();

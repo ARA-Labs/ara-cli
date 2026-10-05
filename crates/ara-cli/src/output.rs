@@ -315,10 +315,15 @@ pub fn emit(
                 serde_json::to_writer(&mut writer, &value).expect("JSON output");
                 writer.write_all(b"\n").expect("stdout output");
                 writer.flush().expect("stdout output");
-            } else if fields.is_none() && crate::brief::handles(format) {
+            } else if !crate::brief::handles(format) {
+                print_human(&value, true);
+            } else if fields.is_none() {
                 crate::brief::print(&value);
             } else {
-                print_human(&value);
+                // Projected rows keep their meaning; diagnostics (errors
+                // included) still print once as the read summary.
+                print_human(&value, false);
+                crate::brief::print_diagnostics(&value);
             }
             ExitCode::SUCCESS
         }
@@ -333,8 +338,13 @@ pub fn emit(
     }
 }
 
-fn print_human(value: &Value) {
-    if let Some(warnings) = value["diagnostics"]["warnings"].as_array() {
+/// Text for non-brief results. `warnings` prints each diagnostic warning;
+/// a read summarizes its diagnostics separately instead.
+fn print_human(value: &Value, warnings: bool) {
+    if let Some(warnings) = value["diagnostics"]["warnings"]
+        .as_array()
+        .filter(|_| warnings)
+    {
         for warning in warnings {
             eprintln!(
                 "warning [{}] {}: {}",

@@ -64,7 +64,8 @@ print address-led text ([`brief/`](../crates/ara-cli/src/brief)). Each item line
 starts with an address `show` accepts: a native ID (`C04`), a heading address
 or a document path. Data only the text needs is computed only without
 `--json` (or, for `show`, with a JSON bound; see below). `--fields` keeps its row meaning: with it, reads print the projected
-rows in the previous row text (tab-separated rows; `show` rows as JSON).
+rows in the previous row text (tab-separated rows; `show` rows as JSON) and
+the same once-per-command diagnostics summary as unprojected reads.
 Write commands keep their previous text.
 
 `show` prints one block per selection. The block starts with `== <address>

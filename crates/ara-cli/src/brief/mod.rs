@@ -45,6 +45,12 @@ pub(crate) fn print(value: &Value) {
     {
         panic!("stdout output: {error}");
     }
+    print_diagnostics(value);
+}
+
+/// The once-per-command diagnostics summary on stderr for a text read,
+/// including `--fields` projections; `status` prints its codes on stdout.
+pub(crate) fn print_diagnostics(value: &Value) {
     if value["format"] != "ara.status/v1"
         && let Some(summary) = diagnostics(&value["diagnostics"])
     {
