@@ -872,7 +872,8 @@ fn structural_reference_edits_are_exact_and_typed_dependencies_migrate() {
             references: vec![write::ReferenceEdit {
                 target: selector("C02"),
                 field: "Dependencies".into(),
-                before: "[\"C01\"]".into(),
+                // New claims write typed dependencies as `[C01]`; `before` is exact source.
+                before: "[C01]".into(),
                 after: "[\"C03\"]".into(),
             }],
             session: Some("2026-10-01_001".into()),
@@ -886,7 +887,7 @@ fn structural_reference_edits_are_exact_and_typed_dependencies_migrate() {
         write::logic::field_value(&working, &selector("C02"), "Dependencies").unwrap(),
         "[\"C03\"]"
     );
-    assert_eq!(working.revisions[0].record["before"], "[\"C01\"]");
+    assert_eq!(working.revisions[0].record["before"], "[C01]");
     assert_eq!(working.revisions[0].record["after"], "[\"C03\"]");
     assert_eq!(working.revisions[0].record["entry"], json!({"id":"C02"}));
     let pending = std::mem::take(&mut working.revisions);
@@ -929,7 +930,7 @@ fn revision_batches_refuse_historical_turns_without_batch_ownership() {
     assert!(
         std::fs::read_to_string(root.path().join("logic/claims.md"))
             .unwrap()
-            .contains("  Before\n")
+            .contains("- **Statement**: Before\n")
     );
 }
 
@@ -2194,4 +2195,240 @@ fn cached_claim_redirect_cannot_authorize_a_tampered_owning_revision() {
     let error = write::logic::claim_redirects_from_source(&working).unwrap_err();
     assert_eq!(error.code, "write.redirect");
     assert!(error.message.contains("exact owning revision"));
+}
+
+fn decoded_fields(text: &str, start: usize) -> Vec<(String, String)> {
+    markdown::fields(text, start..text.len())
+        .iter()
+        .map(|f| (f.name.to_owned(), markdown::decode_field(f).into_owned()))
+        .collect()
+}
+
+#[test]
+fn created_claim_block_uses_fixed_schema_inline_values_and_preserves_prior_bytes() {
+    // CRLF existing entries with an alias label and hand-written list styles.
+    let original = "# Claims\r\n\r\n## C01: Prior\r\n- **Tags**: evaluation, experimental-design\r\n- **Falsification criteria**: Kept label\r\n- **Dependencies**: [C02]\r\n\r\n## C02: Other\r\n- **Statement**: Independent\r\n";
+    let (_root, mut working) = make_working(&[("logic/claims.md", original)]);
+    let statement = "Line one 雪\r\n\n  indented\n";
+    let input = fields(json!({
+        "tags": "evaluation, experimental-design",
+        "Dependencies": ["C01", "C02"],
+        "Evidence basis": "[]",
+        "Proof": ["table one", "a, b", "", "none", "[x]"],
+        "Falsification criteria": "F text",
+        "provenance": "user",
+        "Status": "supported",
+        "Sources": ["paper §3"],
+        "Conditions": "none",
+        "Statement": statement,
+    }));
+    let result = write::plan_operation(
+        &mut working,
+        &WriteOperation::ClaimAdd {
+            id: None,
+            title: "Order probe".into(),
+            fields: input,
+        },
+    )
+    .unwrap();
+    assert_eq!(result.id.as_deref(), Some("C03"));
+    write::logic::validate_references(&working).unwrap();
+    let text = working.text("logic/claims.md").unwrap();
+    assert!(text.starts_with(original), "prior bytes changed");
+    let block = &text[original.len()..];
+    assert_eq!(
+        block,
+        // Separator, heading and inline lines follow the file's CRLF; the
+        // continuation value keeps LF structure around exact caller bytes.
+        "\r\n## C03: Order probe\r\n- **Statement**:\n  Line one 雪\r\n  \n    indented\n  \n\
+         - **Conditions**: none\r\n- **Sources**: [\"paper §3\"]\r\n- **Status**: supported\r\n\
+         - **Provenance**: user\r\n- **Falsification**: F text\r\n\
+         - **Proof**: [\"table one\",\"a, b\",\"\",\"none\",\"[x]\"]\r\n\
+         - **Evidence basis**: []\r\n- **Dependencies**: [C01, C02]\r\n\
+         - **Tags**: evaluation, experimental-design\r\n"
+    );
+    let body = original.len() + block.find("- **").unwrap();
+    let decoded = decoded_fields(text, body);
+    let expected: Vec<(String, String)> = [
+        ("Statement", statement),
+        ("Conditions", "none"),
+        ("Sources", "[\"paper §3\"]"),
+        ("Status", "supported"),
+        ("Provenance", "user"),
+        ("Falsification", "F text"),
+        ("Proof", "[\"table one\",\"a, b\",\"\",\"none\",\"[x]\"]"),
+        ("Evidence basis", "[]"),
+        ("Dependencies", "[C01, C02]"),
+        ("Tags", "evaluation, experimental-design"),
+    ]
+    .into_iter()
+    .map(|(name, value)| (name.to_owned(), value.to_owned()))
+    .collect();
+    assert_eq!(decoded, expected);
+    let heading = markdown::headings(text)
+        .into_iter()
+        .find(|h| h.heading.starts_with("C03"))
+        .unwrap();
+    assert_eq!(heading.heading, "C03: Order probe");
+    assert_eq!(
+        write::logic::field_value(&working, &selector("C03"), "Falsification criteria").unwrap(),
+        "F text"
+    );
+    // The existing alias label is untouched by creating a neighbour.
+    assert_eq!(
+        write::logic::field_value(&working, &selector("C01"), "Falsification").unwrap(),
+        "Kept label"
+    );
+}
+
+#[test]
+fn created_entries_reject_revision_fields_unknown_fields_and_new_dangling_dependencies() {
+    let original = "# Claims\n\n## C01: Prior\n- **Statement**: Kept\n";
+    for (extra, code) in [
+        (
+            json!({"Last revised": "2026-10-01"}),
+            "write.revision_required",
+        ),
+        (json!({"Merged into": "C01"}), "write.revision_required"),
+        (json!({"Unknown label": "x"}), "write.field"),
+        (json!({"Dependencies": "C01"}), "write.field_type"),
+        (json!({"Dependencies": ["N01"]}), "write.field_type"),
+    ] {
+        let (_root, mut working) = make_working(&[("logic/claims.md", original)]);
+        let mut input = claim_fields("Statement");
+        input.extend(fields(extra.clone()));
+        let error = write::plan_operation(
+            &mut working,
+            &WriteOperation::ClaimAdd {
+                id: None,
+                title: "Rejected".into(),
+                fields: input,
+            },
+        )
+        .unwrap_err();
+        assert_eq!(error.code, code, "{extra}");
+        assert_eq!(working.text("logic/claims.md").unwrap(), original);
+    }
+    let (_root, mut working) = make_working(&[("logic/claims.md", original)]);
+    let mut input = claim_fields("Statement");
+    input.insert("Dependencies".into(), json!(["C99"]));
+    write::plan_operation(
+        &mut working,
+        &WriteOperation::ClaimAdd {
+            id: None,
+            title: "Dangling".into(),
+            fields: input,
+        },
+    )
+    .unwrap();
+    let error = write::logic::validate_references(&working).unwrap_err();
+    assert_eq!(error.code, "write.reference");
+}
+
+#[test]
+fn created_compiler_heuristic_keeps_scalar_source_and_complete_bounds_in_schema_order() {
+    let original = "# Heuristics\n\n## H01: Prior\n- **Rationale**: Kept\n";
+    let (_root, mut working) = make_working(&[("logic/solution/heuristics.md", original)]);
+    let bounds = "Only synthetic data.\n  exact bound = 雪\n";
+    write::plan_operation(
+        &mut working,
+        &WriteOperation::HeuristicAdd {
+            id: None,
+            title: "Compiler heuristic".into(),
+            fields: fields(json!({
+                "Tags": "a, b",
+                "Code ref": ["src/run.rs:12", "src/[x].rs"],
+                "Bounds": bounds,
+                "Sensitivity": "Not specified in paper",
+                "Source": "paper.pdf p3 «a, b»",
+                "Rationale": "Reason",
+            })),
+        },
+    )
+    .unwrap();
+    write::logic::validate_references(&working).unwrap();
+    let text = working.text("logic/solution/heuristics.md").unwrap();
+    assert!(text.starts_with(original));
+    assert_eq!(
+        &text[original.len()..],
+        "\n## H02: Compiler heuristic\n- **Rationale**: Reason\n\
+         - **Source**: paper.pdf p3 «a, b»\n- **Sensitivity**: Not specified in paper\n\
+         - **Bounds**:\n  Only synthetic data.\n    exact bound = 雪\n  \n\
+         - **Code ref**: [\"src/run.rs:12\",\"src/[x].rs\"]\n- **Tags**: a, b\n"
+    );
+    assert_eq!(
+        write::logic::field_value(&working, &selector("H02"), "Bounds").unwrap(),
+        bounds
+    );
+}
+
+#[test]
+fn created_heuristics_reject_revision_fields_and_accept_underscore_aliases() {
+    let original = "# Heuristics\n\n## H01: Prior\n- **Rationale**: Kept\n";
+    let base = json!({"Rationale":"Reason","Sensitivity":"low","code_ref":"src/run.rs"});
+    for (extra, code) in [
+        (
+            json!({"Last revised": "2026-10-01"}),
+            "write.revision_required",
+        ),
+        (
+            json!({"last_revised": "2026-10-01"}),
+            "write.revision_required",
+        ),
+        (json!({"Evidence basis": "claims only"}), "write.field"),
+    ] {
+        let (_root, mut working) = make_working(&[("logic/solution/heuristics.md", original)]);
+        let mut input = fields(base.clone());
+        input.extend(fields(extra.clone()));
+        let error = write::plan_operation(
+            &mut working,
+            &WriteOperation::HeuristicAdd {
+                id: None,
+                title: "Rejected".into(),
+                fields: input,
+            },
+        )
+        .unwrap_err();
+        assert_eq!(error.code, code, "{extra}");
+        assert_eq!(
+            working.text("logic/solution/heuristics.md").unwrap(),
+            original
+        );
+    }
+    let (_root, mut working) = make_working(&[("logic/solution/heuristics.md", original)]);
+    write::plan_operation(
+        &mut working,
+        &WriteOperation::HeuristicAdd {
+            id: None,
+            title: "Aliased".into(),
+            fields: fields(base),
+        },
+    )
+    .unwrap();
+    assert_eq!(
+        &working.text("logic/solution/heuristics.md").unwrap()[original.len()..],
+        "\n## H02: Aliased\n- **Rationale**: Reason\n- **Sensitivity**: low\n- **Code ref**: src/run.rs\n"
+    );
+}
+
+#[test]
+fn created_claims_accept_underscore_aliases_and_write_schema_labels() {
+    let (_root, mut working) = make_working(&[]);
+    let mut input = claim_fields("Statement");
+    input.insert("evidence_basis".into(), json!("Table 2"));
+    input.insert("falsification_criteria".into(), json!("Alias"));
+    input.remove("Falsification criteria");
+    write::plan_operation(
+        &mut working,
+        &WriteOperation::ClaimAdd {
+            id: None,
+            title: "Aliased claim".into(),
+            fields: input,
+        },
+    )
+    .unwrap();
+    let text = working.text("logic/claims.md").unwrap();
+    assert!(text.contains(
+        "- **Falsification**: Alias\n- **Proof**: E01 and complete prose\n- **Evidence basis**: Table 2\n"
+    ));
 }

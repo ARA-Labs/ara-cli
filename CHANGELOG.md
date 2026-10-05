@@ -75,7 +75,7 @@ All notable changes to this project are documented here. The format follows
 - `ara check --fix` shares the guarded writer's lock and durable recovery journal.
 - Public Rust node constructors and typed bodies include the native agent fields;
   JSON additions remain optional. The integration minor/major release decision
-  is pending; version 0.1.24 is the unreleased engineering revision.
+  is pending; version 0.1.25 is the unreleased engineering revision.
 - Native parsing and merge planning avoid repeated YAML work and unchanged-field
   copies while preserving strict duplicate-key/resource guards, opaque historical
   data, exact source bytes, and deterministic duplicate-candidate ordering.
@@ -104,6 +104,10 @@ All notable changes to this project are documented here. The format follows
   `invalid_document` errors name these roots. Old rubric history stays readable.
 
 ### Fixed
+- Agent CLI: new claim and heuristic blocks (`claim add`, `heuristic add`,
+  promotion) list fields in the fixed schema order instead of alphabetically,
+  write single-line values inline, render Dependencies as `[C03, C04]`, and
+  keep other lists as lossless JSON arrays.
 - Artifacts with a rubric rename record no longer fail `merge` and `show` with
   `merge.redirect_data`; old rubric aliases and retained journals no longer
   block reads, writes or merges.

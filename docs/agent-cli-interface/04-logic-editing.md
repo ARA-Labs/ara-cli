@@ -7,7 +7,7 @@ Observed proof and unresolved gates are recorded in the delivery verification
 
 ## Implemented behavior
 
-Claim and heuristic creation/setters, typed document selectors, guarded structural edits and whole-body revisions share source/digest validation. Long CLI values support @file, @-, and @@ escaping; JSONL values remain literal. Claims retain audited withdrawal/merge entries.
+Claim and heuristic creation/setters, typed document selectors, guarded structural edits and whole-body revisions share source/digest validation. Long CLI values support @file, @-, and @@ escaping; JSONL values remain literal. Claims retain audited withdrawal/merge entries. New claim and heuristic blocks use the fixed schema field order, inline single-line values, typed `[C01, C02]` dependency lists and lossless JSON for other lists; see [agent-cli.md](../agent-cli.md#authoring-commands-and-source-inputs). Field placement inside existing blocks (`entry.edit`, `logic.revise`) is unchanged.
 
 ## Boundaries and remaining gates
 

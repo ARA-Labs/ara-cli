@@ -422,15 +422,47 @@ payload names cannot be silently rewritten into this creation contract.
 | `logic.revise`, `entry.rename`, `entry.remove` | Audit mutable changes and structural identity transitions |
 | `artifact.init` | Initialize the `compiler` or `research-manager` seed profile |
 
-New fields preserve native scalar/list forms. Named concepts must already
-exist or resolve through an authenticated alias. Claims are retained in audited
-withdrawal/merge states or renamed canonically; physical claim deletion is not
-allowed. Compiler heuristics retain singular scalar `Source` and complete Bounds
-prose without inventing PM fields. Extra knowledge documents are bounded by
-native registration/allowlists; arbitrary filesystem writing is not an operation.
-`knowledge_paths` rejects `rubric/`, `evidence/` and `src/` entries, and no
-operation creates, edits, renames or removes a `rubric/` document or `R` entry.
-A compiler writes `rubric/requirements.md` as a plain file.
+New fields preserve native scalar/list forms.
+
+A block created by `claim.add` or `heuristic.add` (including a promotion to a
+claim or heuristic) lists only the supplied fields, in a fixed schema order,
+whatever the input order or the layout of nearby entries:
+
+| Entry | Field order |
+|---|---|
+| Claim | Statement, Conditions, Sources, Status, Provenance, Falsification, Proof, Evidence basis, Dependencies, Tags |
+| Heuristic | Rationale, Source, Sources, Status, Provenance, Sensitivity, Bounds, Code ref, Tags |
+
+`Falsification criteria` is accepted as input, and a new block writes the
+schema label `Falsification`. Existing blocks, including their label spellings
+and list styles, are not reformatted. `Last revised` and `Merged into` belong
+to `logic.revise` and are rejected at creation.
+
+A single-line value with no leading or trailing whitespace is written inline
+(`- **Status**: supported`) when the field reader returns exactly that text. Empty,
+multiline (LF or CRLF) and padded values use the indented continuation form,
+which keeps every caller byte, including a final newline. When the target file
+uses CRLF, the blank-line separator, the heading line and inline field lines end
+with CRLF; a continuation-form field keeps LF structure, the only form the
+continuation reader decodes, around the exact caller bytes. A new or LF file
+gets LF throughout. Bytes before the block do not change. Dependencies are
+written as `[]` or `[C03, C04]`. Other lists (Proof, Sources, Tags, Code ref)
+stay compact JSON arrays such as `["x"]`: the readers keep these fields as text,
+so a comma-joined list would not decode back to the same list. A scalar is
+written as given, so `Tags=evaluation, experimental-design` stays one exact
+string. IDs inside a list value still count as references: `Proof=["E01","E03"]`
+projects `proof` as `[E01, E03]`, and a dangling ID inside Proof or Sources
+rejects the write.
+
+Named concepts must already exist or resolve through an authenticated alias.
+Claims are retained in audited withdrawal/merge states or renamed canonically;
+physical claim deletion is not allowed. Compiler heuristics retain singular
+scalar `Source` and complete Bounds prose without inventing PM fields. Extra
+knowledge documents are bounded by native registration/allowlists; arbitrary
+filesystem writing is not an operation. `knowledge_paths` rejects `rubric/`,
+`evidence/` and `src/` entries, and no operation creates, edits, renames or
+removes a `rubric/` document or `R` entry. A compiler writes
+`rubric/requirements.md` as a plain file.
 
 Trace and staging content is immutable except for declared pointer/metadata
 transitions. Terminal nodes cannot acquire children. `same_as` points from a
@@ -600,7 +632,7 @@ Before this change, an artifact holding such a rename record failed
 a `rubric/` path now has an invalid registry, as one that registers `evidence/`
 already did.
 
-Workspace version is 0.1.24 for this integration. The minor/major release
+Workspace version is 0.1.25 for this integration. The minor/major release
 decision remains pending; no tag or release is implied by engineering checks.
 
 Core behavior affects wasm even when the embedded-viewer source hash does not.

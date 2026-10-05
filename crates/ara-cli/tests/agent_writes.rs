@@ -740,3 +740,438 @@ fn same_as_uses_authored_order_and_concepts_require_native_headings() {
         assert_eq!(artifact_bytes(dir.path()), before);
     }
 }
+
+fn copied_agent_fixture() -> TempDir {
+    fn copy_dir(src: &Path, dst: &Path) {
+        fs::create_dir_all(dst).unwrap();
+        for entry in fs::read_dir(src).unwrap() {
+            let entry = entry.unwrap();
+            let target = dst.join(entry.file_name());
+            if entry.file_type().unwrap().is_dir() {
+                copy_dir(&entry.path(), &target);
+            } else {
+                fs::copy(entry.path(), &target).unwrap();
+            }
+        }
+    }
+    let dir = TempDir::new().unwrap();
+    copy_dir(
+        &Path::new(env!("CARGO_MANIFEST_DIR")).join("../ara-core/tests/fixtures/agent-cli"),
+        dir.path(),
+    );
+    dir
+}
+fn shown_entry(root: &Path, id: &str) -> Value {
+    run(root, &["show", id, "--full"])["entries"][0].clone()
+}
+fn source_field_names(entry: &Value) -> Vec<String> {
+    entry["source_fields"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|field| field["name"].as_str().unwrap().to_owned())
+        .collect()
+}
+fn source_field(entry: &Value, name: &str) -> Value {
+    entry["source_fields"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|field| field["name"] == name)
+        .unwrap()["value"]
+        .clone()
+}
+
+/// Reported case: the new C17 listed fields alphabetically, put every value on
+/// a continuation line, and the creation order ignored the claim schema.
+#[test]
+fn reported_claim_add_renders_fixed_schema_order_with_inline_values() {
+    let dir = copied_agent_fixture();
+    let before = fs::read(dir.path().join("logic/claims.md")).unwrap();
+    let before_all = artifact_bytes(dir.path());
+    let added = run(
+        dir.path(),
+        &[
+            "claim",
+            "add",
+            "--title",
+            "Order probe",
+            "--set",
+            "Statement=S text",
+            "--set",
+            "Conditions=C text",
+            "--set",
+            "Status=supported",
+            "--set",
+            "Falsification criteria=F text",
+            "--set",
+            "Proof=[]",
+            "--set",
+            "Dependencies=[]",
+            "--set",
+            "Provenance=user",
+            "--set",
+            "Tags=[\"x\"]",
+        ],
+    );
+    assert_eq!(added["id"], "C17");
+    let after = fs::read(dir.path().join("logic/claims.md")).unwrap();
+    assert_eq!(&after[..before.len()], &before[..]);
+    assert_eq!(
+        String::from_utf8(after[before.len()..].to_vec()).unwrap(),
+        "\n## C17: Order probe\n- **Statement**: S text\n- **Conditions**: C text\n\
+         - **Status**: supported\n- **Provenance**: user\n- **Falsification**: F text\n\
+         - **Proof**: []\n- **Dependencies**: []\n- **Tags**: [\"x\"]\n"
+    );
+    // Outside the appended block only the operational ignore entry may change.
+    let mut changed = artifact_bytes(dir.path());
+    changed.retain(|path, bytes| {
+        before_all.get(path) != Some(bytes) && path != Path::new(".gitignore")
+    });
+    assert_eq!(
+        changed.keys().collect::<Vec<_>>(),
+        [&PathBuf::from("logic/claims.md")]
+    );
+
+    let entry = shown_entry(dir.path(), "C17");
+    assert_eq!(
+        source_field_names(&entry),
+        [
+            "Statement",
+            "Conditions",
+            "Status",
+            "Provenance",
+            "Falsification",
+            "Proof",
+            "Dependencies",
+            "Tags"
+        ]
+    );
+    assert_eq!(entry["statement"], "S text");
+    assert_eq!(entry["falsification"], "F text");
+    assert_eq!(entry["deps"], json!([]));
+    assert_eq!(entry["proof"], json!([]));
+    assert_eq!(entry["proof_content"], "[]");
+    assert_eq!(entry["tags"], "[\"x\"]");
+    // The neighbouring hand-written claim keeps its alias label and list styles.
+    let prior = shown_entry(dir.path(), "C16");
+    assert!(source_field_names(&prior).contains(&"Falsification criteria".to_owned()));
+    assert_eq!(prior["deps"], json!(["C03", "C04", "C05", "C06"]));
+    assert_eq!(prior["tags"], "evaluation, experimental-design");
+}
+
+#[test]
+fn claim_add_lists_scalars_and_multiline_values_round_trip_through_show() {
+    let dir = fixture();
+    let input = TempDir::new().unwrap();
+    let statement = "First line 雪\r\n\n  indented tail\n";
+    write(input.path(), "statement.txt", statement);
+    let statement_assignment = format!(
+        "Statement=@{}",
+        input.path().join("statement.txt").display()
+    );
+    let before = fs::read_to_string(dir.path().join("logic/claims.md")).unwrap();
+    let added = run(
+        dir.path(),
+        &[
+            "claim",
+            "add",
+            "--title",
+            "Lossless probe",
+            "--set",
+            "Tags=evaluation, experimental-design",
+            "--set",
+            "Dependencies=[\"C01\",\"C02\"]",
+            "--set",
+            "Sources=[\"a, b\",\"[x]\",\"\",\"none\",\"q\\\"uote\",\"back\\\\slash\",\"雪\"]",
+            "--set",
+            "Proof=none",
+            "--set",
+            "Falsification=F text",
+            "--set",
+            "Provenance=ai-suggested",
+            "--set",
+            "Status=hypothesis",
+            "--set",
+            "Conditions=[]",
+            "--set",
+            &statement_assignment,
+        ],
+    );
+    let id = added["id"].as_str().unwrap();
+    let after = fs::read_to_string(dir.path().join("logic/claims.md")).unwrap();
+    assert!(after.starts_with(&before));
+    assert_eq!(
+        &after[before.len()..],
+        format!(
+            "\n## {id}: Lossless probe\n- **Statement**:\n  First line 雪\r\n  \n    indented tail\n  \n\
+             - **Conditions**: []\n\
+             - **Sources**: [\"a, b\",\"[x]\",\"\",\"none\",\"q\\\"uote\",\"back\\\\slash\",\"雪\"]\n\
+             - **Status**: hypothesis\n- **Provenance**: ai-suggested\n- **Falsification**: F text\n\
+             - **Proof**: none\n- **Dependencies**: [C01, C02]\n\
+             - **Tags**: evaluation, experimental-design\n"
+        )
+    );
+    let entry = shown_entry(dir.path(), id);
+    assert_eq!(entry["statement"], statement);
+    assert_eq!(entry["conditions"], "[]");
+    assert_eq!(entry["deps"], json!(["C01", "C02"]));
+    assert_eq!(entry["proof"], json!([]));
+    assert_eq!(entry["proof_content"], "none");
+    assert_eq!(entry["tags"], "evaluation, experimental-design");
+    let sources: Value =
+        serde_json::from_str(source_field(&entry, "Sources").as_str().unwrap()).unwrap();
+    assert_eq!(
+        sources,
+        json!(["a, b", "[x]", "", "none", "q\"uote", "back\\slash", "雪"])
+    );
+    assert_eq!(source_field(&entry, "Dependencies"), "[C01, C02]");
+}
+
+#[test]
+fn heuristic_add_and_promotions_create_fixed_schema_blocks() {
+    let dir = fixture();
+    let heuristic = run(
+        dir.path(),
+        &[
+            "heuristic",
+            "add",
+            "--title",
+            "Ordered heuristic",
+            "--set",
+            "Tags=a, b",
+            "--set",
+            "code_ref=[\"src/run.rs:12\",\"src/[x].rs\"]",
+            "--set",
+            "Bounds=Only synthetic data.\n  exact bound = 雪\n",
+            "--set",
+            "Sensitivity=unknown",
+            "--set",
+            "Provenance=user",
+            "--set",
+            "Status=active",
+            "--set",
+            "Sources=[\"doi:1\"]",
+            "--set",
+            "Source=paper.pdf p3 «a, b»",
+            "--set",
+            "Rationale=Reason",
+        ],
+    );
+    let id = heuristic["id"].as_str().unwrap();
+    assert_eq!(
+        fs::read_to_string(dir.path().join("logic/solution/heuristics.md")).unwrap(),
+        format!(
+            "# Heuristics\n\n## {id}: Ordered heuristic\n- **Rationale**: Reason\n\
+             - **Source**: paper.pdf p3 «a, b»\n- **Sources**: [\"doi:1\"]\n\
+             - **Status**: active\n- **Provenance**: user\n- **Sensitivity**: unknown\n\
+             - **Bounds**:\n  Only synthetic data.\n    exact bound = 雪\n  \n\
+             - **Code ref**: [\"src/run.rs:12\",\"src/[x].rs\"]\n- **Tags**: a, b\n"
+        )
+    );
+    let entry = shown_entry(dir.path(), id);
+    assert_eq!(entry["rationale"], "Reason");
+    assert_eq!(entry["code_ref"], "[\"src/run.rs:12\",\"src/[x].rs\"]");
+    assert_eq!(
+        source_field(&entry, "Bounds"),
+        "Only synthetic data.\n  exact bound = 雪\n"
+    );
+    assert_eq!(source_field(&entry, "Tags"), "a, b");
+
+    for (to, title, sets) in [
+        (
+            "claim",
+            "Promoted claim",
+            vec![
+                "Tags=[\"t\"]",
+                "Falsification criteria=Contrary evidence",
+                "Status=hypothesis",
+                "Conditions=Boundary context",
+                "Statement=Caller mechanism",
+            ],
+        ),
+        (
+            "heuristic",
+            "Promoted heuristic",
+            vec![
+                "Code ref=src/run.rs",
+                "Sensitivity=low",
+                "Rationale=Observed twice",
+            ],
+        ),
+    ] {
+        let observation = run(
+            dir.path(),
+            &[
+                "stage",
+                "--content",
+                "Observation text",
+                "--potential-type",
+                to,
+                "--context",
+                "Context",
+                "--provenance",
+                "ai-executed",
+                "--timestamp",
+                "2026-10-01T10:00",
+            ],
+        )["id"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        let document = if to == "claim" {
+            "logic/claims.md"
+        } else {
+            "logic/solution/heuristics.md"
+        };
+        let before = fs::read_to_string(dir.path().join(document)).unwrap();
+        let mut args = vec![
+            "promote",
+            observation.as_str(),
+            "--to",
+            to,
+            "--title",
+            title,
+            "--signal",
+            "empirical-resolution",
+        ];
+        for set in &sets {
+            args.extend(["--set", set]);
+        }
+        let promoted = run(dir.path(), &args);
+        let id = promoted["id"].as_str().unwrap();
+        let after = fs::read_to_string(dir.path().join(document)).unwrap();
+        assert!(after.starts_with(&before));
+        let expected = if to == "claim" {
+            format!(
+                "\n## {id}: {title}\n- **Statement**: Caller mechanism\n\
+                 - **Conditions**: Boundary context\n- **Status**: hypothesis\n\
+                 - **Provenance**: ai-executed\n- **Falsification**: Contrary evidence\n\
+                 - **Tags**: [\"t\"]\n"
+            )
+        } else {
+            format!(
+                "\n## {id}: {title}\n- **Rationale**: Observed twice\n\
+                 - **Provenance**: ai-executed\n- **Sensitivity**: low\n\
+                 - **Code ref**: src/run.rs\n"
+            )
+        };
+        assert_eq!(&after[before.len()..], expected);
+        assert_eq!(shown_entry(dir.path(), id)["provenance"], "ai-executed");
+    }
+}
+
+#[test]
+fn crlf_claim_file_gets_crlf_structure_and_exact_values_through_show_and_check() {
+    let dir = fixture();
+    let original =
+        "# Claims\r\n\r\n## C01: Prior\r\n- **Statement**: Kept\r\n- **Status**: hypothesis\r\n";
+    write(dir.path(), "logic/claims.md", original);
+    write(
+        dir.path(),
+        "logic/experiments.md",
+        "## E01: A\n\n## E03: B\n",
+    );
+    let input = TempDir::new().unwrap();
+    let statement = "Multi 雪\nline\r\nvalue\n";
+    write(input.path(), "statement.txt", statement);
+    let statement_assignment = format!(
+        "Statement=@{}",
+        input.path().join("statement.txt").display()
+    );
+    let added = run(
+        dir.path(),
+        &[
+            "claim",
+            "add",
+            "--title",
+            "CRLF probe",
+            "--set",
+            &statement_assignment,
+            "--set",
+            "Conditions=C text",
+            "--set",
+            "Status=supported",
+            "--set",
+            "Provenance=user",
+            "--set",
+            "Falsification=F text",
+            "--set",
+            "Proof=[\"E01\",\"E03\"]",
+            "--set",
+            "Sources=[\"E03 table\",\"C01\"]",
+            "--set",
+            "Dependencies=[\"C01\"]",
+        ],
+    );
+    assert_eq!(added["id"], "C02");
+    let after = fs::read_to_string(dir.path().join("logic/claims.md")).unwrap();
+    assert!(after.starts_with(original));
+    assert_eq!(
+        &after[original.len()..],
+        "\r\n## C02: CRLF probe\r\n- **Statement**:\n  Multi 雪\n  line\r\n  value\n  \n\
+         - **Conditions**: C text\r\n- **Sources**: [\"E03 table\",\"C01\"]\r\n\
+         - **Status**: supported\r\n- **Provenance**: user\r\n- **Falsification**: F text\r\n\
+         - **Proof**: [\"E01\",\"E03\"]\r\n- **Dependencies**: [C01]\r\n"
+    );
+    let entry = shown_entry(dir.path(), "C02");
+    assert_eq!(entry["title"], "CRLF probe");
+    assert_eq!(entry["statement"], statement);
+    assert_eq!(entry["conditions"], "C text");
+    assert_eq!(entry["falsification"], "F text");
+    assert_eq!(entry["proof"], json!(["E01", "E03"]));
+    assert_eq!(entry["proof_content"], "[\"E01\",\"E03\"]");
+    assert_eq!(entry["sources"], "[\"E03 table\",\"C01\"]");
+    assert_eq!(entry["deps"], json!(["C01"]));
+    let check = ara(dir.path())
+        .args(["check", "."])
+        .current_dir(dir.path())
+        .arg("--json")
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let check: Value = serde_json::from_slice(&check).unwrap();
+    assert_eq!(check["validate"]["errors"], json!([]));
+}
+
+#[test]
+fn created_list_references_fail_closed_on_dangling_ids() {
+    let dir = fixture();
+    write(
+        dir.path(),
+        "logic/experiments.md",
+        "## E01: A\n\n## E03: B\n",
+    );
+    for (field, list) in [
+        ("Proof", "[\"E01\",\"E09\"]"),
+        ("Sources", "[\"table\",\"C99\"]"),
+    ] {
+        let before = artifact_bytes(dir.path());
+        let assignment = format!("{field}={list}");
+        let error = failure(
+            dir.path(),
+            &[
+                "claim",
+                "add",
+                "--title",
+                "Dangling probe",
+                "--set",
+                "Statement=S",
+                "--set",
+                "Conditions=C",
+                "--set",
+                "Status=hypothesis",
+                "--set",
+                "Provenance=user",
+                "--set",
+                "Falsification=F",
+                "--set",
+                &assignment,
+            ],
+        );
+        assert_eq!(error["error"]["code"], "write.reference", "{field}");
+        assert_eq!(artifact_bytes(dir.path()), before, "{field}");
+    }
+}

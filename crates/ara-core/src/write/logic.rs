@@ -211,10 +211,16 @@ pub fn add(
         }
     }
     let id = working.allocate_id(prefix, &ids, requested)?;
-    let mut block = format!("## {id}: {title}\n");
-    for (label, value) in fields {
-        block.push_str(&fields::render(&label, &value));
-    }
+    // Structural lines follow a CRLF target file; a new file uses LF.
+    let eol = if working.exists(document) && working.text(document)?.contains("\r\n") {
+        "\r\n"
+    } else {
+        "\n"
+    };
+    let block = format!(
+        "## {id}: {title}{eol}{}",
+        fields::render_created(kind, &fields, eol)
+    );
     if !working.exists(document) {
         working.create(
             document,
@@ -228,7 +234,7 @@ pub fn add(
             ),
         )?;
     } else {
-        append(working, document, &block, op)?;
+        append_with(working, document, &block, op, eol)?;
     }
     let mut result = OperationResult::new(op, Some(id.clone()));
     result.target = Some(format!("{document}:{id}"));
@@ -241,14 +247,28 @@ pub(crate) fn append(
     block: &str,
     reason: &str,
 ) -> Result<(), WriteError> {
+    append_with(working, document, block, reason, "\n")
+}
+
+/// Append after one blank line, writing separators with `eol`.
+fn append_with(
+    working: &mut WorkingArtifact,
+    document: &str,
+    block: &str,
+    reason: &str,
+    eol: &str,
+) -> Result<(), WriteError> {
     let text = working.text(document)?;
     let end = text.len();
-    let separator = if text.is_empty() || text.ends_with("\n\n") {
+    // A CRLF file may still end in an LF blank line (e.g. after a continuation
+    // field), so either form already separates the new block.
+    let blank = format!("{eol}{eol}");
+    let separator = if text.is_empty() || text.ends_with("\n\n") || text.ends_with(&blank) {
         ""
     } else if text.ends_with('\n') {
-        "\n"
+        eol
     } else {
-        "\n\n"
+        &blank
     };
     working.edit(document, end..end, &format!("{separator}{block}"), reason)
 }
