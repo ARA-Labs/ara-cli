@@ -119,8 +119,9 @@ On a dev-split pilot against the unchanged CLI condition and Files:
 4. Accuracy stays within the registered non-inferiority margin (0.03) of Files and
    of the unchanged CLI condition, overall and on Category B.
 
-Token and context reductions that do not remove calls (compact `show`, smaller
-skills, the required `status`/`ls` opening) are out of scope; they get their own
+The text output format (B7, S5) is in scope because oversized JSON causes the
+truncation in cause 4; its token savings come with it. Other token reductions that do
+not remove calls (smaller skills, the required `status`/`ls` opening) get their own
 plan after this one is measured.
 
 ## Proposed changes
@@ -135,9 +136,31 @@ plan after this one is measured.
 | B4 | A missed or ambiguous `--heading` returns `unknown_id` with `candidates`: the document's heading paths, closest first, capped at 40. Read paths never surface `merge.*` codes | 2 (general) | Additive error field; error code changes |
 | B5 | `frontmatter_range` treats an unclosed opening `---` as front matter only when the next non-blank line looks like YAML (`key: value`); otherwise it is a horizontal rule and the document parses. Either way `check`/`validate` warn about the unclosed fence, naming the file and line | 3 | Documents with a stray leading `---` now parse; new warning code |
 | B6 | Read-only commands (`find`, `ls`, `show`, `status`, `open`, `refs`, `path`) run on artifacts with validation errors and return the diagnostics in `warnings`; `incomplete_artifact` and writes still refuse | 3 | Refusal becomes success with warnings |
-| B7 | `ls --json` without `--full` omits `body` and `source_fields` | 4 | Changes default `ara.ls/v1` output (see Q2) |
+| B7 | Text is the agent format: every read command prints compact text by default ([Agent text output](#agent-text-output)); `--json` keeps the complete `ara.*/v1` contracts for programs | 4 | Text output of `status` and `show <ids>` changes from JSON to text; JSON unchanged |
 | B8 | `show --document … --max-bytes N` cuts at a line boundary and reports `truncated` and `next_line`; `--from-line N` continues | 4 | Additive flags and fields |
 | B9 | `invalid_document` errors add a `hint`: the allowed `show --document` roots, and that `rubric/`, `evidence/` and `src/` are read directly | 2, 5 | Additive error field |
+| B10 | `parse_claims` accepts `C01 — Title`, `C01 – Title` and `C01 - Title` as well as `C01: Title` | 3 | More claim headings parse |
+
+### Agent text output
+
+Agents read text; programs read JSON. Text carries what an agent acts on, once, and
+nothing it would only re-read. Measured on `bam`, today's JSON is 50.2k characters
+for `ls` against 6.0k for its existing text form.
+
+| Command | Default text output |
+|---|---|
+| `ls` | One line per entry: `ID<TAB>kind<TAB>title` (exists today) |
+| `find` | One line per hit: `ID<TAB>kind<TAB>title<TAB>excerpt`, the excerpt at most 160 characters around the match, not the document's opening |
+| `show <ids>` | Per entry, a header line `== C01 claim logic/claims.md sha256:<digest>` then its Markdown body once; requested relations as `parents: N01, N02` lines |
+| `show --document` | A header line `== <path>[#heading] sha256:<digest>` then the content; with `--max-bytes`, a footer `… truncated; continue with --from-line N` |
+| `status` | Counts per kind on one line, `errors: N, warnings: N (codes)`, and next free ids |
+| `path`, `refs`, `open` | One line per item |
+| Any command | Validation warnings once on stderr as a count with codes and `run ara check`; errors as `error[code]: message`, then `hint:` and `candidates:` lines |
+
+The digest stays in the header in full, since write skills pass it as `expected` to
+guarded edits. Text layouts get snapshot tests and a section in `docs/agent-cli.md`,
+but they are not a versioned JSON contract. `--json` output is unchanged, so no
+`ara.*/v1` format version changes.
 
 ### Skills
 
@@ -147,6 +170,7 @@ plan after this one is measured.
 | S2 | `research-foresight-cli`: list `rubric/`, `evidence/` and `src/` as files read with file tools (`grep`, `read`), and say which paths go through `show --document` | 2, 5 |
 | S3 | `compiler-cli`: write `rubric/requirements.md` as a plain file (the same verbatim conversion as `generate_rubric_requirements_md.py`); remove "the fixed compiler allowlisted case" from `ara-schema.md` and all three `cli-access.md` copies | 2 |
 | S4 | On a heading miss, retry with a listed `candidates` entry instead of guessing | 2 |
+| S5 | All CLI skills drop `--json` from read commands and take the digest from the text header; write inputs (`apply` JSONL) are unchanged | 4 |
 
 ### Outside this repository
 
@@ -187,16 +211,20 @@ current binary.
    hides `## metadata only` (the existing `markdown.rs:407` case); closed front matter
    is unchanged. A fixture with a dangling claim reference still answers `find`, `ls`
    and `show` with `warnings`; writes and `incomplete_artifact` still refuse;
-   `show --document evidence/x.md` returns the `hint`. Change `frontmatter_range` and
-   add the warning in `ara-core`; split `Artifact::load` into strict and lenient
-   loading.
-5. **PR 18d — output bounds (B7, B8, S1).** Reproducers: `ls --json` field set with
-   and without `--full`; `--max-bytes` cuts at a line boundary; `--from-line` resumes
-   with no gap or overlap.
+   `show --document evidence/x.md` returns the `hint`; a `claims.md` with
+   `## C01 — Title` headings parses (B10). Change `frontmatter_range` and add the
+   warning in `ara-core`; split `Artifact::load` into strict and lenient loading.
+5. **PR 18d — agent text output and bounds (B7, B8, S1, S5).** Reproducers:
+   `status` and `show <ids>` without `--json` print JSON today; warnings repeat on
+   every command. Snapshot tests for each command's text layout; `--json` output
+   byte-identical before and after; the text digest equals the JSON digest;
+   `--max-bytes` cuts at a line boundary; `--from-line` resumes with no gap or overlap.
+   Measure text against JSON size on the corpus artifacts.
 6. Each PR bumps the patch version, adds a `CHANGELOG.md` entry, updates
    `docs/agent-cli.md`, and updates the skills in the same change; `tests/skills.rs`
-   checks that every command the skills name exists. 18a and 18d change public
-   contracts; record them for the pending minor/major release decision.
+   checks that every command the skills name exists. 18a changes a public API
+   (`EntryKind::Requirement`) and 18d changes default text output; record both for
+   the pending minor/major release decision.
 7. **H1, H2 and C1** as separate changes in their repositories, after e1-test finishes.
 8. **Pilot** on the dev split with the new `ara-cli` commit (binary + skills), the
    same model, Pi version and repetitions. Report the root-cause table and the
@@ -216,10 +244,12 @@ current binary.
   leaves the documents unreadable; treating every unclosed fence as a horizontal rule
   would expose broken metadata as headings.
 
+- **2026-10-04:** `parse_claims` accepts dash separators in claim headings (B10).
+- **2026-10-04:** agents read text, not JSON (B7, S5). Every read command gets a
+  complete compact text form and the skills stop passing `--json`; JSON stays the
+  unchanged program contract. This replaces both shrinking default `ls --json` (a
+  breaking contract change) and adding a `--brief` flag (a third format).
+
 ## Open questions
 
-- **Q1.** Should `parse_claims` also accept `C01 — Title` and `C01 - Title`? It is
-  documented as lenient about corpus drift; this would fix `nanogpt-speedrun`.
-- **Q2.** B7 changes default `ls --json` output for existing consumers. Accept the
-  change (bump the format version), or add `--brief` and leave the default?
-- **Q3.** Pilot size: the same 3 repetitions, or fewer to save budget?
+- **Q1.** Pilot size: the same 3 repetitions, or fewer to save budget?
