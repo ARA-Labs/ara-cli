@@ -1127,6 +1127,16 @@ pub fn resolve(snapshot: &ArtifactSnapshot, address: &str) -> Result<String, Mer
 pub fn resolve_local(snapshot: &ArtifactSnapshot, address: &str) -> Result<String, MergeError> {
     resolve(snapshot, &identity::normalize_local(address))
 }
+/// Build the request-independent identity view that local resolution
+/// consults. A failure here belongs to the artifact's records, not to the
+/// selector that happened to reach them.
+pub fn check_identities(snapshot: &ArtifactSnapshot) -> Result<(), MergeError> {
+    let view = inventory(snapshot)?;
+    let identities = ids(&view);
+    let aliases = identity::aliases(snapshot)?;
+    identity::alias_index(&aliases, &identities, &view.redirects, &view.markdown)?;
+    Ok(())
+}
 /// Resolve an exact concept name/native reference against staged concepts and
 /// authenticated rename archives, without copying or parsing the source tree.
 pub fn concept_reference_exists(working: &WorkingArtifact, name: &str) -> Result<bool, MergeError> {

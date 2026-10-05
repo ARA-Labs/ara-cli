@@ -117,7 +117,7 @@ fn values(
                     let names: Vec<_> = rows(heading).filter_map(YamlNode::scalar).collect();
                     if target.source_matches(document)
                         && names.last().is_some_and(|name| {
-                            super::heading_matches(name, target.key())
+                            super::headings::heading_matches(name, target.key())
                                 || name
                                     .split_once(':')
                                     .is_some_and(|(id, _)| target.key_matches(id.trim()))

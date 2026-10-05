@@ -21,6 +21,7 @@ ara -C ./ara show N01 C01 --full --json
 ara -C ./ara show --document logic/problem.md --source --full --json
 ara -C ./ara show --document logic/solution/architecture.md \
   --heading Architecture --heading 'A/B' --full --json
+ara -C ./ara show 'logic/solution/architecture.md#h/Architecture/A%2FB' --json
 ara -C ./ara path N12 --json
 ara -C ./ara refs C01 --json
 ara -C ./ara open --json
@@ -59,14 +60,72 @@ not index these roots, and rubric headings such as `R84` are not entry IDs.
 
 Native nodes, claims, heuristics, observations, sessions, experiment plans,
 concepts and typed documents keep their own namespaces. A concept named `C05`
-is a concept name, not an instruction to relocate claim C05. Repeated `--heading`
-values form an exact vector: `['A/B']` differs from `['A','B']`. Ambiguous legacy
-flattened selectors reject when requested. Unknown fields and complete source
-bodies remain available in full reads. `--source` returns original UTF-8 source
-rather than regenerated normalized YAML/Markdown. Source digests refer to the
-selected exact bytes; replacement preconditions must use the corresponding
-source selection. Pure parser and native source spans are both bounded; see
-[deep-tree-parsing.md](deep-tree-parsing.md).
+is a concept name, not an instruction to relocate claim C05. Unknown fields
+and complete source bodies remain available in full reads. `--source` returns
+original UTF-8 source rather than regenerated normalized YAML/Markdown. Source
+digests refer to the selected exact bytes; replacement preconditions must use
+the corresponding source selection. Pure parser and native source spans are
+both bounded; see [deep-tree-parsing.md](deep-tree-parsing.md).
+
+### Headings and canonical addresses
+
+Repeated `--heading` values form an exact vector: `['A/B']` names one heading
+containing a slash and differs from `['A','B']`. A heading read tries these
+tiers in order and stops at the first tier that matches anything; if that
+tier matches more than one section, the read rejects instead of trying a
+weaker tier:
+
+1. the exact full heading vector;
+2. an exact suffix of the vector, then the native-ID shorthand (`C04` selects
+   `C04: Title`);
+3. a recorded rename or merge redirect, when the artifact has identity records
+   (`trace/logic_mutations.yaml`, `trace/merge_log.yaml`, `trace/aliases.yaml`)
+   and the read is not `--source`;
+4. tolerant suffix matches on segments trimmed of surrounding whitespace and
+   lowercased with Unicode lowercase (locale-independent; no accent stripping
+   or Unicode normalization): equality, then a prefix of the source heading,
+   then a source heading ending in a literal `...` whose nonempty stem starts
+   a longer request. An exact heading containing `...` matches at tier 1 or 2.
+
+A canonical address names one section of the current source. A document is
+its path. A heading is `path#h/<segment>/<segment>` with the full original
+heading vector. Path components and segments escape every byte outside
+`A-Z a-z 0-9 - . _ ~` as uppercase `%XX`, so `path#h/A%2FB` and `path#h/A/B`
+differ and a literal `;` is `%3B`. When the full vector repeats, the address
+ends in `;occurrence=N`, the one-based source-order position among those
+sections; an address without it rejects for a repeated vector. An occurrence
+is a read locator for one source snapshot, not a durable identity after
+edits, and no write selector accepts it.
+
+`ara show <address>` accepts canonical addresses alongside entry IDs, bare
+native IDs (`C04`), `trace:N09` and `logic/claims.md#C04`. Canonical addresses
+resolve exactly, with no redirect or tolerant tier. The input is decoded once
+and then passes the normal document boundary: malformed escapes, invalid
+UTF-8, absolute paths and traversal reject (`invalid_address` or
+`invalid_document`). A positional whole-document path is decoded the same
+way; its raw spelling still reads when no decoded path matches. A legacy
+`path#Method/Step 3` is tried only when no entry has that selector, and
+resolves only when exactly one section has a heading suffix spelled that way
+with `/` joins; each segment may use its native-ID shorthand
+(`logic/problem.md#O1`). If recorded identities call the selector ambiguous,
+it stays ambiguous even when one current section matches.
+
+Source-document rows keep `heading` (the requested or redirected vector) and
+add `heading_path` (the section's full source vector) and `address`. The
+`digest` still covers exactly the selected bytes.
+
+A miss returns `unknown_id`; more than one match, whether sections or
+entries, returns `ambiguous_heading`. Both carry `details.candidates`, at most
+40 canonical addresses from loaded knowledge, and `details.capped`, which is
+true when more existed. When a heading read finds several sections, the
+candidates are those sections in source order. Otherwise they are the
+document's headings (for a document selector) or the artifact's entries,
+ranked by edit distance to the request and then by source order. When
+identity records cannot be indexed (for example a corrupt alias file), a read
+that reaches them fails with `identity_lookup_failed` instead of an ordinary
+miss.
+Selection errors from `show`, `path`, `refs` and `ls --under` never carry
+internal `merge.*` codes; `ara resolve` and `merge` keep theirs.
 
 ## Authoring commands and source inputs
 

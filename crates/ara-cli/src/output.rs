@@ -275,6 +275,8 @@ fn known_row_field(format: &str, name: &str) -> bool {
             | "claims"
             | "document"
             | "heading"
+            | "heading_path"
+            | "address"
             | "digest"
             | "reasons"
     )

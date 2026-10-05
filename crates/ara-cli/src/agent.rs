@@ -5,9 +5,14 @@ use ara_core::{Manifest, NodeFields, NodeKind, parse_dir_detailed};
 use serde_json::{Value, json};
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
+pub(crate) mod address;
 mod boundary;
+mod candidates;
+mod documents;
+mod headings;
 mod references;
 use boundary::{invalid_document, knowledge_document};
+use documents::{Selected, show_document, show_source};
 
 #[derive(Debug, Default, Clone, clap::Args)]
 pub struct ReadOptions {
@@ -171,18 +176,36 @@ impl Artifact {
         Ok(self.snapshot.get().expect("initialized"))
     }
     fn entry(&self, id: &str) -> Result<Entry<'_>, AgentError> {
-        let resolved = if id.contains(':')
-            || id.contains('#')
-            || id.contains('@')
+        self.lookup_entry(id)?.map_err(|miss| self.miss(id, miss))
+    }
+    /// The outer error is a read failure; the inner one is a selection miss
+    /// whose ranked error is built only if the caller cannot recover.
+    fn lookup_entry(&self, id: &str) -> Result<Result<Entry<'_>, candidates::Miss>, AgentError> {
+        // Without identity records there is nothing to redirect: native
+        // `path#ID`, `path:ID` and `trace:N01` forms resolve locally, so an
+        // unrelated document the merge index cannot represent never blocks them.
+        let resolved = if id.contains('@')
             || self.sources.contains_key("trace/logic_mutations.yaml")
             || self.sources.contains_key("trace/merge_log.yaml")
+            || id.contains([':', '#']) && self.has_identity_records()
         {
-            Some(
-                ara_core::merge::resolve_local(self.snapshot()?, id)
-                    .map_err(crate::merge::convert_error)?,
-            )
+            let snapshot = self.snapshot()?;
+            match ara_core::merge::resolve_local(snapshot, id) {
+                Ok(resolved) => Some(resolved),
+                Err(error) => return Ok(Err(candidates::classify(error, snapshot)?)),
+            }
         } else {
-            None
+            id.split_once(':')
+                .filter(|(document, entry)| {
+                    !entry.is_empty()
+                        && (*document == "trace"
+                            || *document == "PAPER.md"
+                            || document.contains('/') && self.is_knowledge(document))
+                })
+                .map(|(document, entry)| match document {
+                    "trace" => format!("trace/exploration_tree.yaml#{entry}"),
+                    _ => format!("{document}#{entry}"),
+                })
         };
         let resolved = resolved.as_deref().unwrap_or(id);
         let native = id
@@ -204,11 +227,11 @@ impl Artifact {
                 .any(|recipe| recipe.name == name)
         });
         let mut matching = self.entries().into_iter().filter(|entry|scope.is_none_or(|path|entry.source_matches(path))&&(entry.key()==key||matches!(entry,Entry::Recipe(recipe) if recipe_key==Some(recipe.name.as_str())))&&!(has_recipe&&matches!(entry,Entry::Document{..})));
-        let entry = matching.next().ok_or_else(|| AgentError::unknown(id))?;
-        if matching.next().is_some() {
-            return Err(AgentError::unknown(id));
-        }
-        Ok(entry)
+        Ok(match (matching.next(), matching.next()) {
+            (Some(entry), None) => Ok(entry),
+            (Some(_), Some(_)) => Err(candidates::Miss::Ambiguous),
+            (None, _) => Err(candidates::Miss::Unknown),
+        })
     }
 }
 fn representable(report: &ara_core::ParseReport) -> bool {
@@ -576,27 +599,17 @@ pub fn show_loaded(artifact: &Artifact, args: &ShowArgs) -> Result<Value, AgentE
             ));
         }
     }
-    if args.ids.len() == 1
-        && artifact.sources.contains_key(&args.ids[0])
-        && !artifact
-            .manifest
-            .recipes
-            .iter()
-            .any(|recipe| format!("logic/solution/{}.md", recipe.name) == args.ids[0])
-    {
-        return show_document(artifact, &args.ids[0], &[], false, args.output.full);
-    }
     let selected = args
         .ids
         .iter()
-        .map(|id| artifact.entry(id))
+        .map(|id| documents::select(artifact, id, args.output.full))
         .collect::<Result<Vec<_>, _>>()?;
     let index = QueryIndex::new(&artifact.manifest);
     let mut rows = Vec::with_capacity(selected.len());
     let requested: Vec<_> = selected
         .iter()
-        .filter_map(|entry| {
-            if let Entry::Node(node) = entry {
+        .filter_map(|selected| {
+            if let Selected::Entry(Entry::Node(node)) = selected {
                 Some(node.id.as_str())
             } else {
                 None
@@ -615,7 +628,14 @@ pub fn show_loaded(artifact: &Artifact, args: &ShowArgs) -> Result<Value, AgentE
     } else {
         BTreeMap::new()
     };
-    for entry in selected {
+    for selected in selected {
+        let entry = match selected {
+            Selected::Entry(entry) => entry,
+            Selected::Source(row) => {
+                rows.push(row);
+                continue;
+            }
+        };
         let mut value = entry.value(args.output.full);
         if let Entry::Node(node) = entry
             && let Some(raw) = raw_nodes.get(node.id.as_str())
@@ -985,139 +1005,4 @@ pub fn validate_date(date: &str) -> Result<(), AgentError> {
             format!("Invalid calendar date `{date}`; expected YYYY-MM-DD"),
         ))
     }
-}
-fn valid_document_path(document: &str) -> bool {
-    !document.contains('\\')&&Path::new(document).components().all(|component|matches!(component,std::path::Component::Normal(name) if name!=".git"&&name!=".ara"))
-}
-fn show_source(root: &Path, document: &str, headings: &[String]) -> Result<Value, AgentError> {
-    if !valid_document_path(document) {
-        return Err(invalid_document());
-    }
-    if !knowledge_document(document) {
-        let paper_path = ara_core::write::transaction::checked_destination(root, "PAPER.md")
-            .map_err(crate::write::convert_error)?;
-        let paper = std::fs::read_to_string(paper_path)
-            .map_err(|error| AgentError::io(error.to_string()))?;
-        if !ara_core::knowledge_paths(&paper)
-            .map_err(|message| AgentError::semantic("invalid_knowledge_registry", message))?
-            .iter()
-            .any(|path| path == document)
-        {
-            return Err(invalid_document());
-        }
-    }
-    let path = ara_core::write::transaction::checked_destination(root, document)
-        .map_err(crate::write::convert_error)?;
-    let text = std::fs::read_to_string(path).map_err(|error| AgentError::io(error.to_string()))?;
-    let mut value = source_output(document, headings, true, &text)?;
-    value
-        .as_object_mut()
-        .unwrap()
-        .insert("artifact_validation".into(), json!("not_run"));
-    Ok(value)
-}
-fn show_document(
-    artifact: &Artifact,
-    document: &str,
-    headings: &[String],
-    source: bool,
-    full: bool,
-) -> Result<Value, AgentError> {
-    if !valid_document_path(document) || !artifact.is_knowledge(document) {
-        return Err(invalid_document());
-    }
-    let direct = artifact
-        .sources
-        .get(document)
-        .map(|text| source_output(document, headings, source || full, text))
-        .unwrap_or_else(|| Err(AgentError::unknown(document)));
-    let mut value = match direct {
-        Ok(value) => value,
-        Err(error) if !source && !headings.is_empty() => {
-            let selector = ara_core::write::EntrySelector::Document {
-                document: document.into(),
-                heading: headings.to_vec(),
-                entry: None,
-            };
-            let resolved = ara_core::merge::resolve_selector(artifact.snapshot()?, &selector)
-                .map_err(crate::merge::convert_error)?;
-            if resolved == selector {
-                return Err(error);
-            }
-            let (current_document, current_headings) = match resolved {
-                ara_core::write::EntrySelector::Document {
-                    document,
-                    heading,
-                    entry,
-                } => {
-                    let heading = if heading.is_empty() {
-                        entry.into_iter().collect()
-                    } else {
-                        heading
-                    };
-                    (document, heading)
-                }
-                ara_core::write::EntrySelector::Id { id } if id.starts_with('C') => {
-                    ("logic/claims.md".into(), vec![id])
-                }
-                ara_core::write::EntrySelector::Id { id } if id.starts_with('H') => {
-                    ("logic/solution/heuristics.md".into(), vec![id])
-                }
-                _ => return Err(error),
-            };
-            let text = artifact
-                .sources
-                .get(&current_document)
-                .ok_or_else(|| AgentError::unknown(&current_document))?;
-            source_output(&current_document, &current_headings, full, text)?
-        }
-        Err(error) => return Err(error),
-    };
-    value
-        .as_object_mut()
-        .unwrap()
-        .insert("diagnostics".into(), diagnostics(&artifact.report));
-    Ok(value)
-}
-fn heading_matches(actual: &str, wanted: &str) -> bool {
-    actual == wanted
-        || (wanted
-            .as_bytes()
-            .first()
-            .is_some_and(|prefix| matches!(prefix, b'N' | b'C' | b'H' | b'E' | b'O' | b'T'))
-            && wanted.len() > 1
-            && wanted[1..].bytes().all(|byte| byte.is_ascii_digit())
-            && actual
-                .split_once(':')
-                .is_some_and(|(id, _)| id.trim() == wanted))
-}
-fn source_output(
-    document: &str,
-    headings: &[String],
-    full: bool,
-    text: &str,
-) -> Result<Value, AgentError> {
-    let content = if headings.is_empty() {
-        text
-    } else {
-        let selected = ara_core::markdown::headings(text)
-            .into_iter()
-            .filter(|section| {
-                section.path.len() >= headings.len()
-                    && section.path[section.path.len() - headings.len()..]
-                        .iter()
-                        .zip(headings)
-                        .all(|(actual, wanted)| heading_matches(actual, wanted))
-            })
-            .collect::<Vec<_>>();
-        if selected.len() != 1 {
-            return Err(AgentError::unknown(&headings.join(" / ")));
-        }
-        &text[selected[0].body_range.clone()]
-    };
-    use sha2::{Digest, Sha256};
-    let digest = format!("sha256:{:x}", Sha256::digest(content.as_bytes()));
-    Ok(
-        json!({"format":"ara.show/v1","entries":[{"key":document,"kind":"source_document","document":document,"heading":headings,"source":document,"content":if full{content.to_owned()}else{excerpt(content)},"digest":digest}]}),
-    )
 }
