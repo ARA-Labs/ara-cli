@@ -35,6 +35,8 @@ Internal review added coverage for multi-backtick code delimiters, aliased reaso
 
 Follow-up review 4192277038 found that a valid second import was rejected by the superseded first capture of a mutable session summary. The capture pass now walks revisions newest-first and records mutable session metadata and rolling fields once per `(source_key, original session owner)`. Every revision still receives mapping authentication, every append-only occurrence remains captured, and competing source keys still require compatible proof. Selecting the latest entire owner snapshot also avoids reviving removed rolling fields from older revisions.
 
+Review 4192392994 identified a missing boundary when the newest owner snapshot omits an optional rolling field but a committed mutable conflict retains the destination list. The selected owner's absent mutable fields now register imported prefixes without restoring older value captures. Surviving text with no current value proof remains unknown; it cannot fall through to native identity. Conflict resolution and the newest-summary precedence are unchanged.
+
 ## Alternatives considered
 
 Resolving YAML aliases would require an anchor table, bounded traversal, and cycle guards across every reference-bearing path. The collector instead reports unknown evidence, which the review explicitly allowed and which prevents a silent stale write without introducing a second YAML expansion mechanism.
@@ -88,6 +90,12 @@ The follow-up regression performs two real directory merges with the same source
 A separate real-binary smoke passed both summary cases. It also confirmed that the earlier merge-ledger bytes remain intact after the second import. The temporary script and its fixtures were removed after verification.
 
 The follow-up locked workspace passed 1,117 tests with one ignored test. Clippy, formatting, the 16 acceptance-script tests, and embedded-viewer freshness passed again.
+
+The deleted-field regression imports protected `open_threads` text with a local/peer N01 collision, appends a token-free local note, and removes the peer field before the second merge. It uses a fresh native destination snapshot to avoid an old private recovery journal; alias and merge-ledger bytes are copied unchanged. Before the boundary fix, the second merge committed a mutable conflict and `open` credited the retained peer text to local N01 with complete history. After the fix, both counts are null with `history.origin_unknown` and a stale batch refuses atomically. The focused history targets passed 35 tests, including both latest-summary cases.
+
+A separate actual-binary smoke confirmed initial peer attribution, the committed conflict, retained text, unknown local/peer counts, unchanged earlier ledger bytes, and atomic stale refusal. Its temporary script and fixtures were removed.
+
+The deleted-field fix passed the locked workspace with 1,118 tests and one ignored test. Clippy, formatting, the 16 acceptance-script tests, and embedded-viewer freshness passed.
 
 ## Next Steps
 

@@ -136,6 +136,9 @@ unchanged archived copies, revision `before`/`after` values and
   A repeated import uses the newest same-source session capture for mutable
   metadata and rolling fields. Older captures still prove append-only rows;
   competing source keys remain independent proof and must agree.
+  If the newest capture omits a mutable field but a committed conflict retains
+  it locally, its imported boundary remains; surviving text without current
+  value proof is unknown, not native.
   Missing or conflicting capture proof makes both counts unknown
   (`history.origin_unknown`), including legacy alias-only imports.
 

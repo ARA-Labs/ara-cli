@@ -702,3 +702,109 @@ fn repeated_import_uses_latest_unarchived_mutable_summary() {
         assert_eq!(observation["stale"], true);
     }
 }
+
+#[test]
+fn retained_imported_rolling_field_without_current_capture_is_unknown() {
+    let parent = TempDir::new().unwrap();
+    let [base, ours, theirs, first_peer] =
+        ["base", "ours", "theirs", "first-peer"].map(|name| parent.path().join(name));
+    fixture(&base, "tree: []\n");
+    fixture(
+        &ours,
+        "tree:\n  - id: N01\n    type: question\n    title: Independent local node\n    provenance: user\n",
+    );
+    fixture(
+        &theirs,
+        "tree:\n  - id: N01\n    type: question\n    title: Independent peer node\n    provenance: user\n",
+    );
+    observation(&ours, "O95", &["N01"]);
+    observation(&theirs, "O94", &["N01"]);
+    let session_path = "trace/sessions/2026-10-01_001.yaml";
+    let mut session = json!({
+        "session":{"id":"2026-10-01_001","date":"2026-10-01","started":"2026-10-01T09:00:00Z","last_turn":"2026-10-01T11:00:00Z","turn_count":1,"summary":"Unrelated"},
+        "events_logged":[],"ai_actions":[],"claims_touched":[],"logic_revisions":[],"key_context":[],"open_threads":["Revisited `N01`"],"ai_suggestions_pending":[]
+    });
+    let write_session = |root: &Path, record: &Value| {
+        write(
+            root,
+            session_path,
+            ara_core::write::source::render_yaml(record, 0, "\n"),
+        );
+        let count = record["open_threads"].as_array().map_or(0, Vec::len);
+        let index = json!({"sessions":[{"id":"2026-10-01_001","date":"2026-10-01","summary":"Unrelated","turn_count":1,"events_count":0,"claims_touched":[],"open_threads":count}]});
+        write(
+            root,
+            "trace/sessions/session_index.yaml",
+            ara_core::write::source::render_yaml(&index, 0, "\n"),
+        );
+    };
+    write_session(&theirs, &session);
+    for (path, bytes) in artifact_bytes(&theirs) {
+        write(&first_peer, path.to_str().unwrap(), bytes);
+    }
+    let merge = |destination: &Path, ancestor: &Path| {
+        ara(destination)
+            .args(["merge", "--base"])
+            .arg(ancestor)
+            .arg("--theirs")
+            .arg(&theirs)
+            .args([
+                "--as",
+                "peer",
+                "--source-key",
+                "history-peer",
+                "--json",
+                "--no-duplicate-check",
+            ])
+            .output()
+            .unwrap()
+    };
+    let first = merge(&ours, &base);
+    assert!(first.status.success(), "{first:?}");
+    let peer_id = peer_observation(&ours);
+    let peer = open_row(&ours, &peer_id);
+    assert_eq!(peer["history_status"], "complete", "{peer}");
+    assert_eq!(peer["last_reference_turn"], "2026-10-01_001#1");
+    let local = open_row(&ours, "O95");
+    assert_eq!(local["last_reference_turn"], Value::Null);
+    let mut destination = yaml(&ours, session_path);
+    // A fresh native snapshot permits a source edit without a completed
+    // transaction's private recovery journal; provenance bytes are unchanged.
+    let retained = parent.path().join("retained");
+    for (path, bytes) in artifact_bytes(&ours) {
+        write(&retained, path.to_str().unwrap(), bytes);
+    }
+    assert_eq!(destination["open_threads"][0], "Revisited `N01`");
+    destination["open_threads"]
+        .as_array_mut()
+        .unwrap()
+        .push(json!("Token-free local note"));
+    write_session(&retained, &destination);
+    session.as_object_mut().unwrap().remove("open_threads");
+    write_session(&theirs, &session);
+    let second = merge(&retained, &first_peer);
+    assert_eq!(second.status.code(), Some(1), "{second:?}");
+    assert!(second.stderr.is_empty(), "{second:?}");
+    let report: Value = serde_json::from_slice(&second.stdout).unwrap();
+    assert_eq!(report["committed"], true, "{report}");
+    assert!(report["conflicts"].as_array().unwrap().iter().any(|conflict| conflict["path"] == session_path && conflict["field"] == "open_threads"), "{report}");
+    assert_eq!(
+        yaml(&retained, session_path)["open_threads"],
+        destination["open_threads"]
+    );
+    for id in ["O95", peer_id.as_str()] {
+        let row = open_row(&retained, id);
+        assert_eq!(row["history_status"], "ambiguous", "{row}");
+        assert_eq!(row["turns_since_reference"], Value::Null, "{row}");
+        assert_eq!(row["session_days_since_reference"], Value::Null, "{row}");
+        assert!(
+            row["history_diagnostics"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|diagnostic| diagnostic["code"] == "history.origin_unknown"),
+            "{row}"
+        );
+    }
+    assert_stale_refused(&retained, &["write.stale_history_unknown"]);
+}

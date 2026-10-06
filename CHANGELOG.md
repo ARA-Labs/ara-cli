@@ -198,6 +198,9 @@ All notable changes to this project are documented here. The format follows
   capture, so superseded summaries no longer invalidate authenticated history
   or block otherwise-valid stale decisions. Append-only and competing-source
   origin checks remain strict (#115).
+- Agent CLI: retained imported rolling fields remain unknown when a newer
+  source snapshot omits their value; committed mutable conflicts no longer
+  reclassify protected peer literals as local references (#115).
 - Agent CLI: citation repair preserves inner quotations/backticks in native
   JSON lists, keeps historical heading-array segments literal, resolves earlier
   bindings in split/repair selectors, and refuses explicit repair rows that

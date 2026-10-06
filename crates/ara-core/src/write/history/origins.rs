@@ -130,6 +130,14 @@ pub(super) fn read(
                         for name in ["session", "open_threads", "ai_suggestions_pending"] {
                             if let Some(node) = get(root, name) {
                                 capture(aliases, &destination_path, name, node, source_key);
+                            } else {
+                                // A committed mutable conflict may retain this
+                                // field without any current source value proof.
+                                aliases
+                                    .imported_fields
+                                    .entry(destination_path.clone())
+                                    .or_default()
+                                    .insert(name.to_owned());
                             }
                         }
                     }
