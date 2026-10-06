@@ -74,6 +74,17 @@ All notable changes to this project are documented here. The format follows
 - Merge: `merge resolve` and `merge repair` take an optional `--turn` (it must
   equal the session's next turn), plus `--timestamp` and `--summary`, and report
   the resolved `session` and `turn`.
+- Agent CLI: a batch with a `session.log` derives its turn's mechanical
+  `events_logged` rows (from `node.add`, `observation.stage`, `claim.add`,
+  `heuristic.add` and `observation.promote`) and `claims_touched` rows
+  (`created`, `crystallized`, `revised`). Caller rows keep their summaries and
+  judgments; a judgment replaces the generic `revised` row. No-op operations
+  derive nothing.
+- Agent CLI: event rows take an optional `target` selector naming the exact
+  destination of a concept, constraint or architecture promotion; `refs`
+  reports it.
+- Agent CLI: write errors that involve two inputs report the other one as
+  `related_line` and `related_field`.
 
 ### Changed
 - Agent reads default to brief address-led text; `--json` output keeps its
@@ -115,6 +126,21 @@ All notable changes to this project are documented here. The format follows
 - Merge: an omitted `--timestamp` on `merge resolve`/`merge repair` uses the
   locked clock rather than the session's last turn time, so a session from an
   earlier date needs an explicit timestamp on that date.
+- Agent CLI (compatibility): in a batch with a `session.log`, a creation
+  without provenance needs its event row (`write.event_provenance`). An event
+  row for a concept, constraint or architecture promotion without `target`, or
+  a `crystallized` row naming the promotion's source observation, now rejects
+  (`write.event_conflict`), as does any caller row that disagrees with the
+  operation it names or two different rows for one event. A claim judgment
+  that contradicts the same turn's explicit Status change (`confirmed`,
+  `refuted`, `withdrawn`/`merged`), or `confirmed` with `refuted` without two
+  distinct Status changes, rejects (`write.claim_touch_conflict`). With several
+  logs, each new entry must be named in exactly one of them
+  (`write.owner_ambiguous`). Repeated identical rows are written once.
+- Skills: `research-manager-cli` and the shared `cli-access.md` copies drop the
+  manual `Last revised`, `logic_revisions` copy, observation pointer and
+  `Crystallized via`/`From staging` steps, use the owner-anchor `session.log`,
+  and show which session rows the CLI derives.
 
 ### Removed
 - Native PaperBench rubric handling: `rubric/requirements.md` is no longer

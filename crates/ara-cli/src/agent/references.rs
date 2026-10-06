@@ -266,7 +266,7 @@ fn yaml(
                 .and_then(|metadata| get(metadata, "id"))
                 .and_then(YamlNode::scalar);
             for (list, names) in [
-                ("events_logged", &["id"] as &[&str]),
+                ("events_logged", &["id", "target"] as &[&str]),
                 ("claims_touched", &["id"]),
                 ("logic_revisions", &["entry"]),
                 ("ai_actions", &["files_changed"]),

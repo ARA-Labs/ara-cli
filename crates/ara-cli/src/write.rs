@@ -730,6 +730,17 @@ fn physical_error(mut error: AgentError, lines: &[usize]) -> AgentError {
             details.insert("line".into(), json!(line));
         }
     }
+    // A two-input conflict names its other operation with the same numbering.
+    if let Some(details) = error.details.as_deref_mut().and_then(Value::as_object_mut)
+        && let Some(line) = details
+            .get("related_line")
+            .and_then(Value::as_u64)
+            .and_then(|line| (line as usize).checked_sub(1))
+            .and_then(|index| lines.get(index))
+            .copied()
+    {
+        details.insert("related_line".into(), json!(line));
+    }
     error
 }
 pub fn apply(root: &Path, args: &ApplyArgs) -> Result<Value, AgentError> {

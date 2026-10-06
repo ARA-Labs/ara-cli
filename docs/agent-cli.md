@@ -543,8 +543,9 @@ Rules:
 - An explicit `session` or `turn` on an omitting operation must equal the
   anchor's session and reserved turn (`write.owner_mismatch`). The writer never
   overrides it or attaches a change to an earlier turn.
-- Revision rows and pending audits are attached after all ordered operations
-  succeed, then the complete candidate is validated.
+- Revision rows, pending audits and operation-derived session rows (below) are
+  attached after all ordered operations succeed, then the complete candidate
+  is validated.
 - No `session.log` is ever added because an operation needs a turn. Standalone
   writes without audits stay possible and create no session.
 
@@ -573,6 +574,107 @@ An empty batch writes nothing. A batch of no-op operations with no
 `session.log` creates no turn or history. An explicit `session.log` is a
 requested turn even if everything else is a no-op, and no-op mutations add no
 revision rows.
+
+### Operation-derived session rows
+
+A batch that contains a `session.log` gets the mechanical rows of its turn
+from the operations that succeeded. The caller no longer repeats them.
+
+| Successful operation | `events_logged` row | `claims_touched` row |
+|---|---|---|
+| `node.add` | new N ID, the node type, `direct` | none |
+| `observation.stage` | new O ID, `observation`, `staged` | none |
+| `claim.add`, `heuristic.add` | new C/H ID, `claim`/`heuristic`, `direct` | `created` for a claim |
+| `observation.promote` to claim, heuristic or dead end | new C/H/N ID, destination type, `crystallized` | `crystallized` for a claim |
+| `observation.promote` to concept, constraint or architecture | source O ID, destination type, `crystallized`, `target` | none |
+| `logic.revise`, or a rename's reference repair, that changes a claim | none | `revised` (also when it sets `Merged into`) |
+
+- **Summary and provenance.** A derived event's `summary` is the operation's
+  `title`, or the observation's complete `content`, copied without
+  truncation. Its `provenance` is the operation's own: `fields.provenance` on
+  `node.add`, `Provenance` on claims and heuristics, `provenance` on staging,
+  and the destination's supplied or inherited value on promotion. A creation
+  with no valid provenance fails at its own line with
+  `write.event_provenance`, unless the caller supplies its event row.
+- **`target`.** A promotion to a named section has no numeric ID, so its event
+  names the source observation and adds
+  `target: {document: <canonical document>, heading: [<section>]}`. The field
+  is additive and optional: older rows without it keep their meaning. A
+  supplied `target` needs `crystallized` routing and must resolve to the exact
+  entry the row names. For an observation, its type must be concept,
+  constraint or architecture and the observation's `promoted_to` must point at
+  that heading; otherwise `write.event_target`.
+- **Which turn.** With one log, every eligible operation belongs to its turn,
+  wherever the log appears and whether its session is explicit, selected or
+  created. With several logs, a new entry belongs to the one log whose
+  `events` or `claims_touched` row names it. No naming row, or rows in two
+  logs, is `write.owner_ambiguous`. A claim change belongs to the turn the
+  revision names. With no log, nothing is derived, and a no-op operation
+  derives nothing.
+- **Caller rows win on words, not facts.** Event identity is the turn plus
+  `(id, routing, target)` after resolving `target`; an absent `target` matches
+  a numeric-ID destination, and a supplied one must select the same entry. A
+  caller row with the same identity as a derived row keeps its summary
+  verbatim and suppresses the derived one, but must agree on type and
+  provenance. Any caller row that names an entry this batch created or
+  promoted must match one of that operation's facts, so it cannot relabel the
+  routing or drop the target. These fail with `write.event_conflict`.
+- **Duplicates.** Identical repeated rows are written once. Two different rows
+  with one identity fail with `write.event_conflict` naming both inputs.
+- **Claim judgments.** Touch identity is `(claim, action)`. `created` and
+  `crystallized` must match the operation that made the claim; labeling a
+  revised existing claim `created` also fails. A caller judgment (`revised`,
+  `advanced`, `weakened`, `confirmed`, `refuted`, `withdrawn`, `merged` or
+  `split`) for a claim changed in the turn replaces the generic `revised` row.
+  Beyond the vocabulary, only two checks apply, both against explicit Status
+  changes written in the same turn. First, when the turn changes that claim's
+  Status, a judgment naming a terminal status must match one of the written
+  values: `confirmed` needs a change to `supported`, `refuted` a change to
+  `refuted`, and `withdrawn` or `merged` a change to `withdrawn`. `advanced`,
+  `weakened`, `revised` and `split` are not compared with Status values.
+  Without a Status change in the turn, only the vocabulary applies; the stored
+  Status is never consulted. Second, `confirmed` and `refuted` on the same
+  claim in one turn reject unless the turn has two distinct Status changes, one
+  to `supported` and one to `refuted`. Both fail with
+  `write.claim_touch_conflict`. A Status change to `supported` alone is only
+  `revised`. Judgments on claims the batch does not change keep the existing
+  vocabulary and reference checks.
+- **Order.** Caller rows keep their order; derived rows follow in operation
+  order. Rows are inserted inside their own turn when one batch owns several
+  turns of a session. Earlier turns are never searched, replaced or deleted.
+
+A fully explicit request still validates every supplied row and receives any
+deterministic row it left out, so its meaning is kept, but its bytes, event
+counts and index rows can differ from the old binary's output. A
+whole-document `Body` revision of `logic/claims.md` derives no claim touch,
+because it does not name one claim; supply the rows. A `logic.revise` that
+sets `Merged into` derives `revised`; `merged` and `split` are derived only by
+plan 19's explicit merge and split operations (step 19e). Until then a caller
+may supply them as judgments.
+
+Compatibility changes for requests that worked before 19c, all in batches
+with a `session.log`:
+
+- A `node.add` or `heuristic.add` without provenance needs its event row
+  (`write.event_provenance`).
+- A row for a promotion to a concept, constraint or architecture without
+  `target`, or a row `{type: observation, id: O.., routing: crystallized}`
+  naming a promotion's source observation, no longer stands in for the
+  promotion. It names a promoted entry but matches none of its facts, so it
+  rejects with `write.event_conflict`. Omit the row, or write the derived
+  identity with its `target`.
+- Any other caller row that disagrees with the operation it names, and two
+  different rows for one identity, reject (`write.event_conflict`,
+  `write.claim_touch_conflict`).
+- With several logs, every new entry must be named in exactly one of them
+  (`write.owner_ambiguous`).
+- Identical repeated rows are written once, and missing deterministic rows are
+  appended.
+
+Errors that involve two inputs carry the other one as `related_line` (the same
+physical-line numbering as `line`) and `related_field`. The CLI's
+`session log --node` still builds rows for existing nodes from their titles; it
+runs no operations, so nothing else is derived.
 
 ### Session history and transactions
 

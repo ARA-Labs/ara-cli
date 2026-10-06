@@ -135,6 +135,11 @@ Uncertain?
   → provenance: ai-suggested  (conservative default)
 ```
 
+Put the provenance on the operation itself (`fields.provenance` on `node.add`, `Provenance`
+on claims and heuristics, `provenance` on `observation.stage`). The CLI copies it into the
+turn's `events_logged` row; a logged batch rejects a creation without one unless you supply
+its event row.
+
 `ai-suggested` never auto-upgrades. A subsequent **verbal-affirmation** closure signal
 upgrades it to `user-revised` (or `user` if the affirmation reproduces the assertion
 verbatim). The other three closure signals license crystallization but do **not** change
@@ -156,7 +161,7 @@ Reviewers and downstream tools (e.g., rigor-reviewer L2) inspect this distributi
 | Experiment plan | E | E01, E02 | Global |
 | Observation | O | O01, O02 | Global; assigned at staging |
 | Taste comment (trace-node) | T | T01, T02 | Global; `trace/taste_log.yaml` only — see `references/taste-comments.md` |
-| Session | date_seq | 2026-04-27_001 | Unique per calendar day |
+| Session | date_seq | 2026-04-27_001 | Unique per calendar day; the CLI selects or creates it from `session.log` |
 
 Always read the target through ara full source show before adding (no duplicates); let the CLI assign the new ID and use its result/bindings instead of scanning to allocate it.
 

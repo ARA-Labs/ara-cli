@@ -349,6 +349,7 @@ pub fn plan_batch(
     // first omitting line rejects below instead.
     let anchored = logs.len() == 1 && operations.iter().any(omits_owner);
     for (index, operation) in operations.iter().enumerate() {
+        working.bookkeeping.current = index;
         let result = (|| {
             let mut operation = operation.clone();
             let omits = omits_owner(&operation);
@@ -402,12 +403,20 @@ pub fn plan_batch(
             }
             let result = if let WriteOperation::SessionLog { .. } = &operation {
                 let logged = super::sessions::plan_log(working, &operation)?;
+                working.bookkeeping.logs.push(super::bookkeeping::LogRows {
+                    operation: index,
+                    session: logged.session.clone(),
+                    turn: logged.turn,
+                    events: logged.events.clone(),
+                    claims: logged.claims.clone(),
+                });
                 if anchored {
                     working.owner = Some(super::sessions::OwnerAnchor::from_logged(&logged, index));
                 }
                 logged.result()
             } else {
                 let mut result = super::plan_operation(working, &operation)?;
+                super::bookkeeping::record_operation(working, &operation, &result)?;
                 if omits && let Some(owner) = &working.owner {
                     result.session = Some(owner.session.clone());
                     result.turn = Some(owner.turn);
@@ -440,6 +449,9 @@ pub fn plan_batch(
             Ok(result) => results.push(result),
             Err(mut error) => {
                 error.line = Some(index + 1);
+                if let Some(related) = error.related.as_mut() {
+                    related.related_line.get_or_insert(index + 1);
+                }
                 return Err(error);
             }
         }
@@ -463,6 +475,9 @@ pub fn plan_batch(
         }
         super::sessions::append_revision(working, &pending.session, pending.turn, &pending.record)?;
     }
+    // Operation-derived events and claim touches join their owned turns once
+    // every ordered operation has succeeded; the candidate is validated after.
+    super::bookkeeping::finalize(working)?;
     Ok((
         results,
         bindings

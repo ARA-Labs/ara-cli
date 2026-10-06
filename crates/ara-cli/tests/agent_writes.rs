@@ -1215,7 +1215,7 @@ fn apply_derives_owner_from_one_summarized_log_and_stamps_one_clock_value() {
         dir.path(),
         &[
             json!({"op":"session.log","summary":"Caller-written turn summary"}),
-            json!({"op":"node.add","type":"question","parent":"N01","title":"Stamped","fields":{"description":"d"}}),
+            json!({"op":"node.add","type":"question","parent":"N01","title":"Stamped","fields":{"description":"d","provenance":"ai-executed"}}),
             json!({"op":"observation.stage","content":"Seen","potential_type":"unknown","provenance":"user"}),
             json!({"op":"logic.revise","target":{"id":"C01"},"set":{"Statement":"Revised by anchor"},"signal":"user-directive","provenance":"user"}),
         ],
@@ -1546,5 +1546,95 @@ fn merge_repair_derives_turn_without_turn_flag() {
     assert_eq!(
         fs::read_to_string(ours.join("trace/reasoning.yaml")).unwrap(),
         original
+    );
+}
+
+#[test]
+fn apply_derives_session_rows_from_operations_through_the_binary() {
+    let dir = fixture();
+    let root = dir.path();
+    let report = apply(
+        root,
+        &[
+            json!({"op":"session.log","summary":"Caller summary"}),
+            json!({"op":"node.add","type":"question","parent":"N01","title":"Derived question","fields":{"description":"d","provenance":"ai-executed"}}),
+            json!({"op":"observation.stage","content":"Complete staged content","potential_type":"concept","provenance":"user"}),
+            json!({"op":"claim.add","title":"Derived claim","fields":{"Statement":"S","Conditions":"C","Status":"hypothesis","Provenance":"ai-suggested","Falsification":"F"}}),
+            json!({"op":"logic.revise","target":{"id":"C01"},"set":{"Status":"testing"},"signal":"empirical-resolution","provenance":"user"}),
+            json!({"op":"observation.promote","observation":"O01","to":"concept","title":"Derived concept","fields":{"Definition":"D"},"signal":"verbal-affirmation"}),
+        ],
+        false,
+    );
+    let session = report["operations"][0]["id"].as_str().unwrap().to_owned();
+    let record = yaml(root, &format!("trace/sessions/{session}.yaml"));
+    let events = record["events_logged"].as_array().unwrap();
+    let summary: Vec<(&str, &str, &str)> = events
+        .iter()
+        .map(|row| {
+            (
+                row["id"].as_str().unwrap(),
+                row["type"].as_str().unwrap(),
+                row["routing"].as_str().unwrap(),
+            )
+        })
+        .collect();
+    assert_eq!(
+        summary,
+        [
+            ("N02", "question", "direct"),
+            ("O01", "observation", "staged"),
+            ("C03", "claim", "direct"),
+            ("O01", "concept", "crystallized"),
+        ]
+    );
+    assert_eq!(events[1]["summary"], "Complete staged content");
+    assert_eq!(
+        events[3]["target"],
+        json!({"document":"logic/concepts.md","heading":["Derived concept"]})
+    );
+    assert_eq!(
+        record["claims_touched"],
+        json!([{"id":"C03","action":"created","turn":1},{"id":"C01","action":"revised","turn":1}])
+    );
+    // The read model projects the additive target as a structured reference.
+    let refs = run(root, &["refs", "logic/concepts.md#Derived concept"]);
+    let text = refs.to_string();
+    assert!(
+        text.contains(&format!("trace/sessions/{session}.yaml")) && text.contains("\"target\""),
+        "{refs}"
+    );
+}
+
+#[test]
+fn derived_row_conflicts_report_both_physical_lines() {
+    let dir = fixture();
+    let root = dir.path();
+    let before = artifact_bytes(root);
+    let text = format!(
+        "\n{}\n\n{}\n",
+        json!({"op":"session.log","summary":"Caller summary","events":[{"type":"question","id":"N02","routing":"staged","provenance":"user","summary":"Wrong routing"}]}),
+        json!({"op":"node.add","type":"question","parent":"N01","title":"Q","fields":{"description":"d","provenance":"user"}}),
+    );
+    let error = apply_failure(root, &text);
+    assert_eq!(error["error"]["code"], "write.event_conflict");
+    assert_eq!(error["error"]["line"], 2);
+    assert_eq!(error["error"]["details"]["field"], "events[0]");
+    assert_eq!(error["error"]["details"]["related_line"], 4);
+    assert_eq!(error["error"]["details"]["related_field"], "op");
+    let error = apply_failure(
+        root,
+        &format!(
+            "{}\n\n{}\n",
+            json!({"op":"session.log","summary":"Caller summary"}),
+            json!({"op":"node.add","type":"question","parent":"N01","title":"Q","fields":{"description":"d"}}),
+        ),
+    );
+    assert_eq!(error["error"]["code"], "write.event_provenance");
+    assert_eq!(error["error"]["line"], 3);
+    assert_eq!(error["error"]["details"]["field"], "fields.provenance");
+    assert_eq!(
+        artifact_bytes(root),
+        before,
+        "rejected batches write nothing"
     );
 }

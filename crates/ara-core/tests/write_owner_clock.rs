@@ -156,7 +156,7 @@ fn every_omitted_value_in_one_batch_uses_the_single_locked_clock_read() {
     let reads = Cell::new(0);
     let lines = [
         log("Caller summary of this turn"),
-        json!({"op":"node.add","id":"$q","type":"question","parent":"root","title":"New question","fields":{"description":"Asked"}}),
+        json!({"op":"node.add","id":"$q","type":"question","parent":"root","title":"New question","fields":{"description":"Asked","provenance":"ai-executed"}}),
         json!({"op":"observation.stage","id":"$o","content":"Seen","potential_type":"unknown","provenance":"user"}),
         json!({"op":"observation.stage","id":"$dead","content":"Failed","potential_type":"unknown","provenance":"user"}),
         json!({"op":"observation.promote","observation":"$dead","to":"dead_end","title":"Dead end","fields":{"hypothesis":"H","failure_mode":"F","lesson":"L"},"signal":"empirical-resolution"}),
@@ -231,7 +231,7 @@ fn explicit_values_and_offsets_stay_exact_and_select_by_written_date() {
         root,
         &[
             json!({"op":"session.log","timestamp":"2026-10-04T23:30:00-05:00","summary":"Late local work"}),
-            json!({"op":"node.add","type":"question","parent":"root","title":"Explicit","fields":{"description":"d","timestamp":"2026-10-04T23:31:00-05:00"}}),
+            json!({"op":"node.add","type":"question","parent":"root","title":"Explicit","fields":{"description":"d","provenance":"user","timestamp":"2026-10-04T23:31:00-05:00"}}),
             revise("Offset revision"),
         ],
         "2026-10-05T04:30:00Z",

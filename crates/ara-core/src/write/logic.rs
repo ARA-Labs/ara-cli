@@ -20,7 +20,7 @@ pub struct Entry {
     pub level: usize,
 }
 
-fn heading_id(heading: &str) -> &str {
+pub(crate) fn heading_id(heading: &str) -> &str {
     heading.split([':', ' ', '\t']).next().unwrap_or(heading)
 }
 
@@ -513,6 +513,19 @@ fn revise(
             Value::String(format!("{} ({session}#{turn})", &session[..10])),
         )]);
         edit(working, target, &pointer, true)?;
+        if entry.document == "logic/claims.md" {
+            working.bookkeeping.claim_changed(
+                session,
+                turn,
+                heading_id(&entry.heading),
+                records.iter().map(|record| {
+                    (
+                        record["field"].as_str().unwrap_or_default(),
+                        record["after"].as_str(),
+                    )
+                }),
+            );
+        }
         for record in records {
             working.revisions.push(PendingRevision {
                 session: session.into(),
@@ -618,6 +631,17 @@ fn revise_body(
             resolve(working, target)?.body
         };
         let after = working.text(document)?[after_range].to_owned();
+        if let Some(entry) = selected
+            .as_ref()
+            .filter(|e| e.document == "logic/claims.md")
+        {
+            working.bookkeeping.claim_changed(
+                session,
+                turn,
+                heading_id(&entry.heading),
+                [("Body", None)],
+            );
+        }
         let record = json!({"entry":target,"field":"Body","before":before,"after":after,"signal":signal,"provenance":provenance,"note":note});
         working.revisions.push(PendingRevision {
             session: session.into(),

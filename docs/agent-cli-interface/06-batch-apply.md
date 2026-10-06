@@ -16,13 +16,20 @@ no clock override. `plan_batch` treats a batch's sole `session.log` as the owner
 of omitted `session`/`turn` (or reasoning `record.turn`) when any operation
 omits them. The anchor needs a nonempty summary and must precede every
 omitting line; its turn is reserved at its own line and recorded as
-`WorkingArtifact::owner` (`sessions::OwnerAnchor`), the attachment point for
-later operation-derived rows. Omitting with zero or several logs, a missing
+`WorkingArtifact::owner` (`sessions::OwnerAnchor`). Omitting with zero or several logs, a missing
 summary, a late anchor, and explicit values that differ from the anchor fail as
 `write.owner_required`, `write.owner_ambiguous`, `write.owner_summary`,
 `write.owner_order` and `write.owner_mismatch` at the physical line. Pending
 revisions are still attached after the ordered operations succeed. Fully
 explicit batches keep their existing ordering and multi-log behavior.
+
+Step 19c records each planned log's caller rows and each successful
+operation's facts in `WorkingArtifact::bookkeeping` (`bookkeeping::Ledger`).
+`plan_batch` calls `bookkeeping::finalize` after the pending revisions, which
+attributes facts to logs, checks caller rows against them, and inserts the
+remaining rows in their turns before the candidate is validated. Finalize errors
+carry the log's or operation's line plus the other input as `related_line` and
+`related_field`; the CLI maps both to physical JSONL lines.
 
 ## Boundaries and remaining gates
 
@@ -30,7 +37,7 @@ Native operation proof covers the 107-row inventory: 88 required CLI operations 
 
 ## Code and proof boundaries
 
-Implementation: `crates/ara-core/src/write/{mod,batch,intent,clock}.rs; scripts/agent-cli-acceptance.py`.
+Implementation: `crates/ara-core/src/write/{mod,batch,intent,clock,bookkeeping}.rs; scripts/agent-cli-acceptance.py`.
 
-Permanent consumer regressions: `write_batch_engine.rs, write_owner_clock.rs, agent_writes.rs`. Final locked workspace, Clippy, wasm
+Permanent consumer regressions: `write_batch_engine.rs, write_owner_clock.rs, write_bookkeeping.rs, agent_writes.rs`. Final locked workspace, Clippy, wasm
 and actual-release checks are linked from the delivery verification report.

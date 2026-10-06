@@ -67,6 +67,25 @@ fn locate(working: &WorkingArtifact, id: &str) -> Result<(usize, Value), WriteEr
     }
     found.ok_or_else(|| invalid("observation", format!("unknown observation {id}")))
 }
+/// The candidate `promoted_to` pointer of one observation, if it is set.
+pub fn promoted_to(working: &WorkingArtifact, id: &str) -> Result<Option<String>, WriteError> {
+    let (_, value) = locate(working, id)?;
+    Ok(value
+        .get("promoted_to")
+        .and_then(Value::as_str)
+        .map(str::to_owned))
+}
+/// The recorded provenance of one observation, if present.
+pub fn observation_provenance(
+    working: &WorkingArtifact,
+    id: &str,
+) -> Result<Option<String>, WriteError> {
+    let (_, value) = locate(working, id)?;
+    Ok(value
+        .get("provenance")
+        .and_then(Value::as_str)
+        .map(str::to_owned))
+}
 fn selector(index: usize) -> [PathPart; 2] {
     [PathPart::from("observations"), PathPart::Index(index)]
 }

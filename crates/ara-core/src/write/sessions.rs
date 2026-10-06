@@ -72,6 +72,11 @@ pub struct LoggedTurn {
     pub timestamp: String,
     pub selection: OwnerSelection,
     pub open_sessions: Vec<String>,
+    /// Caller `events` and `claims_touched` rows as written (identical
+    /// repeats collapsed), keyed by input index. `plan_batch` hands them to
+    /// the bookkeeping ledger; other callers (merge audits) ignore them.
+    pub events: Vec<(usize, Value)>,
+    pub claims: Vec<(usize, Value)>,
 }
 
 impl LoggedTurn {
@@ -274,6 +279,10 @@ struct Event {
     routing: String,
     provenance: String,
     summary: String,
+    /// Additive: the exact destination of a promotion to a named section
+    /// (concept, constraint, architecture), whose event `id` is the source O.
+    #[serde(default)]
+    target: Option<super::EntrySelector>,
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -372,7 +381,8 @@ fn stamp(values: &[Value], kind: &str, turn: u64) -> Result<Vec<Value>, WriteErr
                 {
                     return Err(invalid(kind, "invalid event type or routing"));
                 }
-                let _ = r.summary;
+                // `target` is resolved later against the candidate (`validate_event_target`).
+                let _ = (r.summary, r.target);
                 Ok(())
             }
             "ai_actions" => {
@@ -834,6 +844,151 @@ fn select_or_create(
     Ok((session, selection, open))
 }
 
+/// Collapse repeated identical rows, keeping the first input index of each.
+fn collapse_identical(values: &[Value]) -> (Vec<Value>, Vec<usize>) {
+    let mut kept: Vec<Value> = Vec::new();
+    let mut inputs = Vec::new();
+    for (index, value) in values.iter().enumerate() {
+        if !kept.contains(value) {
+            kept.push(value.clone());
+            inputs.push(index);
+        }
+    }
+    (kept, inputs)
+}
+
+/// Explicit event identity before typed resolution: `(id, routing, target)`.
+fn raw_event_identity(value: &Value) -> (Option<&Value>, Option<&Value>, Option<&Value>) {
+    (value.get("id"), value.get("routing"), value.get("target"))
+}
+
+/// Repeated explicit events collapse only when the complete row is identical;
+/// two different rows with one identity are a conflict naming both rows.
+fn collapse_events(values: &[Value]) -> Result<(Vec<Value>, Vec<usize>), WriteError> {
+    for (later, value) in values.iter().enumerate() {
+        if !value.is_object() {
+            continue;
+        }
+        for (earlier, previous) in values[..later].iter().enumerate() {
+            if previous != value && raw_event_identity(previous) == raw_event_identity(value) {
+                return Err(WriteError::semantic(
+                    "write.event_conflict",
+                    format!(
+                        "events[{earlier}] and events[{later}] describe the same event identity (id, routing, target) with different rows; keep one"
+                    ),
+                )
+                .at(format!("events[{later}]"))
+                .related_here(format!("events[{earlier}]")));
+            }
+        }
+    }
+    Ok(collapse_identical(values))
+}
+
+/// Insert `values` (already turn-stamped rows of `turn`) into the session's
+/// `key` array after every row of an earlier or equal turn, so rows stay in
+/// turn order when one batch owns several turns of one session.
+pub(crate) fn insert_turn_rows(
+    working: &mut WorkingArtifact,
+    session: &str,
+    key: &str,
+    turn: u64,
+    values: &[Value],
+) -> Result<(), WriteError> {
+    let path = session_path(session);
+    for value in values {
+        if read_session(working, session)?.get(key).is_none() {
+            working.replace_yaml_field(&path, &[], key, &json!([]))?;
+        }
+        let document = working.yaml(&path)?;
+        let rows = document
+            .root
+            .get(key)?
+            .ok_or_else(|| invalid(key, "missing session sequence"))?;
+        let mut later = None;
+        for node in rows.sequence()? {
+            if count(&projected(node, &["turn"])?, "turn")? > turn {
+                later = Some((node.start, rows.flow));
+                break;
+            }
+        }
+        let Some((start, flow)) = later else {
+            working.append_yaml(&path, &[PathPart::from(key)], value)?;
+            continue;
+        };
+        let text = working.text(&path)?;
+        let newline = super::positions::eol(text);
+        let (at, fragment) = if flow {
+            (
+                start,
+                format!(
+                    "{}, ",
+                    serde_json::to_string(value).map_err(|e| invalid(key, e.to_string()))?
+                ),
+            )
+        } else {
+            let at = super::positions::line_start(text, start);
+            let indent = text[at..start]
+                .find('-')
+                .ok_or_else(|| invalid(key, "ambiguous session sequence indentation"))?;
+            (
+                at,
+                format!(
+                    "{}- {}{newline}",
+                    " ".repeat(indent),
+                    super::source::render_yaml(value, indent + 2, newline)
+                ),
+            )
+        };
+        working.edit(
+            &path,
+            at..at,
+            &fragment,
+            "append row to its batch-owned turn",
+        )?;
+    }
+    Ok(())
+}
+
+/// Write operation-derived `events_logged` and `claims_touched` rows into an
+/// owned turn and refresh the session index row they feed.
+pub(crate) fn append_derived(
+    working: &mut WorkingArtifact,
+    session: &str,
+    turn: u64,
+    events: &[Value],
+    claims: &[Value],
+) -> Result<(), WriteError> {
+    if events.is_empty() && claims.is_empty() {
+        return Ok(());
+    }
+    if !working
+        .owned_turns
+        .contains_key(&(session.to_owned(), turn))
+    {
+        return Err(invalid("turn", "derived rows need a new batch-owned turn"));
+    }
+    let rows = validate_index(working)?;
+    let row = *rows
+        .get(session)
+        .ok_or_else(|| invalid("session", "session is absent from index"))?;
+    insert_turn_rows(
+        working,
+        session,
+        "events_logged",
+        turn,
+        &stamp(events, "events_logged", turn)?,
+    )?;
+    insert_turn_rows(
+        working,
+        session,
+        "claims_touched",
+        turn,
+        &stamp(claims, "claims_touched", turn)?,
+    )?;
+    update_index(working, session, row)
+}
+
 /// Plan one `session.log`, resolving an omitted timestamp from the captured
 /// batch clock and an omitted session through [`select_or_create`].
 pub fn plan_log(
@@ -897,10 +1052,12 @@ pub fn plan_log(
     if working.owned_turns.contains_key(&(session.clone(), turn)) {
         return Err(invalid("turn", "duplicate batch turn ownership"));
     }
+    let (events, event_inputs) = collapse_events(events)?;
+    let (claims_touched, claim_inputs) = collapse_identical(claims_touched);
     let arrays = [
-        events,
+        &events,
         ai_actions,
-        claims_touched,
+        &claims_touched,
         logic_revisions,
         key_context,
     ];
@@ -948,6 +1105,8 @@ pub fn plan_log(
         timestamp,
         selection,
         open_sessions,
+        events: event_inputs.into_iter().zip(events).collect(),
+        claims: claim_inputs.into_iter().zip(claims_touched).collect(),
     })
 }
 
@@ -999,51 +1158,7 @@ pub fn append_revision(
             "owned turn does not exist in candidate session",
         ));
     }
-    if session_value.get("logic_revisions").is_none() {
-        working.replace_yaml_field(&path, &[], "logic_revisions", &json!([]))?;
-    }
-    let document = working.yaml(&path)?;
-    let revisions = document
-        .root
-        .get("logic_revisions")?
-        .ok_or_else(|| invalid("logic_revisions", "missing revision sequence"))?;
-    for node in revisions.sequence()? {
-        let existing = projected(node, &["turn"])?;
-        if count(&existing, "turn")? > turn {
-            let text = working.text(&path)?;
-            let newline = super::positions::eol(text);
-            let (at, fragment) = if revisions.flow {
-                (
-                    node.start,
-                    format!(
-                        "{}, ",
-                        serde_json::to_string(&value)
-                            .map_err(|e| invalid("logic_revisions", e.to_string()))?
-                    ),
-                )
-            } else {
-                let at = super::positions::line_start(text, node.start);
-                let indent = text[at..node.start].find('-').ok_or_else(|| {
-                    invalid("logic_revisions", "ambiguous revision sequence indentation")
-                })?;
-                (
-                    at,
-                    format!(
-                        "{}- {}{newline}",
-                        " ".repeat(indent),
-                        super::source::render_yaml(&value, indent + 2, newline)
-                    ),
-                )
-            };
-            return working.edit(
-                &path,
-                at..at,
-                &fragment,
-                "append revision to its batch-owned turn",
-            );
-        }
-    }
-    working.append_yaml(&path, &[PathPart::from("logic_revisions")], &value)
+    insert_turn_rows(working, session, "logic_revisions", turn, &[value])
 }
 
 pub fn validate_turn_reference(turn: &str) -> Result<(), WriteError> {
@@ -1178,6 +1293,68 @@ pub fn require_entry_reference(
     Ok(())
 }
 
+fn event_target_error(message: impl Into<String>) -> WriteError {
+    WriteError::semantic("write.event_target", message).at("events_logged.target")
+}
+
+/// A new event `target` must resolve to the exact destination its row names.
+/// For a named section (concept, constraint, architecture) the row's `id` is
+/// the source observation, whose promotion tuple must point at that section.
+pub(crate) fn validate_event_target(
+    working: &WorkingArtifact,
+    record: &Value,
+) -> Result<(), WriteError> {
+    let id = string(record, "id")?;
+    let kind = string(record, "type")?;
+    // The one routing check for `target`: only a promotion has a destination.
+    if string(record, "routing")? != "crystallized" {
+        return Err(event_target_error(
+            "an event `target` needs `crystallized` routing",
+        ));
+    }
+    let target: super::EntrySelector = typed(&record["target"], "events_logged.target")
+        .map_err(|e| e.at("events_logged.target"))?;
+    if id.starts_with('O') {
+        let document = super::bookkeeping::named_document(kind).ok_or_else(|| {
+            event_target_error(format!(
+                "an observation event with a target must be a concept, constraint or architecture promotion, not `{kind}`"
+            ))
+        })?;
+        let super::EntrySelector::Document {
+            document: selected, ..
+        } = &target
+        else {
+            return Err(event_target_error(format!(
+                "a {kind} target selects a heading in {document}"
+            )));
+        };
+        if selected != document {
+            return Err(event_target_error(format!(
+                "a {kind} target must select a heading in {document}, not {selected}"
+            )));
+        }
+        let entry = super::logic::resolve(working, &target).map_err(|e| {
+            event_target_error(format!("event target does not resolve: {}", e.message))
+        })?;
+        let promoted = super::staging::promoted_to(working, id)?;
+        if promoted.as_deref() != Some(format!("{document}#{}", entry.heading).as_str()) {
+            return Err(event_target_error(format!(
+                "event target {document}#{} does not match {id}'s promotion tuple ({})",
+                entry.heading,
+                promoted.as_deref().unwrap_or("not promoted")
+            )));
+        }
+        return Ok(());
+    }
+    let own = super::EntrySelector::Id { id: id.to_owned() };
+    if !super::bookkeeping::same_entry(working, &own, &target) {
+        return Err(event_target_error(format!(
+            "event target does not select {id}, the entry the row names"
+        )));
+    }
+    Ok(())
+}
+
 pub fn validate_references(working: &WorkingArtifact) -> Result<(), WriteError> {
     for path in working.changed_paths() {
         if !path.starts_with("trace/sessions/") || path == INDEX || !path.ends_with(".yaml") {
@@ -1205,6 +1382,14 @@ pub fn validate_references(working: &WorkingArtifact) -> Result<(), WriteError> 
             {
                 if count(record, "turn")? > previous_turn {
                     require_entry_reference(working, string(record, "id")?)?;
+                }
+            }
+        }
+        if let Some(events) = doc.root.get("events_logged")? {
+            for node in events.sequence()? {
+                let record = node.to_json()?;
+                if count(&record, "turn")? > previous_turn && record.get("target").is_some() {
+                    validate_event_target(working, &record)?;
                 }
             }
         }

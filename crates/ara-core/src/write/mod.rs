@@ -2,6 +2,7 @@
 //! Policy permissions implement the agent-interface proposal; upstream approval is separate.
 
 pub mod batch;
+pub mod bookkeeping;
 pub mod clock;
 pub mod documents;
 pub mod fields;
@@ -327,6 +328,15 @@ pub struct WriteReport {
     pub open_sessions: Vec<String>,
 }
 
+/// The other input of a two-input conflict: its operation line (same
+/// numbering as [`WriteError::line`]) and field.
+#[derive(Debug, Clone, Serialize)]
+pub struct RelatedLocation {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub related_line: Option<usize>,
+    pub related_field: String,
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub struct WriteError {
     pub code: String,
@@ -335,6 +345,9 @@ pub struct WriteError {
     pub line: Option<usize>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub field: Option<String>,
+    /// A second input location for conflicts between two inputs.
+    #[serde(flatten, skip_serializing_if = "Option::is_none")]
+    pub related: Option<Box<RelatedLocation>>,
     #[serde(skip)]
     exit: u8,
 }
@@ -345,6 +358,7 @@ impl WriteError {
             message: message.into(),
             line: None,
             field: None,
+            related: None,
             exit: 1,
         }
     }
@@ -354,12 +368,36 @@ impl WriteError {
             message: message.into(),
             line: None,
             field: None,
+            related: None,
             exit: 2,
         }
     }
     pub fn at(mut self, field: impl Into<String>) -> Self {
         self.field = Some(field.into());
         self
+    }
+    /// Name the other input location of a two-input conflict.
+    pub fn related(mut self, line: usize, field: impl Into<String>) -> Self {
+        self.related = Some(Box::new(RelatedLocation {
+            related_line: Some(line),
+            related_field: field.into(),
+        }));
+        self
+    }
+    /// Name another field of the failing operation's own line as the other
+    /// location; the batch planner fills in the line.
+    pub fn related_here(mut self, field: impl Into<String>) -> Self {
+        self.related = Some(Box::new(RelatedLocation {
+            related_line: None,
+            related_field: field.into(),
+        }));
+        self
+    }
+    pub fn related_line(&self) -> Option<usize> {
+        self.related.as_ref().and_then(|r| r.related_line)
+    }
+    pub fn related_field(&self) -> Option<&str> {
+        self.related.as_ref().map(|r| r.related_field.as_str())
     }
     pub fn exit_code(&self) -> u8 {
         self.exit

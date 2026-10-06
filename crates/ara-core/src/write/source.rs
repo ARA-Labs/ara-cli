@@ -120,6 +120,8 @@ pub struct WorkingArtifact {
     pub batch_time: Option<String>,
     /// The batch's sole `session.log` owner, once its line has been planned.
     pub owner: Option<super::sessions::OwnerAnchor>,
+    /// Operation facts and logged turns for operation-derived session rows.
+    pub bookkeeping: super::bookkeeping::Ledger,
     pub intents: Vec<Intent>,
     yaml_cache: RefCell<BTreeMap<String, YamlIndexes>>,
     pub(super) node_index_cache: RefCell<Option<super::node::CachedNodeIndex>>,
@@ -335,6 +337,7 @@ impl WorkingArtifact {
             owned_turns: BTreeMap::new(),
             batch_time: None,
             owner: None,
+            bookkeeping: Default::default(),
             intents: Vec::new(),
             yaml_cache: RefCell::new(BTreeMap::new()),
             node_index_cache: RefCell::new(None),

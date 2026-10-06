@@ -21,13 +21,25 @@ owner allocator used by `apply` and the merge audit commands. Explicit
 timestamps keep their exact text; date matching uses the written date and
 monotonicity compares instants.
 
+Step 19c adds operation-derived session rows. A batch with a `session.log`
+appends its turn's mechanical `events_logged` rows for `node.add`,
+`observation.stage`, `claim.add`, `heuristic.add` and `observation.promote`,
+and `claims_touched` rows `created`, `crystallized` or `revised`,
+after the ordered operations succeed (`write/bookkeeping.rs`). A promotion to a
+named section adds the additive event `target` selector. Caller rows keep
+their summaries and judgments; disagreeing rows fail with
+`write.event_conflict` or `write.claim_touch_conflict`, a creation without
+provenance fails with `write.event_provenance`, and unattributed creations in
+multi-log batches fail with `write.owner_ambiguous`. The full contract is in
+[Operation-derived session rows](../agent-cli.md#operation-derived-session-rows).
+
 ## Boundaries and remaining gates
 
 Historic content is immutable. Promotion tuple replay exceptions authenticate exact unresolved captured candidates; they do not authorize arbitrary changes after promotion.
 
 ## Code and proof boundaries
 
-Implementation: `crates/ara-core/src/write/{staging,sessions,records,clock}.rs`.
+Implementation: `crates/ara-core/src/write/{staging,sessions,records,clock,bookkeeping}.rs`.
 
-Permanent consumer regressions: `write_sessions_staging.rs, write_owner_clock.rs, merge_yaml_layers.rs`. Final locked workspace, Clippy, wasm
+Permanent consumer regressions: `write_sessions_staging.rs, write_owner_clock.rs, write_bookkeeping.rs, merge_yaml_layers.rs`. Final locked workspace, Clippy, wasm
 and actual-release checks are linked from the delivery verification report.

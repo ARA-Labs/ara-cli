@@ -89,7 +89,7 @@ tree:
 - **Proof**: [{evidence refs (→ evidence/) or "pending"; run numbers/IDs/scores live HERE, not in Statement}]
 - **Dependencies**: [C{YY}, ...]
 - **Tags**: {comma-separated}
-- **Last revised**: YYYY-MM-DD (turn-id)   # pointer back to the trace; absent until first revision
+- **Last revised**: YYYY-MM-DD (turn-id)   # pointer back to the trace; written by the CLI on logic.revise, never by you; absent until first revision
 - **Taste** (optional):   # researcher's own reactions; see references/taste-comments.md — absent until the first one
   - [YYYY-MM-DD] `endorse | uncertain | reject` on `claim | evidence | framing | priority` — {free-text comment}
 ```
@@ -125,7 +125,7 @@ marker, not a resting state — see Stage 4.
 - **Provenance**: user | ai-suggested | user-revised
 - **Sensitivity**: low | medium | high | unknown   # "unknown" until the turn establishes it — never guess
 - **Code ref**: [{file paths, or "pending"}]
-- **Last revised**: YYYY-MM-DD (turn-id)   # absent until first revision
+- **Last revised**: YYYY-MM-DD (turn-id)   # written by the CLI on logic.revise; absent until first revision
 - **Taste** (optional):   # researcher's own reactions; see references/taste-comments.md — absent until the first one
   - [YYYY-MM-DD] `endorse | uncertain | reject` on `claim | evidence | framing | priority` — {free-text comment}
 ```
@@ -143,30 +143,36 @@ observations:
     context: "{what was happening this turn}"
     potential_type: claim | heuristic | concept | constraint | architecture | unknown
     bound_to: [N{XX}, ...]    # exploration nodes this depends on
-    promoted: false
-    promoted_to: null         # e.g., "logic/claims.md:C07" once crystallized
-    crystallized_via: null    # which closure signal fired
+    promoted: false           # promoted / promoted_to / crystallized_via are set together
+    promoted_to: null         #   by observation.promote only, e.g. "logic/claims.md:C07"
+    crystallized_via: null    #   (which closure signal fired); never edit them directly
     stale: false
 ```
 
 ### Session Record (`trace/sessions/YYYY-MM-DD_NNN.yaml`) — turns append within the day
 
+Written only through `session.log` (and `session.start`). `[CLI]` marks values the CLI
+derives; supply everything else. One `session.log` per turn, with your `summary` and no
+`session`, selects today's open session or creates it.
+
 ```yaml
 session:
-  id: "YYYY-MM-DD_NNN"
-  date: "YYYY-MM-DD"
-  started: "YYYY-MM-DDTHH:MM"
-  last_turn: "YYYY-MM-DDTHH:MM"
-  turn_count: 0
-  summary: "{rolling one-line summary}"
+  id: "YYYY-MM-DD_NNN"            # [CLI] selected or created
+  date: "YYYY-MM-DD"              # [CLI]
+  started: "YYYY-MM-DDTHH:MM"     # [CLI]
+  last_turn: "YYYY-MM-DDTHH:MM"   # [CLI] the turn's timestamp
+  turn_count: 0                   # [CLI] next turn allocated per session.log
+  summary: "{rolling one-line summary}"   # yours: session.log `summary`
 
-events_logged:
-  - turn: 1
-    type: decision | experiment | dead_end | pivot | observation | ...
-    id: "{N/O}{XX}"
+events_logged:                    # session.log `events`, plus [CLI] rows for this batch's
+  - turn: 1                       #   node.add / observation.stage / claim.add / heuristic.add /
+    type: decision | experiment | dead_end | pivot | observation | ...   #   observation.promote
+    id: "{N/O/C/H}{XX}"
     routing: direct | staged | crystallized
-    provenance: user | ai-suggested | ai-executed | user-revised
-    summary: "{telegraphic what}"
+    provenance: user | ai-suggested | ai-executed | user-revised   # [CLI] from the operation
+    summary: "{telegraphic what}"   # [CLI] title or complete observation content; your row's summary wins
+    target: {document: logic/concepts.md, heading: [Name]}   # only for concept/constraint/architecture
+                                                              #   promotions, whose id is the source O
 
 ai_actions:
   - turn: 1
@@ -174,12 +180,12 @@ ai_actions:
     provenance: ai-executed
     files_changed: ["{paths}"]
 
-claims_touched:
-  - id: C{XX}
+claims_touched:                   # [CLI] created / crystallized / revised from operations;
+  - id: C{XX}                     #   yours: the judgment, which replaces `revised`
     action: created | crystallized | advanced | weakened | confirmed | refuted | withdrawn | revised | split | merged
     turn: 1
 
-logic_revisions:                  # full before/after for every edit Stage 4 makes
+logic_revisions:                  # [CLI] full before/after for every logic.revise; never copy it
   - turn: 1
     entry: C{XX}                  # or H{XX}, concept id, etc.
     field: Statement | Status | Rationale | Dependencies | id | ...
@@ -208,7 +214,7 @@ ai_suggestions_pending:
   - "{unconfirmed AI suggestions still awaiting closure}"
 ```
 
-### Session Index (`trace/sessions/session_index.yaml`)
+### Session Index (`trace/sessions/session_index.yaml`) — [CLI] derived from the session records
 
 ```yaml
 sessions:
