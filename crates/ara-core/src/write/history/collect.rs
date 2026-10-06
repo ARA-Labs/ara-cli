@@ -97,10 +97,6 @@ fn id_shaped(token: &str) -> bool {
     let b = token.as_bytes();
     b.len() >= 2 && b[0].is_ascii_uppercase() && b[1..].iter().all(u8::is_ascii_digit)
 }
-fn tokens(text: &str) -> impl Iterator<Item = &str> {
-    text.split(|c: char| !c.is_ascii_alphanumeric())
-        .filter(|token| id_shaped(token))
-}
 pub(super) fn sequence_strings(node: Option<&YamlNode>) -> Vec<(&str, usize)> {
     match node.map(|n| &n.kind) {
         Some(YamlKind::Sequence(items)) => items
@@ -127,41 +123,127 @@ pub(super) fn stale_record(entry: &YamlNode) -> bool {
 #[derive(Default)]
 pub(super) struct Aliases {
     /// `(source_key, original)` -> targets.
-    pub redirects: BTreeMap<(String, String), BTreeSet<String>>,
+    pub redirects: BTreeMap<String, BTreeMap<String, BTreeSet<String>>>,
     /// Imported session ID -> source keys of the imports that brought it.
     pub imported: BTreeMap<String, BTreeSet<String>>,
+    pub origins: BTreeMap<String, BTreeMap<String, BTreeSet<(String, String)>>>,
+    pub imported_fields: BTreeMap<String, BTreeSet<String>>,
+    pub relocation_maps: BTreeMap<String, crate::merge::IdentityMap>,
 }
 impl Aliases {
     /// The one local session an imported session ID was relocated to.
     pub fn session_redirect(&self, id: &str) -> Option<String> {
         let targets: BTreeSet<&String> = self
             .redirects
-            .iter()
-            .filter(|((_, original), _)| original == id)
-            .flat_map(|(_, targets)| targets)
+            .values()
+            .filter_map(|originals| originals.get(id))
+            .flatten()
             .collect();
         (targets.len() == 1).then(|| targets.into_iter().next().expect("one").clone())
     }
     /// Resolve an imported literal through its authenticated redirect:
     /// `(target, resolved_via, unresolved)`.
-    fn literal(&self, import_keys: &[String], token: &str) -> (String, Option<String>, bool) {
-        if import_keys.is_empty() {
-            return (token.to_owned(), None, false);
+    fn literal(&self, key: &str, token: &str) -> (String, Option<String>, bool) {
+        match self
+            .redirects
+            .get(key)
+            .and_then(|originals| originals.get(token))
+        {
+            Some(targets) if targets.len() == 1 => (
+                targets.iter().next().expect("one target").clone(),
+                Some(format!("alias:{key}:{token}")),
+                false,
+            ),
+            _ => (token.to_owned(), None, true),
         }
-        let mut targets = BTreeSet::new();
-        for key in import_keys {
-            match self.redirects.get(&(key.clone(), token.to_owned())) {
-                Some(found) if found.len() == 1 => targets.extend(found.iter().cloned()),
-                _ => return (token.to_owned(), None, true),
+    }
+    /// Use captured occurrence text, never its enclosing session, to decide
+    /// whether a literal is original imported spelling or already relocated.
+    fn occurrences(
+        &self,
+        path: &str,
+        field: &str,
+        text: &str,
+        current: &[crate::query::TokenMatch<'_>],
+    ) -> Option<Vec<(String, Option<String>, bool)>> {
+        let unknown = || {
+            current
+                .iter()
+                .map(|token| (token.literal.to_owned(), None, true))
+                .collect()
+        };
+        let Some(origins) = self.origins.get(path).and_then(|fields| fields.get(field)) else {
+            let imported = self.imported_fields.get(path).is_some_and(|prefixes| {
+                prefixes.contains(field)
+                    || field.char_indices().any(|(offset, character)| {
+                        matches!(character, '.' | '[') && prefixes.contains(&field[..offset])
+                    })
+            });
+            return imported.then(unknown);
+        };
+        let mut resolutions = vec![BTreeSet::new(); current.len()];
+        for (key, original) in origins {
+            let found = crate::query::scan_tokens(original);
+            if found.len() != current.len() {
+                return Some(unknown());
+            }
+            let mut candidate = Vec::with_capacity(found.len());
+            if original == text {
+                candidate.extend(found.iter().map(|token| self.literal(key, token.literal)));
+            } else {
+                if field.contains(".session_metadata.after.")
+                    || field.contains(".session_metadata.before.")
+                {
+                    // Merge preserves archived transition values verbatim.
+                    // A changed value there is not relocation evidence.
+                    return Some(unknown());
+                }
+                let Some(map) = self.relocation_maps.get(key) else {
+                    return Some(unknown());
+                };
+                if !crate::merge::relocate_scalar(original, map)
+                    .is_ok_and(|relocated| relocated == text)
+                {
+                    return Some(unknown());
+                }
+                let protected = crate::merge::quoted_ranges(original);
+                for (token, current_token) in found.iter().zip(current) {
+                    let resolution = self.literal(key, token.literal);
+                    let preserved = protected.iter().any(|range| {
+                        range.start < token.range.end && token.range.start < range.end
+                    });
+                    let expected = if preserved || resolution.2 {
+                        token.literal
+                    } else {
+                        resolution.0.as_str()
+                    };
+                    if current_token.literal != expected {
+                        return Some(unknown());
+                    }
+                    candidate.push(if preserved || resolution.2 {
+                        resolution
+                    } else {
+                        (resolution.0, None, false)
+                    });
+                }
+            }
+            for (possible, resolution) in resolutions.iter_mut().zip(candidate) {
+                possible.insert(resolution);
             }
         }
-        if targets.len() == 1 {
-            let target = targets.into_iter().next().expect("one target");
-            let via = format!("alias:{}:{token}", import_keys.join(","));
-            (target, Some(via), false)
-        } else {
-            (token.to_owned(), None, true)
-        }
+        Some(
+            resolutions
+                .into_iter()
+                .zip(current)
+                .map(|(possible, token)| {
+                    if possible.len() == 1 {
+                        possible.into_iter().next().expect("one resolution")
+                    } else {
+                        (token.literal.to_owned(), None, true)
+                    }
+                })
+                .collect(),
+        )
     }
 }
 
@@ -169,31 +251,47 @@ impl Aliases {
 pub(super) struct Collector<'m> {
     doc: usize,
     unit: UnitRef,
-    import_keys: Vec<String>,
+    path: &'m str,
     aliases: &'m Aliases,
     pub out: Vec<Mention>,
 }
 impl<'m> Collector<'m> {
-    pub fn new(
-        doc: usize,
-        unit: UnitRef,
-        import_keys: &BTreeSet<String>,
-        aliases: &'m Aliases,
-    ) -> Self {
+    pub fn new(doc: usize, unit: UnitRef, path: &'m str, aliases: &'m Aliases) -> Self {
         Self {
             doc,
             unit,
-            import_keys: import_keys.iter().cloned().collect(),
+            path,
             aliases,
             out: Vec::new(),
         }
     }
     pub fn literal_text(&mut self, text: &str, offset: usize, field: &str) {
-        for token in tokens(text) {
-            let (target, via, unresolved) = self.aliases.literal(&self.import_keys, token);
+        let tokens = crate::query::scan_tokens(text);
+        let mut resolutions = self
+            .aliases
+            .occurrences(self.path, field, text, &tokens)
+            .map(Vec::into_iter);
+        for token in tokens {
+            let (target, via, unresolved) = resolutions
+                .as_mut()
+                .and_then(Iterator::next)
+                .unwrap_or_else(|| (token.literal.to_owned(), None, false));
+            if unresolved {
+                self.out.push(Mention {
+                    target: String::new(),
+                    literal: "history.origin_unknown".to_owned(),
+                    basis: Basis::Literal,
+                    unit: self.unit.clone(),
+                    doc: self.doc,
+                    offset,
+                    field: field.to_owned(),
+                    via: None,
+                    unresolved: true,
+                });
+            }
             self.out.push(Mention {
                 target,
-                literal: token.to_owned(),
+                literal: token.literal.to_owned(),
                 basis: Basis::Literal,
                 unit: self.unit.clone(),
                 doc: self.doc,
@@ -244,8 +342,23 @@ impl<'m> Collector<'m> {
                     self.walk(value, &path, Some(name));
                 }
             }
-            YamlKind::Alias(_) => {}
+            YamlKind::Alias(_) => self.unknown(node, field),
         }
+    }
+    /// An unexpanded YAML reference must invalidate both counts, including
+    /// references whose subject cannot be identified without expansion.
+    pub fn unknown(&mut self, node: &YamlNode, field: &str) {
+        self.out.push(Mention {
+            target: String::new(),
+            literal: String::new(),
+            basis: Basis::Literal,
+            unit: self.unit.clone(),
+            doc: self.doc,
+            offset: node.start,
+            field: field.to_owned(),
+            via: None,
+            unresolved: true,
+        });
     }
     /// Walk every key of a mapping except `skip` and the generated keys.
     pub fn walk_mapping(&mut self, node: &YamlNode, prefix: &str, skip: &[&str]) {

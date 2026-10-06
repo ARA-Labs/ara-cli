@@ -190,6 +190,17 @@ All notable changes to this project are documented here. The format follows
   `invalid_document` errors name these roots. Old rubric history stays readable.
 
 ### Fixed
+- Agent CLI: observation history no longer ignores reference-bearing YAML
+  aliases, redirects native continuation text through an imported session, or
+  treats scoped IDs/filenames as local references. Imported literal origins
+  use captured occurrence evidence; missing proof refuses stale writes (#115).
+- Agent CLI: citation repair preserves inner quotations/backticks in native
+  JSON lists, keeps historical heading-array segments literal, resolves earlier
+  bindings in split/repair selectors, and refuses explicit repair rows that
+  introduce self-citations (#115).
+- Agent CLI: selected-claim Body Status changes participate in same-turn
+  judgment checks; distinct merge/split actions each receive their derived
+  claim touch in operation order (#115).
 - Agent reads: renaming one of two concept leaves that share a display key
   (`Group A/Term`, `Group B/Term`) no longer makes `show`/`refs` fail with
   "retired native identity was reused by live content".

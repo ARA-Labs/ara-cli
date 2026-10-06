@@ -1009,7 +1009,11 @@ pub fn open(root: &Path, options: &ReadOptions) -> Result<Value, AgentError> {
     let mut rows = Vec::new();
     let history = SessionHistory::new(&artifact)?;
     let sources = history.sources(&artifact);
-    let timeline = history::Timeline::build(&sources, history.aliases.as_deref());
+    let timeline = history::Timeline::build(
+        &sources,
+        history.aliases.as_deref(),
+        history.merge_log.as_deref(),
+    );
     let addresses = options.brief().then(|| artifact.entry_addresses());
     for entry in artifact.entries() {
         let mut reasons = Vec::new();
@@ -1078,12 +1082,13 @@ fn contains_pending(value: &Value) -> bool {
 /// (`ara_core::write::history`), built once per `open` and only when the
 /// artifact has observations. Session records, the session index and the
 /// reasoning log come from the sources this read already loaded;
-/// `trace/aliases.yaml` is not part of that load and is read here as raw
-/// bytes, so an undecodable ledger becomes `history.alias_invalid` rather
-/// than failing the read.
+/// merge aliases and their captured occurrence ledger are read as raw bytes,
+/// so undecodable provenance makes inactivity unknown rather than failing
+/// the whole read.
 struct SessionHistory {
     documents: Vec<(String, Result<YamlDocument, String>)>,
     aliases: Option<Vec<u8>>,
+    merge_log: Option<Vec<u8>>,
 }
 impl SessionHistory {
     fn new(artifact: &Artifact) -> Result<Self, AgentError> {
@@ -1091,6 +1096,7 @@ impl SessionHistory {
             return Ok(Self {
                 documents: Vec::new(),
                 aliases: None,
+                merge_log: None,
             });
         }
         let documents = artifact
@@ -1114,7 +1120,21 @@ impl SessionHistory {
                 )));
             }
         };
-        Ok(Self { documents, aliases })
+        let merge_log = match std::fs::read(artifact.root.join(history::MERGE_LOG)) {
+            Ok(bytes) => Some(bytes),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
+            Err(error) => {
+                return Err(AgentError::io(format!(
+                    "Cannot read {}: {error}",
+                    history::MERGE_LOG
+                )));
+            }
+        };
+        Ok(Self {
+            documents,
+            aliases,
+            merge_log,
+        })
     }
     fn sources<'a>(&'a self, artifact: &'a Artifact) -> Vec<history::Source<'a>> {
         self.documents

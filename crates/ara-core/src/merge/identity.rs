@@ -1622,6 +1622,24 @@ pub(crate) fn allocation(
     reference_namespaces(theirs, &mut map)?;
     Ok((map, imports))
 }
+/// Rebuild the source and exact-display namespaces from authenticated mappings.
+pub(crate) fn captured_relocation_map(source: BTreeMap<String, String>) -> IdentityMap {
+    let mut map = IdentityMap::from(source);
+    let mut tokens = BTreeMap::new();
+    for (address, target) in map.iter() {
+        reference_token(&mut tokens, address, target);
+    }
+    map.tokens = tokens;
+    map
+}
+
+fn reference_token(tokens: &mut BTreeMap<String, Option<String>>, address: &str, target: &str) {
+    tokens
+        .entry(super::markdown::display_address(address))
+        .and_modify(|found| *found = None)
+        .or_insert_with(|| Some(target.to_owned()));
+}
+
 pub(crate) fn reference_namespaces(
     entries: &[EntryIdentity],
     map: &mut IdentityMap,
@@ -1633,11 +1651,7 @@ pub(crate) fn reference_namespaces(
                 "captured source entry has no recorded import mapping",
             )
         })?;
-        let token = super::markdown::display_address(&entry.address);
-        map.tokens
-            .entry(token)
-            .and_modify(|found| *found = None)
-            .or_insert(Some(target));
+        reference_token(&mut map.tokens, &entry.address, &target);
         if entry.path == "logic/concepts.md" && entry.heading.len() == 2 {
             map.concepts
                 .insert(entry.heading[1].0.clone(), entry.address.clone());

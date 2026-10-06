@@ -465,7 +465,12 @@ fn stale_evidence(
         } else {
             None
         };
-        let timeline = super::history::Timeline::build(&sources, aliases);
+        let merge_log = if working.exists(super::history::MERGE_LOG) {
+            Some(working.bytes(super::history::MERGE_LOG)?)
+        } else {
+            None
+        };
+        let timeline = super::history::Timeline::build(&sources, aliases, merge_log);
         timeline.measure(
             &super::history::Subject {
                 id: observation,

@@ -799,14 +799,24 @@ fn derive_touches(
             .map(|(input, _, action)| (*input, *action))
             .collect();
         check_judgments(log, &change.claim, &judgments, &own)?;
-        // A caller judgment replaces the generic row; otherwise derive it.
-        // An explicit C1 merge or split derives its own judgment.
+        // Caller judgments replace derived rows. Otherwise preserve every
+        // distinct explicit structural action, in its first operation's order.
         if judgments.is_empty() {
-            let action = own
-                .iter()
-                .find_map(|other| other.judgment)
-                .unwrap_or("revised");
-            derived.push((change.operation, change.claim.clone(), action));
+            let mut structural = false;
+            for other in &own {
+                if let Some(action) = other.judgment {
+                    structural = true;
+                    if !derived
+                        .iter()
+                        .any(|(_, claim, judgment)| claim == &change.claim && *judgment == action)
+                    {
+                        derived.push((other.operation, change.claim.clone(), action));
+                    }
+                }
+            }
+            if !structural {
+                derived.push((change.operation, change.claim.clone(), "revised"));
+            }
         }
     }
     derived.sort_by_key(|(operation, _, _)| *operation);

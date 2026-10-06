@@ -8,18 +8,21 @@ mod types;
 mod yaml;
 use crate::write::source::FileSnapshot;
 use crate::write::{ArtifactSnapshot, WorkingArtifact, WriteOperation};
-use identity::{ALIASES, Alias, LOG, Record, bytes};
-pub(crate) use identity::{Ledger, load_bytes as decode_ledger_bytes};
+use identity::{ALIASES, Alias, LOG, bytes};
+pub(crate) use identity::{
+    Ledger, Record, captured_relocation_map, load_bytes as decode_ledger_bytes,
+};
 pub use identity::{SourceHistory, fingerprint, source_history};
-pub(crate) use rewrite::quoted_ranges;
+pub(crate) use rewrite::{quoted_ranges, relocate_scalar};
 use serde::Deserialize;
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
+pub(crate) use types::IdentityMap;
 pub use types::{
     ConflictLocator, GitMergeProvenance, ImportMapping, MergeConflict, MergeError, MergeOptions,
     MergePlan, MergeReport, MergeValue, RewriteFact,
 };
-use types::{EntryIdentity, IdentityMap, conflict};
+use types::{EntryIdentity, conflict};
 pub(crate) use yaml::candidate_snapshot;
 
 struct Inventory {

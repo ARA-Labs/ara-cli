@@ -14,6 +14,7 @@ struct History {
     raw: Vec<(String, String)>,
     aliases: Option<String>,
     alias_bytes: Option<Vec<u8>>,
+    merge_log: Option<String>,
 }
 impl History {
     fn start(&mut self, id: &str, started: &str) -> &mut Self {
@@ -91,6 +92,7 @@ impl History {
             self.alias_bytes
                 .as_deref()
                 .or(self.aliases.as_deref().map(str::as_bytes)),
+            self.merge_log.as_deref().map(str::as_bytes),
         )
         .measure(&subject, window)
     }
@@ -441,7 +443,7 @@ fn legacy_sessions_count_days_but_not_turns() {
 }
 
 #[test]
-fn imported_literals_resolve_only_through_authenticated_aliases() {
+fn legacy_import_aliases_without_occurrence_proof_keep_both_counts_unknown() {
     let mut h = base();
     h.start("2026-10-05_001", "2026-10-05T09:00Z").log(
         "2026-10-05_001",
@@ -459,30 +461,25 @@ fn imported_literals_resolve_only_through_authenticated_aliases() {
         alias("2026-10-05_001", "2026-10-05_001"),
         alias("O03", "O01")
     ));
-    // Peer O03 is local O01 through the recorded import.
+    // Redirects alone cannot prove whether a particular field is imported.
     let result = h.measure(
         observation("O01", Some("2026-10-02T10:00Z")),
         Window::default(),
     );
-    assert_eq!(
-        result.last_reference_turn.as_deref(),
-        Some("2026-10-05_001#1")
-    );
-    assert_eq!(result.turns_since_reference, Some(0));
-    let last = result.evidence.last().unwrap();
-    assert_eq!(last.literal, "O03");
-    assert_eq!(last.target, "O01");
-    assert_eq!(last.resolved_via.as_deref(), Some("alias:peer-fork:O03"));
-    // Peer O07 has no redirect: unresolved, so neither count is guessed.
+    assert_eq!(result.turns_since_reference, None);
+    assert_eq!(result.session_days_since_reference, None);
+    assert_eq!(codes(&result), ["history.origin_unknown"]);
+    assert!(!result.evidence.iter().any(|e| e.resolved_via.is_some()));
+    // Unknown spellings also cannot be treated as authenticated local text.
     let result = h.measure(
         observation("O07", Some("2026-10-02T10:00Z")),
         Window::default(),
     );
     assert_eq!(result.turns_since_reference, None);
     assert_eq!(result.session_days_since_reference, None);
-    assert_eq!(codes(&result), ["history.unresolved_reference"]);
+    assert_eq!(codes(&result), ["history.origin_unknown"]);
     assert_eq!(result.history_status, "ambiguous");
-    assert!(result.evidence[0].unresolved);
+    assert_ne!(result.history_status, "complete");
     // A malformed alias ledger cannot authenticate anything.
     h.aliases = Some("format: nope\n".into());
     let result = h.measure(
@@ -686,4 +683,89 @@ fn undecodable_alias_bytes_are_a_diagnostic() {
     assert_eq!(result.turns_since_reference, None);
     assert_eq!(result.session_days_since_reference, None);
     assert_eq!(codes(&result), ["history.alias_invalid"]);
+}
+
+#[test]
+fn yaml_aliases_in_reference_fields_make_both_counts_unknown() {
+    for (summary, fields, archived) in [
+        (
+            "Unrelated",
+            "key_context:\n  - turn: 1\n    excerpt: *recent\n",
+            "",
+        ),
+        ("*recent", "key_context: []\n", ""),
+        ("Unrelated", "open_threads: [*recent]\n", ""),
+        ("Unrelated", "ai_suggestions_pending: *recent\n", ""),
+        (
+            "Unrelated",
+            "key_context: []\n",
+            "    session_metadata:\n      session: 2026-10-04_001\n      before:\n        turn_count: 0\n      after:\n        turn_count: 1\n        last_turn: '2026-10-04T10:00Z'\n        summary: *recent\n",
+        ),
+        (
+            "Unrelated",
+            "key_context: []\n",
+            "    session_metadata:\n      session: 2026-10-04_001\n      before:\n        turn_count: 0\n      after:\n        turn_count: 1\n        last_turn: '2026-10-04T10:00Z'\n        summary: Unrelated\n        open_threads: [*recent]\n",
+        ),
+    ] {
+        let mut h = History::default();
+        h.raw.push((
+            "trace/sessions/2026-10-04_001.yaml".into(),
+            format!("recent: &recent 'Revisited O95'\nsession:\n  id: 2026-10-04_001\n  date: '2026-10-04'\n  started: '2026-10-04T09:00Z'\n  last_turn: '2026-10-04T10:00Z'\n  turn_count: 1\n  summary: {summary}\n{fields}"),
+        ));
+        if !archived.is_empty() {
+            h.raw.push((
+                "trace/pm_reasoning_log.yaml".into(),
+                format!("recent: &recent 'Revisited O95'\nentries:\n  - turn: '2026-10-04_001#1'\n{archived}"),
+            ));
+        }
+        let result = h.measure(
+            observation("O95", Some("2026-10-01T10:00Z")),
+            Window::default(),
+        );
+        assert_eq!(
+            result.turns_since_reference, None,
+            "{summary} {fields} {archived}"
+        );
+        assert_eq!(
+            result.session_days_since_reference, None,
+            "{summary} {fields} {archived}"
+        );
+        assert_ne!(result.history_status, "complete");
+        assert!(
+            codes(&result).contains(&"history.reference_alias"),
+            "{:?}",
+            result.diagnostics
+        );
+    }
+}
+
+#[test]
+fn nonlocal_and_differently_padded_tokens_are_not_inactivity_references() {
+    for summary in [
+        "Revisited peer:O01",
+        "Read results/O01.csv",
+        "Read https://example/O01",
+        "Revisited O1",
+        "Revisited O01suffix",
+        "Revisited αO01",
+        "Example:\n```\nO01\n```\nUnrelated work",
+    ] {
+        let mut h = base();
+        h.start("2026-10-05_001", "2026-10-05T09:00Z").log(
+            "2026-10-05_001",
+            "2026-10-05T10:00Z",
+            json!({"summary":summary}),
+        );
+        let result = h.measure(
+            observation("O01", Some("2026-10-02T10:00Z")),
+            Window::default(),
+        );
+        assert_eq!(
+            result.last_reference_turn.as_deref(),
+            Some("2026-10-03_001#1"),
+            "{summary}"
+        );
+        assert_eq!(result.session_days_since_reference, Some(2), "{summary}");
+        assert_eq!(result.history_status, "complete", "{summary}");
+    }
 }

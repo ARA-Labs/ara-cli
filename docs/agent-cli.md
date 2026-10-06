@@ -75,15 +75,17 @@ Every observation row of `ara.open/v1` adds these fields to its existing ones
 
 A reference is the observation's exact ID, or the exact ID of a node in its
 `bound_to`, either as a typed `id`/`entry` field of a turn row (`structured`)
-or as an exact token in caller-written turn text (`literal`). `O011`, `XO01`
-or a topic word are not references. The CLI does not decide whether a topic
-was semantically revisited; the five-turn topic-abandonment rule stays the
-caller's judgment.
+or as an exact token in caller-written turn text (`literal`). `O011`, `XO01`,
+`peer:O95`, `results/O95.csv` or a topic word are not local references.
+The CLI uses the read model's complete-token boundaries; it does not decide
+whether a topic was semantically revisited. The five-turn topic-abandonment
+rule stays the caller's judgment.
 
 The timeline comes from the session records, the per-turn stamps (a session's
 `last_turn` for its latest turn and the archived `session_metadata` in
-`trace/pm_reasoning_log.yaml` for each turn) and, for imported sessions,
-`trace/aliases.yaml`. It never uses numeric IDs, file times, index totals or
+`trace/pm_reasoning_log.yaml` for each turn) and, for imported occurrences,
+`trace/aliases.yaml` plus the captured revisions in `trace/merge_log.yaml`.
+It never uses numeric IDs, file times, index totals or
 lexical session order. Turn text is the turn's typed rows (`events_logged`,
 `ai_actions`, `claims_touched`, `logic_revisions` `entry`/`note`,
 `key_context`), the summary and new `open_threads`/`ai_suggestions_pending`
@@ -119,13 +121,20 @@ unchanged archived copies, revision `before`/`after` values and
   date and the staging date, then each later date with a logged turn. Empty
   sessions and calendar dates without a logged turn do not count. Overlapping
   sessions (concurrent agents, see plan 14) leave the day count known. It is
-  `null` only when a logged turn has no date, a reference has no attributable
-  date, an unresolved literal may fall after the start, or a session's
-  `turn_count` is unreadable (whether it logged a turn is unknown).
-- **Imported literals.** In a session that `trace/aliases.yaml` records as
-  imported, an ID-shaped token is attributed through the import's alias for
-  that original ID (`resolved_via: "alias:<source>:<original>"`). Without an
-  alias it is `unresolved`; it never silently matches a local ID.
+  `null` when a logged turn has no date, a reference has no attributable
+  date, an unresolved literal may fall after the start, a session's
+  `turn_count` is unreadable (whether it logged a turn is unknown), or
+  reference-bearing aliases/import origins cannot be authenticated.
+- **YAML aliases.** A reference-bearing alias makes both counts `null`
+  with `history.reference_alias`; stale writes refuse unknown history.
+  The collector does not silently treat aliased text as empty.
+- **Imported literals.** Captured source rows and occurrence mappings in the
+  strict merge ledger establish each field's origin. Preserved imported text
+  follows its source-key alias (`resolved_via: "alias:<source>:<original>"`);
+  already-relocated tokens and native rows appended after import keep local
+  identity. The enclosing session's import does not redirect native text.
+  Missing or conflicting capture proof makes both counts unknown
+  (`history.origin_unknown`), including legacy alias-only imports.
 
 `stale_observation` stays in `reasons` whenever the stored flag is `true`,
 whatever the current history proves, and is added when a known day count is 3
@@ -615,9 +624,11 @@ tokens (with the read model's boundaries), qualified locators
 names. Tokens inside quotes, backticks, fenced code or HTML comments are
 protected, as in merge rewriting: they are never rewritten or listed by
 `refs`, and they count as `protected` mentions. A value that is exactly a
-JSON array of strings is a native list, so its item quotes are list syntax,
-not quotation (an item with an escape sequence stays protected). A token counts only when it resolves to exactly one heading of the
-subject (or of its subtree), directly or through an authenticated claim
+JSON array of strings is a native list: only the outer item quotes are list
+syntax. Quotes and backticks inside each item remain protected, and an item
+with an escape sequence stays wholly protected. A token counts only when it
+resolves to exactly one heading of the subject (or of its subtree), directly
+or through an authenticated claim
 redirect (a retired alias). The longest spelling that ends at a delimiter
 wins; a multi-word heading followed by more words is prose. Each rewrite
 replaces only those token bytes and keeps quotes, prose, list delimiters and
@@ -702,10 +713,12 @@ In `Proof`, `Sources` prose and other mixed or scalar values each citation
 becomes exactly one destination; `Merged into` stays one claim
 (`write.reference_scalar`). Any other content change needs its own audited
 revision. The CLI never chooses which proposition a citer
-meant. The primary's own `set` must change it. `after` is literal text, so
-name spin-offs by explicit IDs (`claim.add` with `id`). The primary's
-`logic_revisions` rows carry `action: split` and `split_into`; this is an
-additive, optional row shape.
+meant. The primary's own `set` must change it. `split_into[]` and
+`references[].target` accept earlier creation bindings through the normal
+ordered selector rules, including indexed errors for unknown/forward bindings.
+`after` stays literal text, so name its spin-offs by explicit IDs (`claim.add`
+with `id`). The primary's `logic_revisions` rows carry `action: split` and
+`split_into`; this is an additive, optional row shape.
 
 **Audit.** Every changed citing field gets one `logic_revisions` row with its
 exact decoded before and after, plus `Last revised`; the result lists them
@@ -714,6 +727,13 @@ as `rewritten_references`. Rename and removal mappings append to
 exact; only files that receive a new row grow. A failure anywhere in the
 batch, including the post-change spelling check and final validation, writes
 nothing, and a dry run persists nothing.
+
+Explicit merge and split repairs refuse newly introduced self-citations just
+as automatic repairs do (`write.reference_rewrite`). A deliberate content
+change must be a separate audited revision, not a citation-repair row.
+Historical structured heading arrays match literal path segments, including
+a one-element array containing `/`; only scalar locator/concept-name forms
+use slash-joined path matching.
 
 ## Batches, audit ownership and recovery
 
@@ -882,6 +902,13 @@ from the operations that succeeded. The caller no longer repeats them.
   `write.claim_touch_conflict`. A Status change to `supported` alone is only
   `revised`. Judgments on claims the batch does not change keep the existing
   vocabulary and reference checks.
+- **Body Status.** A complete Body replacement of one selected claim compares
+  that claim's own decoded Status before and after. A changed explicit Status
+  participates in the same judgment checks; unchanged Status and descendant
+  headings do not constrain the caller's judgment.
+- **Structural actions.** Without a caller judgment, every distinct explicit
+  merge/split action for the claim is derived once in operation order.
+  Structural actions suppress the generic `revised` row, not each other.
 - **Order.** Caller rows keep their order; derived rows follow in operation
   order. Rows are inserted inside their own turn when one batch owns several
   turns of a session. Earlier turns are never searched, replaced or deleted.

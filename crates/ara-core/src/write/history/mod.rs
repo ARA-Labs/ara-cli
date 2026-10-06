@@ -18,6 +18,7 @@
 //! recorded), never one value per claimed turn, so an absurd `turn_count`
 //! costs nothing and all turn arithmetic is checked.
 mod collect;
+mod origins;
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -32,6 +33,7 @@ use collect::{
 };
 
 pub const ALIASES: &str = "trace/aliases.yaml";
+pub const MERGE_LOG: &str = "trace/merge_log.yaml";
 const SESSIONS: &str = "trace/sessions/";
 /// Typed per-turn arrays of a CLI session record.
 const TURN_ARRAYS: [&str; 5] = [
@@ -130,7 +132,6 @@ struct SessionRecord {
     stamps: BTreeMap<u64, i128>,
     archived: BTreeSet<u64>,
     contradictions: Vec<String>,
-    import_keys: BTreeSet<String>,
     has_content: bool,
 }
 impl SessionRecord {
@@ -282,6 +283,8 @@ fn message(code: &str) -> &'static str {
         "history.alias_invalid" => {
             "Merge aliases cannot be decoded, so imported literals cannot be attributed"
         }
+        "history.origin_unknown" => "A reference occurrence has no authenticated merge origin",
+        "history.reference_alias" => "A reference-bearing YAML alias cannot be safely expanded",
         "history.legacy_session" => {
             "A session record has no turn identities, so turn order cannot be proven"
         }
@@ -334,10 +337,23 @@ struct TurnCount {
     issues: Vec<Issue>,
 }
 
+fn contains_alias(node: &YamlNode) -> bool {
+    match &node.kind {
+        YamlKind::Alias(_) => true,
+        YamlKind::Sequence(items) => items.iter().any(contains_alias),
+        YamlKind::Mapping(entries) => entries.iter().any(|(_, node)| contains_alias(node)),
+        YamlKind::Scalar { .. } => false,
+    }
+}
+
 impl<'a> Timeline<'a> {
-    /// Parse the history sources once. `aliases` is the raw
-    /// `trace/aliases.yaml` bytes, when present.
-    pub fn build(sources: &'a [Source<'a>], aliases: Option<&[u8]>) -> Self {
+    /// Parse history and raw merge metadata once. Corrupt or incomplete
+    /// occurrence provenance makes history unknown rather than guessing origin.
+    pub fn build(
+        sources: &'a [Source<'a>],
+        aliases: Option<&[u8]>,
+        merge_log: Option<&[u8]>,
+    ) -> Self {
         let mut timeline = Self {
             docs: sources.iter().collect(),
             sessions: BTreeMap::new(),
@@ -350,7 +366,17 @@ impl<'a> Timeline<'a> {
             suffix_overlap: Vec::new(),
             suffix_turns: Vec::new(),
         };
-        let aliases = timeline.read_aliases(aliases);
+        let mut aliases = timeline.read_aliases(aliases);
+        let origin_error = match merge_log {
+            Some(raw) => origins::read(raw, sources, &mut aliases).err(),
+            None if !aliases.imported.is_empty() => {
+                Some("Imported sessions have aliases but no captured merge ledger".to_owned())
+            }
+            None => None,
+        };
+        if let Some(error) = origin_error {
+            timeline.push_both(Issue::new("history.origin_unknown", Gap::Ambiguous, error));
+        }
         let mut mentions = Vec::new();
         let mut reasoning = None;
         let mut index = None;
@@ -372,6 +398,18 @@ impl<'a> Timeline<'a> {
         }
         timeline.place_and_cluster();
         for mention in mentions {
+            if mention.target.is_empty() {
+                timeline.push_both(Issue::new(
+                    if mention.literal == "history.origin_unknown" {
+                        "history.origin_unknown"
+                    } else {
+                        "history.reference_alias"
+                    },
+                    Gap::Ambiguous,
+                    format!("{} {}", timeline.docs[mention.doc].path, mention.field),
+                ));
+                continue;
+            }
             timeline
                 .mentions
                 .entry(mention.target.clone())
@@ -404,7 +442,9 @@ impl<'a> Timeline<'a> {
                     }
                     aliases
                         .redirects
-                        .entry((key, original))
+                        .entry(key)
+                        .or_default()
+                        .entry(original)
                         .or_default()
                         .insert(target);
                 }
@@ -446,6 +486,26 @@ impl<'a> Timeline<'a> {
             ));
             return;
         };
+        let mut alias_check =
+            Collector::new(doc, UnitRef::Session(stem.to_owned()), source.path, aliases);
+        if contains_alias(metadata) {
+            alias_check.unknown(metadata, "session");
+        }
+        for key in ROLLING_LISTS {
+            if let Some(node) = get(root, key)
+                && contains_alias(node)
+            {
+                alias_check.unknown(node, key);
+            }
+        }
+        for key in TURN_ARRAYS {
+            if let Some(node) = get(root, key)
+                && matches!(node.kind, YamlKind::Alias(_))
+            {
+                alias_check.unknown(node, key);
+            }
+        }
+        mentions.extend(alias_check.out);
         let mut record = SessionRecord {
             path: source.path.to_owned(),
             ..SessionRecord::default()
@@ -456,9 +516,6 @@ impl<'a> Timeline<'a> {
                 "{}: metadata id `{id}` differs from file name",
                 source.path
             ));
-        }
-        if let Some(keys) = aliases.imported.get(stem) {
-            record.import_keys = keys.clone();
         }
         record.date = scalar(metadata, "date")
             .or_else(|| scalar(metadata, "timestamp"))
@@ -536,7 +593,7 @@ impl<'a> Timeline<'a> {
                         UnitRef::Session(stem.to_owned())
                     }
                 };
-                let mut collector = Collector::new(doc, unit, &record.import_keys, aliases);
+                let mut collector = Collector::new(doc, unit, path, aliases);
                 collector.walk(row, &format!("{key}[{row_index}]"), None);
                 mentions.extend(collector.out);
             }
@@ -555,7 +612,7 @@ impl<'a> Timeline<'a> {
         let mut collector = Collector::new(
             doc,
             UnitRef::Session(stem.to_owned()),
-            &record.import_keys,
+            &record.path,
             aliases,
         );
         if let YamlKind::Mapping(entries) = &root.kind {
@@ -610,12 +667,29 @@ impl<'a> Timeline<'a> {
                 return;
             }
         };
-        let entries = match get(root, "entries").map(|n| &n.kind) {
-            Some(YamlKind::Sequence(entries)) => entries.as_slice(),
+        let entries = match get(root, "entries") {
+            Some(node) if matches!(node.kind, YamlKind::Alias(_)) => {
+                let mut collector =
+                    Collector::new(doc, UnitRef::Unattributed, self.docs[doc].path, aliases);
+                collector.unknown(node, "entries");
+                mentions.extend(collector.out);
+                return;
+            }
+            Some(YamlNode {
+                kind: YamlKind::Sequence(entries),
+                ..
+            }) => entries.as_slice(),
             _ => &[],
         };
         for (index, entry) in entries.iter().enumerate() {
             let field = format!("entries[{index}]");
+            if matches!(entry.kind, YamlKind::Alias(_)) {
+                let mut collector =
+                    Collector::new(doc, UnitRef::Unattributed, self.docs[doc].path, aliases);
+                collector.unknown(entry, &field);
+                mentions.extend(collector.out);
+                continue;
+            }
             if let Some(metadata) = get(entry, "session_metadata") {
                 self.read_archive(doc, entry, metadata, &field, aliases, mentions);
             } else if !stale_record(entry) {
@@ -635,6 +709,32 @@ impl<'a> Timeline<'a> {
         aliases: &Aliases,
         mentions: &mut Vec<Mention>,
     ) {
+        let after = get(metadata, "after");
+        let before = get(metadata, "before");
+        if matches!(metadata.kind, YamlKind::Alias(_))
+            || before.is_some_and(|node| matches!(node.kind, YamlKind::Alias(_)))
+            || after.is_some_and(|node| matches!(node.kind, YamlKind::Alias(_)))
+        {
+            let unit = scalar(entry, "turn")
+                .and_then(turn_reference)
+                .and_then(|(session, t)| {
+                    self.resolve_session(aliases, &session)
+                        .map(|resolved| UnitRef::Turn(resolved, t))
+                })
+                .unwrap_or(UnitRef::Unattributed);
+            let mut collector = Collector::new(doc, unit, self.docs[doc].path, aliases);
+            if matches!(metadata.kind, YamlKind::Alias(_)) {
+                collector.unknown(metadata, &format!("{field}.session_metadata"));
+            }
+            for (name, node) in [("before", before), ("after", after)] {
+                if let Some(node) = node
+                    && matches!(node.kind, YamlKind::Alias(_))
+                {
+                    collector.unknown(node, &format!("{field}.session_metadata.{name}"));
+                }
+            }
+            mentions.extend(collector.out);
+        }
         let Some((session, t)) = scalar(entry, "turn").and_then(turn_reference) else {
             return;
         };
@@ -646,8 +746,6 @@ impl<'a> Timeline<'a> {
             ));
             return;
         };
-        let after = get(metadata, "after");
-        let before = get(metadata, "before");
         let stamp = after
             .and_then(|a| scalar(a, "last_turn"))
             .and_then(|s| timestamp_key(s).ok().map(|k| (k, s)));
@@ -694,26 +792,48 @@ impl<'a> Timeline<'a> {
         let mut collector = Collector::new(
             doc,
             UnitRef::Turn(resolved, t),
-            &record.import_keys,
+            self.docs[doc].path,
             aliases,
         );
         if let Some(after) = after {
             // The first turn owns the summary its session was started with;
             // later turns own changes.
+            if let Some(node) = before.and_then(|before| get(before, "summary"))
+                && contains_alias(node)
+            {
+                collector.unknown(node, &format!("{field}.session_metadata.before.summary"));
+            }
             let previous = before
                 .filter(|b| scalar(b, "turn_count") != Some("0"))
                 .and_then(|b| scalar(b, "summary"));
-            if let Some(summary) = get(after, "summary")
-                && let Some(text) = summary.scalar()
-                && previous != Some(text)
-            {
-                collector.literal_text(
-                    text,
-                    summary.start,
-                    &format!("{field}.session_metadata.after.summary"),
-                );
+            if let Some(summary) = get(after, "summary") {
+                if let Some(text) = summary.scalar() {
+                    if previous != Some(text) {
+                        collector.literal_text(
+                            text,
+                            summary.start,
+                            &format!("{field}.session_metadata.after.summary"),
+                        );
+                    }
+                } else {
+                    collector.walk(
+                        summary,
+                        &format!("{field}.session_metadata.after.summary"),
+                        None,
+                    );
+                }
             }
             for key in ROLLING_LISTS {
+                if let Some(node) = before.and_then(|before| get(before, key))
+                    && contains_alias(node)
+                {
+                    collector.unknown(node, &format!("{field}.session_metadata.before.{key}"));
+                }
+                if let Some(node) = get(after, key)
+                    && contains_alias(node)
+                {
+                    collector.unknown(node, &format!("{field}.session_metadata.after.{key}"));
+                }
                 let old: BTreeSet<&str> = sequence_strings(before.and_then(|b| get(b, key)))
                     .into_iter()
                     .map(|(s, _)| s)
@@ -744,11 +864,10 @@ impl<'a> Timeline<'a> {
     ) {
         let turn = scalar(entry, "turn").and_then(turn_reference);
         let named = scalar(entry, "session").filter(|s| validate_session_id(s).is_ok());
-        let (unit, keys) = match (turn, named) {
+        let unit = match (turn, named) {
             (Some((session, t)), _) => match self.resolve_session(aliases, &session) {
                 Some(resolved) => {
                     let record = self.sessions.get_mut(&resolved).expect("resolved");
-                    let keys = record.import_keys.clone();
                     match record.turns {
                         // A turn the session never logged is a contradiction,
                         // not a position.
@@ -756,9 +875,9 @@ impl<'a> Timeline<'a> {
                             record.contradictions.push(format!(
                                 "{REASONING} {field}: turn {t} is beyond the session's turn_count {n}"
                             ));
-                            (UnitRef::Session(resolved), keys)
+                            UnitRef::Session(resolved)
                         }
-                        _ => (UnitRef::Turn(resolved, t), keys),
+                        _ => UnitRef::Turn(resolved, t),
                     }
                 }
                 None => {
@@ -767,26 +886,23 @@ impl<'a> Timeline<'a> {
                         Gap::Missing,
                         format!("{session}#{t} ({REASONING} {field})"),
                     ));
-                    (UnitRef::Turn(session, t), BTreeSet::new())
+                    UnitRef::Turn(session, t)
                 }
             },
             (None, Some(session)) => match self.resolve_session(aliases, session) {
-                Some(resolved) => {
-                    let keys = self.sessions[&resolved].import_keys.clone();
-                    (UnitRef::Session(resolved), keys)
-                }
+                Some(resolved) => UnitRef::Session(resolved),
                 None => {
                     self.turn_issues.push(Issue::new(
                         "history.session_missing",
                         Gap::Missing,
                         format!("{session} ({REASONING} {field})"),
                     ));
-                    (UnitRef::Session(session.to_owned()), BTreeSet::new())
+                    UnitRef::Session(session.to_owned())
                 }
             },
-            (None, None) => (UnitRef::Unattributed, BTreeSet::new()),
+            (None, None) => UnitRef::Unattributed,
         };
-        let mut collector = Collector::new(doc, unit, &keys, aliases);
+        let mut collector = Collector::new(doc, unit, self.docs[doc].path, aliases);
         collector.walk_mapping(entry, field, &["session"]);
         mentions.extend(collector.out);
     }
@@ -810,19 +926,17 @@ impl<'a> Timeline<'a> {
             let mut collector = Collector::new(
                 doc,
                 UnitRef::Turn(id.clone(), n),
-                &record.import_keys,
+                self.docs[doc].path,
                 aliases,
             );
             if let Some(metadata) = get(root, "session")
                 && let Some(summary) = get(metadata, "summary")
-                && let Some(text) = summary.scalar()
             {
-                collector.literal_text(text, summary.start, "session.summary");
+                collector.walk(summary, "session.summary", None);
             }
             for key in ROLLING_LISTS {
-                for (i, (item, offset)) in sequence_strings(get(root, key)).into_iter().enumerate()
-                {
-                    collector.literal_text(item, offset, &format!("{key}[{i}]"));
+                if let Some(node) = get(root, key) {
+                    collector.walk(node, key, None);
                 }
             }
             mentions.extend(collector.out);

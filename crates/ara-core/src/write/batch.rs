@@ -691,10 +691,29 @@ fn substitute(
         WriteOperation::ClaimAdd { fields, .. } | WriteOperation::HeuristicAdd { fields, .. } => {
             field_references(fields, bindings)?
         }
-        WriteOperation::EntryEdit { target, set }
-        | WriteOperation::LogicRevise { target, set, .. } => {
+        WriteOperation::EntryEdit { target, set } => {
             selector(target, bindings, "target")?;
             field_references(set, bindings)?;
+        }
+        WriteOperation::LogicRevise {
+            target,
+            set,
+            split_into,
+            references,
+            ..
+        } => {
+            selector(target, bindings, "target")?;
+            field_references(set, bindings)?;
+            for (index, target) in split_into.iter_mut().enumerate() {
+                selector(target, bindings, &format!("split_into[{index}]"))?;
+            }
+            for (index, edit) in references.iter_mut().enumerate() {
+                selector(
+                    &mut edit.target,
+                    bindings,
+                    &format!("references[{index}].target"),
+                )?;
+            }
         }
         WriteOperation::ObservationStage { bound_to, .. } => {
             refs(bound_to, Namespace::Node, bindings, "bound_to")?

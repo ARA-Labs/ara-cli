@@ -805,6 +805,25 @@ fn explicit_rows(
                 .at(format!("{at}.after")));
             }
         }
+        if referred.document == CLAIMS {
+            let citer_id = heading_id(&referred.heading);
+            let self_citations = |parts: &[super::row_mapping::Part]| {
+                parts
+                    .iter()
+                    .filter(|part| {
+                        matches!(part, super::row_mapping::Part::Claim { id, .. } if id == citer_id)
+                    })
+                    .count()
+            };
+            if self_citations(&after) > self_citations(&before) {
+                return Err(refusal(
+                    "write.reference_rewrite",
+                    "repairing this citation would make the entry cite itself, so revise its content explicitly first".into(),
+                    &format!("{at}.after"),
+                    vec![citation.location()],
+                ));
+            }
+        }
         if !split && row.before == row.after {
             return Err(WriteError::semantic(
                 "write.reference",

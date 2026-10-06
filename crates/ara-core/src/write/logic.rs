@@ -634,21 +634,47 @@ fn revise_body(
             )]);
             edit(working, target, &pointer, true)?;
         }
-        let after_range = if whole {
-            0..working.text(document)?.len()
+        let after_selected = if whole {
+            None
         } else {
-            resolve(working, target)?.body
+            Some(resolve(working, target)?)
+        };
+        let after_range = if let Some(entry) = &after_selected {
+            entry.body.clone()
+        } else {
+            0..working.text(document)?.len()
         };
         let after = working.text(document)?[after_range].to_owned();
         if let Some(entry) = selected
             .as_ref()
             .filter(|e| e.document == "logic/claims.md")
         {
+            let before_status = markdown::fields(
+                &before,
+                entry.field_body.start - entry.body.start..entry.field_body.end - entry.body.start,
+            )
+            .into_iter()
+            .find(|field| fields::canonical(field.name) == "status")
+            .map(|field| markdown::decode_field(&field));
+            let after_entry = after_selected.as_ref().expect("selected Body entry");
+            let after_status = markdown::fields(
+                &after,
+                after_entry.field_body.start - after_entry.body.start
+                    ..after_entry.field_body.end - after_entry.body.start,
+            )
+            .into_iter()
+            .find(|field| fields::canonical(field.name) == "status")
+            .map(|field| markdown::decode_field(&field));
             working.bookkeeping.claim_changed(
                 session,
                 turn,
                 heading_id(&entry.heading),
-                [("Body", None)],
+                [("Body", None)].into_iter().chain(
+                    after_status
+                        .as_deref()
+                        .filter(|_| before_status != after_status)
+                        .map(|status| ("Status", Some(status))),
+                ),
             );
         }
         let record = json!({"entry":target,"field":"Body","before":before,"after":after,"signal":signal,"provenance":provenance,"note":note});

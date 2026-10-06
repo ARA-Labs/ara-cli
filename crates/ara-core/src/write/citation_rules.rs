@@ -92,15 +92,26 @@ pub fn rewritable(document: &str, label: &str) -> bool {
 
 /// Spans of a field value whose tokens are never references: quoted or
 /// backticked text, fenced code and HTML comments (merge rewriting's rule).
-/// A value that is exactly a JSON array of strings is a native list: its item
-/// quotes delimit list elements, not quotations, so only escaped items (and
-/// comments) are protected.
+/// A value that is exactly a JSON array of strings is a native list: only its
+/// outer item quotes are delimiters. Inner quoted or backticked spans remain
+/// protected, as do whole escaped items and HTML comments.
 pub fn protected_ranges(text: &str) -> Vec<Range<usize>> {
     let mut ranges = if let Some(items) = json_string_items(text) {
-        items
-            .into_iter()
-            .filter(|item| text[item.clone()].contains('\\'))
-            .collect()
+        let mut ranges = Vec::new();
+        for item in items {
+            if text[item.clone()].contains('\\') {
+                ranges.push(item);
+            } else {
+                let start = item.start + 1;
+                let end = item.end - 1;
+                ranges.extend(
+                    crate::merge::quoted_ranges(&text[start..end])
+                        .into_iter()
+                        .map(|range| start + range.start..start + range.end),
+                );
+            }
+        }
+        ranges
     } else {
         crate::merge::quoted_ranges(text)
     };

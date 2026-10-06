@@ -108,7 +108,15 @@ fn values(
                 if let Some(selector) = selector_from_yaml(node, anchors) {
                     let literal = serde_json::to_string(&selector).unwrap_or_default();
                     classify_selector(
-                        resolver, subject, selector, source, field, literal, found, ambiguous,
+                        resolver,
+                        subject,
+                        selector,
+                        HeadingMatch::LiteralSuffix,
+                        source,
+                        field,
+                        literal,
+                        found,
+                        ambiguous,
                     )?;
                 }
             }
@@ -150,6 +158,7 @@ fn values(
                     resolver,
                     subject,
                     selector,
+                    HeadingMatch::ScalarName,
                     source,
                     field,
                     literal.to_owned(),
@@ -163,13 +172,21 @@ fn values(
     Ok(())
 }
 
+#[derive(Clone, Copy)]
+enum HeadingMatch {
+    LiteralSuffix,
+    ScalarName,
+}
+
 /// Record a historical selector that resolves (or may resolve) into the
-/// subject. Heading-vector selectors match by literal suffix or joined path.
+/// subject. Structured vectors match literal suffixes; scalar names also
+/// match complete joined heading paths.
 #[allow(clippy::too_many_arguments)]
 fn classify_selector(
     resolver: &Resolver<'_>,
     subject: &Subject,
     selector: EntrySelector,
+    heading_match: HeadingMatch,
     source: &str,
     field: &str,
     literal: String,
@@ -203,13 +220,15 @@ fn classify_selector(
     for heading in headings.iter() {
         let hit = match (&selector, &by_id) {
             (_, Some(id)) => heading_id(&heading.heading) == id,
-            // A one-segment vector is a bare name: the shared concept-name
-            // rule. A longer vector keeps selector suffix semantics.
-            (EntrySelector::Document { heading: path, .. }, None) => match path.as_slice() {
-                [] => false,
-                [name] => citation_rules::concept_name_match(&heading.heading, &heading.path, name)
-                    .is_some(),
-                _ => heading.path.ends_with(path),
+            (EntrySelector::Document { heading: path, .. }, None) => match heading_match {
+                HeadingMatch::LiteralSuffix => !path.is_empty() && heading.path.ends_with(path),
+                HeadingMatch::ScalarName => match path.as_slice() {
+                    [name] => {
+                        citation_rules::concept_name_match(&heading.heading, &heading.path, name)
+                            .is_some()
+                    }
+                    _ => false,
+                },
             },
             _ => false,
         };

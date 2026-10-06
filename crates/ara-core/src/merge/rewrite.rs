@@ -24,14 +24,19 @@ pub(crate) fn incoming(
     report: &mut MergeReport,
     structured: bool,
 ) -> Result<String, MergeError> {
-    incoming_mode::<false>(text, path, selector, map, report, structured)
+    incoming_mode::<false, true>(text, path, selector, map, Some(report), structured)
 }
-fn incoming_mode<const HISTORICAL: bool>(
+/// Apply the merge's complete scalar relocation without allocating audit facts.
+pub(crate) fn relocate_scalar(text: &str, map: &IdentityMap) -> Result<String, MergeError> {
+    incoming_mode::<false, false>(text, "", "", map, None, false)
+}
+
+fn incoming_mode<const HISTORICAL: bool, const RECORD: bool>(
     text: &str,
     path: &str,
     selector: &str,
     map: &IdentityMap,
-    report: &mut MergeReport,
+    mut report: Option<&mut MergeReport>,
     structured: bool,
 ) -> Result<String, MergeError> {
     let mut patches = Vec::new();
@@ -55,16 +60,19 @@ fn incoming_mode<const HISTORICAL: bool>(
             if target == token.literal {
                 continue;
             }
-            let fact = RewriteFact {
-                path: path.into(),
-                selector: selector.into(),
-                old: token.literal.into(),
-                new: target.into(),
-                confidence: "certain".into(),
-            };
-            report.rewritten.push(fact.clone());
-            if !structured {
-                report.needs_review.push(fact);
+            if RECORD {
+                let fact = RewriteFact {
+                    path: path.into(),
+                    selector: selector.into(),
+                    old: token.literal.into(),
+                    new: target.into(),
+                    confidence: "certain".into(),
+                };
+                let report = report.as_deref_mut().expect("recording relocation");
+                report.rewritten.push(fact.clone());
+                if !structured {
+                    report.needs_review.push(fact);
+                }
             }
             patches.push((token.range, target.to_owned()));
         } else if structured {
@@ -75,14 +83,18 @@ fn incoming_mode<const HISTORICAL: bool>(
                     token.literal
                 ),
             ));
-        } else {
-            report.needs_review.push(RewriteFact {
-                path: path.into(),
-                selector: selector.into(),
-                old: token.literal.into(),
-                new: token.literal.into(),
-                confidence: "ambiguous".into(),
-            });
+        } else if RECORD {
+            report
+                .as_deref_mut()
+                .expect("recording relocation")
+                .needs_review
+                .push(RewriteFact {
+                    path: path.into(),
+                    selector: selector.into(),
+                    old: token.literal.into(),
+                    new: token.literal.into(),
+                    confidence: "ambiguous".into(),
+                });
         }
     }
     // Native session references and document paths are distinct namespaces;
@@ -164,16 +176,19 @@ fn incoming_mode<const HISTORICAL: bool>(
                         let range = offset + start..offset + start + token.len();
                         if target != token && !protected_span(&protected, &range) {
                             patches.push((range, target.clone()));
-                            let fact = RewriteFact {
-                                path: path.into(),
-                                selector: selector.into(),
-                                old: token.into(),
-                                new: target,
-                                confidence: "certain".into(),
-                            };
-                            report.rewritten.push(fact.clone());
-                            if !structured {
-                                report.needs_review.push(fact);
+                            if RECORD {
+                                let fact = RewriteFact {
+                                    path: path.into(),
+                                    selector: selector.into(),
+                                    old: token.into(),
+                                    new: target,
+                                    confidence: "certain".into(),
+                                };
+                                let report = report.as_deref_mut().expect("recording relocation");
+                                report.rewritten.push(fact.clone());
+                                if !structured {
+                                    report.needs_review.push(fact);
+                                }
                             }
                         }
                     } else if structured {
@@ -208,16 +223,19 @@ fn incoming_mode<const HISTORICAL: bool>(
                         let range = offset + start..offset + start + token.len();
                         if target != token && !protected_span(&protected, &range) {
                             patches.push((range, target.clone()));
-                            let fact = RewriteFact {
-                                path: path.into(),
-                                selector: selector.into(),
-                                old: token.into(),
-                                new: target,
-                                confidence: "certain".into(),
-                            };
-                            report.rewritten.push(fact.clone());
-                            if !structured {
-                                report.needs_review.push(fact);
+                            if RECORD {
+                                let fact = RewriteFact {
+                                    path: path.into(),
+                                    selector: selector.into(),
+                                    old: token.into(),
+                                    new: target,
+                                    confidence: "certain".into(),
+                                };
+                                let report = report.as_deref_mut().expect("recording relocation");
+                                report.rewritten.push(fact.clone());
+                                if !structured {
+                                    report.needs_review.push(fact);
+                                }
                             }
                         }
                         offset += part.len();
@@ -245,16 +263,20 @@ fn incoming_mode<const HISTORICAL: bool>(
                                 offset + start + prefix.len() + 1..offset + start + token.len();
                             if !protected_span(&protected, &range) {
                                 patches.push((range, target.to_owned()));
-                                let fact = RewriteFact {
-                                    path: path.into(),
-                                    selector: selector.into(),
-                                    old: id.into(),
-                                    new: target.into(),
-                                    confidence: "certain".into(),
-                                };
-                                report.rewritten.push(fact.clone());
-                                if !structured {
-                                    report.needs_review.push(fact);
+                                if RECORD {
+                                    let fact = RewriteFact {
+                                        path: path.into(),
+                                        selector: selector.into(),
+                                        old: id.into(),
+                                        new: target.into(),
+                                        confidence: "certain".into(),
+                                    };
+                                    let report =
+                                        report.as_deref_mut().expect("recording relocation");
+                                    report.rewritten.push(fact.clone());
+                                    if !structured {
+                                        report.needs_review.push(fact);
+                                    }
                                 }
                             }
                         }
@@ -297,16 +319,19 @@ fn incoming_mode<const HISTORICAL: bool>(
                     let range = offset + start..offset + start + address.len();
                     if !protected_span(&protected, &range) {
                         patches.push((range, target.to_owned()));
-                        let fact = RewriteFact {
-                            path: path.into(),
-                            selector: selector.into(),
-                            old: address.into(),
-                            new: target.into(),
-                            confidence: "certain".into(),
-                        };
-                        report.rewritten.push(fact.clone());
-                        if !structured {
-                            report.needs_review.push(fact);
+                        if RECORD {
+                            let fact = RewriteFact {
+                                path: path.into(),
+                                selector: selector.into(),
+                                old: address.into(),
+                                new: target.into(),
+                                confidence: "certain".into(),
+                            };
+                            let report = report.as_deref_mut().expect("recording relocation");
+                            report.rewritten.push(fact.clone());
+                            if !structured {
+                                report.needs_review.push(fact);
+                            }
                         }
                     }
                 }
@@ -368,19 +393,19 @@ fn yaml_value_mode<const HISTORICAL: bool>(
             if matches!(quote, b'\'' | b'"') && trimmed.as_bytes().last() == Some(&quote) {
                 let start = text.find(trimmed).expect("trimmed subslice") + 1;
                 let end = start + trimmed.len() - 2;
-                let inner = incoming_mode::<HISTORICAL>(
+                let inner = incoming_mode::<HISTORICAL, true>(
                     &text[start..end],
                     path,
                     selector,
                     map,
-                    report,
+                    Some(report),
                     false,
                 )?;
                 return Ok(format!("{}{inner}{}", &text[..start], &text[end..]));
             }
         }
     }
-    incoming_mode::<HISTORICAL>(text, path, selector, map, report, structured)
+    incoming_mode::<HISTORICAL, true>(text, path, selector, map, Some(report), structured)
 }
 /// Known structured values compare by their destination identity, without
 /// applying the incoming allocation map to text already owned by ours.
@@ -476,6 +501,29 @@ pub(crate) fn quoted_ranges(text: &str) -> Vec<std::ops::Range<usize>> {
             continue;
         }
         let start = i;
+        if quote == b'`' {
+            while i < bytes.len() && bytes[i] == b'`' {
+                i += 1;
+            }
+            let delimiter = i - start;
+            let mut search = i;
+            while search < bytes.len() {
+                if bytes[search] != b'`' {
+                    search += 1;
+                    continue;
+                }
+                let closing = search;
+                while search < bytes.len() && bytes[search] == b'`' {
+                    search += 1;
+                }
+                if search - closing == delimiter {
+                    ranges.push(start..search);
+                    i = search;
+                    break;
+                }
+            }
+            continue;
+        }
         i += 1;
         while i < bytes.len() && bytes[i] != quote && bytes[i] != b'\n' {
             if bytes[i] == b'\\' {
