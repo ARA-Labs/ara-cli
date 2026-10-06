@@ -1,0 +1,256 @@
+
+
+=== 19a: new claim block uses schema order, inline values and lossless lists ===
+
+$ ara claim add --title Order probe --set Statement=S text --set Conditions=C text --set Status=supported --set Falsification criteria=F text --set Proof=[] --set Dependencies=[] --set Provenance=user --set Tags=["x"]
+C17
+[exit 0]
+
+--- tail of logic/claims.md ---
+
+## C17: Order probe
+- **Statement**: S text
+- **Conditions**: C text
+- **Status**: supported
+- **Provenance**: user
+- **Falsification**: F text
+- **Proof**: []
+- **Dependencies**: []
+- **Tags**: ["x"]
+
+
+=== 19b+19c: one summarized session.log owns a batch; rows are derived ===
+
+--- request ---
+{"op":"session.log","summary":"Probe ingestor tables; stage a constraint; add a claim; narrow C04"}
+{"op":"node.add","type":"question","parent":"N01","title":"Does the ingestor lose table structure?","fields":{"description":"Check tables","provenance":"user"}}
+{"op":"observation.stage","content":"Ingestor drops merged table cells in 3/20 PDFs","potential_type":"constraint","provenance":"ai-executed"}
+{"op":"claim.add","title":"Table cells survive ingestion","fields":{"Statement":"Ingestion preserves table cells.","Conditions":"Born-digital PDFs","Falsification":"A merged cell lost after ingestion","Status":"hypothesis","Provenance":"ai-suggested"}}
+{"op":"logic.revise","target":{"id":"C04"},"set":{"Status":"testing"},"signal":"empirical-resolution","provenance":"user"}
+
+$ ara apply $WORK/req.jsonl --json --no-duplicate-check
+{"bindings":{},"changed_paths":[".gitignore","logic/claims.md","staging/observations.yaml","trace/exploration_tree.yaml","trace/pm_reasoning_log.yaml","trace/sessions/2026-10-06_001.yaml","trace/sessions/session_index.yaml"],"committed":true,"created_directories":["trace/sessions"],"diagnostics":[{"message":"field `lesson` dropped for type `experiment`","path":"nodes[N95]","severity":"warning"},{"message":"field `lesson` dropped for type `experiment`","path":"nodes[N96]","severity":"warning"},{"message":"redundant `also_depends_on` on ancestor `N65` (already nested under it)","path":"nodes[N68].also_depends_on[0]","severity":"warning"}],"dry_run":false,"duplicate_candidates":[],"format":"ara.apply/v1","operations":[{"id":"2026-10-06_001","no_op":false,"operation":"session.log","session":"2026-10-06_001","session_created":true,"turn":1},{"id":"N124","no_op":false,"operation":"node.add"},{"id":"O95","no_op":false,"operation":"observation.stage"},{"id":"C17","no_op":false,"operation":"claim.add","target":"logic/claims.md:C17"},{"no_op":false,"operation":"logic.revise","session":"2026-10-06_001","target":"logic/claims.md:C04: Universal Ingestor produces lossless transformations","turn":1}]}
+[exit 0]
+
+--- trace/sessions/2026-10-06_001.yaml ---
+ai_actions: []
+ai_suggestions_pending: []
+claims_touched: 
+  - action: "created"
+    id: "C17"
+    turn: 1
+  - action: "revised"
+    id: "C04"
+    turn: 1
+events_logged: 
+  - id: "N124"
+    provenance: "user"
+    routing: "direct"
+    summary: "Does the ingestor lose table structure?"
+    turn: 1
+    type: "question"
+  - id: "O95"
+    provenance: "ai-executed"
+    routing: "staged"
+    summary: "Ingestor drops merged table cells in 3/20 PDFs"
+    turn: 1
+    type: "observation"
+  - id: "C17"
+    provenance: "ai-suggested"
+    routing: "direct"
+    summary: "Table cells survive ingestion"
+    turn: 1
+    type: "claim"
+key_context: []
+logic_revisions: 
+  - after: "testing"
+    before: "supported"
+    entry: 
+      id: "C04"
+    field: "Status"
+    note: null
+    provenance: "user"
+    signal: "empirical-resolution"
+    turn: 1
+open_threads: []
+session: 
+  date: "2026-10-06"
+  id: "2026-10-06_001"
+  last_turn: "2026-10-06T02:18:45Z"
+  started: "2026-10-06T02:18:45Z"
+  summary: "Probe ingestor tables; stage a constraint; add a claim; narrow C04"
+  turn_count: 1
+
+
+=== 19b: omitted ownership without a session.log is refused ===
+
+--- request ---
+{"op":"logic.revise","target":{"id":"C04"},"set":{"Status":"supported"},"signal":"user-directive","provenance":"user"}
+
+$ ara apply $WORK/req.jsonl --json --no-duplicate-check
+{"error":{"code":"write.owner_required","details":{"code":"write.owner_required","field":"session","line":1,"message":"omitted session/turn needs exactly one session.log with a summary in this batch"},"line":1,"message":"omitted session/turn needs exactly one session.log with a summary in this batch"},"format":"ara.apply/v1"}
+[exit 1]
+
+
+=== 19b: two open sessions on the same date make selection ambiguous ===
+
+$ ara session start --summary First thread
+2026-10-06_001
+[exit 0]
+
+$ ara session start --summary Parallel thread
+2026-10-06_002
+[exit 0]
+
+--- request ---
+
+{"op":"session.log","summary":"Which session?"}
+
+$ ara apply $WORK/req.jsonl --json --no-duplicate-check
+{"error":{"code":"write.session_ambiguous","details":{"code":"write.session_ambiguous","field":"session","line":2,"message":"2 open sessions are dated 2026-10-06: 2026-10-06_001, 2026-10-06_002; name one with `session`"},"line":2,"message":"2 open sessions are dated 2026-10-06: 2026-10-06_001, 2026-10-06_002; name one with `session`"},"format":"ara.apply/v1"}
+[exit 1]
+
+
+=== 19c: a caller judgment replaces the derived revised row; contradictions reject ===
+
+--- request ---
+{"op":"session.log","summary":"C04 weakened","claims_touched":[{"id":"C04","action":"refuted"}]}
+{"op":"logic.revise","target":{"id":"C04"},"set":{"Status":"weakened"},"signal":"empirical-resolution","provenance":"user"}
+
+$ ara apply $WORK/req.jsonl --json --no-duplicate-check
+{"error":{"code":"write.claim_touch_conflict","details":{"code":"write.claim_touch_conflict","field":"claims_touched[0]","line":1,"message":"C04 `refuted` contradicts this turn's explicit Status change to `weakened`; it needs a change to `refuted`","related_field":"set.Status","related_line":2},"line":1,"message":"C04 `refuted` contradicts this turn's explicit Status change to `weakened`; it needs a change to `refuted`"},"format":"ara.apply/v1"}
+[exit 1]
+
+--- request ---
+{"op":"session.log","summary":"C04 weakened","claims_touched":[{"id":"C04","action":"weakened"}]}
+{"op":"logic.revise","target":{"id":"C04"},"set":{"Status":"weakened"},"signal":"empirical-resolution","provenance":"user"}
+
+$ ara apply $WORK/req.jsonl --json --no-duplicate-check
+{"bindings":{},"changed_paths":[".gitignore","logic/claims.md","trace/pm_reasoning_log.yaml","trace/sessions/2026-10-06_001.yaml","trace/sessions/session_index.yaml"],"committed":true,"created_directories":["trace/sessions"],"diagnostics":[{"message":"field `lesson` dropped for type `experiment`","path":"nodes[N95]","severity":"warning"},{"message":"field `lesson` dropped for type `experiment`","path":"nodes[N96]","severity":"warning"},{"message":"redundant `also_depends_on` on ancestor `N65` (already nested under it)","path":"nodes[N68].also_depends_on[0]","severity":"warning"}],"dry_run":false,"duplicate_candidates":[],"format":"ara.apply/v1","operations":[{"id":"2026-10-06_001","no_op":false,"operation":"session.log","session":"2026-10-06_001","session_created":true,"turn":1},{"no_op":false,"operation":"logic.revise","session":"2026-10-06_001","target":"logic/claims.md:C04: Universal Ingestor produces lossless transformations","turn":1}]}
+[exit 0]
+
+--- claims_touched ---
+claims_touched: 
+  - action: "weakened"
+    id: "C04"
+    turn: 1
+events_logged: []
+
+
+=== 19d: open reports explicit-reference inactivity ===
+
+--- request ---
+{"op":"session.log","summary":"Stage an observation","timestamp":"2026-10-01T09:00:00Z"}
+{"op":"observation.stage","content":"Eval tables stay empty after the rerun","potential_type":"constraint","provenance":"user","timestamp":"2026-10-01T09:00:00Z"}
+
+$ ara apply $WORK/req.jsonl --json --no-duplicate-check
+{"bindings":{},"changed_paths":[".gitignore","staging/observations.yaml","trace/pm_reasoning_log.yaml","trace/sessions/2026-10-01_001.yaml","trace/sessions/session_index.yaml"],"committed":true,"created_directories":["trace/sessions"],"diagnostics":[{"message":"field `lesson` dropped for type `experiment`","path":"nodes[N95]","severity":"warning"},{"message":"field `lesson` dropped for type `experiment`","path":"nodes[N96]","severity":"warning"},{"message":"redundant `also_depends_on` on ancestor `N65` (already nested under it)","path":"nodes[N68].also_depends_on[0]","severity":"warning"}],"dry_run":false,"duplicate_candidates":[],"format":"ara.apply/v1","operations":[{"id":"2026-10-01_001","no_op":false,"operation":"session.log","session":"2026-10-01_001","session_created":true,"turn":1},{"id":"O95","no_op":false,"operation":"observation.stage"}]}
+[exit 0]
+
+--- request ---
+{"op":"session.log","summary":"Unrelated work on day 02","timestamp":"2026-10-02T10:00:00Z"}
+
+$ ara apply $WORK/req.jsonl --json --no-duplicate-check
+{"bindings":{},"changed_paths":["trace/pm_reasoning_log.yaml","trace/sessions/2026-10-02_001.yaml","trace/sessions/session_index.yaml"],"committed":true,"diagnostics":[{"message":"field `lesson` dropped for type `experiment`","path":"nodes[N95]","severity":"warning"},{"message":"field `lesson` dropped for type `experiment`","path":"nodes[N96]","severity":"warning"},{"message":"redundant `also_depends_on` on ancestor `N65` (already nested under it)","path":"nodes[N68].also_depends_on[0]","severity":"warning"}],"dry_run":false,"duplicate_candidates":[],"format":"ara.apply/v1","id":"2026-10-02_001","no_op":false,"open_sessions":["2026-10-01_001"],"operations":[{"id":"2026-10-02_001","no_op":false,"operation":"session.log","session":"2026-10-02_001","session_created":true,"turn":1}],"turn":1}
+[exit 0]
+
+--- request ---
+{"op":"session.log","summary":"Unrelated work on day 03","timestamp":"2026-10-03T10:00:00Z"}
+
+$ ara apply $WORK/req.jsonl --json --no-duplicate-check
+{"bindings":{},"changed_paths":["trace/pm_reasoning_log.yaml","trace/sessions/2026-10-03_001.yaml","trace/sessions/session_index.yaml"],"committed":true,"diagnostics":[{"message":"field `lesson` dropped for type `experiment`","path":"nodes[N95]","severity":"warning"},{"message":"field `lesson` dropped for type `experiment`","path":"nodes[N96]","severity":"warning"},{"message":"redundant `also_depends_on` on ancestor `N65` (already nested under it)","path":"nodes[N68].also_depends_on[0]","severity":"warning"}],"dry_run":false,"duplicate_candidates":[],"format":"ara.apply/v1","id":"2026-10-03_001","no_op":false,"open_sessions":["2026-10-01_001","2026-10-02_001"],"operations":[{"id":"2026-10-03_001","no_op":false,"operation":"session.log","session":"2026-10-03_001","session_created":true,"turn":1}],"turn":1}
+[exit 0]
+
+--- request ---
+{"op":"session.log","summary":"Unrelated work on day 04","timestamp":"2026-10-04T10:00:00Z"}
+
+$ ara apply $WORK/req.jsonl --json --no-duplicate-check
+{"bindings":{},"changed_paths":["trace/pm_reasoning_log.yaml","trace/sessions/2026-10-04_001.yaml","trace/sessions/session_index.yaml"],"committed":true,"diagnostics":[{"message":"field `lesson` dropped for type `experiment`","path":"nodes[N95]","severity":"warning"},{"message":"field `lesson` dropped for type `experiment`","path":"nodes[N96]","severity":"warning"},{"message":"redundant `also_depends_on` on ancestor `N65` (already nested under it)","path":"nodes[N68].also_depends_on[0]","severity":"warning"}],"dry_run":false,"duplicate_candidates":[],"format":"ara.apply/v1","id":"2026-10-04_001","no_op":false,"open_sessions":["2026-10-01_001","2026-10-02_001","2026-10-03_001"],"operations":[{"id":"2026-10-04_001","no_op":false,"operation":"session.log","session":"2026-10-04_001","session_created":true,"turn":1}],"turn":1}
+[exit 0]
+
+$ ara open --json   (O95 row; three unrelated turns after staging)
+O95 {"turns_since_reference": 3, "session_days_since_reference": 3, "last_reference_turn": "2026-10-01_001#1", "reference_basis": "structured", "history_status": "complete", "diagnostics": []}
+
+
+=== 19d: mark_stale derives session_days when they are omitted ===
+
+--- request ---
+{"op":"session.log","summary":"Stale triage","timestamp":"2026-10-05T10:00:00Z"}
+{"op":"observation.mark_stale","observation":"O95","reason":"No use since the rerun","audit":{"signal":"user-directive","provenance":"user"}}
+
+$ ara apply $WORK/req.jsonl --json --no-duplicate-check
+{"bindings":{},"changed_paths":["staging/observations.yaml","trace/pm_reasoning_log.yaml","trace/sessions/2026-10-05_001.yaml","trace/sessions/session_index.yaml"],"committed":true,"diagnostics":[{"message":"field `lesson` dropped for type `experiment`","path":"nodes[N95]","severity":"warning"},{"message":"field `lesson` dropped for type `experiment`","path":"nodes[N96]","severity":"warning"},{"message":"redundant `also_depends_on` on ancestor `N65` (already nested under it)","path":"nodes[N68].also_depends_on[0]","severity":"warning"}],"dry_run":false,"duplicate_candidates":[],"format":"ara.apply/v1","open_sessions":["2026-10-01_001","2026-10-02_001","2026-10-03_001","2026-10-04_001"],"operations":[{"id":"2026-10-05_001","no_op":false,"operation":"session.log","session":"2026-10-05_001","session_created":true,"turn":1},{"id":"O95","no_op":false,"operation":"observation.mark_stale","session":"2026-10-05_001","turn":1}]}
+[exit 0]
+
+--- stale evidence recorded for O95 ---
+      session: "2026-10-05_001"
+    turn: "2026-10-05_001#1"
+  - notes: ["No use since the rerun","{\"audit\":{\"session\":\"2026-10-05_001\",\"source_refs\":[\"trace/sessions/2026-10-05_001.yaml\"],\"turn\":1},\"bound_to\":[],\"last_reference\":\"2026-10-01\",\"observation\":\"O95\",\"operation\":\"observation.mark_stale\",\"provenance\":\"user\",\"session_days\":[\"2026-10-02\",\"2026-10-03\",\"2026-10-04\"],\"session_sources\":[{\"date\":\"2026-10-02\",\"document\":\"trace/sessions/2026-10-02_001.yaml\"},{\"date\":\"2026-10-03\",\"document\":\"trace/sessions/2026-10-03_001.yaml\"},{\"date\":\"2026-10-04\",\"document\":\"trace/sessions/2026-10-04_001.yaml\"}],\"signal\":\"user-directive\"}"]
+    turn: "2026-10-05_001#1"
+
+
+=== 19d: a literal reference resets the counts; missing history gives null ===
+
+--- request ---
+{"op":"session.log","summary":"Re-checked O95 against the rerun","timestamp":"2026-10-06T10:00:00Z"}
+
+$ ara apply $WORK/req.jsonl --json --no-duplicate-check
+{"bindings":{},"changed_paths":["trace/pm_reasoning_log.yaml","trace/sessions/2026-10-06_001.yaml","trace/sessions/session_index.yaml"],"committed":true,"diagnostics":[{"message":"field `lesson` dropped for type `experiment`","path":"nodes[N95]","severity":"warning"},{"message":"field `lesson` dropped for type `experiment`","path":"nodes[N96]","severity":"warning"},{"message":"redundant `also_depends_on` on ancestor `N65` (already nested under it)","path":"nodes[N68].also_depends_on[0]","severity":"warning"}],"dry_run":false,"duplicate_candidates":[],"format":"ara.apply/v1","id":"2026-10-06_001","no_op":false,"open_sessions":["2026-10-01_001","2026-10-02_001","2026-10-03_001","2026-10-04_001","2026-10-05_001"],"operations":[{"id":"2026-10-06_001","no_op":false,"operation":"session.log","session":"2026-10-06_001","session_created":true,"turn":1}],"turn":1}
+[exit 0]
+
+$ ara open --json   (O95 row; after a literal reference)
+O95 {"turns_since_reference": 0, "session_days_since_reference": 0, "last_reference_turn": "2026-10-06_001#1", "reference_basis": "literal", "history_status": "complete", "diagnostics": []}
+
+$ ara open --json   (O01 row; legacy reasoning log names missing sessions)
+O01 {"turns_since_reference": null, "session_days_since_reference": 6, "last_reference_turn": null, "reference_basis": "staging_timestamp", "history_status": "missing", "diagnostics": ["history.session_missing"]}
+
+
+=== 19e: claim merge with rewrite_references repairs citers and keeps the source ===
+
+--- request ---
+{"op":"session.log","summary":"Merge C09 into C01"}
+{"op":"logic.revise","target":{"id":"C09"},"set":{"Status":"withdrawn","Merged into":"C01"},"signal":"user-directive","provenance":"user","rewrite_references":true}
+
+$ ara apply $WORK/req.jsonl --json --no-duplicate-check
+{"bindings":{},"changed_paths":[".gitignore","logic/claims.md","trace/pm_reasoning_log.yaml","trace/sessions/2026-10-06_001.yaml","trace/sessions/session_index.yaml"],"committed":true,"created_directories":["trace/sessions"],"diagnostics":[{"message":"field `lesson` dropped for type `experiment`","path":"nodes[N95]","severity":"warning"},{"message":"field `lesson` dropped for type `experiment`","path":"nodes[N96]","severity":"warning"},{"message":"redundant `also_depends_on` on ancestor `N65` (already nested under it)","path":"nodes[N68].also_depends_on[0]","severity":"warning"}],"dry_run":false,"duplicate_candidates":[],"format":"ara.apply/v1","operations":[{"id":"2026-10-06_001","no_op":false,"operation":"session.log","session":"2026-10-06_001","session_created":true,"turn":1},{"no_op":false,"operation":"logic.revise","rewritten_references":[{"after":"[C01]","before":"[C09]","document":"logic/claims.md","entry":{"id":"C11"},"field":"Dependencies"},{"after":"[C01, C03]","before":"[C09, C03]","document":"logic/claims.md","entry":{"id":"C12"},"field":"Dependencies"}],"session":"2026-10-06_001","skipped_references":[{"document":"logic/experiments.md","field":null,"heading":["Verification Plan","E1: Information Gap Analysis (motivates C09, C11, C12)"],"line":5,"literal":"C09","reason":"heading"}],"target":"logic/claims.md:C09: PDF information gap is systematic across PaperBench","turn":1}]}
+[exit 0]
+
+--- C09, C11, C12 after the merge ---
+## C09: PDF information gap is systematic across PaperBench
+- **Status**:
+  withdrawn
+- **Dependencies**: [C01]
+- **Merged into**:
+  C01
+## C11: The gap follows an operational hierarchy
+- **Status**: supported
+- **Dependencies**: [C01]
+## C12: Three gap types account for 61% of all information gaps
+- **Status**: supported
+- **Dependencies**: [C01, C03]
+
+--- claims_touched ---
+claims_touched: 
+  - action: "merged"
+    id: "C09"
+    turn: 1
+  - action: "revised"
+    id: "C11"
+    turn: 1
+  - action: "revised"
+    id: "C12"
+    turn: 1
+
+$ ara check
+$WORK/a: PASS — 0 error(s), 7 warning(s), 0 fixable issue(s)
+
+
+=== 19e: a merge that would make the survivor cite itself is refused ===
+
+--- request ---
+{"op":"session.log","summary":"Merge C13 into C14"}
+{"op":"logic.revise","target":{"id":"C13"},"set":{"Status":"withdrawn","Merged into":"C14"},"signal":"user-directive","provenance":"user","rewrite_references":true}
+
+$ ara apply $WORK/req.jsonl --json --no-duplicate-check
+{"error":{"code":"write.reference_rewrite","details":{"code":"write.reference_rewrite","field":"rewrite_references","line":2,"locations":[{"before":"[C13, C06]","document":"logic/claims.md","field":"Dependencies","heading":["Claims","C14: Failed agent runs consume disproportionate resources"],"line":126}],"message":"the destination entry cites the restructured identity; repairing it would make the entry cite itself, so revise its content explicitly first"},"line":2,"message":"the destination entry cites the restructured identity; repairing it would make the entry cite itself, so revise its content explicitly first"},"format":"ara.apply/v1"}
+[exit 1]
