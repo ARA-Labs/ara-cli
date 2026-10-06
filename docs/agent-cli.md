@@ -133,6 +133,9 @@ unchanged archived copies, revision `before`/`after` values and
   follows its source-key alias (`resolved_via: "alias:<source>:<original>"`);
   already-relocated tokens and native rows appended after import keep local
   identity. The enclosing session's import does not redirect native text.
+  A repeated import uses the newest same-source session capture for mutable
+  metadata and rolling fields. Older captures still prove append-only rows;
+  competing source keys remain independent proof and must agree.
   Missing or conflicting capture proof makes both counts unknown
   (`history.origin_unknown`), including legacy alias-only imports.
 

@@ -194,6 +194,10 @@ All notable changes to this project are documented here. The format follows
   aliases, redirects native continuation text through an imported session, or
   treats scoped IDs/filenames as local references. Imported literal origins
   use captured occurrence evidence; missing proof refuses stale writes (#115).
+- Agent CLI: repeated imports use the latest same-source mutable session
+  capture, so superseded summaries no longer invalidate authenticated history
+  or block otherwise-valid stale decisions. Append-only and competing-source
+  origin checks remain strict (#115).
 - Agent CLI: citation repair preserves inner quotations/backticks in native
   JSON lists, keeps historical heading-array segments literal, resolves earlier
   bindings in split/repair selectors, and refuses explicit repair rows that

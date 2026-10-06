@@ -65,7 +65,8 @@ pub(super) fn read(
         }
     }
     let mut captured_sessions = BTreeSet::new();
-    for record in &ledger.records {
+    let mut mutable_owners = BTreeSet::new();
+    for record in ledger.records.iter().rev() {
         let Record::Revision {
             source_key,
             files,
@@ -123,9 +124,13 @@ pub(super) fn read(
                     }
                     covered.insert(owner.original.as_str());
                     captured_sessions.insert(owner.target.as_str());
-                    for name in ["session", "open_threads", "ai_suggestions_pending"] {
-                        if let Some(node) = get(root, name) {
-                            capture(aliases, &destination_path, name, node, source_key);
+                    // Mutable owner fields use the newest capture for this
+                    // source/session; older revisions still prove append-only rows.
+                    if mutable_owners.insert((source_key.as_str(), owner.original.as_str())) {
+                        for name in ["session", "open_threads", "ai_suggestions_pending"] {
+                            if let Some(node) = get(root, name) {
+                                capture(aliases, &destination_path, name, node, source_key);
+                            }
                         }
                     }
                     (

@@ -607,3 +607,98 @@ fn imported_literal_with_colliding_session_reference_keeps_complete_history() {
     assert_eq!(local["history_status"], "complete", "{local}");
     assert_eq!(local["session_days_since_reference"], 3);
 }
+
+#[test]
+fn repeated_import_uses_latest_unarchived_mutable_summary() {
+    for previous_summary in ["Unrelated", "N01 remains tentative"] {
+        let parent = TempDir::new().unwrap();
+        let [base, ours, theirs, first_peer] =
+            ["base", "ours", "theirs", "first-peer"].map(|name| parent.path().join(name));
+        fixture(&base, "tree: []\n");
+        fixture(
+            &ours,
+            "tree:\n  - id: N01\n    type: question\n    title: Independent local node\n    provenance: user\n",
+        );
+        fixture(
+            &theirs,
+            "tree:\n  - id: N01\n    type: question\n    title: Independent peer node\n    provenance: user\n",
+        );
+        observation(&ours, "O95", &["N01"]);
+        observation(&theirs, "O94", &["N01"]);
+        let session_path = "trace/sessions/2026-10-01_001.yaml";
+        let mut session = json!({
+            "session":{"id":"2026-10-01_001","date":"2026-10-01","started":"2026-10-01T09:00:00Z","last_turn":"2026-10-01T11:00:00Z","turn_count":1,"summary":previous_summary},
+            "events_logged":[],"ai_actions":[],"claims_touched":[],"logic_revisions":[],"key_context":[],"open_threads":[],"ai_suggestions_pending":[]
+        });
+        let write_peer = |record: &Value| {
+            write(
+                &theirs,
+                session_path,
+                ara_core::write::source::render_yaml(record, 0, "\n"),
+            );
+            let index = json!({"sessions":[{"id":"2026-10-01_001","date":"2026-10-01","summary":record["session"]["summary"],"turn_count":1,"events_count":0,"claims_touched":[],"open_threads":0}]});
+            write(
+                &theirs,
+                "trace/sessions/session_index.yaml",
+                ara_core::write::source::render_yaml(&index, 0, "\n"),
+            );
+        };
+        write_peer(&session);
+        for (path, bytes) in artifact_bytes(&theirs) {
+            write(&first_peer, path.to_str().unwrap(), bytes);
+        }
+        let merge = |ancestor: &Path| {
+            ara(&ours)
+                .args(["merge", "--base"])
+                .arg(ancestor)
+                .arg("--theirs")
+                .arg(&theirs)
+                .args([
+                    "--as",
+                    "peer",
+                    "--source-key",
+                    "history-peer",
+                    "--json",
+                    "--no-duplicate-check",
+                ])
+                .assert()
+                .success();
+        };
+        merge(&base);
+        assert_eq!(open_row(&ours, "O95")["history_status"], "complete");
+        session["session"]["summary"] = json!("Revisited N01");
+        write_peer(&session);
+        merge(&first_peer);
+        assert_eq!(
+            yaml(&ours, session_path)["session"]["summary"],
+            "Revisited N02"
+        );
+        let peer = open_row(&ours, &peer_observation(&ours));
+        assert_eq!(
+            peer["history_status"], "complete",
+            "{previous_summary}: {peer}"
+        );
+        assert_eq!(peer["last_reference_turn"], "2026-10-01_001#1");
+        assert_eq!(peer["session_days_since_reference"], 0);
+        let local = open_row(&ours, "O95");
+        assert_eq!(
+            local["history_status"], "complete",
+            "{previous_summary}: {local}"
+        );
+        for date in ["2026-10-02", "2026-10-03", "2026-10-04"] {
+            log(&ours, &format!("{date}T10:00:00Z"), "Unrelated local work");
+        }
+        let local = open_row(&ours, "O95");
+        assert_eq!(local["history_status"], "complete", "{local}");
+        assert_eq!(local["session_days_since_reference"], 3);
+        apply(&ours, &stale_operations());
+        let stored = yaml(&ours, OBSERVATIONS);
+        let observation = stored["observations"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|o| o["id"] == "O95")
+            .unwrap();
+        assert_eq!(observation["stale"], true);
+    }
+}

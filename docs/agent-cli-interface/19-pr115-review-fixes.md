@@ -33,6 +33,8 @@ The existing writer, selector walker, claim ledger, and shared citation rules re
 
 Internal review added coverage for multi-backtick code delimiters, aliased reasoning containers, malformed occurrence mappings, and fields containing both numeric and relocated session references. Captured rows now require matching original identity, layer, document, and destination. Origin proof uses the same complete scalar relocation as merge, with report generation disabled. Mapping and reasoning-ID indexes avoid repeated full scans of captured history; no scaling benchmark was run.
 
+Follow-up review 4192277038 found that a valid second import was rejected by the superseded first capture of a mutable session summary. The capture pass now walks revisions newest-first and records mutable session metadata and rolling fields once per `(source_key, original session owner)`. Every revision still receives mapping authentication, every append-only occurrence remains captured, and competing source keys still require compatible proof. Selecting the latest entire owner snapshot also avoids reviving removed rolling fields from older revisions.
+
 ## Alternatives considered
 
 Resolving YAML aliases would require an anchor table, bounded traversal, and cycle guards across every reference-bearing path. The collector instead reports unknown evidence, which the review explicitly allowed and which prevents a silent stale write without introducing a second YAML expansion mechanism.
@@ -80,6 +82,12 @@ A separate throwaway script exercised `target/debug/ara` on fresh artifacts thro
 | Literal slash heading audit then nested rename | Nested heading renamed; literal slash heading and its prior revision remain intact. |
 
 Permanent regressions are `ara-cli/tests/{history_review_regressions,agent_citation_review_regressions,agent_restructure_review}.rs` and `ara-core/tests/{write_bookkeeping_review,write_history}.rs`. The throwaway smoke script and fixtures are not shipped.
+
+The follow-up regression performs two real directory merges with the same source key and the exact first peer snapshot as the second base. It covers an obsolete zero-token summary and a different one-token summary, both updated to `Revisited N01` and relocated to `Revisited N02`. Before the fix, the zero-token case reported `history.origin_unknown` despite two successful merges. After the fix, both cases keep local and peer history complete and allow the three-day stale decision. The focused history targets passed 34 tests.
+
+A separate real-binary smoke passed both summary cases. It also confirmed that the earlier merge-ledger bytes remain intact after the second import. The temporary script and its fixtures were removed after verification.
+
+The follow-up locked workspace passed 1,117 tests with one ignored test. Clippy, formatting, the 16 acceptance-script tests, and embedded-viewer freshness passed again.
 
 ## Next Steps
 
