@@ -62,9 +62,9 @@ The artifact has two mutability regimes. Honor them strictly.
   entry is a present-state snapshot plus a `Last revised` pointer back to the trace.
 - **`ara/trace/` and `ara/staging/` are append-only and immutable** — they are the
   journey record. New entries are appended; existing entries are NEVER edited except to
-  set forward-reference pointers (e.g. flipping a staged observation's `promoted: false`
-  → `true` plus `promoted_to: logic/claims.md:C07`, or appending to a session record's
-  events for the current turn). Prior entries' content is never rewritten. The trace is
+  set forward-reference pointers (a staged observation's `promoted`, `promoted_to` and
+  `crystallized_via`, which only `observation.promote` sets, together with the new entry;
+  or appending to a session record's events for the current turn). Prior entries' content is never rewritten. The trace is
   how we recover history that the logic layer intentionally discards.
 
 This split lets `claims.md` read as a clean specification while preserving full
@@ -78,7 +78,9 @@ provenance and revision history in the trace.
 - **Per-turn cadence.** A turn = one user message + the agent's response (including tool
   calls). The skill fires once per turn.
 - **Sessions are calendar-day groupings.** One session record file per day; turns within
-  the same day append to it.
+  the same day append to it. The CLI picks today's open session (or creates it) and the next
+  turn number from your `session.log`; you decide only whether the turn is worth logging and
+  name a session explicitly when the CLI reports more than one candidate.
 - **Skip empty turns.** Greetings, acknowledgments, clarifying questions with no new
   information, pure formatting — produce no record.
 
@@ -132,7 +134,12 @@ A staged observation crystallizes when **at least one** of these signals is pres
 1. **Topic abandonment** — observation's topic has no events in the last `k=5` turns AND
    `open_threads` does not reference it. Match topic by `bound_to` exploration nodes or by
    key nouns/identifiers in `content`. Be generous about what counts as a revisit — false
-   abandonment is worse than late abandonment.
+   abandonment is worse than late abandonment. Do not count turns by hand: `ara open --json`
+   reports each observation's `turns_since_reference`, the logged turns since the last exact
+   reference to its ID or a bound node (`evidence_sources` lists what was matched). That count
+   only bounds the judgment: topic wording and current `open_threads` can still show a revisit,
+   so five reference-free turns are not proof of abandonment. `null` means the history cannot
+   prove a count (`history_diagnostics` says why): treat it as unknown, never as zero or five.
 
 2. **Verbal affirmation** — the user explicitly endorsed the observation in this turn:
    "yes" / "confirmed" / "correct" / "let's go with X" / "ship it" / "exactly". The
@@ -161,10 +168,14 @@ When a signal fires for `O{XX}`:
    matched line verbatim into `Sources`, then write the number as a copy of that quote.** Carry
    forward `provenance`. Verbal-affirmation upgrades `ai-suggested` → `user-revised` (or `user` if
    reproduced verbatim). The other three signals do **not** upgrade provenance.
-4. Add fields: `Crystallized via: <signal>`, `From staging: O{XX}`.
-5. Establish forensic bindings (claim→proof, heuristic→code, decision→evidence). Use
+4. Establish forensic bindings (claim→proof, heuristic→code, decision→evidence). Use
    `[pending]` + TODO if a binding cannot be made now.
-6. Update O{XX}: `promoted: true`, `promoted_to: <layer>:<id>`, `crystallized_via: <signal>`.
+5. Write it with `observation.promote` (`observation: O{XX}`, `to`, `title`, `fields`,
+   `signal: <the closure signal>`). That one operation creates the entry and sets O{XX}'s
+   `promoted`, `promoted_to` and `crystallized_via` together; never edit those pointers yourself.
+   The entry stays a current-state snapshot: do not add `Crystallized via` or `From staging`
+   fields (the writer rejects them). The signal and source observation are kept by the
+   observation's pointers and the turn's `crystallized` event, which the CLI writes.
    **Do not delete the observation** — the trail from raw to typed is part of the record.
 
 #### Number grounding (claims & heuristics)
@@ -209,9 +220,10 @@ crystallized entry:
    records) corroborates the observation and genuinely contradicts the cited clause. Reader-side
    pointers the manager cannot resolve are recorded but do not count toward upholding.
 2. **Upheld** → fold the correction in as a Stage 4 content revision: edit the entry (provenance
-   `ai-suggested`, report ref recorded), record full before/after under `logic_revisions:`, and
-   append a `decision` node (`status: resolved`) referencing both the entry and the report. Status
-   changes follow the ordinary transition rules — an upheld report counts as empirical resolution.
+   `ai-suggested`, report ref recorded) with `logic.revise`, which records the full before/after
+   under `logic_revisions:`, and append a `decision` node (`status: resolved`) referencing both
+   the entry and the report. Status changes follow the ordinary transition rules — an upheld
+   report counts as empirical resolution.
 3. **Rejected** — resolvable evidence positively shows the report wrong (does not support the
    observation, or does not contradict the clause) → the entry is untouched; append a `decision`
    node (`status: resolved`) recording the verdict and its specific reason.
@@ -234,7 +246,11 @@ writer, and a report is INPUT to it, not an edit.
 
 A staged observation that has neither been promoted nor referenced for **3+ session-days**
 gets `stale: true`. Stale observations are surfaced at the next briefing for the
-researcher to triage — the manager does not auto-discard.
+researcher to triage — the manager does not auto-discard. `ara open --json` reports the
+measured `session_days_since_reference`; when it is 3 or more, write `observation.mark_stale`
+with your reason and signal and **omit `session_days`**: the CLI derives the logged days after
+the last reference (excluding this turn) and records them, or refuses when the history cannot
+prove three. Do not count days by hand, and never mark stale on a `null` count.
 
 ### Stage 4 — Logic Layer Reconciliation
 
@@ -317,21 +333,39 @@ For each crystallized entry in `logic/`, check this turn for:
 When a signal fires for entry `E` (claim, heuristic, or concept):
 
 1. Use `logic.revise` through `ara apply` for the affected fields in the logic file. **Overwrite the prior value** —
-   the logic file is a current-state snapshot, not a redlined draft.
-2. Update `- **Last revised**: YYYY-MM-DD (turn-id)` on the entry.
-3. For status flips, also update `- **Status**:` to the new value.
-4. If transitioning to `refuted`, ensure a `dead_end` node exists in
+   the logic file is a current-state snapshot, not a redlined draft. The CLI sets
+   `Last revised` to the owning turn; never write it yourself.
+2. For status flips, include the new `Status` in the same `set`.
+3. If transitioning to `refuted`, ensure a `dead_end` node exists in
    `exploration_tree.yaml` referencing the entry (create one if not).
-5. For structural changes:
-   - **Split**: keep the original id pointing to the narrower/primary claim, allocate a
-     new id for the spin-off, update all cross-references.
-   - **Merge**: keep the lower id, mark the higher id as `withdrawn` with
-     `Merged into: C{XX}`, redirect cross-references.
+4. For structural changes:
+   - **Split**: keep the original id pointing to the narrower/primary claim and create the
+     spin-off with `claim.add` earlier in the same batch (give it an explicit `id` so later
+     lines can name it). Then `logic.revise` the primary with its narrowed fields,
+     `action: "split"`, `split_into: [{"id": "C{YY}"}]` and one `references` row
+     (`{target, field, before, after}`) for every current citing field, including unchanged
+     rows that deliberately keep the primary. You decide where each citer points; the CLI
+     refuses an unclassified citer and never chooses.
+   - **Merge**: keep the lower id; `logic.revise` the higher id with `Status: withdrawn`,
+     `Merged into: C{XX}` and `rewrite_references: true`. The CLI repairs the current typed
+     citations to the survivor and lists prose or unknown-field mentions it left alone
+     (`skipped_references`); edit those yourself if they should change.
+   - **Rename**: `entry.rename` with `rewrite_references: true` repairs typed citations;
+     do not hand-write `references` for it. A remaining prose mention refuses the rename
+     with its locations.
    - **Generalize**: allocate a new id for the more general claim, set its `Dependencies`
      to the narrower claims, and leave those claims in place (they remain its grounding).
-6. **Record full before/after in today's session record** under `logic_revisions:`
-   (see schema below). This is the ONLY place the prior wording is preserved — the
-   logic file does not keep it.
+5. **Full before/after goes to the session record** under `logic_revisions:` — the CLI
+   writes it from each `logic.revise` for the owning turn, verbatim. This is the ONLY place
+   the prior wording is preserved; do not copy it into `session.log` a second time.
+6. **Judge the claim in the turn's `claims_touched`.** The CLI adds a generic `revised` row
+   for every claim a revision changed, including citers it repaired, and `merged`/`split`
+   for the source of a `rewrite_references`/`references` merge or an `action: "split"`.
+   When the turn is a scientific judgment — `advanced`, `weakened`, `confirmed`, `refuted`
+   or `withdrawn` — supply that row; it replaces the derived one. A
+   Status flip to `supported` is not itself `confirmed`; say so only when the evidence
+   warrants. If you also change Status this turn, `confirmed` needs `supported`, `refuted`
+   needs `refuted`, and `withdrawn`/`merged` need `withdrawn`.
 7. Add a one-line note to `pm_reasoning_log.yaml` explaining which signal fired AND any
    signal you considered but rejected (near-misses are the most useful continuity record).
 
@@ -368,9 +402,9 @@ When a signal fires for entry `E` (claim, heuristic, or concept):
 1. Read existing ara/ knowledge with ara full source shows (current state); use CLI allocation/results for new IDs.
 2. Stage 1 — harvest this turn's candidate events.
 3. Stage 2 — classify/route each (per event-taxonomy.md): journey facts direct to trace/; interpretive events staged to staging/observations.yaml.
-4. Stage 3 — crystallize staged observations whose closure signal fired; flag contradictions; mark 3+-day-idle observations stale.
-5. Stage 4 — for each crystallized logic/ entry, apply status/content/structural edits when a signal fires; run the cross-ref consistency pass; record before/after in the session record; log near-misses.
-6. Use one ara apply batch: session.log appends complete turn arrays and audited rolling metadata/index; record.append appends the complete PM reasoning notes.
+4. Stage 3 — crystallize staged observations whose closure signal fired; flag contradictions; mark observations stale whose `open` row shows `session_days_since_reference` >= 3 (omit `session_days`).
+5. Stage 4 — for each crystallized logic/ entry, apply status/content/structural edits when a signal fires; run the cross-ref consistency pass (logic.revise records each before/after in the session record); log near-misses.
+6. Use one ara apply batch anchored by one session.log with your one-line summary and no session/timestamp: the CLI selects today's open session or creates it, allocates the turn, and fills session/turn for revisions and reasoning that omit them. It also derives the turn's mechanical events_logged and claims_touched rows from the batch's node.add, observation.stage, claim/heuristic add, observation.promote and logic.revise operations (supply provenance on each). You supply what only you know: claim judgments, ai_actions, key_context, open_threads, ai_suggestions_pending, and event rows for entries not created in this batch or that need your own summary. record.append appends the complete PM reasoning notes. If the CLI reports write.session_ambiguous, name the session; report any open_sessions it lists.
 7. Print one-line summary, e.g.:
      [PM] Turn captured: 1 decision (direct), 2 observations staged, 1 claim crystallized via affirmation, C03 testing→supported, C07 revised (scope narrowed).
    Or, for empty turns:
@@ -419,7 +453,7 @@ not asked about on turns where it doesn't come up.
 3. **Stage interpretive events by default; crystallize only on a closure signal** — abandonment / affirmation / resolution / commitment. No counters, no LM-judged maturity.
 4. **Never auto-upgrade provenance.** `ai-suggested` holds until explicit user affirmation.
 5. **Stage 4 defaults to no change.** Edits require an explicit signal this turn; terminal states (`refuted`/`withdrawn`) need explicit triggers, never silence/staleness. Log near-misses.
-6. **Respect layer mutability** (see top): `logic/` overwrites in place; `trace/` and `staging/` are append-only except forward-reference pointers. Every logic edit gets a `logic_revisions:` before/after in the session record — the only place pre-edit content is kept.
+6. **Respect layer mutability** (see top): `logic/` overwrites in place; `trace/` and `staging/` are append-only except forward-reference pointers, which only `observation.promote` sets. Every logic edit gets a `logic_revisions:` before/after in the session record, written by the CLI from `logic.revise` — the only place pre-edit content is kept.
 7. **Never silently overwrite contradictions** — flag both, append an `unresolved` decision node, defer.
 8. **Read target files first through ara** (no dupes; CLI assigns new IDs); establish forensic bindings (claim→proof, heuristic→code, decision→evidence), `[pending]`+TODO if not yet bindable. Keep YAML valid; summary line terse.
 9. **Taste comments never guess.** Confirm the target before writing (see references/taste-comments.md); claim/heuristic taste is inline, trace-node taste goes to `taste_log.yaml` and never edits the node.

@@ -14,7 +14,9 @@ fn make_working(documents: &[(&str, &str)]) -> (TempDir, WorkingArtifact) {
         std::fs::create_dir_all(destination.parent().unwrap()).unwrap();
         std::fs::write(destination, text).unwrap();
     }
-    let artifact = WorkingArtifact::new(write::ArtifactSnapshot::load(root.path()).unwrap());
+    let mut artifact = WorkingArtifact::new(write::ArtifactSnapshot::load(root.path()).unwrap());
+    // Planner-level tests stand in for the writer's one locked clock read.
+    artifact.batch_time = Some("2026-10-01T12:00:00Z".into());
     (root, artifact)
 }
 fn selector(id: &str) -> EntrySelector {
@@ -526,12 +528,16 @@ fn revisions_record_exact_source_endpoints_and_revision_pointer() {
         &WriteOperation::LogicRevise {
             target: selector("C01"),
             set: fields(json!({"Statement":"After\n\nnew wording\n"})),
-            session: "2026-10-01_001".into(),
-            turn: 1,
+            session: Some("2026-10-01_001".into()),
+            turn: Some(1),
             signal: "user-directive".into(),
             provenance: "user-revised".into(),
             note: Some("Caller requested narrower scope".into()),
             expected: None,
+            rewrite_references: false,
+            references: vec![],
+            action: None,
+            split_into: vec![],
         },
     )
     .unwrap();
@@ -606,6 +612,7 @@ fn structural_mutations_audit_prose_and_preserve_immutable_history() {
             turn: Some(1),
             signal: Some("user-directive".into()),
             provenance: Some("user-revised".into()),
+            rewrite_references: false,
         },
     )
     .unwrap();
@@ -666,7 +673,8 @@ fn structural_mutations_audit_prose_and_preserve_immutable_history() {
                 turn: Some(1),
                 signal: Some("user-directive".into()),
                 provenance: Some("user-revised".into()),
-                redirect: None
+                redirect: None,
+                rewrite_references: false,
             }
         )
         .is_err()
@@ -872,13 +880,15 @@ fn structural_reference_edits_are_exact_and_typed_dependencies_migrate() {
             references: vec![write::ReferenceEdit {
                 target: selector("C02"),
                 field: "Dependencies".into(),
-                before: "[\"C01\"]".into(),
+                // New claims write typed dependencies as `[C01]`; `before` is exact source.
+                before: "[C01]".into(),
                 after: "[\"C03\"]".into(),
             }],
             session: Some("2026-10-01_001".into()),
             turn: Some(1),
             signal: Some("dependency-change".into()),
             provenance: Some("user-revised".into()),
+            rewrite_references: false,
         },
     )
     .unwrap();
@@ -886,7 +896,7 @@ fn structural_reference_edits_are_exact_and_typed_dependencies_migrate() {
         write::logic::field_value(&working, &selector("C02"), "Dependencies").unwrap(),
         "[\"C03\"]"
     );
-    assert_eq!(working.revisions[0].record["before"], "[\"C01\"]");
+    assert_eq!(working.revisions[0].record["before"], "[C01]");
     assert_eq!(working.revisions[0].record["after"], "[\"C03\"]");
     assert_eq!(working.revisions[0].record["entry"], json!({"id":"C02"}));
     let pending = std::mem::take(&mut working.revisions);
@@ -918,18 +928,22 @@ fn revision_batches_refuse_historical_turns_without_batch_ownership() {
     let revise = WriteOperation::LogicRevise {
         target: selector("C01"),
         set: fields(json!({"Statement":"After"})),
-        session: "2026-10-01_001".into(),
-        turn: 1,
+        session: Some("2026-10-01_001".into()),
+        turn: Some(1),
         signal: "user-directive".into(),
         provenance: "user-revised".into(),
         note: None,
         expected: None,
+        rewrite_references: false,
+        references: vec![],
+        action: None,
+        split_into: vec![],
     };
     assert!(write::execute(root.path(), &[revise], ApplyMode::Commit).is_err());
     assert!(
         std::fs::read_to_string(root.path().join("logic/claims.md"))
             .unwrap()
-            .contains("  Before\n")
+            .contains("- **Statement**: Before\n")
     );
 }
 
@@ -953,12 +967,16 @@ fn body_revision_requires_digest_and_preserves_exact_before_after_with_owned_tur
         set: fields(
             json!({"Body":"Caller new component.\n\n### Algorithm\n```text\nx = y\n```\n"}),
         ),
-        session: "2026-10-01_001".into(),
-        turn: 1,
+        session: Some("2026-10-01_001".into()),
+        turn: Some(1),
         signal: "artifact-commitment".into(),
         provenance: "ai-executed".into(),
         note: Some("Caller component revision".into()),
         expected: None,
+        rewrite_references: false,
+        references: vec![],
+        action: None,
+        split_into: vec![],
     };
     assert!(write::plan_operation(&mut candidate, &operation).is_err());
     assert_eq!(
@@ -972,14 +990,14 @@ fn body_revision_requires_digest_and_preserves_exact_before_after_with_owned_tur
     let operations = vec![
         WriteOperation::SessionStart {
             id: Some("2026-10-01_001".into()),
-            date: "2026-10-01".into(),
-            started: "2026-10-01T10:00".into(),
+            date: Some("2026-10-01".into()),
+            started: Some("2026-10-01T10:00".into()),
             summary: "Caller began research".into(),
         },
         operation,
         WriteOperation::SessionLog {
-            session: "2026-10-01_001".into(),
-            timestamp: "2026-10-01T10:05".into(),
+            session: Some("2026-10-01_001".into()),
+            timestamp: Some("2026-10-01T10:05".into()),
             summary: Some("Caller revised architecture".into()),
             events: vec![],
             ai_actions: vec![],
@@ -1078,12 +1096,16 @@ fn merged_claim_redirect_is_revision_owned_typed_and_cycle_checked() {
         &WriteOperation::LogicRevise {
             target: selector("C01"),
             set: fields(json!({"Merged into":"C02","Status":"withdrawn"})),
-            session: "2026-10-01_001".into(),
-            turn: 1,
+            session: Some("2026-10-01_001".into()),
+            turn: Some(1),
             signal: "dependency-change".into(),
             provenance: "user-revised".into(),
             note: None,
             expected: None,
+            rewrite_references: false,
+            references: vec![],
+            action: None,
+            split_into: vec![],
         },
     )
     .unwrap();
@@ -1100,12 +1122,16 @@ fn merged_claim_redirect_is_revision_owned_typed_and_cycle_checked() {
         &WriteOperation::LogicRevise {
             target: selector("C02"),
             set: fields(json!({"Merged into":"C01"})),
-            session: "2026-10-01_001".into(),
-            turn: 1,
+            session: Some("2026-10-01_001".into()),
+            turn: Some(1),
             signal: "dependency-change".into(),
             provenance: "user-revised".into(),
             note: None,
             expected: None,
+            rewrite_references: false,
+            references: vec![],
+            action: None,
+            split_into: vec![],
         },
     )
     .unwrap();
@@ -1136,6 +1162,7 @@ fn referenced_removal_requires_live_redirect_and_unreferenced_removal_archives_b
         signal: Some("user-directive".into()),
         provenance: Some("user-revised".into()),
         redirect: None,
+        rewrite_references: false,
     };
     assert!(write::plan_operation(&mut candidate, &operation).is_err());
     assert_eq!(candidate.text("logic/concepts.md").unwrap(), concepts);
@@ -1179,6 +1206,7 @@ fn referenced_removal_requires_live_redirect_and_unreferenced_removal_archives_b
             signal: Some("user-directive".into()),
             provenance: Some("user-revised".into()),
             redirect: None,
+            rewrite_references: false,
         },
     )
     .unwrap();
@@ -1266,8 +1294,8 @@ fn paper_audit_captures_the_entire_exact_document_and_skips_noops() {
         expected: None,
         content: None,
         audit: Some(write::RevisionContext {
-            session: "2026-10-01_001".into(),
-            turn: 1,
+            session: Some("2026-10-01_001".into()),
+            turn: Some(1),
             signal: "artifact-commitment".into(),
             provenance: "user-revised".into(),
             note: Some("Caller metadata update".into()),
@@ -1691,6 +1719,7 @@ fn rename(working: &mut WorkingArtifact, document: &str, heading: &[&str], name:
             turn: Some(turn),
             signal: Some("user-directive".into()),
             provenance: Some("user".into()),
+            rewrite_references: false,
         },
     )
     .unwrap();
@@ -1755,7 +1784,8 @@ fn rename_and_retired_identity_checks_use_literal_heading_vectors() {
                 session: Some("2026-10-01_001".into()),
                 turn: Some(2),
                 signal: Some("user-directive".into()),
-                provenance: Some("user".into())
+                provenance: Some("user".into()),
+                rewrite_references: false,
             }
         )
         .is_err()
@@ -1789,7 +1819,8 @@ fn rename_and_retired_identity_checks_use_literal_heading_vectors() {
                 session: Some("2026-10-01_001".into()),
                 turn: Some(3),
                 signal: Some("user-directive".into()),
-                provenance: Some("user".into())
+                provenance: Some("user".into()),
+                rewrite_references: false,
             }
         )
         .is_err()
@@ -1866,12 +1897,16 @@ fn generic_claim_body_and_document_replacement_cannot_remove_canonical_entries()
     let operation = WriteOperation::LogicRevise {
         target,
         set: fields(json!({"Body":"Replaced container body\n"})),
-        session: "2026-10-01_001".into(),
-        turn: 1,
+        session: Some("2026-10-01_001".into()),
+        turn: Some(1),
         signal: "user-directive".into(),
         provenance: "user".into(),
         note: None,
         expected: Some(expected),
+        rewrite_references: false,
+        references: vec![],
+        action: None,
+        split_into: vec![],
     };
     assert!(write::plan_operation(&mut working, &operation).is_err());
     assert_eq!(working.text("logic/claims.md").unwrap(), source);
@@ -1914,12 +1949,16 @@ fn canonical_rename_is_owned_and_archived_while_withdrawal_and_merge_retain_clai
         &WriteOperation::LogicRevise {
             target: selector("C03"),
             set: fields(json!({"Status":"withdrawn","Merged into":"C02"})),
-            session: "2026-10-01_001".into(),
-            turn: 2,
+            session: Some("2026-10-01_001".into()),
+            turn: Some(2),
             signal: "user-directive".into(),
             provenance: "user".into(),
             note: None,
             expected: None,
+            rewrite_references: false,
+            references: vec![],
+            action: None,
+            split_into: vec![],
         },
     )
     .unwrap();
@@ -2194,4 +2233,240 @@ fn cached_claim_redirect_cannot_authorize_a_tampered_owning_revision() {
     let error = write::logic::claim_redirects_from_source(&working).unwrap_err();
     assert_eq!(error.code, "write.redirect");
     assert!(error.message.contains("exact owning revision"));
+}
+
+fn decoded_fields(text: &str, start: usize) -> Vec<(String, String)> {
+    markdown::fields(text, start..text.len())
+        .iter()
+        .map(|f| (f.name.to_owned(), markdown::decode_field(f).into_owned()))
+        .collect()
+}
+
+#[test]
+fn created_claim_block_uses_fixed_schema_inline_values_and_preserves_prior_bytes() {
+    // CRLF existing entries with an alias label and hand-written list styles.
+    let original = "# Claims\r\n\r\n## C01: Prior\r\n- **Tags**: evaluation, experimental-design\r\n- **Falsification criteria**: Kept label\r\n- **Dependencies**: [C02]\r\n\r\n## C02: Other\r\n- **Statement**: Independent\r\n";
+    let (_root, mut working) = make_working(&[("logic/claims.md", original)]);
+    let statement = "Line one 雪\r\n\n  indented\n";
+    let input = fields(json!({
+        "tags": "evaluation, experimental-design",
+        "Dependencies": ["C01", "C02"],
+        "Evidence basis": "[]",
+        "Proof": ["table one", "a, b", "", "none", "[x]"],
+        "Falsification criteria": "F text",
+        "provenance": "user",
+        "Status": "supported",
+        "Sources": ["paper §3"],
+        "Conditions": "none",
+        "Statement": statement,
+    }));
+    let result = write::plan_operation(
+        &mut working,
+        &WriteOperation::ClaimAdd {
+            id: None,
+            title: "Order probe".into(),
+            fields: input,
+        },
+    )
+    .unwrap();
+    assert_eq!(result.id.as_deref(), Some("C03"));
+    write::logic::validate_references(&working).unwrap();
+    let text = working.text("logic/claims.md").unwrap();
+    assert!(text.starts_with(original), "prior bytes changed");
+    let block = &text[original.len()..];
+    assert_eq!(
+        block,
+        // Separator, heading and inline lines follow the file's CRLF; the
+        // continuation value keeps LF structure around exact caller bytes.
+        "\r\n## C03: Order probe\r\n- **Statement**:\n  Line one 雪\r\n  \n    indented\n  \n\
+         - **Conditions**: none\r\n- **Sources**: [\"paper §3\"]\r\n- **Status**: supported\r\n\
+         - **Provenance**: user\r\n- **Falsification**: F text\r\n\
+         - **Proof**: [\"table one\",\"a, b\",\"\",\"none\",\"[x]\"]\r\n\
+         - **Evidence basis**: []\r\n- **Dependencies**: [C01, C02]\r\n\
+         - **Tags**: evaluation, experimental-design\r\n"
+    );
+    let body = original.len() + block.find("- **").unwrap();
+    let decoded = decoded_fields(text, body);
+    let expected: Vec<(String, String)> = [
+        ("Statement", statement),
+        ("Conditions", "none"),
+        ("Sources", "[\"paper §3\"]"),
+        ("Status", "supported"),
+        ("Provenance", "user"),
+        ("Falsification", "F text"),
+        ("Proof", "[\"table one\",\"a, b\",\"\",\"none\",\"[x]\"]"),
+        ("Evidence basis", "[]"),
+        ("Dependencies", "[C01, C02]"),
+        ("Tags", "evaluation, experimental-design"),
+    ]
+    .into_iter()
+    .map(|(name, value)| (name.to_owned(), value.to_owned()))
+    .collect();
+    assert_eq!(decoded, expected);
+    let heading = markdown::headings(text)
+        .into_iter()
+        .find(|h| h.heading.starts_with("C03"))
+        .unwrap();
+    assert_eq!(heading.heading, "C03: Order probe");
+    assert_eq!(
+        write::logic::field_value(&working, &selector("C03"), "Falsification criteria").unwrap(),
+        "F text"
+    );
+    // The existing alias label is untouched by creating a neighbour.
+    assert_eq!(
+        write::logic::field_value(&working, &selector("C01"), "Falsification").unwrap(),
+        "Kept label"
+    );
+}
+
+#[test]
+fn created_entries_reject_revision_fields_unknown_fields_and_new_dangling_dependencies() {
+    let original = "# Claims\n\n## C01: Prior\n- **Statement**: Kept\n";
+    for (extra, code) in [
+        (
+            json!({"Last revised": "2026-10-01"}),
+            "write.revision_required",
+        ),
+        (json!({"Merged into": "C01"}), "write.revision_required"),
+        (json!({"Unknown label": "x"}), "write.field"),
+        (json!({"Dependencies": "C01"}), "write.field_type"),
+        (json!({"Dependencies": ["N01"]}), "write.field_type"),
+    ] {
+        let (_root, mut working) = make_working(&[("logic/claims.md", original)]);
+        let mut input = claim_fields("Statement");
+        input.extend(fields(extra.clone()));
+        let error = write::plan_operation(
+            &mut working,
+            &WriteOperation::ClaimAdd {
+                id: None,
+                title: "Rejected".into(),
+                fields: input,
+            },
+        )
+        .unwrap_err();
+        assert_eq!(error.code, code, "{extra}");
+        assert_eq!(working.text("logic/claims.md").unwrap(), original);
+    }
+    let (_root, mut working) = make_working(&[("logic/claims.md", original)]);
+    let mut input = claim_fields("Statement");
+    input.insert("Dependencies".into(), json!(["C99"]));
+    write::plan_operation(
+        &mut working,
+        &WriteOperation::ClaimAdd {
+            id: None,
+            title: "Dangling".into(),
+            fields: input,
+        },
+    )
+    .unwrap();
+    let error = write::logic::validate_references(&working).unwrap_err();
+    assert_eq!(error.code, "write.reference");
+}
+
+#[test]
+fn created_compiler_heuristic_keeps_scalar_source_and_complete_bounds_in_schema_order() {
+    let original = "# Heuristics\n\n## H01: Prior\n- **Rationale**: Kept\n";
+    let (_root, mut working) = make_working(&[("logic/solution/heuristics.md", original)]);
+    let bounds = "Only synthetic data.\n  exact bound = 雪\n";
+    write::plan_operation(
+        &mut working,
+        &WriteOperation::HeuristicAdd {
+            id: None,
+            title: "Compiler heuristic".into(),
+            fields: fields(json!({
+                "Tags": "a, b",
+                "Code ref": ["src/run.rs:12", "src/[x].rs"],
+                "Bounds": bounds,
+                "Sensitivity": "Not specified in paper",
+                "Source": "paper.pdf p3 «a, b»",
+                "Rationale": "Reason",
+            })),
+        },
+    )
+    .unwrap();
+    write::logic::validate_references(&working).unwrap();
+    let text = working.text("logic/solution/heuristics.md").unwrap();
+    assert!(text.starts_with(original));
+    assert_eq!(
+        &text[original.len()..],
+        "\n## H02: Compiler heuristic\n- **Rationale**: Reason\n\
+         - **Source**: paper.pdf p3 «a, b»\n- **Sensitivity**: Not specified in paper\n\
+         - **Bounds**:\n  Only synthetic data.\n    exact bound = 雪\n  \n\
+         - **Code ref**: [\"src/run.rs:12\",\"src/[x].rs\"]\n- **Tags**: a, b\n"
+    );
+    assert_eq!(
+        write::logic::field_value(&working, &selector("H02"), "Bounds").unwrap(),
+        bounds
+    );
+}
+
+#[test]
+fn created_heuristics_reject_revision_fields_and_accept_underscore_aliases() {
+    let original = "# Heuristics\n\n## H01: Prior\n- **Rationale**: Kept\n";
+    let base = json!({"Rationale":"Reason","Sensitivity":"low","code_ref":"src/run.rs"});
+    for (extra, code) in [
+        (
+            json!({"Last revised": "2026-10-01"}),
+            "write.revision_required",
+        ),
+        (
+            json!({"last_revised": "2026-10-01"}),
+            "write.revision_required",
+        ),
+        (json!({"Evidence basis": "claims only"}), "write.field"),
+    ] {
+        let (_root, mut working) = make_working(&[("logic/solution/heuristics.md", original)]);
+        let mut input = fields(base.clone());
+        input.extend(fields(extra.clone()));
+        let error = write::plan_operation(
+            &mut working,
+            &WriteOperation::HeuristicAdd {
+                id: None,
+                title: "Rejected".into(),
+                fields: input,
+            },
+        )
+        .unwrap_err();
+        assert_eq!(error.code, code, "{extra}");
+        assert_eq!(
+            working.text("logic/solution/heuristics.md").unwrap(),
+            original
+        );
+    }
+    let (_root, mut working) = make_working(&[("logic/solution/heuristics.md", original)]);
+    write::plan_operation(
+        &mut working,
+        &WriteOperation::HeuristicAdd {
+            id: None,
+            title: "Aliased".into(),
+            fields: fields(base),
+        },
+    )
+    .unwrap();
+    assert_eq!(
+        &working.text("logic/solution/heuristics.md").unwrap()[original.len()..],
+        "\n## H02: Aliased\n- **Rationale**: Reason\n- **Sensitivity**: low\n- **Code ref**: src/run.rs\n"
+    );
+}
+
+#[test]
+fn created_claims_accept_underscore_aliases_and_write_schema_labels() {
+    let (_root, mut working) = make_working(&[]);
+    let mut input = claim_fields("Statement");
+    input.insert("evidence_basis".into(), json!("Table 2"));
+    input.insert("falsification_criteria".into(), json!("Alias"));
+    input.remove("Falsification criteria");
+    write::plan_operation(
+        &mut working,
+        &WriteOperation::ClaimAdd {
+            id: None,
+            title: "Aliased claim".into(),
+            fields: input,
+        },
+    )
+    .unwrap();
+    let text = working.text("logic/claims.md").unwrap();
+    assert!(text.contains(
+        "- **Falsification**: Alias\n- **Proof**: E01 and complete prose\n- **Evidence basis**: Table 2\n"
+    ));
 }

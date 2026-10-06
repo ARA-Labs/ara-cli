@@ -65,6 +65,7 @@ fn writer_rename(root: &Path) {
             turn: Some(1),
             signal: Some("user-directive".into()),
             provenance: Some("user".into()),
+            rewrite_references: false,
         },
     )
     .unwrap();

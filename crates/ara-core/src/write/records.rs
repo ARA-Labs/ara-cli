@@ -60,6 +60,13 @@ pub fn plan(
             Ok(OperationResult::new("record.append", None))
         }
         TASTE => {
+            let mut record = record.clone();
+            if let Some(object) = record.as_object_mut()
+                && !object.contains_key("timestamp")
+            {
+                object.insert("timestamp".into(), json!(working.clock_time()?));
+            }
+            let record = &record;
             let typed = Taste::deserialize(record).map_err(|e| invalid("record", e.to_string()))?;
             super::sessions::validate_timestamp(&typed.timestamp)?;
             super::sessions::validate_id(&typed.target, "N")?;

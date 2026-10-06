@@ -8,17 +8,22 @@ mod types;
 mod yaml;
 use crate::write::source::FileSnapshot;
 use crate::write::{ArtifactSnapshot, WorkingArtifact, WriteOperation};
-use identity::{ALIASES, Alias, LOG, Record, bytes};
-pub(crate) use identity::{Ledger, load_bytes as decode_ledger_bytes};
+use identity::{ALIASES, Alias, LOG, bytes};
+pub(crate) use identity::{
+    Ledger, Record, captured_relocation_map, load_bytes as decode_ledger_bytes,
+};
 pub use identity::{SourceHistory, fingerprint, source_history};
+pub(crate) use rewrite::{quoted_ranges, relocate_scalar};
 use serde::Deserialize;
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
+pub(crate) use types::IdentityMap;
 pub use types::{
     ConflictLocator, GitMergeProvenance, ImportMapping, MergeConflict, MergeError, MergeOptions,
     MergePlan, MergeReport, MergeValue, RewriteFact,
 };
-use types::{EntryIdentity, IdentityMap, conflict};
+use types::{EntryIdentity, conflict};
+pub(crate) use yaml::candidate_snapshot;
 
 struct Inventory {
     yaml: yaml::Inventory,
@@ -1098,6 +1103,15 @@ pub fn plan_merge_with_observer(
     })
 }
 
+/// Portable alias rows `(source_key, original, target)` decoded strictly from
+/// raw `trace/aliases.yaml` bytes. Session history reads them to attribute an
+/// imported literal through its authenticated redirect.
+pub(crate) fn alias_rows(raw: &[u8]) -> Result<Vec<(String, String, String)>, MergeError> {
+    Ok(identity::aliases_bytes(raw)?
+        .into_iter()
+        .map(|alias| (alias.source_key, alias.original, alias.target))
+        .collect())
+}
 pub fn resolve(snapshot: &ArtifactSnapshot, address: &str) -> Result<String, MergeError> {
     let view = inventory(snapshot)?;
     let identities = ids(&view);
@@ -1333,6 +1347,140 @@ pub fn resolve_selector(
     snapshot: &ArtifactSnapshot,
     selector: &crate::write::EntrySelector,
 ) -> Result<crate::write::EntrySelector, MergeError> {
+    resolve_selector_in(snapshot, &inventory(snapshot)?, selector)
+}
+/// Check historical citations against one identity view: each selector,
+/// and each literal spelling when one is given, must resolve through a live
+/// section or an authenticated mapping. Returns one failure message per item
+/// (`None` when it resolves); the outer error is an unconsultable view.
+pub fn check_citations(
+    snapshot: &ArtifactSnapshot,
+    items: &[(crate::write::EntrySelector, Option<String>)],
+) -> Result<Vec<Option<String>>, MergeError> {
+    let view = inventory(snapshot)?;
+    let identities = ids(&view);
+    let aliases = identity::aliases(snapshot)?;
+    identity::alias_index(&aliases, &identities, &view.redirects, &view.markdown)?;
+    Ok(items
+        .iter()
+        .map(|(selector, literal)| {
+            if let Err(error) = resolve_selector_in(snapshot, &view, selector) {
+                return Some(error.message);
+            }
+            let literal = literal.as_deref()?;
+            match resolve_locator_in(snapshot, &view, literal) {
+                Ok(Some(_)) => None,
+                Ok(None) => Some(format!("`{literal}` names no live or retired section")),
+                Err(error) => Some(error.message),
+            }
+        })
+        .collect())
+}
+/// Resolve a literal locator as a read would: a native ID, or
+/// `document#identity` / `document:identity` naming a live section by leaf,
+/// joined heading suffix or native ID, else a retired section through its
+/// authenticated mutation row (joined heading suffix of `from_selector`, or
+/// the row's own `from`). `Ok(None)` when it names nothing.
+pub fn resolve_locator(
+    snapshot: &ArtifactSnapshot,
+    literal: &str,
+) -> Result<Option<crate::write::EntrySelector>, MergeError> {
+    resolve_locator_in(snapshot, &inventory(snapshot)?, literal)
+}
+fn resolve_locator_in(
+    snapshot: &ArtifactSnapshot,
+    view: &Inventory,
+    literal: &str,
+) -> Result<Option<crate::write::EntrySelector>, MergeError> {
+    use crate::write::EntrySelector;
+    let split = literal
+        .find(['#', ':'])
+        .map(|at| (&literal[..at], &literal[at + 1..]))
+        .filter(|(document, identity)| document.ends_with(".md") && !identity.is_empty());
+    let Some((document, identity)) = split else {
+        let typed = |prefix| crate::write::fields::typed_id(literal, prefix);
+        let qualified = if typed("E") {
+            Some("logic/experiments.md")
+        } else if typed("RW") {
+            Some("logic/related_work.md")
+        } else {
+            None
+        };
+        if let Some(document) = qualified {
+            return resolve_locator_in(snapshot, view, &format!("{document}:{literal}"));
+        }
+        let native = typed("C") || typed("H");
+        return if native {
+            resolve_selector_in(snapshot, view, &EntrySelector::Id { id: literal.into() }).map(Some)
+        } else {
+            Ok(None)
+        };
+    };
+    let names = |path: &[String]| {
+        (1..=path.len()).any(|segments| path[path.len() - segments..].join("/") == identity)
+            || path
+                .last()
+                .is_some_and(|heading| crate::write::logic::heading_id(heading) == identity)
+    };
+    let live: Vec<&[String]> = markdown::literal_paths(&view.markdown, document)
+        .into_iter()
+        .filter(|path| names(path))
+        .collect();
+    match live.as_slice() {
+        [path] => {
+            return Ok(Some(EntrySelector::Document {
+                document: document.into(),
+                heading: path.to_vec(),
+                entry: None,
+            }));
+        }
+        [] => {}
+        _ => {
+            return Err(MergeError::content(
+                "merge.selector_ambiguous",
+                format!("`{literal}` names several live sections"),
+            ));
+        }
+    }
+    let normalized = identity::normalize_local(literal);
+    let mut origins: Vec<EntrySelector> = Vec::new();
+    for row in &view.mutations {
+        let Some(from) = row
+            .get("from_selector")
+            .and_then(|value| EntrySelector::deserialize(value).ok())
+        else {
+            continue;
+        };
+        let EntrySelector::Document {
+            document: scope,
+            heading,
+            entry: None,
+        } = &from
+        else {
+            continue;
+        };
+        let literal_from = row
+            .get("from")
+            .and_then(serde_json::Value::as_str)
+            .is_some_and(|from| from == literal || identity::normalize_local(from) == normalized);
+        if scope == document && (names(heading) || literal_from) && !origins.contains(&from) {
+            origins.push(from);
+        }
+    }
+    match origins.as_slice() {
+        [] => Ok(None),
+        [origin] => resolve_selector_in(snapshot, view, origin).map(Some),
+        _ => Err(MergeError::content(
+            "merge.redirect_ambiguous",
+            format!("`{literal}` names several retired sections"),
+        )),
+    }
+}
+fn resolve_selector_in(
+    snapshot: &ArtifactSnapshot,
+    view: &Inventory,
+    selector: &crate::write::EntrySelector,
+) -> Result<crate::write::EntrySelector, MergeError> {
     use crate::write::EntrySelector;
     fn matches_selector(archived: &EntrySelector, wanted: &EntrySelector) -> bool {
         if archived == wanted {
@@ -1364,9 +1512,8 @@ pub fn resolve_selector(
             _ => false,
         }
     }
-    let view = inventory(snapshot)?;
     if let EntrySelector::Id { id } = selector {
-        let identities = ids(&view);
+        let identities = ids(view);
         let aliases = identity::aliases(snapshot)?;
         let index = identity::alias_index(&aliases, &identities, &view.redirects, &view.markdown)?;
         identity::reject_ambiguous_display(id, &view.markdown, &view.mutations, &aliases)?;
@@ -1552,43 +1699,49 @@ fn selected<'a>(item: &'a MergeConflict, take: &str) -> Result<&'a MergeValue, M
         )),
     }
 }
-// Keep the complete three-source/audit context explicit at this internal boundary.
-#[allow(clippy::too_many_arguments)]
+/// Audit context for `merge resolve` and `merge repair`. These commands are
+/// themselves the explicit audit action: the session is always named and is
+/// never selected or created, while `turn`, `timestamp` and `summary` may be
+/// omitted. An omitted turn is the session's next turn; a supplied one must
+/// equal it. An omitted timestamp is the writer's locked batch time; an
+/// omitted summary keeps the session's rolling summary.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AuditOwner {
+    pub session: String,
+    pub turn: Option<u64>,
+    pub timestamp: Option<String>,
+    pub summary: Option<String>,
+    pub signal: String,
+    pub provenance: String,
+}
+
+/// A planned merge audit: the candidate plus the session turn that owns it.
+#[derive(Debug)]
+pub struct AuditedResolution {
+    pub working: WorkingArtifact,
+    pub session: String,
+    pub turn: u64,
+}
+
+/// Append the owning turn and its exact resolution audit. Returns the turn's
+/// effective timestamp and number.
 fn audit(
     working: &mut WorkingArtifact,
     item: &MergeConflict,
     value: &MergeValue,
-    session: &str,
-    turn: u64,
-    signal: &str,
-    provenance: &str,
+    owner: &AuditOwner,
     note: &str,
-) -> Result<String, MergeError> {
-    let path = format!("trace/sessions/{session}.yaml");
-    let document = working.yaml(&path)?;
-    let metadata = document.root.get("session")?.ok_or_else(|| {
-        MergeError::content("merge.resolution_session", "missing session metadata")
-    })?;
-    let count = metadata
-        .get("turn_count")?
-        .and_then(|node| node.scalar())
-        .and_then(|number| number.parse::<u64>().ok())
-        .ok_or_else(|| {
-            MergeError::content("merge.resolution_session", "session requires turn_count")
-        })?;
-    if count.checked_add(1) != Some(turn) {
+) -> Result<(String, u64), MergeError> {
+    let session = owner.session.as_str();
+    let next = crate::write::sessions::next_turn(working, session)?;
+    if let Some(turn) = owner.turn
+        && turn != next
+    {
         return Err(MergeError::content(
             "merge.resolution_session",
-            "resolution must explicitly name the next session turn",
+            format!("--turn {turn} differs from session {session}'s next turn {next}"),
         ));
     }
-    let time = metadata
-        .get("last_turn")?
-        .and_then(|node| node.scalar())
-        .ok_or_else(|| {
-            MergeError::content("merge.resolution_session", "session requires last_turn")
-        })?
-        .to_string();
     working
         .base
         .files
@@ -1599,12 +1752,12 @@ fn audit(
             permissions: None,
             digest: crate::write::source::digest(&[]),
         });
-    crate::write::sessions::plan(
+    let logged = crate::write::sessions::plan_log(
         working,
         &WriteOperation::SessionLog {
-            session: session.into(),
-            timestamp: time.clone(),
-            summary: None,
+            session: Some(session.into()),
+            timestamp: owner.timestamp.clone(),
+            summary: owner.summary.clone(),
             events: vec![],
             ai_actions: vec![],
             claims_touched: vec![],
@@ -1614,9 +1767,15 @@ fn audit(
             ai_suggestions_pending: None,
         },
     )?;
-    let record = serde_json::json!({"entry":item.selector,"field":item.field,"before":item.ours,"after":value,"signal":signal,"provenance":provenance,"note":note});
-    crate::write::sessions::append_revision(working, session, turn, &record)?;
-    Ok(time)
+    if logged.turn != next {
+        return Err(MergeError::content(
+            "merge.resolution_session",
+            "owner allocation changed while planning the audit turn",
+        ));
+    }
+    let record = serde_json::json!({"entry":item.selector,"field":item.field,"before":item.ours,"after":value,"signal":owner.signal,"provenance":owner.provenance,"note":note});
+    crate::write::sessions::append_revision(working, session, logged.turn, &record)?;
+    Ok((logged.timestamp, logged.turn))
 }
 fn apply_resolution(
     working: &mut WorkingArtifact,
@@ -1868,15 +2027,20 @@ pub fn authenticates_resolution_audit(
     Ok(false)
 }
 
+/// Plan `merge resolve` under the caller's lock. `batch_time` is the one
+/// clock value captured after lock and recovery.
 pub fn plan_resolution(
     snapshot: &ArtifactSnapshot,
     conflict_id: &str,
     take: &str,
-    session: &str,
-    turn: u64,
-    signal: &str,
-    provenance: &str,
-) -> Result<WorkingArtifact, MergeError> {
+    owner: &AuditOwner,
+    batch_time: &str,
+) -> Result<AuditedResolution, MergeError> {
+    let (session, signal, provenance) = (
+        owner.session.as_str(),
+        owner.signal.as_str(),
+        owner.provenance.as_str(),
+    );
     let ledger = identity::load(snapshot)?;
     let item = ledger
         .unresolved()
@@ -1892,15 +2056,13 @@ pub fn plan_resolution(
     let value = selected(&item, take)?.clone();
     let candidate_value = relocated_choice(snapshot, &ledger, &item, take)?;
     let mut working = WorkingArtifact::new(snapshot.clone());
+    working.batch_time = Some(batch_time.to_owned());
     apply_resolution(&mut working, &item, &candidate_value)?;
-    let time = audit(
+    let (time, turn) = audit(
         &mut working,
         &item,
         &candidate_value,
-        session,
-        turn,
-        signal,
-        provenance,
+        owner,
         &format!(
             "explicit resolution {} take {take}; selected source fingerprint {}",
             item.id, value.fingerprint
@@ -1925,20 +2087,27 @@ pub fn plan_resolution(
         }],
     )?;
     validate_candidate(&working)?;
-    Ok(working)
+    Ok(AuditedResolution {
+        working,
+        session: session.into(),
+        turn,
+    })
 }
-#[allow(clippy::too_many_arguments)]
+/// Plan `merge repair` under the caller's lock with the captured batch time.
 pub fn plan_protected_resolution(
     snapshot: &ArtifactSnapshot,
     item: &MergeConflict,
     decision: &str,
     expected_current: &str,
-    session: &str,
-    turn: u64,
-    signal: &str,
-    provenance: &str,
+    owner: &AuditOwner,
     reason: &str,
-) -> Result<WorkingArtifact, MergeError> {
+    batch_time: &str,
+) -> Result<AuditedResolution, MergeError> {
+    let (session, signal, provenance) = (
+        owner.session.as_str(),
+        owner.signal.as_str(),
+        owner.provenance.as_str(),
+    );
     validate_values(item)?;
     if !item.kind.starts_with("protected")
         || !matches!(decision, "reject_incoming" | "restore_base")
@@ -1951,6 +2120,7 @@ pub fn plan_protected_resolution(
         ));
     }
     let mut working = WorkingArtifact::new(snapshot.clone());
+    working.batch_time = Some(batch_time.to_owned());
     let chosen = if decision == "restore_base" {
         &item.base
     } else {
@@ -1973,16 +2143,7 @@ pub fn plan_protected_resolution(
             ));
         }
     }
-    audit(
-        &mut working,
-        item,
-        chosen,
-        session,
-        turn,
-        signal,
-        provenance,
-        reason,
-    )?;
+    let (_, turn) = audit(&mut working, item, chosen, owner, reason)?;
     identity::append(
         &mut working,
         LOG,
@@ -2000,5 +2161,9 @@ pub fn plan_protected_resolution(
         }],
     )?;
     validate_candidate(&working)?;
-    Ok(working)
+    Ok(AuditedResolution {
+        working,
+        session: session.into(),
+        turn,
+    })
 }

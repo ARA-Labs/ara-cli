@@ -38,16 +38,42 @@ pub struct ConflictArgs {
     pub conflict: String,
     #[arg(long,value_parser=["ours","theirs","base"])]
     pub take: String,
+    #[command(flatten)]
+    pub audit: AuditArgs,
+    #[command(flatten)]
+    pub output: ReadOptions,
+}
+/// Owning-turn context shared by `merge resolve` and `merge repair`.
+#[derive(Debug, clap::Args)]
+pub struct AuditArgs {
+    /// Open session that owns the audit turn (never selected or created).
     #[arg(long)]
     pub session: String,
+    /// Optional; when given it must equal the session's next turn.
     #[arg(long)]
-    pub turn: u64,
+    pub turn: Option<u64>,
+    /// Turn timestamp; defaults to the writer's locked UTC clock.
+    #[arg(long)]
+    pub timestamp: Option<String>,
+    /// New rolling session summary; omitted keeps the current one.
+    #[arg(long)]
+    pub summary: Option<String>,
     #[arg(long)]
     pub signal: String,
     #[arg(long)]
     pub provenance: String,
-    #[command(flatten)]
-    pub output: ReadOptions,
+}
+impl AuditArgs {
+    fn owner(&self) -> merge::AuditOwner {
+        merge::AuditOwner {
+            session: self.session.clone(),
+            turn: self.turn,
+            timestamp: self.timestamp.clone(),
+            summary: self.summary.clone(),
+            signal: self.signal.clone(),
+            provenance: self.provenance.clone(),
+        }
+    }
 }
 #[derive(Debug, clap::Args)]
 pub struct RepairArgs {
@@ -57,14 +83,8 @@ pub struct RepairArgs {
     pub decision: String,
     #[arg(long)]
     pub expected_current: String,
-    #[arg(long)]
-    pub session: String,
-    #[arg(long)]
-    pub turn: u64,
-    #[arg(long)]
-    pub signal: String,
-    #[arg(long)]
-    pub provenance: String,
+    #[command(flatten)]
+    pub audit: AuditArgs,
     #[arg(long)]
     pub reason: String,
     #[command(flatten)]
@@ -194,7 +214,7 @@ pub fn run(root: &Path, args: &MergeArgs) -> Result<Value, AgentError> {
     let options = MergeOptions {
         source_key: source_key.clone(),
         label,
-        time: crate::write::now(),
+        time: ara_core::write::clock::system_utc().map_err(crate::write::convert_error)?,
         git: git_inputs.as_ref().map(|inputs| inputs.provenance.clone()),
         predecessor,
     };
@@ -324,17 +344,20 @@ pub fn resolve(root: &Path, args: &ResolveArgs) -> Result<Value, AgentError> {
     Ok(json!({"format":"ara.resolve/v1","address":args.address,"id":target}))
 }
 fn resolve_conflict(root: &Path, args: &ConflictArgs) -> Result<Value, AgentError> {
-    let lock = ArtifactLock::acquire(root).map_err(crate::write::convert_error)?;
-    ara_core::write::journal::recover(root).map_err(crate::write::convert_error)?;
+    let (lock, batch_time) =
+        ara_core::write::lock_and_capture(root, ara_core::write::clock::system_utc)
+            .map_err(crate::write::convert_error)?;
     let snapshot = ArtifactSnapshot::load_complete(root).map_err(crate::write::convert_error)?;
-    let mut working = merge::plan_resolution(
+    let merge::AuditedResolution {
+        mut working,
+        session,
+        turn,
+    } = merge::plan_resolution(
         &snapshot,
         &args.conflict,
         &args.take,
-        &args.session,
-        args.turn,
-        &args.signal,
-        &args.provenance,
+        &args.audit.owner(),
+        &batch_time,
     )
     .map_err(convert_error)?;
     working
@@ -347,26 +370,29 @@ fn resolve_conflict(root: &Path, args: &ConflictArgs) -> Result<Value, AgentErro
     let changed_paths = working.changed_paths();
     drop(lock);
     Ok(
-        json!({"format":"ara.merge/v1","committed":true,"conflict":args.conflict,"take":args.take,"changed_paths":changed_paths}),
+        json!({"format":"ara.merge/v1","committed":true,"conflict":args.conflict,"take":args.take,"session":session,"turn":turn,"changed_paths":changed_paths}),
     )
 }
 fn repair_protected(root: &Path, args: &RepairArgs) -> Result<Value, AgentError> {
     let bytes = std::fs::read(&args.conflict_file).map_err(|e| AgentError::io(e.to_string()))?;
     let conflict: merge::MergeConflict = serde_json::from_slice(&bytes)
         .map_err(|e| AgentError::semantic("invalid_conflict_record", e.to_string()))?;
-    let lock = ArtifactLock::acquire(root).map_err(crate::write::convert_error)?;
-    ara_core::write::journal::recover(root).map_err(crate::write::convert_error)?;
+    let (lock, batch_time) =
+        ara_core::write::lock_and_capture(root, ara_core::write::clock::system_utc)
+            .map_err(crate::write::convert_error)?;
     let snapshot = ArtifactSnapshot::load_complete(root).map_err(crate::write::convert_error)?;
-    let mut working = merge::plan_protected_resolution(
+    let merge::AuditedResolution {
+        mut working,
+        session,
+        turn,
+    } = merge::plan_protected_resolution(
         &snapshot,
         &conflict,
         &args.decision,
         &args.expected_current,
-        &args.session,
-        args.turn,
-        &args.signal,
-        &args.provenance,
+        &args.audit.owner(),
         &args.reason,
+        &batch_time,
     )
     .map_err(convert_error)?;
     working
@@ -379,6 +405,6 @@ fn repair_protected(root: &Path, args: &RepairArgs) -> Result<Value, AgentError>
     let changed_paths = working.changed_paths();
     drop(lock);
     Ok(
-        json!({"format":"ara.merge/v1","committed":true,"decision":args.decision,"changed_paths":changed_paths}),
+        json!({"format":"ara.merge/v1","committed":true,"decision":args.decision,"session":session,"turn":turn,"changed_paths":changed_paths}),
     )
 }

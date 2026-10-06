@@ -116,6 +116,15 @@ pub struct WorkingArtifact {
     pub created_dirs: BTreeSet<String>,
     pub revisions: Vec<PendingRevision>,
     pub owned_turns: BTreeMap<(String, u64), String>,
+    /// The one UTC clock value captured for this write after lock/recovery.
+    pub batch_time: Option<String>,
+    /// The batch's sole `session.log` owner, once its line has been planned.
+    pub owner: Option<super::sessions::OwnerAnchor>,
+    /// Operation facts and logged turns for operation-derived session rows.
+    pub bookkeeping: super::bookkeeping::Ledger,
+    /// Historical citations of restructured identities (plan 19 C1) that
+    /// final validation must resolve through retained or audited identities.
+    pub citation_checks: Vec<super::logic::HistoricalCitation>,
     pub intents: Vec<Intent>,
     yaml_cache: RefCell<BTreeMap<String, YamlIndexes>>,
     pub(super) node_index_cache: RefCell<Option<super::node::CachedNodeIndex>>,
@@ -329,11 +338,32 @@ impl WorkingArtifact {
             created_dirs: BTreeSet::new(),
             revisions: Vec::new(),
             owned_turns: BTreeMap::new(),
+            batch_time: None,
+            owner: None,
+            bookkeeping: Default::default(),
+            citation_checks: Vec::new(),
             intents: Vec::new(),
             yaml_cache: RefCell::new(BTreeMap::new()),
             node_index_cache: RefCell::new(None),
             markdown_cache: RefCell::new(BTreeMap::new()),
             ledger_cache: RefCell::new(None),
+        }
+    }
+    /// The captured batch clock. Planners use it only for omitted values;
+    /// a working artifact without a captured clock fails closed.
+    pub fn clock_time(&self) -> Result<&str, WriteError> {
+        self.batch_time.as_deref().ok_or_else(|| {
+            WriteError::semantic(
+                "write.clock_required",
+                "an omitted timestamp needs the writer's captured batch clock",
+            )
+        })
+    }
+    /// An explicit value as supplied, or the captured batch clock.
+    pub fn explicit_or_clock(&self, value: Option<&String>) -> Result<String, WriteError> {
+        match value {
+            Some(value) => Ok(value.clone()),
+            None => self.clock_time().map(str::to_owned),
         }
     }
     pub fn bytes(&self, path: &str) -> Result<&[u8], WriteError> {

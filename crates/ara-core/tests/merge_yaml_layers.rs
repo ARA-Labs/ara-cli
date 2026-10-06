@@ -315,12 +315,18 @@ fn promotion_target_race_keeps_ours_and_records_all_exact_tuple_candidates() {
         &captured,
         &target.id,
         "theirs",
-        "2026-10-01_001",
-        2,
-        "user-directive",
-        "user",
+        &ara_core::merge::AuditOwner {
+            session: "2026-10-01_001".into(),
+            turn: Some(2),
+            timestamp: None,
+            summary: None,
+            signal: "user-directive".into(),
+            provenance: "user".into(),
+        },
+        "2026-10-01T23:59:00Z",
     )
-    .unwrap();
+    .unwrap()
+    .working;
     let observation = document(&resolved, "staging/observations.yaml");
     assert_eq!(observation["observations"][0]["promoted"], true);
     assert_eq!(
@@ -673,10 +679,15 @@ fn forged_mutable_kinds_cannot_replace_protected_yaml_origins() {
                 &snapshot,
                 &forged.id,
                 "theirs",
-                "2026-10-01_001",
-                1,
-                "user-directive",
-                "user",
+                &ara_core::merge::AuditOwner {
+                    session: "2026-10-01_001".into(),
+                    turn: Some(1),
+                    timestamp: None,
+                    summary: None,
+                    signal: "user-directive".into(),
+                    provenance: "user".into(),
+                },
+                "2026-10-01T23:59:00Z",
             )
             .err()
             .unwrap();
@@ -721,12 +732,18 @@ fn explicit_session_thread_resolution_targets_root_and_derives_index() {
         &staged(&plan.working),
         &conflict.id,
         "theirs",
-        "2026-10-01_001",
-        2,
-        "user-directive",
-        "user",
+        &ara_core::merge::AuditOwner {
+            session: "2026-10-01_001".into(),
+            turn: Some(2),
+            timestamp: None,
+            summary: None,
+            signal: "user-directive".into(),
+            provenance: "user".into(),
+        },
+        "2026-10-01T23:59:00Z",
     )
-    .unwrap();
+    .unwrap()
+    .working;
     let session = document(&resolved, SESSION);
     assert_eq!(
         session["open_threads"],
@@ -904,10 +921,15 @@ fn a_session_closed_after_conflict_capture_cannot_be_revised_by_generic_resoluti
         &captured,
         &conflict.id,
         "theirs",
-        "2026-10-01_001",
-        2,
-        "user-directive",
-        "user",
+        &ara_core::merge::AuditOwner {
+            session: "2026-10-01_001".into(),
+            turn: Some(2),
+            timestamp: None,
+            summary: None,
+            signal: "user-directive".into(),
+            provenance: "user".into(),
+        },
+        "2026-10-01T23:59:00Z",
     )
     .err()
     .unwrap();
@@ -1442,4 +1464,161 @@ fn flow_parent_without_children_imports_multiple_complete_flow_roots_and_replays
             .changed_paths()
             .is_empty()
     );
+}
+
+#[test]
+fn resolution_audit_derives_next_turn_and_uses_the_locked_clock_or_explicit_values() {
+    let base_session = session("base", "2026-10-01T10:00Z", 1, false);
+    let ours_session = base_session.replace("open_threads: []", "open_threads: [our thread]");
+    let theirs_session = base_session.replace("open_threads: []", "open_threads: [their thread]");
+    let base_index = index("base", 1, 0);
+    let ours_index = base_index.replace("open_threads: 0", "open_threads: 1");
+    let make = |s: &str, i: &str| snapshot(&[(TREE, BASIC_TREE), (SESSION, s), (INDEX, i)]);
+    let plan = plan_merge(
+        &make(&base_session, &base_index),
+        &make(&ours_session, &ours_index),
+        &make(&theirs_session, &ours_index),
+        &options(),
+    )
+    .unwrap();
+    let conflict = plan
+        .report
+        .conflicts
+        .iter()
+        .find(|item| item.field == "open_threads")
+        .unwrap()
+        .clone();
+    let captured = staged(&plan.working);
+    let owner =
+        |turn, timestamp: Option<&str>, summary: Option<&str>| ara_core::merge::AuditOwner {
+            session: "2026-10-01_001".into(),
+            turn,
+            timestamp: timestamp.map(str::to_owned),
+            summary: summary.map(str::to_owned),
+            signal: "user-directive".into(),
+            provenance: "user".into(),
+        };
+    let resolve = |owner: &ara_core::merge::AuditOwner, time: &str| {
+        ara_core::merge::plan_resolution(&captured, &conflict.id, "theirs", owner, time)
+    };
+    // Omitted turn and timestamp: next turn and the locked clock value.
+    let audited = resolve(&owner(None, None, None), "2026-10-01T15:00:00Z").unwrap();
+    assert_eq!(
+        (audited.session.as_str(), audited.turn),
+        ("2026-10-01_001", 2)
+    );
+    let resolved = audited.working;
+    let record = document(&resolved, SESSION);
+    assert_eq!(record["session"]["last_turn"], "2026-10-01T15:00:00Z");
+    assert_eq!(
+        record["session"]["summary"], "base",
+        "omitted summary keeps the rolling summary"
+    );
+    assert_eq!(record["logic_revisions"][0]["turn"], 2);
+    let ledger = document(&resolved, "trace/merge_log.yaml");
+    let resolution = ledger["records"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|row| row.get("conflict_id").is_some())
+        .unwrap()
+        .clone();
+    assert_eq!(resolution["time"], "2026-10-01T15:00:00Z");
+    assert_eq!(resolution["turn"], 2);
+    // Explicit timestamp and summary stay exact; a matching turn is accepted.
+    let resolved = resolve(
+        &owner(
+            Some(2),
+            Some("2026-10-01T13:00:00+02:00"),
+            Some("Caller summary"),
+        ),
+        "2026-10-02T00:00:00Z",
+    )
+    .unwrap()
+    .working;
+    let record = document(&resolved, SESSION);
+    assert_eq!(record["session"]["last_turn"], "2026-10-01T13:00:00+02:00");
+    assert_eq!(record["session"]["summary"], "Caller summary");
+    // A supplied turn must equal the next turn; it never attaches to history.
+    for turn in [1, 3] {
+        let error = resolve(&owner(Some(turn), None, None), "2026-10-01T15:00:00Z")
+            .err()
+            .unwrap();
+        assert_eq!(error.code, "merge.resolution_session");
+        assert!(error.message.contains("next turn 2"), "{}", error.message);
+    }
+    // A historical session with an omitted timestamp explains the mismatch.
+    let error = resolve(&owner(None, None, None), "2026-10-05T00:00:00Z")
+        .err()
+        .unwrap();
+    assert_eq!(error.code, "write.session");
+    assert!(
+        error.message.contains("is dated 2026-10-01"),
+        "{}",
+        error.message
+    );
+}
+
+#[test]
+fn protected_repair_audit_derives_next_turn_and_checks_a_supplied_one() {
+    let original = "entries:\n  - summary: Existing\n    title: 'Opaque extension'\n";
+    let changed = original.replace("'Opaque extension'", "\"Opaque extension\"");
+    let base_session = session("base", "2026-10-01T10:00Z", 1, false);
+    let base_index = index("base", 1, 0);
+    let base = snapshot(&[
+        (TREE, BASIC_TREE),
+        ("trace/reasoning.yaml", original),
+        (SESSION, &base_session),
+        (INDEX, &base_index),
+    ]);
+    let theirs = snapshot(&[
+        (TREE, BASIC_TREE),
+        ("trace/reasoning.yaml", &changed),
+        (SESSION, &base_session),
+        (INDEX, &base_index),
+    ]);
+    let error = plan_merge(&base, &base, &theirs, &options()).err().unwrap();
+    let conflict = error
+        .evidence
+        .iter()
+        .find(|c| c.field == "title")
+        .unwrap()
+        .clone();
+    let owner = |turn| ara_core::merge::AuditOwner {
+        session: "2026-10-01_001".into(),
+        turn,
+        timestamp: None,
+        summary: Some("Rejected the incoming opaque edit".into()),
+        signal: "user-directive".into(),
+        provenance: "user".into(),
+    };
+    let repair = |turn| {
+        ara_core::merge::plan_protected_resolution(
+            &base,
+            &conflict,
+            "reject_incoming",
+            &conflict.ours.fingerprint,
+            &owner(turn),
+            "Caller keeps the local history",
+            "2026-10-01T16:00:00Z",
+        )
+    };
+    let audited = repair(None).unwrap();
+    assert_eq!(audited.turn, 2);
+    let repaired = audited.working;
+    let record = document(&repaired, SESSION);
+    assert_eq!(record["session"]["last_turn"], "2026-10-01T16:00:00Z");
+    assert_eq!(
+        record["session"]["summary"],
+        "Rejected the incoming opaque edit"
+    );
+    assert_eq!(record["logic_revisions"][0]["turn"], 2);
+    assert_eq!(
+        repaired.text("trace/reasoning.yaml").unwrap(),
+        original,
+        "ours stays exact"
+    );
+    repair(Some(2)).unwrap();
+    let error = repair(Some(1)).err().unwrap();
+    assert_eq!(error.code, "merge.resolution_session");
 }

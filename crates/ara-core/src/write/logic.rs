@@ -1,4 +1,5 @@
 //! Precise mutable-entry operations and coupled revision history.
+use super::citation_rules::joined_heading_path;
 use super::{
     EntrySelector, Fields, OperationResult, ReferenceEdit, WorkingArtifact, WriteError,
     WriteOperation,
@@ -8,6 +9,14 @@ use super::{
 use crate::markdown;
 use serde_json::{Value, json};
 use std::{collections::BTreeSet, ops::Range};
+
+mod citations;
+mod history_refs;
+mod restructure;
+mod row_mapping;
+mod tokens;
+pub use citations::{MarkdownCitation, markdown_citations};
+pub use history_refs::HistoricalCitation;
 
 #[derive(Debug, Clone)]
 pub struct Entry {
@@ -20,7 +29,7 @@ pub struct Entry {
     pub level: usize,
 }
 
-fn heading_id(heading: &str) -> &str {
+pub(crate) fn heading_id(heading: &str) -> &str {
     heading.split([':', ' ', '\t']).next().unwrap_or(heading)
 }
 
@@ -211,10 +220,16 @@ pub fn add(
         }
     }
     let id = working.allocate_id(prefix, &ids, requested)?;
-    let mut block = format!("## {id}: {title}\n");
-    for (label, value) in fields {
-        block.push_str(&fields::render(&label, &value));
-    }
+    // Structural lines follow a CRLF target file; a new file uses LF.
+    let eol = if working.exists(document) && working.text(document)?.contains("\r\n") {
+        "\r\n"
+    } else {
+        "\n"
+    };
+    let block = format!(
+        "## {id}: {title}{eol}{}",
+        fields::render_created(kind, &fields, eol)
+    );
     if !working.exists(document) {
         working.create(
             document,
@@ -228,7 +243,7 @@ pub fn add(
             ),
         )?;
     } else {
-        append(working, document, &block, op)?;
+        append_with(working, document, &block, op, eol)?;
     }
     let mut result = OperationResult::new(op, Some(id.clone()));
     result.target = Some(format!("{document}:{id}"));
@@ -241,14 +256,28 @@ pub(crate) fn append(
     block: &str,
     reason: &str,
 ) -> Result<(), WriteError> {
+    append_with(working, document, block, reason, "\n")
+}
+
+/// Append after one blank line, writing separators with `eol`.
+fn append_with(
+    working: &mut WorkingArtifact,
+    document: &str,
+    block: &str,
+    reason: &str,
+    eol: &str,
+) -> Result<(), WriteError> {
     let text = working.text(document)?;
     let end = text.len();
-    let separator = if text.is_empty() || text.ends_with("\n\n") {
+    // A CRLF file may still end in an LF blank line (e.g. after a continuation
+    // field), so either form already separates the new block.
+    let blank = format!("{eol}{eol}");
+    let separator = if text.is_empty() || text.ends_with("\n\n") || text.ends_with(&blank) {
         ""
     } else if text.ends_with('\n') {
-        "\n"
+        eol
     } else {
-        "\n\n"
+        &blank
     };
     working.edit(document, end..end, &format!("{separator}{block}"), reason)
 }
@@ -363,6 +392,15 @@ fn edit(
     result.target = Some(format!("{}:{}", entry.document, entry.heading));
     result.no_op = no_op;
     Ok(result)
+}
+
+/// Planner-level guard: omitted ownership is filled only by a batch anchor.
+pub(crate) fn missing_owner() -> WriteError {
+    WriteError::semantic(
+        "write.revision_required",
+        "omitted session/turn needs the batch's sole summarized session.log anchor",
+    )
+    .at("session")
 }
 
 pub(crate) fn revision_context(
@@ -484,6 +522,19 @@ fn revise(
             Value::String(format!("{} ({session}#{turn})", &session[..10])),
         )]);
         edit(working, target, &pointer, true)?;
+        if entry.document == "logic/claims.md" {
+            working.bookkeeping.claim_changed(
+                session,
+                turn,
+                heading_id(&entry.heading),
+                records.iter().map(|record| {
+                    (
+                        record["field"].as_str().unwrap_or_default(),
+                        record["after"].as_str(),
+                    )
+                }),
+            );
+        }
         for record in records {
             working.revisions.push(PendingRevision {
                 session: session.into(),
@@ -583,12 +634,49 @@ fn revise_body(
             )]);
             edit(working, target, &pointer, true)?;
         }
-        let after_range = if whole {
-            0..working.text(document)?.len()
+        let after_selected = if whole {
+            None
         } else {
-            resolve(working, target)?.body
+            Some(resolve(working, target)?)
+        };
+        let after_range = if let Some(entry) = &after_selected {
+            entry.body.clone()
+        } else {
+            0..working.text(document)?.len()
         };
         let after = working.text(document)?[after_range].to_owned();
+        if let Some(entry) = selected
+            .as_ref()
+            .filter(|e| e.document == "logic/claims.md")
+        {
+            let before_status = markdown::fields(
+                &before,
+                entry.field_body.start - entry.body.start..entry.field_body.end - entry.body.start,
+            )
+            .into_iter()
+            .find(|field| fields::canonical(field.name) == "status")
+            .map(|field| markdown::decode_field(&field));
+            let after_entry = after_selected.as_ref().expect("selected Body entry");
+            let after_status = markdown::fields(
+                &after,
+                after_entry.field_body.start - after_entry.body.start
+                    ..after_entry.field_body.end - after_entry.body.start,
+            )
+            .into_iter()
+            .find(|field| fields::canonical(field.name) == "status")
+            .map(|field| markdown::decode_field(&field));
+            working.bookkeeping.claim_changed(
+                session,
+                turn,
+                heading_id(&entry.heading),
+                [("Body", None)].into_iter().chain(
+                    after_status
+                        .as_deref()
+                        .filter(|_| before_status != after_status)
+                        .map(|status| ("Status", Some(status))),
+                ),
+            );
+        }
         let record = json!({"entry":target,"field":"Body","before":before,"after":after,"signal":signal,"provenance":provenance,"note":note});
         working.revisions.push(PendingRevision {
             session: session.into(),
@@ -628,6 +716,7 @@ fn structural(
     signal: Option<&str>,
     provenance: Option<&str>,
     redirect: Option<&EntrySelector>,
+    rewrite: bool,
 ) -> Result<OperationResult, WriteError> {
     let (Some(session), Some(turn), Some(signal), Some(provenance)) =
         (session, turn, signal, provenance)
@@ -638,6 +727,21 @@ fn structural(
         ));
     };
     revision_context(session, turn, signal, provenance)?;
+    if rewrite && !references.is_empty() {
+        return Err(WriteError::semantic(
+            "write.reference_mode",
+            "`rewrite_references` and explicit `references` are mutually exclusive",
+        )
+        .at("rewrite_references")
+        .related_here("references"));
+    }
+    if rewrite && name.is_none() && redirect.is_none() {
+        return Err(WriteError::semantic(
+            "write.redirect_required",
+            "rewrite_references on entry.remove needs an explicit existing `redirect`",
+        )
+        .at("redirect"));
+    }
     let entry = resolve(working, target)?;
     let before = working.text(&entry.document)?[entry.range.clone()].to_owned();
     if source::digest(before.as_bytes()) != expected {
@@ -892,6 +996,61 @@ fn structural(
             ));
         }
     }
+    // The restructured identity; its range is refreshed for the guard after
+    // earlier edits shift offsets.
+    let mut subject = citations::Subject {
+        document: entry.document.clone(),
+        path: entry.path.clone(),
+        range: entry.range.clone(),
+        root_id_retained: name.is_some() && (canonical.is_none() || title_only),
+        descendant_ids_retained: name.is_some(),
+    };
+    let rewrite_plan = if rewrite {
+        let destination = if let Some(heading) = new_heading.as_ref() {
+            let mut path = entry.path.clone();
+            if let Some(last) = path.last_mut() {
+                last.clone_from(heading);
+            }
+            restructure::Destination {
+                document: entry.document.clone(),
+                path,
+                id: canonical.map(|_| heading_id(heading).to_owned()),
+                keeps_suffix: true,
+                start: None,
+            }
+        } else {
+            let redirect = redirect.ok_or_else(|| {
+                WriteError::semantic("write.redirect_required", "redirect is required")
+                    .at("redirect")
+            })?;
+            let e = resolve(working, redirect)?;
+            let id = native_document_prefix(&e.document)
+                .filter(|prefix| fields::typed_id(heading_id(&e.heading), prefix))
+                .map(|_| heading_id(&e.heading).to_owned());
+            restructure::Destination {
+                document: e.document.clone(),
+                path: e.path.clone(),
+                id,
+                keeps_suffix: false,
+                start: Some(e.range.start),
+            }
+        };
+        Some(restructure::rewrite_structural(
+            working,
+            &subject,
+            &audit_names,
+            destination,
+            name.is_none(),
+            restructure::Audit {
+                session,
+                turn,
+                signal,
+                provenance,
+            },
+        )?)
+    } else {
+        None
+    };
     let mut ref_seen = BTreeSet::new();
     for reference in references {
         let referred = resolve(working, &reference.target)?;
@@ -970,6 +1129,10 @@ fn structural(
             continue;
         };
         if working.is_allowed_document(&path)? {
+            if rewrite_plan.is_some() {
+                // The typed inventory guard below replaces the textual one.
+                continue;
+            }
             let remaining = if path == entry.document {
                 if name.is_some() {
                     format!(
@@ -1006,6 +1169,18 @@ fn structural(
             historical.push(path);
         }
     }
+    let skipped = if let Some(plan) = &rewrite_plan {
+        subject.range = entry.range.clone();
+        restructure::guard(
+            working,
+            &subject,
+            &audit_names,
+            name.is_none().then(|| entry.range.clone()),
+            &plan.produced,
+        )?
+    } else {
+        Vec::new()
+    };
     if name.is_none() && destination.is_none() && (!historical.is_empty() || !references.is_empty())
     {
         return Err(WriteError::semantic(
@@ -1127,6 +1302,12 @@ fn structural(
     );
     result.target = destination.or_else(|| Some(format!("{}:{old}", entry.document)));
     result.turn = Some(turn);
+    if let Some(plan) = rewrite_plan {
+        restructure::verify(working, &plan)?;
+        result.rewritten_references = plan.rewritten;
+        result.historical_citations = plan.history;
+        result.skipped_references = skipped;
+    }
     Ok(result)
 }
 
@@ -1145,9 +1326,17 @@ fn taste(
             "Inline taste applies only to claims and heuristics",
         ));
     }
+    let mut record = record.clone();
     let object = record
-        .as_object()
+        .as_object_mut()
         .ok_or_else(|| WriteError::semantic("write.taste_record", "Taste needs an object"))?;
+    if !object.contains_key("date") {
+        // An inline taste row carries a date, not a timestamp: the UTC date of
+        // the captured batch time.
+        let date = working.clock_time()?[..10].to_owned();
+        object.insert("date".into(), Value::String(date));
+    }
+    let object = &*object;
     for key in object.keys() {
         if !matches!(key.as_str(), "date" | "tag" | "object" | "comment") {
             return Err(WriteError::semantic(
@@ -1374,17 +1563,51 @@ pub fn plan(
             provenance,
             note,
             expected,
-        } => revise(
-            working,
-            target,
-            set,
-            session,
-            *turn,
-            signal,
-            provenance,
-            note.as_deref(),
-            expected.as_deref(),
-        ),
+            rewrite_references,
+            references,
+            action,
+            split_into,
+        } => {
+            let session = session.as_deref().ok_or_else(missing_owner)?;
+            let turn = turn.ok_or_else(missing_owner)?;
+            if *rewrite_references
+                || !references.is_empty()
+                || action.is_some()
+                || !split_into.is_empty()
+            {
+                restructure::revise_restructure(
+                    working,
+                    restructure::Restructure {
+                        target,
+                        set,
+                        audit: restructure::Audit {
+                            session,
+                            turn,
+                            signal,
+                            provenance,
+                        },
+                        note: note.as_deref(),
+                        expected: expected.as_deref(),
+                        rewrite: *rewrite_references,
+                        references,
+                        action: action.as_deref(),
+                        split_into,
+                    },
+                )
+            } else {
+                revise(
+                    working,
+                    target,
+                    set,
+                    session,
+                    turn,
+                    signal,
+                    provenance,
+                    note.as_deref(),
+                    expected.as_deref(),
+                )
+            }
+        }
         WriteOperation::EntryRename {
             target,
             name,
@@ -1394,6 +1617,7 @@ pub fn plan(
             turn,
             signal,
             provenance,
+            rewrite_references,
         } => structural(
             working,
             target,
@@ -1405,6 +1629,7 @@ pub fn plan(
             signal.as_deref(),
             provenance.as_deref(),
             None,
+            *rewrite_references,
         ),
         WriteOperation::EntryRemove {
             target,
@@ -1415,6 +1640,7 @@ pub fn plan(
             signal,
             provenance,
             redirect,
+            rewrite_references,
         } => structural(
             working,
             target,
@@ -1426,6 +1652,7 @@ pub fn plan(
             signal.as_deref(),
             provenance.as_deref(),
             redirect.as_ref(),
+            *rewrite_references,
         ),
         WriteOperation::EntryTasteAppend { target, record } => taste(working, target, record),
         WriteOperation::EntryAnnotate {
@@ -1445,6 +1672,7 @@ pub fn plan(
 /// newly introduced dangling dependencies, plan-proof links and conflicts.
 pub fn validate_references(working: &WorkingArtifact) -> Result<(), WriteError> {
     validate_claim_retention(working)?;
+    history_refs::validate_history(working)?;
     validate_registry_removals(working)?;
     validate_retired_origins(working)?;
     validate_new_annotations(working)?;
@@ -2403,24 +2631,6 @@ fn native_id_document(id: &str) -> Option<&'static str> {
     ]
     .into_iter()
     .find_map(|(prefix, document)| fields::typed_id(id, prefix).then_some(document))
-}
-
-fn joined_heading_path<S: AsRef<str>>(path: &[S], text: &str) -> bool {
-    let mut offset = 0;
-    for (index, part) in path.iter().enumerate() {
-        if index > 0 {
-            if text.as_bytes().get(offset) != Some(&b'/') {
-                return false;
-            }
-            offset += 1;
-        }
-        let part = part.as_ref();
-        if !text[offset..].starts_with(part) {
-            return false;
-        }
-        offset += part.len();
-    }
-    offset == text.len()
 }
 
 fn locator_parts(reference: &str) -> Option<(&str, Option<&str>, bool)> {

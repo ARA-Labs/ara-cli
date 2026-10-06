@@ -2795,7 +2795,7 @@ pub(crate) fn apply(
     Ok(())
 }
 
-fn candidate_snapshot(working: &WorkingArtifact) -> ArtifactSnapshot {
+pub(crate) fn candidate_snapshot(working: &WorkingArtifact) -> ArtifactSnapshot {
     let mut snapshot = working.base.clone();
     for (path, bytes) in &working.files {
         snapshot.files.insert(

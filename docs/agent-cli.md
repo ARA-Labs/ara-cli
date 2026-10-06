@@ -43,8 +43,8 @@ ara -C ./ara find 'failure boundary' --limit 10 --full --json
 | `ls` | Source-order entries; intersecting type, subtree, date, status and provenance filters | No arguments: one line per knowledge document with entry counts by kind (or heading count) and line count, then the direct-file roots. `ls <path>`: that document's entries, or its heading addresses when it has none. Filters: matching entries |
 | `show` | Entry projection, relations via `--with`, full body or bounded native document; `--lines A:B` windows and `--max-bytes` budgets | One labeled block per selection: native source with its `source_digest`, or a projection without a digest; 16 KiB budget, paged at whole lines |
 | `path` | Root-to-node nesting, with cross-edges kept distinct | Root-to-node IDs, indented by depth |
-| `refs` | Typed references with source spans, separately reported possible prose mentions | Referencing ID, field, `source:line`, literal; prose mentions labeled as possible |
-| `open` | Unfinished questions/experiments, unpromoted observations and active continuity | Address, kind, reasons, title |
+| `refs` | Typed references with source spans, separately reported possible prose mentions; classified by the writer's citation rules ([Citation repair](#citation-repair-for-restructures)) | Referencing ID, field, `source:line`, literal; prose mentions labeled as possible |
+| `open` | Unfinished questions/experiments, unpromoted observations and active continuity; observation rows add measured inactivity ([below](#observation-inactivity-in-open)) | Address, kind, reasons, title; observation rows end with `turns=… days=… last_reference=… history=…` |
 | `find` | Stateless keyword ranking over loaded knowledge | Ranked addresses with one-based source lines; `--context N` adds merged context |
 | `resolve` | Resolve a qualified imported identity through the portable identity records | The resolved ID |
 
@@ -56,6 +56,107 @@ or lock failure. `--fields` projects supported fields while retaining
 transaction/result identity. JSON excerpts are bounded to 160 Unicode
 characters; `--full` retains source content. Incomplete source representation
 must not be reported as success.
+
+### Observation inactivity in `open`
+
+Every observation row of `ara.open/v1` adds these fields to its existing ones
+(plan 19 D1). The envelope and the other fields do not change.
+
+| Field | Meaning |
+|---|---|
+| `turns_since_reference` | Fully logged turns strictly after the latest attributable reference, through the latest provably ordered turn; `null` when unknown |
+| `session_days_since_reference` | Distinct later written dates with at least one logged turn; `null` when unknown |
+| `last_reference_turn` | `session#turn` of that reference, when turn order proves which one is latest |
+| `last_reference_date` | Written date the day count starts after |
+| `reference_basis` | `structured`, `literal`, `staging_timestamp`, or `null` |
+| `evidence_sources` | Every matched occurrence: `source`, `line`, `field`, `session`, `turn`, `date`, `basis`, `literal`, `target`, `status` (`attributed`, `unresolved`, or `before_staging` for a reference stamped before the staging instant), optional `resolved_via` |
+| `history_status` | `complete` (both counts known), `missing` or `ambiguous` |
+| `history_diagnostics` | Why a count is `null`: `code`, `status`, `message`, `count` (occurrences; a range of unstamped turns counts every turn), up to three `examples` |
+
+A reference is the observation's exact ID, or the exact ID of a node in its
+`bound_to`, either as a typed `id`/`entry` field of a turn row (`structured`)
+or as an exact token in caller-written turn text (`literal`). `O011`, `XO01`,
+`peer:O95`, `results/O95.csv` or a topic word are not local references.
+The CLI uses the read model's complete-token boundaries; it does not decide
+whether a topic was semantically revisited. The five-turn topic-abandonment
+rule stays the caller's judgment.
+
+The timeline comes from the session records, the per-turn stamps (a session's
+`last_turn` for its latest turn and the archived `session_metadata` in
+`trace/pm_reasoning_log.yaml` for each turn) and, for imported occurrences,
+`trace/aliases.yaml` plus the captured revisions in `trace/merge_log.yaml`.
+It never uses numeric IDs, file times, index totals or
+lexical session order. Turn text is the turn's typed rows (`events_logged`,
+`ai_actions`, `claims_touched`, `logic_revisions` `entry`/`note`,
+`key_context`), the summary and new `open_threads`/`ai_suggestions_pending`
+items that turn wrote (the first turn also owns the summary the session was
+started with), and its reasoning notes. Generated counters, the session index,
+unchanged archived copies, revision `before`/`after` values and
+`observation.mark_stale` evidence records are not references.
+
+- **Turn order.** Within a session the turn number orders turns and the stamps
+  must agree. Sessions are ordered only when their turn intervals are separated
+  by instant. Overlapping intervals, equal timestamps across sessions, a turn
+  without a stamp, a legacy record without turn identities, a session named in
+  the reasoning log or index without a record, contradictory metadata
+  (including a reasoning entry naming a turn beyond the session's
+  `turn_count`, or a session that archives its turns but claims more than
+  its archive and `last_turn` reach), or an
+  unresolved imported literal make the affected turn count `null`. Overlap
+  entirely before the latest reference does not.
+- **Starting point.** The latest attributable reference. The structured
+  staging event (`events_logged` row with the O ID) is itself one. A
+  reference whose turn is stamped strictly before the staging `timestamp`
+  predates the observation: it is listed as `before_staging` and counts for
+  neither turns nor days; one at the same instant is the staging turn. With a
+  date-only staging timestamp, a reference on an earlier date is
+  `before_staging`, and a latest reference on the staging date itself makes
+  the turn count `null` (`history.staging_position`); days still count after
+  the staging date. Without any
+  reference the staging `timestamp` is used (`staging_timestamp`): only turns
+  provably after that instant count, and a turn with the same instant or a
+  date-only timestamp makes the turn count `null`. No reference and no
+  timestamp make both counts `null` (`history.creation_evidence_missing`).
+- **Days.** Counted separately from turns: the later of the latest reference
+  date and the staging date, then each later date with a logged turn. Empty
+  sessions and calendar dates without a logged turn do not count. Overlapping
+  sessions (concurrent agents, see plan 14) leave the day count known. It is
+  `null` when a logged turn has no date, a reference has no attributable
+  date, an unresolved literal may fall after the start, a session's
+  `turn_count` is unreadable (whether it logged a turn is unknown), or
+  reference-bearing aliases/import origins cannot be authenticated.
+- **YAML aliases.** A reference-bearing alias makes both counts `null`
+  with `history.reference_alias`; stale writes refuse unknown history.
+  The collector does not silently treat aliased text as empty.
+- **Imported literals.** Captured source rows and occurrence mappings in the
+  strict merge ledger establish each field's origin. Preserved imported text
+  follows its source-key alias (`resolved_via: "alias:<source>:<original>"`);
+  already-relocated tokens and native rows appended after import keep local
+  identity. The enclosing session's import does not redirect native text.
+  A repeated import uses the newest same-source session capture for mutable
+  metadata and rolling fields. Older captures still prove append-only rows;
+  competing source keys remain independent proof and must agree.
+  If the newest capture omits a mutable field but a committed conflict retains
+  it locally, its imported boundary remains; surviving text without current
+  value proof is unknown, not native.
+  Missing or conflicting capture proof makes both counts unknown
+  (`history.origin_unknown`), including legacy alias-only imports.
+
+`stale_observation` stays in `reasons` whenever the stored flag is `true`,
+whatever the current history proves, and is added when a known day count is 3
+or more. `open` never promotes, discards or marks anything stale. The history is
+computed only when the artifact has observations, from the sources this read
+already loaded plus the raw bytes of `trace/aliases.yaml` (an undecodable
+ledger is `history.alias_invalid`, not a read failure). A session's turns are
+held as a count plus the stamps actually recorded, so a huge `turn_count`
+costs nothing, and every turn total uses checked arithmetic (overflow is
+`history.contradictory`, never a saturated count). It takes no lock and opens no write
+state. Codes: `history.invalid_source`, `history.alias_invalid`,
+`history.legacy_session`, `history.turn_stamp_missing`, `history.contradictory`,
+`history.session_missing`, `history.overlap`, `history.undated_turn`,
+`history.reference_undated`, `history.reference_turn_unknown`,
+`history.unresolved_reference`, `history.creation_evidence_missing`,
+`history.staging_position`.
 
 ### Brief text output
 
@@ -387,6 +488,10 @@ not report them (`ARA004` covers only unspaced dashes).
 
 Convenience commands cover `add node`, `add edge`, `edit`, `claim add/set`,
 `heuristic add/set`, `stage`, `promote`, `session start/log`, and `link --same-as`.
+`session log` without `--session` asks the writer to select or create the
+session and therefore requires `--summary`; omitted `--timestamp`/`--started`
+values come from the writer's locked clock (see
+[One clock value per batch](#one-clock-value-per-batch)).
 `apply` exposes the complete typed operation contract in
 [`write/mod.rs`](../crates/ara-core/src/write/mod.rs).
 
@@ -422,20 +527,219 @@ payload names cannot be silently rewritten into this creation contract.
 | `logic.revise`, `entry.rename`, `entry.remove` | Audit mutable changes and structural identity transitions |
 | `artifact.init` | Initialize the `compiler` or `research-manager` seed profile |
 
-New fields preserve native scalar/list forms. Named concepts must already
-exist or resolve through an authenticated alias. Claims are retained in audited
-withdrawal/merge states or renamed canonically; physical claim deletion is not
-allowed. Compiler heuristics retain singular scalar `Source` and complete Bounds
-prose without inventing PM fields. Extra knowledge documents are bounded by
-native registration/allowlists; arbitrary filesystem writing is not an operation.
-`knowledge_paths` rejects `rubric/`, `evidence/` and `src/` entries, and no
-operation creates, edits, renames or removes a `rubric/` document or `R` entry.
-A compiler writes `rubric/requirements.md` as a plain file.
+New fields preserve native scalar/list forms.
+
+A block created by `claim.add` or `heuristic.add` (including a promotion to a
+claim or heuristic) lists only the supplied fields, in a fixed schema order,
+whatever the input order or the layout of nearby entries:
+
+| Entry | Field order |
+|---|---|
+| Claim | Statement, Conditions, Sources, Status, Provenance, Falsification, Proof, Evidence basis, Dependencies, Tags |
+| Heuristic | Rationale, Source, Sources, Status, Provenance, Sensitivity, Bounds, Code ref, Tags |
+
+`Falsification criteria` is accepted as input, and a new block writes the
+schema label `Falsification`. Existing blocks, including their label spellings
+and list styles, are not reformatted. `Last revised` and `Merged into` belong
+to `logic.revise` and are rejected at creation.
+
+A single-line value with no leading or trailing whitespace is written inline
+(`- **Status**: supported`) when the field reader returns exactly that text. Empty,
+multiline (LF or CRLF) and padded values use the indented continuation form,
+which keeps every caller byte, including a final newline. When the target file
+uses CRLF, the blank-line separator, the heading line and inline field lines end
+with CRLF; a continuation-form field keeps LF structure, the only form the
+continuation reader decodes, around the exact caller bytes. A new or LF file
+gets LF throughout. Bytes before the block do not change. Dependencies are
+written as `[]` or `[C03, C04]`. Other lists (Proof, Sources, Tags, Code ref)
+stay compact JSON arrays such as `["x"]`: the readers keep these fields as text,
+so a comma-joined list would not decode back to the same list. A scalar is
+written as given, so `Tags=evaluation, experimental-design` stays one exact
+string. IDs inside a list value still count as references: `Proof=["E01","E03"]`
+projects `proof` as `[E01, E03]`, and a dangling ID inside Proof or Sources
+rejects the write.
+
+Named concepts must already exist or resolve through an authenticated alias.
+Claims are retained in audited withdrawal/merge states or renamed canonically;
+physical claim deletion is not allowed. Compiler heuristics retain singular
+scalar `Source` and complete Bounds prose without inventing PM fields. Extra
+knowledge documents are bounded by native registration/allowlists; arbitrary
+filesystem writing is not an operation. `knowledge_paths` rejects `rubric/`,
+`evidence/` and `src/` entries, and no operation creates, edits, renames or
+removes a `rubric/` document or `R` entry. A compiler writes
+`rubric/requirements.md` as a plain file.
 
 Trace and staging content is immutable except for declared pointer/metadata
 transitions. Terminal nodes cannot acquire children. `same_as` points from a
 later node to a provably earlier existing node using recorded time or actual
 creation order; numeric IDs and preorder do not establish chronology.
+
+### Citation repair for restructures
+
+Plan 19 C1 lets four restructures repair the current citations of the
+entry they change, inside the same transaction and through the same audit
+path as a caller-written edit:
+
+| Restructure | Operation | Caller supplies |
+|---|---|---|
+| Rename | `entry.rename` with `rewrite_references: true` | `target`, `name`, entry-span `expected`, audit context |
+| Claim merge | `logic.revise` with `rewrite_references: true` | `set` with `Status: withdrawn` and `Merged into: <live claim>` |
+| Removal with replacement | `entry.remove` with `rewrite_references: true` | an explicit existing `redirect` (claims still cannot be removed) |
+| Claim split | `logic.revise` with `action: "split"`, `split_into`, `references` | spin-offs created earlier, one row per current citing field |
+
+`rewrite_references` and explicit `references` are mutually exclusive on one
+operation (`write.reference_mode`). A merge may instead list explicit
+`references` rows (see the row rule under **Split**); each must move the
+source's citations in that field to the survivor.
+
+**Shared rules.** `ara refs` and the writer classify citations with the same
+rules (`ara_core::write::citation_rules` and the writer's citation
+inventory): one table of reference-bearing Markdown fields, one set of
+historical sources, and one rule for protected spans. For a claim,
+heuristic, experiment plan or concept target, `refs` lists exactly the
+Markdown citations the writer's inventory finds, so what `refs` shows in a
+rewritable field is what a restructure repairs.
+
+| Markdown field | Listed by `refs` | Rewritten by C1 |
+|---|---|---|
+| `Dependencies`, `Proof`, `Sources`, `Claims affected`, `Related` / `Related concepts`, `Merged into`, `Evidence output`, `Code ref` | yes | yes, where the entry's schema accepts the field |
+| `Depends on`, `Deps`, `Promoted from`, `Last revised` (read-only aliases) | yes | no: a `read_only_field` mention |
+
+Historical sources, read the same way by both: the exploration tree
+(`parent`, `evidence`, `also_depends_on`, `same_as`, `concepts`,
+`source_refs`, artifact `pointer`s, annotation `references`, child IDs),
+observations (`bound_to`, `promoted_to`, `crystallized_via`), taste
+`target`s, `trace/aliases.yaml` alias `target`s, reasoning-log `turn`s, the
+session index, session rows (`events_logged` `id`/`target`,
+`claims_touched` `id`, `logic_revisions` `entry`, `ai_actions`
+`files_changed`) and the mutation ledger. Reasoning turns, the index, child
+IDs and the ledger describe identity bookkeeping, not citations, so the
+writer does not validate them as historical citations. A tree `concepts`
+name cites a concept only when it resolves to exactly one concept heading
+(leaf text or full heading path); `refs` lists nothing for an ambiguous name
+and a restructure of one of its candidates refuses.
+
+**What is rewritten.** The writer builds a typed inventory of the current
+mutable Markdown: in each native entry it reads only the accepted reference
+fields `Dependencies`, `Proof`, `Sources`, `Claims affected`, `Related`
+(`Related concepts`), `Merged into`, `Evidence output` and `Code ref`, where
+that entry's schema accepts the field. Inside a field it parses native ID
+tokens (with the read model's boundaries), qualified locators
+`document:ID`, `document#ID`, `document#<leaf heading>` or
+`document#<full heading path>`, and in `Related` comma-separated concept
+names. Tokens inside quotes, backticks, fenced code or HTML comments are
+protected, as in merge rewriting: they are never rewritten or listed by
+`refs`, and they count as `protected` mentions. A value that is exactly a
+JSON array of strings is a native list: only the outer item quotes are list
+syntax. Quotes and backticks inside each item remain protected, and an item
+with an escape sequence stays wholly protected. A token counts only when it
+resolves to exactly one heading of the subject (or of its subtree), directly
+or through an authenticated claim
+redirect (a retired alias). The longest spelling that ends at a delimiter
+wins; a multi-word heading followed by more words is prose. Each rewrite
+replaces only those token bytes and keeps quotes, prose, list delimiters and
+the spelling style (bare ID, qualified ID, path with the same number of
+segments, bare name). Afterwards every new spelling must resolve to exactly
+its destination, or the operation fails with `write.reference_rewrite`.
+
+**What is never rewritten.** PAPER frontmatter, other registered documents,
+headings, prose, fields outside the list above, unknown fields, inline values
+followed by unindented prose lines, and every historical record: tree
+`evidence`, `parent`, `also_depends_on`, `same_as`, `concepts`,
+`source_refs`, artifact pointers and annotations, observation `bound_to`,
+content and promotion tuples, prior session rows, reasoning, taste, the
+mutation and merge ledgers and archived before/after payloads. Possible
+mentions are reported in the operation result as `skipped_references`, each
+with `document`, `heading`, `field`, one-based `line`, `literal` and
+`reason` (`prose`, `heading`, `untyped_field`, `unknown_field`,
+`read_only_field`, `protected`, `unparsed`, `ambiguous`).
+
+**Renames and removals.** The existing dangling-reference guard still
+applies, now computed from the inventory: after the repairs, any remaining
+non-heading mention of the old identity refuses the operation with
+`write.dangling_reference` and lists every location in the error's
+`details.locations`. A skipped citation is never permission to leave a
+broken identity. One deliberate difference from the textual guard: a parsed
+token in a reference field that resolves to a *different* entry is not a
+mention. Renaming `Group A/Term` therefore leaves
+`Sources: logic/concepts.md#Group B/Term` alone and is not blocked by it,
+while the explicit-`references` path keeps the textual guard and still
+counts the `Term` inside that locator. Typed historical citations of the old identity are recorded
+and, at final validation, must resolve through the retained entry or the
+appended authenticated `trace/logic_mutations.yaml` mapping, both by the
+writer's redirect chain and by the read side's identity index that `show`
+and `refs` consult (`write.history_unresolved` otherwise, reported on the
+restructure's line even when a later operation broke the chain). The read
+side checks each citation's literal spelling, not only a normalized
+selector: a scalar locator must resolve the way `show` resolves it. The
+result lists the checked citations as `historical_citations` (`source`,
+`field`, `literal`). `show` follows an authenticated mapping for every
+spelling of a retired heading: the canonical `path#h/...` address, a legacy
+`path#A/B` joined-path locator (any suffix of the old vector) and the
+mapping's own `path:A/B` origin all read the renamed section. The read-side index keys a two-heading concept path by its leaf
+(`logic/concepts.md#Term`); when that key belongs to a different live entry,
+a retired origin now keeps its exact heading vector instead of colliding with
+it, and a retired suffix alias never shadows a live identity. A historical citation that is
+ambiguous between the subject and another entry (for example
+`logic/concepts.md#Term` with two `Term` leaves) refuses the restructure,
+because changing one heading would silently re-point it. A removal needs a
+`redirect`; a bare-ID citation cannot point at an unnumbered destination and
+a concept name cannot leave `logic/concepts.md` (`write.reference_rewrite`).
+An entry that would come to cite itself (the survivor or redirect already
+cites the subject) is refused; revise it explicitly first.
+
+**Merge.** The source claim is retained with its `Status: withdrawn` and
+`Merged into` relation, so prose mentions stay valid and are only listed.
+The survivor must be a different live claim (`write.merge_survivor`) that
+is not already merged, directly or transitively, into the source
+(`write.redirect_cycle`). Claims previously merged into the source move to
+the survivor too.
+
+**`expected` on a merge or split** keeps the meaning it has for a `Body`
+revision: the digest of the selected heading body, which `show` prints as
+`source_digest` (JSON `digest`). It is optional for a merge or split, required
+for `Body`, and rejected for other field revisions. `entry.rename` and
+`entry.remove` keep their separate entry-span digest.
+
+**Split.** `action: "split"` and a nonempty `split_into` of exact selectors
+come together (`write.split`). Destinations are distinct existing claims
+other than the primary (`write.split_destination`); a spin-off created
+earlier in the batch qualifies, a forward binding does not. Every current
+citing field of the primary, spin-offs included, needs exactly one
+`{target, field, before, after}` row with the exact current `before`
+(`write.split_unclassified` lists the missing ones). A row's `after` must
+equal its `before` except that each unprotected citation of the primary is
+replaced; every other byte, including prose, quotes and other claims'
+citations, stays (`write.reference_mapping`). Each replacement names the
+primary or a declared spin-off (`write.split_destination`); keeping the
+primary unchanged is allowed and writes no audit row. Only list-typed values
+fan one citation out to several destinations, joined by the list separator:
+`Dependencies`, or a value that is a JSON array of strings before and after.
+In `Proof`, `Sources` prose and other mixed or scalar values each citation
+becomes exactly one destination; `Merged into` stays one claim
+(`write.reference_scalar`). Any other content change needs its own audited
+revision. The CLI never chooses which proposition a citer
+meant. The primary's own `set` must change it. `split_into[]` and
+`references[].target` accept earlier creation bindings through the normal
+ordered selector rules, including indexed errors for unknown/forward bindings.
+`after` stays literal text, so name its spin-offs by explicit IDs (`claim.add`
+with `id`). The primary's `logic_revisions` rows carry `action: split` and
+`split_into`; this is an additive, optional row shape.
+
+**Audit.** Every changed citing field gets one `logic_revisions` row with its
+exact decoded before and after, plus `Last revised`; the result lists them
+as `rewritten_references`. Rename and removal mappings append to
+`trace/logic_mutations.yaml` as before. Existing historical rows stay byte
+exact; only files that receive a new row grow. A failure anywhere in the
+batch, including the post-change spelling check and final validation, writes
+nothing, and a dry run persists nothing.
+
+Explicit merge and split repairs refuse newly introduced self-citations just
+as automatic repairs do (`write.reference_rewrite`). A deliberate content
+change must be a separate audited revision, not a citation-repair row.
+Historical structured heading arrays match literal path segments, including
+a one-element array containing `/`; only scalar locator/concept-name forms
+use slash-joined path matching.
 
 ## Batches, audit ownership and recovery
 
@@ -447,12 +751,242 @@ Dry-run identities and turns are tentative. The whole batch plans in one working
 snapshot and validates the declared source delta before any source commit.
 A later failure leaves source bytes unchanged and reports the failing line.
 
+### One clock value per batch
+
+A commit-mode writer reads the clock once, after it takes the artifact lock and
+recovers any prepared transaction, and before it plans. A dry run reads one
+tentative value without taking a lock; its time, IDs and turns are not reserved.
+That value, `batch_time`, is a UTC `YYYY-MM-DDTHH:MM:SSZ` timestamp. Every
+omitted value in the batch uses it:
+
+| Omitted value | Default |
+|---|---|
+| `node.add` `fields.timestamp` (also promotion-created dead ends) | `batch_time` |
+| `observation.stage` `timestamp` | `batch_time` |
+| `session.log` `timestamp` | `batch_time` |
+| `session.start` `started` / `date` | `batch_time` / the date written in `started` |
+| `record.append` to `trace/taste_log.yaml`, `record.timestamp` | `batch_time` |
+| `entry.taste_append` `record.date` | the UTC date of `batch_time` |
+| Session created for an omitted-`session` log, `started` / `date` | the log's timestamp / its written date |
+
+An explicit timestamp or date is kept exactly after validation. A log's
+effective timestamp is its supplied value or `batch_time`, and session
+selection uses the date written in that value, so `2026-10-04T23:30:00-05:00`
+belongs to 2026-10-04. Chronology checks compare instants. An explicit past
+session with an omitted timestamp therefore fails with a message that names
+both dates; the writer does not swap the session or backdate the clock.
+
+`add node`, `stage`, `promote`, `session start` and `session log` send omitted
+values to this same locked path. The CLI never chooses an ID, session or
+timestamp from an unlocked pre-read.
+
+### Owner anchor for omitted audit context
+
+A batch can leave audit context to its one `session.log`, the owner anchor:
+
+| Operation | May omit | Caller still supplies |
+|---|---|---|
+| `logic.revise` | `session`, `turn` | target, complete change, `signal`, `provenance`, preconditions |
+| `entry.rename`, audited `entry.remove` | `session`, `turn` | target, name, `expected`, `signal`, `provenance`, reference edits |
+| `paper.edit.audit`, `observation.mark_stale.audit` | `session`, `turn` in the supplied `audit` | `signal`, `provenance`, note; stale `reason` |
+| reasoning `record.append` | `record.turn` | complete `notes` |
+| `session.log` | `session`, `timestamp` | a nonempty `summary` |
+
+```jsonl
+{"op":"session.log","summary":"Revised C01 after the ablation"}
+{"op":"logic.revise","target":{"id":"C01"},"set":{"Statement":"..."},"signal":"empirical-resolution","provenance":"user"}
+```
+
+Rules:
+
+- The batch must contain exactly one `session.log`, and it must carry a
+  nonempty caller-written `summary`. With no log the first omitting line fails
+  with `write.owner_required`; with several, `write.owner_ambiguous`. A missing
+  summary fails at the log with `write.owner_summary`.
+- The anchor must come before every operation that omits context
+  (`write.owner_order` otherwise). Its session is resolved and its next turn
+  reserved at its own line, from the locked snapshot and earlier operations
+  only. An earlier `session.start` can bind `$s` for it; unknown, forward,
+  duplicate and wrong-kind bindings still fail at their own line.
+- An explicit `session` or `turn` on an omitting operation must equal the
+  anchor's session and reserved turn (`write.owner_mismatch`). The writer never
+  overrides it or attaches a change to an earlier turn.
+- Revision rows, pending audits and operation-derived session rows (below) are
+  attached after all ordered operations succeed, then the complete candidate
+  is validated.
+- No `session.log` is ever added because an operation needs a turn. Standalone
+  writes without audits stay possible and create no session.
+
+If the anchor omits `session`, the writer picks the session itself:
+
+- One open session dated on the log's date: it is selected.
+- None: a new session is created with the log's summary, timestamp and date.
+- Several: `write.session_ambiguous`, listing their IDs.
+- Closed sessions are never selected or reopened.
+
+The common case is work that runs past midnight UTC. If yesterday's session is
+still open, the writer creates today's session and leaves yesterday's open. The
+report lists it in an additive `open_sessions` field so the caller can close it
+on purpose. To continue yesterday's session, name it and give a timestamp on
+its date. The `session.log` operation result reports `session_created: true`
+when it created the session, and operations that took their owner from the
+anchor report `session` and `turn`.
+
+Fully explicit batches keep their order freedom: a revision may come before its
+owning log when it names a valid new turn, and several logs are allowed when
+every audited operation names its own session and turn. An operation with
+omitted context in a multi-log batch is an error, never a guess based on line
+proximity.
+
+An empty batch writes nothing. A batch of no-op operations with no
+`session.log` creates no turn or history. An explicit `session.log` is a
+requested turn even if everything else is a no-op, and no-op mutations add no
+revision rows.
+
+### Operation-derived session rows
+
+A batch that contains a `session.log` gets the mechanical rows of its turn
+from the operations that succeeded. The caller no longer repeats them.
+
+| Successful operation | `events_logged` row | `claims_touched` row |
+|---|---|---|
+| `node.add` | new N ID, the node type, `direct` | none |
+| `observation.stage` | new O ID, `observation`, `staged` | none |
+| `claim.add`, `heuristic.add` | new C/H ID, `claim`/`heuristic`, `direct` | `created` for a claim |
+| `observation.promote` to claim, heuristic or dead end | new C/H/N ID, destination type, `crystallized` | `crystallized` for a claim |
+| `observation.promote` to concept, constraint or architecture | source O ID, destination type, `crystallized`, `target` | none |
+| `logic.revise`, or a rename's reference repair, that changes a claim | none | `revised` (also when a plain revision sets `Merged into`) |
+| C1 merge (`rewrite_references` or `references` with `Merged into`) or split (`action: "split"`) | none | `merged` / `split` for the source or primary claim; repaired citers `revised` |
+
+- **Summary and provenance.** A derived event's `summary` is the operation's
+  `title`, or the observation's complete `content`, copied without
+  truncation. Its `provenance` is the operation's own: `fields.provenance` on
+  `node.add`, `Provenance` on claims and heuristics, `provenance` on staging,
+  and the destination's supplied or inherited value on promotion. A creation
+  with no valid provenance fails at its own line with
+  `write.event_provenance`, unless the caller supplies its event row.
+- **`target`.** A promotion to a named section has no numeric ID, so its event
+  names the source observation and adds
+  `target: {document: <canonical document>, heading: [<section>]}`. The field
+  is additive and optional: older rows without it keep their meaning. A
+  supplied `target` needs `crystallized` routing and must resolve to the exact
+  entry the row names. For an observation, its type must be concept,
+  constraint or architecture and the observation's `promoted_to` must point at
+  that heading; otherwise `write.event_target`.
+- **Which turn.** With one log, every eligible operation belongs to its turn,
+  wherever the log appears and whether its session is explicit, selected or
+  created. With several logs, a new entry belongs to the one log whose
+  `events` or `claims_touched` row names it. No naming row, or rows in two
+  logs, is `write.owner_ambiguous`. A claim change belongs to the turn the
+  revision names. With no log, nothing is derived, and a no-op operation
+  derives nothing.
+- **Caller rows win on words, not facts.** Event identity is the turn plus
+  `(id, routing, target)` after resolving `target`; an absent `target` matches
+  a numeric-ID destination, and a supplied one must select the same entry. A
+  caller row with the same identity as a derived row keeps its summary
+  verbatim and suppresses the derived one, but must agree on type and
+  provenance. Any caller row that names an entry this batch created or
+  promoted must match one of that operation's facts, so it cannot relabel the
+  routing or drop the target. These fail with `write.event_conflict`.
+- **Duplicates.** Identical repeated rows are written once. Two different rows
+  with one identity fail with `write.event_conflict` naming both inputs.
+- **Claim judgments.** Touch identity is `(claim, action)`. `created` and
+  `crystallized` must match the operation that made the claim; labeling a
+  revised existing claim `created` also fails. A caller judgment (`revised`,
+  `advanced`, `weakened`, `confirmed`, `refuted`, `withdrawn`, `merged` or
+  `split`) for a claim changed in the turn replaces the generic `revised` row.
+  Beyond the vocabulary, only two checks apply, both against explicit Status
+  changes written in the same turn. First, when the turn changes that claim's
+  Status, a judgment naming a terminal status must match one of the written
+  values: `confirmed` needs a change to `supported`, `refuted` a change to
+  `refuted`, and `withdrawn` or `merged` a change to `withdrawn`. `advanced`,
+  `weakened`, `revised` and `split` are not compared with Status values.
+  Without a Status change in the turn, only the vocabulary applies; the stored
+  Status is never consulted. Second, `confirmed` and `refuted` on the same
+  claim in one turn reject unless the turn has two distinct Status changes, one
+  to `supported` and one to `refuted`. Both fail with
+  `write.claim_touch_conflict`. A Status change to `supported` alone is only
+  `revised`. Judgments on claims the batch does not change keep the existing
+  vocabulary and reference checks.
+- **Body Status.** A complete Body replacement of one selected claim compares
+  that claim's own decoded Status before and after. A changed explicit Status
+  participates in the same judgment checks; unchanged Status and descendant
+  headings do not constrain the caller's judgment.
+- **Structural actions.** Without a caller judgment, every distinct explicit
+  merge/split action for the claim is derived once in operation order.
+  Structural actions suppress the generic `revised` row, not each other.
+- **Order.** Caller rows keep their order; derived rows follow in operation
+  order. Rows are inserted inside their own turn when one batch owns several
+  turns of a session. Earlier turns are never searched, replaced or deleted.
+
+A fully explicit request still validates every supplied row and receives any
+deterministic row it left out, so its meaning is kept, but its bytes, event
+counts and index rows can differ from the old binary's output. A
+whole-document `Body` revision of `logic/claims.md` derives no claim touch,
+because it does not name one claim; supply the rows. A plain `logic.revise`
+that sets `Merged into` derives `revised`; `merged` and `split` are derived
+only by the explicit merge and split operations of
+[Citation repair](#citation-repair-for-restructures). A caller judgment for
+that claim still replaces the derived row and is checked as above.
+
+Compatibility changes for requests that worked before 19c, all in batches
+with a `session.log`:
+
+- A `node.add` or `heuristic.add` without provenance needs its event row
+  (`write.event_provenance`).
+- A row for a promotion to a concept, constraint or architecture without
+  `target`, or a row `{type: observation, id: O.., routing: crystallized}`
+  naming a promotion's source observation, no longer stands in for the
+  promotion. It names a promoted entry but matches none of its facts, so it
+  rejects with `write.event_conflict`. Omit the row, or write the derived
+  identity with its `target`.
+- Any other caller row that disagrees with the operation it names, and two
+  different rows for one identity, reject (`write.event_conflict`,
+  `write.claim_touch_conflict`).
+- With several logs, every new entry must be named in exactly one of them
+  (`write.owner_ambiguous`).
+- Identical repeated rows are written once, and missing deterministic rows are
+  appended.
+
+Errors that involve two inputs carry the other one as `related_line` (the same
+physical-line numbering as `line`) and `related_field`. The CLI's
+`session log --node` still builds rows for existing nodes from their titles; it
+runs no operations, so nothing else is derived.
+
+### Session history and transactions
+
 Session logging retains complete events, actions, touched claims, revisions,
 context, threads and suggestions. Mutable logic revisions carry exact
 before/after source history, signal, provenance and the owning next session turn.
 Stale transitions need at least three distinct actual logged session days after
 last observation/bound-node use, a caller-supplied reason and an atomic owning
 `session.log` turn. They do not infer a scientific rationale from elapsed time.
+
+`observation.mark_stale` uses the same history as `open`
+([Observation inactivity](#observation-inactivity-in-open)), without the stale
+operation's own turn and its notes, and with days ending at the owning audit
+date (plan 19 D2):
+
+- **Omitted `session_days`.** The writer derives the sorted distinct eligible
+  logged dates after the latest attributable reference, up to the audit date,
+  and records that full list. Fewer than three fail with `write.observation`
+  at `session_days`.
+- **Supplied `session_days`.** A verified subset, kept exactly as written in
+  the evidence record. A repeated day, an invalid date, a day not after the
+  last reference, a day after the audit date, a day whose only turn is the
+  stale decision's own (or with no logged turn), and fewer than three distinct
+  days fail with `write.observation` at `session_days[i]` or `session_days`.
+  The list is never replaced.
+- **Unknown day evidence** (any reason a day count would be `null`) refuses the
+  write with `write.stale_history_unknown` at `session_days`, naming the
+  history diagnostics. Silence is never assumed.
+
+The evidence record keeps its fields (`session_days`, `last_reference`,
+`bound_to`, `signal`, `provenance`, `session_sources`, `audit`); validation
+recomputes it from the final candidate and rejects any difference. A refused
+write leaves every byte unchanged, and a dry run persists nothing. An existing
+`stale: true` is never cleared or re-derived, and an already stale observation
+is a no-op.
 Promotion creates its complete destination and forward pointers together;
 immutable original observation content and prior turns remain exact.
 
@@ -506,12 +1040,24 @@ Unknown/opaque source changes are evaluated explicitly rather than dropped from
 inventory or rewritten as regenerated normalized content. Ambiguous prose tokens
 and quoted historical values remain opaque and visible for review.
 
-`merge resolve <conflict> --take ours|theirs|base` requires an owning session,
-next turn, signal and provenance. Protected conflicts use the separate audited
-`merge repair --conflict-file ... --decision reject_incoming|restore_base
---expected-current ... --session ... --turn ... --signal ... --provenance ...
---reason ...` path with exact captured candidates/current fingerprint. Generic
-entry edits and mutable resolution cannot override immutable history.
+`merge resolve <conflict> --take ours|theirs|base --session ... --signal ...
+--provenance ...` records its decision in an owning session turn. Protected
+conflicts use the separate audited `merge repair --conflict-file ...
+--decision reject_incoming|restore_base --expected-current ... --session ...
+--signal ... --provenance ... --reason ...` path with exact captured
+candidates/current fingerprint. Generic entry edits and mutable resolution
+cannot override immutable history.
+
+Both commands are themselves the audit action, so they append their own turn
+without a JSONL anchor. `--session` stays required: they never select or create
+a session. Under the lock they resolve that open session and allocate
+`turn_count + 1` with the same allocator as `apply`. `--turn` is optional; when
+given it must equal that next turn. `--timestamp` defaults to the locked UTC
+clock, and `--summary` defaults to keeping the rolling summary, so a session
+from an earlier date needs an explicit timestamp on that date. The session
+turn, exact resolution audit, ledger decision, indexes and selected content
+commit as one transaction. Reports add the resolved `session` and `turn`. A
+conflict choice never implies a confirmed or refuted claim.
 
 Git mode resolves a local ref and merge base with the installed Git executable.
 It captures exact trees and blobs into temporary snapshots without changing
@@ -600,7 +1146,7 @@ Before this change, an artifact holding such a rename record failed
 a `rubric/` path now has an invalid registry, as one that registers `evidence/`
 already did.
 
-Workspace version is 0.1.24 for this integration. The minor/major release
+Workspace version is 0.1.25 for this integration. The minor/major release
 decision remains pending; no tag or release is implied by engineering checks.
 
 Core behavior affects wasm even when the embedded-viewer source hash does not.

@@ -1,9 +1,11 @@
 //! Agent reads over one complete native load and a borrowing graph index.
 use crate::output::{AgentError, excerpt};
 use ara_core::query::{QueryIndex, scan_tokens, token_may_refer};
+use ara_core::write::history;
+use ara_core::write::positions::YamlDocument;
 use ara_core::{Manifest, NodeFields, NodeKind, parse_dir_detailed};
 use serde_json::{Value, json};
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 use std::path::Path;
 pub(crate) mod address;
 mod boundary;
@@ -1005,10 +1007,17 @@ pub fn open(root: &Path, options: &ReadOptions) -> Result<Value, AgentError> {
     let artifact = Artifact::load(root)?;
     let index = QueryIndex::new(&artifact.manifest);
     let mut rows = Vec::new();
-    let history = SessionHistory::new(&artifact.manifest);
+    let history = SessionHistory::new(&artifact)?;
+    let sources = history.sources(&artifact);
+    let timeline = history::Timeline::build(
+        &sources,
+        history.aliases.as_deref(),
+        history.merge_log.as_deref(),
+    );
     let addresses = options.brief().then(|| artifact.entry_addresses());
     for entry in artifact.entries() {
         let mut reasons = Vec::new();
+        let mut inactivity = None;
         match entry {
             Entry::Node(n)
                 if n.kind == NodeKind::Question && index.children(n.id.as_str()).is_empty() =>
@@ -1022,9 +1031,24 @@ pub fn open(root: &Path, options: &ReadOptions) -> Result<Value, AgentError> {
                 if o.promoted != Some(true) {
                     reasons.push("unpromoted_observation");
                 }
-                if o.stale == Some(true) || history.stale(o.id.as_str(), o.timestamp.as_deref()) {
+                let measured = timeline.measure(
+                    &history::Subject {
+                        id: o.id.as_str(),
+                        bound_to: o.bound_to.iter().map(|id| id.as_str()).collect(),
+                        timestamp: o.timestamp.as_deref(),
+                    },
+                    history::Window::default(),
+                );
+                // A stored flag stays visible whatever the current history
+                // proves; a known day count of three or more is a hint only.
+                if o.stale == Some(true)
+                    || measured
+                        .session_days_since_reference
+                        .is_some_and(|days| days >= 3)
+                {
                     reasons.push("stale_observation");
                 }
+                inactivity = Some(measured);
             }
             _ => {}
         }
@@ -1034,10 +1058,13 @@ pub fn open(root: &Path, options: &ReadOptions) -> Result<Value, AgentError> {
         }
         if !reasons.is_empty() {
             let mut value = addressed(&addresses, entry, entry.value(options.full));
-            value
-                .as_object_mut()
-                .unwrap()
-                .insert("reasons".into(), json!(reasons));
+            let object = value.as_object_mut().unwrap();
+            object.insert("reasons".into(), json!(reasons));
+            if let Some(measured) = inactivity
+                && let Value::Object(fields) = measured.to_json()
+            {
+                object.extend(fields);
+            }
             rows.push(value);
         }
     }
@@ -1051,36 +1078,76 @@ fn contains_pending(value: &Value) -> bool {
         _ => false,
     }
 }
-struct SessionHistory<'a> {
-    days: Vec<&'a str>,
-    latest: BTreeMap<&'a str, &'a str>,
+/// The read side of the shared explicit-reference history
+/// (`ara_core::write::history`), built once per `open` and only when the
+/// artifact has observations. Session records, the session index and the
+/// reasoning log come from the sources this read already loaded;
+/// merge aliases and their captured occurrence ledger are read as raw bytes,
+/// so undecodable provenance makes inactivity unknown rather than failing
+/// the whole read.
+struct SessionHistory {
+    documents: Vec<(String, Result<YamlDocument, String>)>,
+    aliases: Option<Vec<u8>>,
+    merge_log: Option<Vec<u8>>,
 }
-impl<'a> SessionHistory<'a> {
-    fn new(manifest: &'a Manifest) -> Self {
-        let mut days = BTreeSet::new();
-        let mut latest = BTreeMap::<&str, &str>::new();
-        for session in &manifest.sessions {
-            if let Some(day) = session.date.as_deref() {
-                days.insert(day);
-                for token in scan_tokens(&session.body) {
-                    latest
-                        .entry(token.literal)
-                        .and_modify(|previous| *previous = (*previous).max(day))
-                        .or_insert(day);
-                }
+impl SessionHistory {
+    fn new(artifact: &Artifact) -> Result<Self, AgentError> {
+        if artifact.manifest.observations.is_empty() {
+            return Ok(Self {
+                documents: Vec::new(),
+                aliases: None,
+                merge_log: None,
+            });
+        }
+        let documents = artifact
+            .sources
+            .iter()
+            .filter(|(path, _)| history::is_history_path(path))
+            .map(|(path, text)| {
+                (
+                    path.clone(),
+                    YamlDocument::parse(text).map_err(|error| error.message),
+                )
+            })
+            .collect();
+        let aliases = match std::fs::read(artifact.root.join(history::ALIASES)) {
+            Ok(text) => Some(text),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
+            Err(error) => {
+                return Err(AgentError::io(format!(
+                    "Cannot read {}: {error}",
+                    history::ALIASES
+                )));
             }
-        }
-        Self {
-            days: days.into_iter().collect(),
-            latest,
-        }
-    }
-    fn stale(&self, id: &str, created: Option<&str>) -> bool {
-        let Some(created) = created.and_then(|date| date.get(..10)) else {
-            return false;
         };
-        let last = self.latest.get(id).copied().unwrap_or(created).max(created);
-        self.days.len() - self.days.partition_point(|day| *day <= last) >= 3
+        let merge_log = match std::fs::read(artifact.root.join(history::MERGE_LOG)) {
+            Ok(bytes) => Some(bytes),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
+            Err(error) => {
+                return Err(AgentError::io(format!(
+                    "Cannot read {}: {error}",
+                    history::MERGE_LOG
+                )));
+            }
+        };
+        Ok(Self {
+            documents,
+            aliases,
+            merge_log,
+        })
+    }
+    fn sources<'a>(&'a self, artifact: &'a Artifact) -> Vec<history::Source<'a>> {
+        self.documents
+            .iter()
+            .map(|(path, parsed)| history::Source {
+                path,
+                text: artifact.sources[path].as_str(),
+                root: parsed
+                    .as_ref()
+                    .map(|document| &document.root)
+                    .map_err(Clone::clone),
+            })
+            .collect()
     }
 }
 pub fn validate_date(date: &str) -> Result<(), AgentError> {

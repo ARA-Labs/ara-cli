@@ -309,6 +309,33 @@ pub fn decode_field<'a>(field: &MarkdownField<'a>) -> std::borrow::Cow<'a, str> 
     std::borrow::Cow::Borrowed(field.value)
 }
 
+/// Source byte offset of byte `decoded` of [`decode_field`]'s value, taking
+/// the same branch: the two-space continuation form drops two indentation
+/// bytes per line after the leading newline; every other value is the
+/// trimmed `field.value`, which maps from `value_range.start`.
+pub fn decoded_to_source(field: &MarkdownField<'_>, decoded: usize) -> usize {
+    let raw = field.raw_value;
+    let leading = raw.len() - raw.trim_start().len();
+    let raw_start = field.value_range.start.saturating_sub(leading);
+    if let Some(rest) = raw.strip_prefix('\n') {
+        let rest = rest.trim_end_matches('\n');
+        if !rest.is_empty() && rest.split('\n').all(|line| line.starts_with("  ")) {
+            let mut consumed = 0;
+            let mut source = raw_start + 1;
+            for line in rest.split('\n') {
+                let content = line.len() - 2;
+                if decoded <= consumed + content {
+                    return source + 2 + (decoded - consumed);
+                }
+                consumed += content + 1;
+                source += line.len() + 1;
+            }
+            return source;
+        }
+    }
+    field.value_range.start + decoded
+}
+
 fn field_label(line: &str) -> Option<(&str, usize)> {
     // Nested bullets belong to the preceding field, not a sibling field.
     if line.starts_with(char::is_whitespace) {
@@ -476,5 +503,43 @@ mod frontmatter_tests {
         );
         assert_eq!(&md[indexed[1].body_range.clone()], "Text.\r\n");
         assert!(headings("---\ntitle: Broken\n## metadata only\n").is_empty());
+    }
+}
+
+#[cfg(test)]
+mod decoded_offset_tests {
+    use super::{decode_field, decoded_to_source, fields};
+
+    /// Every decoded byte maps back to the same source byte.
+    fn assert_maps(text: &str) {
+        for field in fields(text, 0..text.len()) {
+            let decoded = decode_field(&field);
+            for (offset, character) in decoded.char_indices() {
+                let source = decoded_to_source(&field, offset);
+                assert_eq!(
+                    text[source..].chars().next(),
+                    Some(character),
+                    "{text:?} at decoded {offset}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn offsets_follow_the_decode_branch() {
+        assert_maps("- **Proof**: inline C01 value\n");
+        assert_maps("- **Proof**:\n  first C01\n  second C02\n");
+        assert_maps("- **Proof**:\n  \n  after blank C01\n");
+        // Not the continuation form: decode keeps the trimmed value.
+        assert_maps("- **Proof**:\n\tone and more words here C01 x\n - see C01\n");
+        let text = "- **Proof**:\n\tone and more words here C01 x\n - see C01\n";
+        let field = &fields(text, 0..text.len())[0];
+        let decoded = decode_field(field);
+        let at = decoded.find("C01").unwrap();
+        let source = decoded_to_source(field, at);
+        assert_eq!(&text[source..source + 3], "C01");
+        let second = decoded.rfind("C01").unwrap();
+        let source = decoded_to_source(field, second);
+        assert_eq!(&text[source..source + 3], "C01");
     }
 }

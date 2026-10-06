@@ -740,3 +740,1215 @@ fn same_as_uses_authored_order_and_concepts_require_native_headings() {
         assert_eq!(artifact_bytes(dir.path()), before);
     }
 }
+
+fn copied_agent_fixture() -> TempDir {
+    fn copy_dir(src: &Path, dst: &Path) {
+        fs::create_dir_all(dst).unwrap();
+        for entry in fs::read_dir(src).unwrap() {
+            let entry = entry.unwrap();
+            let target = dst.join(entry.file_name());
+            if entry.file_type().unwrap().is_dir() {
+                copy_dir(&entry.path(), &target);
+            } else {
+                fs::copy(entry.path(), &target).unwrap();
+            }
+        }
+    }
+    let dir = TempDir::new().unwrap();
+    copy_dir(
+        &Path::new(env!("CARGO_MANIFEST_DIR")).join("../ara-core/tests/fixtures/agent-cli"),
+        dir.path(),
+    );
+    dir
+}
+fn shown_entry(root: &Path, id: &str) -> Value {
+    run(root, &["show", id, "--full"])["entries"][0].clone()
+}
+fn source_field_names(entry: &Value) -> Vec<String> {
+    entry["source_fields"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|field| field["name"].as_str().unwrap().to_owned())
+        .collect()
+}
+fn source_field(entry: &Value, name: &str) -> Value {
+    entry["source_fields"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|field| field["name"] == name)
+        .unwrap()["value"]
+        .clone()
+}
+
+/// Reported case: the new C17 listed fields alphabetically, put every value on
+/// a continuation line, and the creation order ignored the claim schema.
+#[test]
+fn reported_claim_add_renders_fixed_schema_order_with_inline_values() {
+    let dir = copied_agent_fixture();
+    let before = fs::read(dir.path().join("logic/claims.md")).unwrap();
+    let before_all = artifact_bytes(dir.path());
+    let added = run(
+        dir.path(),
+        &[
+            "claim",
+            "add",
+            "--title",
+            "Order probe",
+            "--set",
+            "Statement=S text",
+            "--set",
+            "Conditions=C text",
+            "--set",
+            "Status=supported",
+            "--set",
+            "Falsification criteria=F text",
+            "--set",
+            "Proof=[]",
+            "--set",
+            "Dependencies=[]",
+            "--set",
+            "Provenance=user",
+            "--set",
+            "Tags=[\"x\"]",
+        ],
+    );
+    assert_eq!(added["id"], "C17");
+    let after = fs::read(dir.path().join("logic/claims.md")).unwrap();
+    assert_eq!(&after[..before.len()], &before[..]);
+    assert_eq!(
+        String::from_utf8(after[before.len()..].to_vec()).unwrap(),
+        "\n## C17: Order probe\n- **Statement**: S text\n- **Conditions**: C text\n\
+         - **Status**: supported\n- **Provenance**: user\n- **Falsification**: F text\n\
+         - **Proof**: []\n- **Dependencies**: []\n- **Tags**: [\"x\"]\n"
+    );
+    // Outside the appended block only the operational ignore entry may change.
+    let mut changed = artifact_bytes(dir.path());
+    changed.retain(|path, bytes| {
+        before_all.get(path) != Some(bytes) && path != Path::new(".gitignore")
+    });
+    assert_eq!(
+        changed.keys().collect::<Vec<_>>(),
+        [&PathBuf::from("logic/claims.md")]
+    );
+
+    let entry = shown_entry(dir.path(), "C17");
+    assert_eq!(
+        source_field_names(&entry),
+        [
+            "Statement",
+            "Conditions",
+            "Status",
+            "Provenance",
+            "Falsification",
+            "Proof",
+            "Dependencies",
+            "Tags"
+        ]
+    );
+    assert_eq!(entry["statement"], "S text");
+    assert_eq!(entry["falsification"], "F text");
+    assert_eq!(entry["deps"], json!([]));
+    assert_eq!(entry["proof"], json!([]));
+    assert_eq!(entry["proof_content"], "[]");
+    assert_eq!(entry["tags"], "[\"x\"]");
+    // The neighbouring hand-written claim keeps its alias label and list styles.
+    let prior = shown_entry(dir.path(), "C16");
+    assert!(source_field_names(&prior).contains(&"Falsification criteria".to_owned()));
+    assert_eq!(prior["deps"], json!(["C03", "C04", "C05", "C06"]));
+    assert_eq!(prior["tags"], "evaluation, experimental-design");
+}
+
+#[test]
+fn claim_add_lists_scalars_and_multiline_values_round_trip_through_show() {
+    let dir = fixture();
+    let input = TempDir::new().unwrap();
+    let statement = "First line 雪\r\n\n  indented tail\n";
+    write(input.path(), "statement.txt", statement);
+    let statement_assignment = format!(
+        "Statement=@{}",
+        input.path().join("statement.txt").display()
+    );
+    let before = fs::read_to_string(dir.path().join("logic/claims.md")).unwrap();
+    let added = run(
+        dir.path(),
+        &[
+            "claim",
+            "add",
+            "--title",
+            "Lossless probe",
+            "--set",
+            "Tags=evaluation, experimental-design",
+            "--set",
+            "Dependencies=[\"C01\",\"C02\"]",
+            "--set",
+            "Sources=[\"a, b\",\"[x]\",\"\",\"none\",\"q\\\"uote\",\"back\\\\slash\",\"雪\"]",
+            "--set",
+            "Proof=none",
+            "--set",
+            "Falsification=F text",
+            "--set",
+            "Provenance=ai-suggested",
+            "--set",
+            "Status=hypothesis",
+            "--set",
+            "Conditions=[]",
+            "--set",
+            &statement_assignment,
+        ],
+    );
+    let id = added["id"].as_str().unwrap();
+    let after = fs::read_to_string(dir.path().join("logic/claims.md")).unwrap();
+    assert!(after.starts_with(&before));
+    assert_eq!(
+        &after[before.len()..],
+        format!(
+            "\n## {id}: Lossless probe\n- **Statement**:\n  First line 雪\r\n  \n    indented tail\n  \n\
+             - **Conditions**: []\n\
+             - **Sources**: [\"a, b\",\"[x]\",\"\",\"none\",\"q\\\"uote\",\"back\\\\slash\",\"雪\"]\n\
+             - **Status**: hypothesis\n- **Provenance**: ai-suggested\n- **Falsification**: F text\n\
+             - **Proof**: none\n- **Dependencies**: [C01, C02]\n\
+             - **Tags**: evaluation, experimental-design\n"
+        )
+    );
+    let entry = shown_entry(dir.path(), id);
+    assert_eq!(entry["statement"], statement);
+    assert_eq!(entry["conditions"], "[]");
+    assert_eq!(entry["deps"], json!(["C01", "C02"]));
+    assert_eq!(entry["proof"], json!([]));
+    assert_eq!(entry["proof_content"], "none");
+    assert_eq!(entry["tags"], "evaluation, experimental-design");
+    let sources: Value =
+        serde_json::from_str(source_field(&entry, "Sources").as_str().unwrap()).unwrap();
+    assert_eq!(
+        sources,
+        json!(["a, b", "[x]", "", "none", "q\"uote", "back\\slash", "雪"])
+    );
+    assert_eq!(source_field(&entry, "Dependencies"), "[C01, C02]");
+}
+
+#[test]
+fn heuristic_add_and_promotions_create_fixed_schema_blocks() {
+    let dir = fixture();
+    let heuristic = run(
+        dir.path(),
+        &[
+            "heuristic",
+            "add",
+            "--title",
+            "Ordered heuristic",
+            "--set",
+            "Tags=a, b",
+            "--set",
+            "code_ref=[\"src/run.rs:12\",\"src/[x].rs\"]",
+            "--set",
+            "Bounds=Only synthetic data.\n  exact bound = 雪\n",
+            "--set",
+            "Sensitivity=unknown",
+            "--set",
+            "Provenance=user",
+            "--set",
+            "Status=active",
+            "--set",
+            "Sources=[\"doi:1\"]",
+            "--set",
+            "Source=paper.pdf p3 «a, b»",
+            "--set",
+            "Rationale=Reason",
+        ],
+    );
+    let id = heuristic["id"].as_str().unwrap();
+    assert_eq!(
+        fs::read_to_string(dir.path().join("logic/solution/heuristics.md")).unwrap(),
+        format!(
+            "# Heuristics\n\n## {id}: Ordered heuristic\n- **Rationale**: Reason\n\
+             - **Source**: paper.pdf p3 «a, b»\n- **Sources**: [\"doi:1\"]\n\
+             - **Status**: active\n- **Provenance**: user\n- **Sensitivity**: unknown\n\
+             - **Bounds**:\n  Only synthetic data.\n    exact bound = 雪\n  \n\
+             - **Code ref**: [\"src/run.rs:12\",\"src/[x].rs\"]\n- **Tags**: a, b\n"
+        )
+    );
+    let entry = shown_entry(dir.path(), id);
+    assert_eq!(entry["rationale"], "Reason");
+    assert_eq!(entry["code_ref"], "[\"src/run.rs:12\",\"src/[x].rs\"]");
+    assert_eq!(
+        source_field(&entry, "Bounds"),
+        "Only synthetic data.\n  exact bound = 雪\n"
+    );
+    assert_eq!(source_field(&entry, "Tags"), "a, b");
+
+    for (to, title, sets) in [
+        (
+            "claim",
+            "Promoted claim",
+            vec![
+                "Tags=[\"t\"]",
+                "Falsification criteria=Contrary evidence",
+                "Status=hypothesis",
+                "Conditions=Boundary context",
+                "Statement=Caller mechanism",
+            ],
+        ),
+        (
+            "heuristic",
+            "Promoted heuristic",
+            vec![
+                "Code ref=src/run.rs",
+                "Sensitivity=low",
+                "Rationale=Observed twice",
+            ],
+        ),
+    ] {
+        let observation = run(
+            dir.path(),
+            &[
+                "stage",
+                "--content",
+                "Observation text",
+                "--potential-type",
+                to,
+                "--context",
+                "Context",
+                "--provenance",
+                "ai-executed",
+                "--timestamp",
+                "2026-10-01T10:00",
+            ],
+        )["id"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        let document = if to == "claim" {
+            "logic/claims.md"
+        } else {
+            "logic/solution/heuristics.md"
+        };
+        let before = fs::read_to_string(dir.path().join(document)).unwrap();
+        let mut args = vec![
+            "promote",
+            observation.as_str(),
+            "--to",
+            to,
+            "--title",
+            title,
+            "--signal",
+            "empirical-resolution",
+        ];
+        for set in &sets {
+            args.extend(["--set", set]);
+        }
+        let promoted = run(dir.path(), &args);
+        let id = promoted["id"].as_str().unwrap();
+        let after = fs::read_to_string(dir.path().join(document)).unwrap();
+        assert!(after.starts_with(&before));
+        let expected = if to == "claim" {
+            format!(
+                "\n## {id}: {title}\n- **Statement**: Caller mechanism\n\
+                 - **Conditions**: Boundary context\n- **Status**: hypothesis\n\
+                 - **Provenance**: ai-executed\n- **Falsification**: Contrary evidence\n\
+                 - **Tags**: [\"t\"]\n"
+            )
+        } else {
+            format!(
+                "\n## {id}: {title}\n- **Rationale**: Observed twice\n\
+                 - **Provenance**: ai-executed\n- **Sensitivity**: low\n\
+                 - **Code ref**: src/run.rs\n"
+            )
+        };
+        assert_eq!(&after[before.len()..], expected);
+        assert_eq!(shown_entry(dir.path(), id)["provenance"], "ai-executed");
+    }
+}
+
+#[test]
+fn crlf_claim_file_gets_crlf_structure_and_exact_values_through_show_and_check() {
+    let dir = fixture();
+    let original =
+        "# Claims\r\n\r\n## C01: Prior\r\n- **Statement**: Kept\r\n- **Status**: hypothesis\r\n";
+    write(dir.path(), "logic/claims.md", original);
+    write(
+        dir.path(),
+        "logic/experiments.md",
+        "## E01: A\n\n## E03: B\n",
+    );
+    let input = TempDir::new().unwrap();
+    let statement = "Multi 雪\nline\r\nvalue\n";
+    write(input.path(), "statement.txt", statement);
+    let statement_assignment = format!(
+        "Statement=@{}",
+        input.path().join("statement.txt").display()
+    );
+    let added = run(
+        dir.path(),
+        &[
+            "claim",
+            "add",
+            "--title",
+            "CRLF probe",
+            "--set",
+            &statement_assignment,
+            "--set",
+            "Conditions=C text",
+            "--set",
+            "Status=supported",
+            "--set",
+            "Provenance=user",
+            "--set",
+            "Falsification=F text",
+            "--set",
+            "Proof=[\"E01\",\"E03\"]",
+            "--set",
+            "Sources=[\"E03 table\",\"C01\"]",
+            "--set",
+            "Dependencies=[\"C01\"]",
+        ],
+    );
+    assert_eq!(added["id"], "C02");
+    let after = fs::read_to_string(dir.path().join("logic/claims.md")).unwrap();
+    assert!(after.starts_with(original));
+    assert_eq!(
+        &after[original.len()..],
+        "\r\n## C02: CRLF probe\r\n- **Statement**:\n  Multi 雪\n  line\r\n  value\n  \n\
+         - **Conditions**: C text\r\n- **Sources**: [\"E03 table\",\"C01\"]\r\n\
+         - **Status**: supported\r\n- **Provenance**: user\r\n- **Falsification**: F text\r\n\
+         - **Proof**: [\"E01\",\"E03\"]\r\n- **Dependencies**: [C01]\r\n"
+    );
+    let entry = shown_entry(dir.path(), "C02");
+    assert_eq!(entry["title"], "CRLF probe");
+    assert_eq!(entry["statement"], statement);
+    assert_eq!(entry["conditions"], "C text");
+    assert_eq!(entry["falsification"], "F text");
+    assert_eq!(entry["proof"], json!(["E01", "E03"]));
+    assert_eq!(entry["proof_content"], "[\"E01\",\"E03\"]");
+    assert_eq!(entry["sources"], "[\"E03 table\",\"C01\"]");
+    assert_eq!(entry["deps"], json!(["C01"]));
+    let check = ara(dir.path())
+        .args(["check", "."])
+        .current_dir(dir.path())
+        .arg("--json")
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let check: Value = serde_json::from_slice(&check).unwrap();
+    assert_eq!(check["validate"]["errors"], json!([]));
+}
+
+#[test]
+fn created_list_references_fail_closed_on_dangling_ids() {
+    let dir = fixture();
+    write(
+        dir.path(),
+        "logic/experiments.md",
+        "## E01: A\n\n## E03: B\n",
+    );
+    for (field, list) in [
+        ("Proof", "[\"E01\",\"E09\"]"),
+        ("Sources", "[\"table\",\"C99\"]"),
+    ] {
+        let before = artifact_bytes(dir.path());
+        let assignment = format!("{field}={list}");
+        let error = failure(
+            dir.path(),
+            &[
+                "claim",
+                "add",
+                "--title",
+                "Dangling probe",
+                "--set",
+                "Statement=S",
+                "--set",
+                "Conditions=C",
+                "--set",
+                "Status=hypothesis",
+                "--set",
+                "Provenance=user",
+                "--set",
+                "Falsification=F",
+                "--set",
+                &assignment,
+            ],
+        );
+        assert_eq!(error["error"]["code"], "write.reference", "{field}");
+        assert_eq!(artifact_bytes(dir.path()), before, "{field}");
+    }
+}
+
+fn utc_now() -> String {
+    ara_core::write::clock::system_utc().unwrap()
+}
+fn assert_native_utc(value: &Value) -> String {
+    let text = value.as_str().unwrap_or_else(|| panic!("{value:?}"));
+    let bytes = text.as_bytes();
+    assert_eq!(bytes.len(), 20, "{text}");
+    assert!(
+        text.chars().enumerate().all(|(i, c)| match i {
+            4 | 7 => c == '-',
+            10 => c == 'T',
+            13 | 16 => c == ':',
+            19 => c == 'Z',
+            _ => c.is_ascii_digit(),
+        }),
+        "{text}"
+    );
+    text.to_owned()
+}
+fn apply_failure(root: &Path, text: &str) -> Value {
+    let output = ara(root)
+        .args(["apply", "-", "--json", "--no-duplicate-check"])
+        .write_stdin(text.to_owned())
+        .assert()
+        .code(1)
+        .stdout("")
+        .get_output()
+        .clone();
+    serde_json::from_slice(&output.stderr).unwrap()
+}
+
+#[test]
+fn apply_derives_owner_from_one_summarized_log_and_stamps_one_clock_value() {
+    let dir = fixture();
+    let before = utc_now();
+    let report = apply(
+        dir.path(),
+        &[
+            json!({"op":"session.log","summary":"Caller-written turn summary"}),
+            json!({"op":"node.add","type":"question","parent":"N01","title":"Stamped","fields":{"description":"d","provenance":"ai-executed"}}),
+            json!({"op":"observation.stage","content":"Seen","potential_type":"unknown","provenance":"user"}),
+            json!({"op":"logic.revise","target":{"id":"C01"},"set":{"Statement":"Revised by anchor"},"signal":"user-directive","provenance":"user"}),
+        ],
+        false,
+    );
+    let after = utc_now();
+    let session = report["operations"][0]["id"].as_str().unwrap().to_owned();
+    assert_eq!(report["operations"][0]["turn"], 1);
+    assert_eq!(report["operations"][0]["session_created"], true);
+    assert_eq!(report["operations"][3]["session"], session);
+    assert_eq!(report["operations"][3]["turn"], 1);
+    let record = yaml(dir.path(), &format!("trace/sessions/{session}.yaml"));
+    let stamps = [
+        record["session"]["started"].clone(),
+        record["session"]["last_turn"].clone(),
+        yaml(dir.path(), "trace/exploration_tree.yaml")["tree"][0]["children"][0]["timestamp"]
+            .clone(),
+        yaml(dir.path(), "staging/observations.yaml")["observations"][0]["timestamp"].clone(),
+    ];
+    let first = assert_native_utc(&stamps[0]);
+    for stamp in &stamps {
+        assert_eq!(assert_native_utc(stamp), first, "one clock value per batch");
+    }
+    assert!(
+        before <= first && first <= after,
+        "{before} <= {first} <= {after}"
+    );
+    assert_eq!(&session[..10], &first[..10]);
+    assert_eq!(record["logic_revisions"][0]["turn"], 1);
+}
+
+#[test]
+fn omitted_session_refuses_several_open_candidates_at_the_physical_line() {
+    let dir = fixture();
+    let day = utc_now();
+    let first = run(dir.path(), &["session", "start", "--summary", "First"]);
+    let second = run(dir.path(), &["session", "start", "--summary", "Second"]);
+    if utc_now()[..10] != day[..10] {
+        return; // The run crossed midnight UTC; the sessions are on two days.
+    }
+    let ids = [
+        first["id"].as_str().unwrap(),
+        second["id"].as_str().unwrap(),
+    ];
+    assert_eq!(&ids[0][..10], &day[..10]);
+    let before = artifact_bytes(dir.path());
+    // Explicit timestamps on the sessions' date keep the rest of this test
+    // independent of the wall clock crossing midnight.
+    let late = format!("{}T23:59:59Z", &day[..10]);
+    let error = apply_failure(
+        dir.path(),
+        &format!(
+            "\n{{\"op\":\"session.log\",\"summary\":\"Which session?\",\"timestamp\":\"{late}\"}}\n"
+        ),
+    );
+    assert_eq!(error["error"]["code"], "write.session_ambiguous");
+    assert_eq!(error["error"]["line"], 2);
+    assert_eq!(error["error"]["details"]["field"], "session");
+    let message = error["error"]["message"].as_str().unwrap();
+    assert!(
+        message.contains(&format!("{}, {}", ids[0], ids[1])),
+        "{message}"
+    );
+    let error = failure(
+        dir.path(),
+        &[
+            "session",
+            "log",
+            "--summary",
+            "Which?",
+            "--timestamp",
+            &late,
+            "--record",
+            "{}",
+        ],
+    );
+    assert_eq!(error["error"]["code"], "write.session_ambiguous");
+    // Omitted context without a log anchor is refused, not guessed.
+    let error = apply_failure(
+        dir.path(),
+        "{\"op\":\"logic.revise\",\"target\":{\"id\":\"C01\"},\"set\":{\"Statement\":\"x\"},\"signal\":\"user-directive\",\"provenance\":\"user\"}\n",
+    );
+    assert_eq!(error["error"]["code"], "write.owner_required");
+    assert_eq!(error["error"]["line"], 1);
+    assert_eq!(artifact_bytes(dir.path()), before);
+}
+
+#[test]
+fn convenience_commands_default_inside_the_writer_lock() {
+    let dir = fixture();
+    let before = utc_now();
+    let started = run(dir.path(), &["session", "start", "--summary", "Today"]);
+    let staged = run(
+        dir.path(),
+        &[
+            "stage",
+            "--content",
+            "Unstamped",
+            "--potential-type",
+            "unknown",
+            "--provenance",
+            "user",
+        ],
+    );
+    assert_eq!(staged["id"], "O01");
+    let logged = run(
+        dir.path(),
+        &["session", "log", "--summary", "Selected", "--record", "{}"],
+    );
+    let after = utc_now();
+    if before[..10] != after[..10] {
+        return; // Crossed midnight UTC between commands.
+    }
+    assert_eq!(logged["id"], started["id"]);
+    assert_eq!(logged["turn"], 1);
+    let session = started["id"].as_str().unwrap();
+    let record = yaml(dir.path(), &format!("trace/sessions/{session}.yaml"));
+    let stamp = assert_native_utc(&record["session"]["started"]);
+    assert!(before <= stamp && stamp <= after);
+    let observed = assert_native_utc(
+        &yaml(dir.path(), "staging/observations.yaml")["observations"][0]["timestamp"],
+    );
+    assert!(before <= observed && observed <= after);
+    // Omitting --session without --summary is refused; explicit logging keeps
+    // its rolling-summary behavior.
+    let error = failure(dir.path(), &["session", "log", "--record", "{}"]);
+    assert_eq!(error["error"]["code"], "write.owner_summary");
+    let late = format!("{}T23:59:59Z", &session[..10]);
+    let explicit = run(
+        dir.path(),
+        &[
+            "session",
+            "log",
+            "--session",
+            session,
+            "--timestamp",
+            &late,
+            "--record",
+            "{}",
+        ],
+    );
+    assert_eq!(explicit["turn"], 2);
+    assert_eq!(
+        yaml(dir.path(), &format!("trace/sessions/{session}.yaml"))["session"]["summary"],
+        "Selected"
+    );
+}
+
+fn merge_fixture(root: &Path, session: &str, threads: &str, open_threads: u64) {
+    let date = &session[..10];
+    write(
+        root,
+        "trace/exploration_tree.yaml",
+        "tree:\n  - id: N01\n    type: question\n    title: Existing\n    provenance: user\n",
+    );
+    write(
+        root,
+        &format!("trace/sessions/{session}.yaml"),
+        format!(
+            "session:\n  id: {session}\n  date: {date}\n  started: '{date}T00:00:00Z'\n  last_turn: '{date}T00:00:00Z'\n  turn_count: 1\n  summary: base\nevents_logged: []\nai_actions: []\nclaims_touched: []\nlogic_revisions: []\nkey_context: []\nopen_threads: {threads}\nai_suggestions_pending: []\n"
+        ),
+    );
+    write(
+        root,
+        "trace/sessions/session_index.yaml",
+        format!(
+            "sessions:\n  - id: {session}\n    date: {date}\n    summary: base\n    turn_count: 1\n    events_count: 0\n    claims_touched: []\n    open_threads: {open_threads}\n"
+        ),
+    );
+}
+
+#[test]
+fn merge_resolve_derives_turn_and_locked_timestamp_without_turn_flag() {
+    let parent = TempDir::new().unwrap();
+    let today = utc_now();
+    let session = format!("{}_001", &today[..10]);
+    let [base, ours, theirs] = ["base", "ours", "theirs"].map(|name| parent.path().join(name));
+    merge_fixture(&base, &session, "[]", 0);
+    merge_fixture(&ours, &session, "[our thread]", 1);
+    merge_fixture(&theirs, &session, "[their thread]", 1);
+    let output = ara(&ours)
+        .args(["merge", "--base"])
+        .arg(&base)
+        .arg("--theirs")
+        .arg(&theirs)
+        .args([
+            "--as",
+            "peer",
+            "--source-key",
+            "peer-fork",
+            "--json",
+            "--no-duplicate-check",
+        ])
+        .output()
+        .unwrap();
+    let report: Value = serde_json::from_slice(&output.stdout).unwrap();
+    let conflict = report["conflicts"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|item| item["field"] == "open_threads")
+        .unwrap_or_else(|| panic!("{report:#}"))["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let audit = [
+        "--take",
+        "theirs",
+        "--session",
+        session.as_str(),
+        "--signal",
+        "user-directive",
+        "--provenance",
+        "user",
+    ];
+    let before = artifact_bytes(&ours);
+    let error = failure(
+        &ours,
+        &[
+            &["merge", "resolve", &conflict][..],
+            &audit,
+            &["--turn", "5"],
+        ]
+        .concat(),
+    );
+    assert_eq!(error["error"]["code"], "merge.resolution_session");
+    assert_eq!(artifact_bytes(&ours), before);
+    let started = utc_now();
+    let output = ara(&ours)
+        .args([&["merge", "resolve", &conflict][..], &audit, &["--json"]].concat())
+        .output()
+        .unwrap();
+    let finished = utc_now();
+    if started[..10] != today[..10] || finished[..10] != today[..10] {
+        return; // Crossed midnight UTC; the session belongs to the previous day.
+    }
+    assert!(output.status.success(), "{output:?}");
+    let resolved: Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(resolved["session"], session);
+    assert_eq!(resolved["turn"], 2);
+    let record = yaml(&ours, &format!("trace/sessions/{session}.yaml"));
+    assert_eq!(record["session"]["turn_count"], 2);
+    assert_eq!(record["session"]["summary"], "base");
+    assert_eq!(record["open_threads"], json!(["their thread"]));
+    let stamp = assert_native_utc(&record["session"]["last_turn"]);
+    assert!(started <= stamp && stamp <= finished);
+    assert_eq!(record["logic_revisions"][0]["turn"], 2);
+}
+
+#[test]
+fn merge_repair_derives_turn_without_turn_flag() {
+    let parent = TempDir::new().unwrap();
+    let today = utc_now();
+    let session = format!("{}_001", &today[..10]);
+    let original = "entries:\n  - summary: Existing\n    title: 'Opaque extension'\n";
+    let [base, ours, theirs] = ["base", "ours", "theirs"].map(|name| parent.path().join(name));
+    for root in [&base, &ours, &theirs] {
+        merge_fixture(root, &session, "[]", 0);
+        write(root, "trace/reasoning.yaml", original);
+    }
+    write(
+        &theirs,
+        "trace/reasoning.yaml",
+        original.replace("'Opaque extension'", "\"Opaque extension\""),
+    );
+    let output = ara(&ours)
+        .args(["merge", "--base"])
+        .arg(&base)
+        .arg("--theirs")
+        .arg(&theirs)
+        .args([
+            "--as",
+            "peer",
+            "--source-key",
+            "peer-fork",
+            "--json",
+            "--no-duplicate-check",
+        ])
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code(), Some(1));
+    let error: Value = serde_json::from_slice(&output.stderr).unwrap();
+    assert_eq!(error["error"]["code"], "merge.protected_content");
+    let conflict = error["error"]["details"]["evidence"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|item| item["field"] == "title")
+        .unwrap()
+        .clone();
+    let conflict_file = parent.path().join("conflict.json");
+    fs::write(&conflict_file, conflict.to_string()).unwrap();
+    // An explicit timestamp on the session's date keeps this independent of
+    // the wall clock crossing midnight.
+    let late = format!("{}T23:59:59Z", &today[..10]);
+    let fingerprint = conflict["ours"]["fingerprint"].as_str().unwrap();
+    let conflict_path = conflict_file.to_str().unwrap();
+    let args = [
+        "merge",
+        "repair",
+        "--conflict-file",
+        conflict_path,
+        "--decision",
+        "reject_incoming",
+        "--expected-current",
+        fingerprint,
+        "--session",
+        session.as_str(),
+        "--timestamp",
+        late.as_str(),
+        "--signal",
+        "user-directive",
+        "--provenance",
+        "user",
+        "--reason",
+        "Keep local history",
+    ];
+    let before = artifact_bytes(&ours);
+    let error = failure(&ours, &[&args[..], &["--turn", "1"]].concat());
+    assert_eq!(error["error"]["code"], "merge.resolution_session");
+    assert_eq!(artifact_bytes(&ours), before);
+    let repaired = run(&ours, &args);
+    assert_eq!(repaired["session"], session);
+    assert_eq!(repaired["turn"], 2);
+    let record = yaml(&ours, &format!("trace/sessions/{session}.yaml"));
+    assert_eq!(record["session"]["last_turn"], late);
+    assert_eq!(record["logic_revisions"][0]["turn"], 2);
+    assert_eq!(
+        fs::read_to_string(ours.join("trace/reasoning.yaml")).unwrap(),
+        original
+    );
+}
+
+#[test]
+fn apply_derives_session_rows_from_operations_through_the_binary() {
+    let dir = fixture();
+    let root = dir.path();
+    let report = apply(
+        root,
+        &[
+            json!({"op":"session.log","summary":"Caller summary"}),
+            json!({"op":"node.add","type":"question","parent":"N01","title":"Derived question","fields":{"description":"d","provenance":"ai-executed"}}),
+            json!({"op":"observation.stage","content":"Complete staged content","potential_type":"concept","provenance":"user"}),
+            json!({"op":"claim.add","title":"Derived claim","fields":{"Statement":"S","Conditions":"C","Status":"hypothesis","Provenance":"ai-suggested","Falsification":"F"}}),
+            json!({"op":"logic.revise","target":{"id":"C01"},"set":{"Status":"testing"},"signal":"empirical-resolution","provenance":"user"}),
+            json!({"op":"observation.promote","observation":"O01","to":"concept","title":"Derived concept","fields":{"Definition":"D"},"signal":"verbal-affirmation"}),
+        ],
+        false,
+    );
+    let session = report["operations"][0]["id"].as_str().unwrap().to_owned();
+    let record = yaml(root, &format!("trace/sessions/{session}.yaml"));
+    let events = record["events_logged"].as_array().unwrap();
+    let summary: Vec<(&str, &str, &str)> = events
+        .iter()
+        .map(|row| {
+            (
+                row["id"].as_str().unwrap(),
+                row["type"].as_str().unwrap(),
+                row["routing"].as_str().unwrap(),
+            )
+        })
+        .collect();
+    assert_eq!(
+        summary,
+        [
+            ("N02", "question", "direct"),
+            ("O01", "observation", "staged"),
+            ("C03", "claim", "direct"),
+            ("O01", "concept", "crystallized"),
+        ]
+    );
+    assert_eq!(events[1]["summary"], "Complete staged content");
+    assert_eq!(
+        events[3]["target"],
+        json!({"document":"logic/concepts.md","heading":["Derived concept"]})
+    );
+    assert_eq!(
+        record["claims_touched"],
+        json!([{"id":"C03","action":"created","turn":1},{"id":"C01","action":"revised","turn":1}])
+    );
+    // The read model projects the additive target as a structured reference.
+    let refs = run(root, &["refs", "logic/concepts.md#Derived concept"]);
+    let text = refs.to_string();
+    assert!(
+        text.contains(&format!("trace/sessions/{session}.yaml")) && text.contains("\"target\""),
+        "{refs}"
+    );
+}
+
+#[test]
+fn derived_row_conflicts_report_both_physical_lines() {
+    let dir = fixture();
+    let root = dir.path();
+    let before = artifact_bytes(root);
+    let text = format!(
+        "\n{}\n\n{}\n",
+        json!({"op":"session.log","summary":"Caller summary","events":[{"type":"question","id":"N02","routing":"staged","provenance":"user","summary":"Wrong routing"}]}),
+        json!({"op":"node.add","type":"question","parent":"N01","title":"Q","fields":{"description":"d","provenance":"user"}}),
+    );
+    let error = apply_failure(root, &text);
+    assert_eq!(error["error"]["code"], "write.event_conflict");
+    assert_eq!(error["error"]["line"], 2);
+    assert_eq!(error["error"]["details"]["field"], "events[0]");
+    assert_eq!(error["error"]["details"]["related_line"], 4);
+    assert_eq!(error["error"]["details"]["related_field"], "op");
+    let error = apply_failure(
+        root,
+        &format!(
+            "{}\n\n{}\n",
+            json!({"op":"session.log","summary":"Caller summary"}),
+            json!({"op":"node.add","type":"question","parent":"N01","title":"Q","fields":{"description":"d"}}),
+        ),
+    );
+    assert_eq!(error["error"]["code"], "write.event_provenance");
+    assert_eq!(error["error"]["line"], 3);
+    assert_eq!(error["error"]["details"]["field"], "fields.provenance");
+    assert_eq!(
+        artifact_bytes(root),
+        before,
+        "rejected batches write nothing"
+    );
+}
+
+/// Plan 19 D1/D2: an observation staged on 10-01 and three later logged days.
+fn inactivity_fixture() -> TempDir {
+    let dir = fixture();
+    // Staged outside any logged turn: only its timestamp places it.
+    apply(
+        dir.path(),
+        &[
+            json!({"op":"observation.stage","content":"Boundary looks odd","potential_type":"claim","provenance":"user","timestamp":"2026-10-01T10:00:00Z","bound_to":["N01"]}),
+        ],
+        false,
+    );
+    for date in ["2026-10-02", "2026-10-03", "2026-10-04"] {
+        apply(
+            dir.path(),
+            &[
+                json!({"op":"session.log","summary":format!("Work on {date}"),"timestamp":format!("{date}T10:00:00Z")}),
+            ],
+            false,
+        );
+    }
+    dir
+}
+fn open_row(root: &Path, id: &str) -> Value {
+    let report = run(root, &["open"]);
+    assert_eq!(report["format"], "ara.open/v1");
+    report["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|row| row["id"] == id)
+        .unwrap_or_else(|| panic!("{report}"))
+        .clone()
+}
+
+#[test]
+fn open_reports_measured_inactivity_with_its_limits() {
+    let dir = inactivity_fixture();
+    let row = open_row(dir.path(), "O01");
+    assert_eq!(row["kind"], "observation");
+    assert_eq!(row["content"], "Boundary looks odd");
+    assert_eq!(
+        row["reasons"],
+        json!(["unpromoted_observation", "stale_observation"])
+    );
+    assert_eq!(row["turns_since_reference"], 3);
+    assert_eq!(row["session_days_since_reference"], 3);
+    assert_eq!(row["last_reference_turn"], Value::Null);
+    assert_eq!(row["last_reference_date"], "2026-10-01");
+    assert_eq!(row["reference_basis"], "staging_timestamp");
+    assert_eq!(row["evidence_sources"], json!([]));
+    assert_eq!(row["history_status"], "complete");
+    assert_eq!(row["history_diagnostics"], json!([]));
+
+    // A literal reference in a later turn resets both counts.
+    apply(
+        dir.path(),
+        &[
+            json!({"op":"session.log","summary":"Revisited O01 against N01","timestamp":"2026-10-04T12:00:00Z"}),
+        ],
+        false,
+    );
+    let row = open_row(dir.path(), "O01");
+    assert_eq!(row["turns_since_reference"], 0);
+    assert_eq!(row["session_days_since_reference"], 0);
+    assert_eq!(row["last_reference_turn"], "2026-10-04_001#2");
+    assert_eq!(row["reference_basis"], "literal");
+    let targets: Vec<&str> = row["evidence_sources"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|e| e["target"].as_str().unwrap())
+        .collect();
+    assert_eq!(targets, ["N01", "O01"]);
+    assert_eq!(row["evidence_sources"][0]["session"], "2026-10-04_001");
+    assert_eq!(row["evidence_sources"][0]["turn"], 2);
+    assert_eq!(row["reasons"], json!(["unpromoted_observation"]));
+
+    // Projection keeps the new fields addressable.
+    let projected = run(
+        dir.path(),
+        &["open", "--fields", "turns_since_reference,history_status"],
+    );
+    let row = projected["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|row| row["id"] == "O01")
+        .unwrap();
+    assert_eq!(row["turns_since_reference"], 0);
+    assert!(row.get("evidence_sources").is_none());
+    // Brief text ends observation rows with the measurement.
+    let output = ara(dir.path())
+        .arg("open")
+        .assert()
+        .success()
+        .get_output()
+        .clone();
+    let text = String::from_utf8(output.stdout).unwrap();
+    let line = text.lines().find(|l| l.starts_with("O01\t")).unwrap();
+    assert!(
+        line.ends_with("\tturns=0 days=0 last_reference=2026-10-04_001#2 history=complete"),
+        "{line}"
+    );
+}
+
+#[test]
+fn open_shows_overlapping_sessions_as_unknown_turns_with_known_days() {
+    let dir = inactivity_fixture();
+    // A second agent's session overlaps the 10-04 one.
+    apply(
+        dir.path(),
+        &[
+            json!({"op":"session.start","started":"2026-10-04T09:00:00Z","summary":"Peer agent"}),
+            json!({"op":"session.log","session":"$s","timestamp":"2026-10-04T11:00:00Z"}),
+        ]
+        .iter()
+        .enumerate()
+        .map(|(i, op)| {
+            let mut op = op.clone();
+            if i == 0 {
+                op["id"] = json!("$s");
+            }
+            op
+        })
+        .collect::<Vec<_>>(),
+        false,
+    );
+    apply(
+        dir.path(),
+        &[
+            json!({"op":"session.log","session":"2026-10-04_001","timestamp":"2026-10-04T12:00:00Z","summary":"Later work"}),
+        ],
+        false,
+    );
+    let row = open_row(dir.path(), "O01");
+    assert_eq!(row["turns_since_reference"], Value::Null);
+    assert_eq!(row["session_days_since_reference"], 3);
+    assert_eq!(row["history_status"], "ambiguous");
+    assert_eq!(row["history_diagnostics"][0]["code"], "history.overlap");
+}
+
+#[test]
+fn mark_stale_derives_session_days_and_refuses_unproven_evidence() {
+    let dir = inactivity_fixture();
+    let stale = |days: Option<Value>| {
+        let mut op = json!({"op":"observation.mark_stale","observation":"O01","reason":"Caller judged the topic abandoned","audit":{"signal":"user-directive","provenance":"user"}});
+        if let Some(days) = days {
+            op["session_days"] = days;
+        }
+        op
+    };
+    let log =
+        json!({"op":"session.log","summary":"Stale audit","timestamp":"2026-10-05T10:00:00Z"});
+    let text = |ops: &[Value]| ops.iter().map(|op| format!("{op}\n")).collect::<String>();
+
+    // Invalid supplied lists refuse at their physical line and field.
+    let before = artifact_bytes(dir.path());
+    for (days, field) in [
+        (
+            json!(["2026-10-02", "2026-10-02", "2026-10-03"]),
+            "session_days[1]",
+        ),
+        (
+            json!(["2026-10-02", "2026-10-03", "2026-10-09"]),
+            "session_days[2]",
+        ),
+        (
+            json!(["2026-10-02", "2026-10-03", "2026-10-05"]),
+            "session_days[2]",
+        ),
+        (json!(["2026-10-02", "2026-10-03"]), "session_days"),
+    ] {
+        let failure = apply_failure(dir.path(), &text(&[log.clone(), stale(Some(days))]));
+        let error = &failure["error"];
+        assert_eq!(error["code"], "write.observation", "{failure}");
+        assert_eq!(error["line"], 2, "{failure}");
+        assert_eq!(error["details"]["field"], field, "{failure}");
+        assert_eq!(artifact_bytes(dir.path()), before);
+    }
+
+    // A dry run previews the derived list without persisting it.
+    let preview = apply(dir.path(), &[log.clone(), stale(None)], true);
+    assert_eq!(preview["dry_run"], true);
+    assert_eq!(artifact_bytes(dir.path()), before);
+
+    apply(dir.path(), &[log.clone(), stale(None)], false);
+    let reasoning = yaml(dir.path(), "trace/pm_reasoning_log.yaml");
+    let note = reasoning["entries"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|e| e["notes"][0] == "Caller judged the topic abandoned")
+        .unwrap();
+    assert_eq!(note["turn"], "2026-10-05_001#1");
+    let evidence: Value = serde_json::from_str(note["notes"][1].as_str().unwrap()).unwrap();
+    assert_eq!(
+        evidence["session_days"],
+        json!(["2026-10-02", "2026-10-03", "2026-10-04"])
+    );
+    let row = open_row(dir.path(), "O01");
+    assert_eq!(row["stale"], true);
+    assert_eq!(row["promoted"], false);
+
+    // A later reference changes the measurement, never the stored flag.
+    apply(
+        dir.path(),
+        &[json!({"op":"session.log","summary":"Back to O01","timestamp":"2026-10-06T10:00:00Z"})],
+        false,
+    );
+    let row = open_row(dir.path(), "O01");
+    assert_eq!(row["stale"], true);
+    assert_eq!(row["session_days_since_reference"], 0);
+    assert!(
+        row["reasons"]
+            .as_array()
+            .unwrap()
+            .contains(&json!("stale_observation"))
+    );
+}
+
+#[test]
+fn mark_stale_refuses_unknown_day_evidence_without_writing() {
+    let dir = inactivity_fixture();
+    // Drop the staging timestamp: no staging turn or time remains.
+    let path = dir.path().join("staging/observations.yaml");
+    let source = fs::read_to_string(&path).unwrap();
+    let edited: String = source
+        .lines()
+        .filter(|line| !line.trim_start().starts_with("timestamp:"))
+        .map(|line| format!("{line}\n"))
+        .collect();
+    assert_ne!(edited, source);
+    fs::write(&path, edited).unwrap();
+    let row = open_row(dir.path(), "O01");
+    assert_eq!(row["turns_since_reference"], Value::Null);
+    assert_eq!(row["session_days_since_reference"], Value::Null);
+    assert_eq!(row["history_status"], "missing");
+    assert_eq!(
+        row["history_diagnostics"][0]["code"],
+        "history.creation_evidence_missing"
+    );
+    let before = artifact_bytes(dir.path());
+    let error = apply_failure(
+        dir.path(),
+        "{\"op\":\"session.log\",\"summary\":\"Audit\",\"timestamp\":\"2026-10-05T10:00:00Z\"}\n{\"op\":\"observation.mark_stale\",\"observation\":\"O01\",\"reason\":\"Abandoned\",\"audit\":{\"signal\":\"user-directive\",\"provenance\":\"user\"}}\n",
+    );
+    let error = &error["error"];
+    assert_eq!(error["code"], "write.stale_history_unknown", "{error}");
+    assert_eq!(error["line"], 2);
+    assert_eq!(error["details"]["field"], "session_days");
+    assert_eq!(artifact_bytes(dir.path()), before);
+}
+
+#[test]
+fn open_ignores_pre_staging_references_and_out_of_range_reasoning_turns() {
+    let dir = fixture();
+    // N01 is used before the observation bound to it exists.
+    apply(
+        dir.path(),
+        &[json!({"op":"session.log","summary":"Looked at N01","timestamp":"2026-10-01T09:00:00Z"})],
+        false,
+    );
+    apply(
+        dir.path(),
+        &[
+            json!({"op":"observation.stage","content":"Boundary looks odd","potential_type":"claim","provenance":"user","timestamp":"2026-10-01T10:00:00Z","bound_to":["N01"]}),
+        ],
+        false,
+    );
+    for date in ["2026-10-02", "2026-10-03"] {
+        apply(
+            dir.path(),
+            &[
+                json!({"op":"session.log","summary":format!("Work on {date}"),"timestamp":format!("{date}T10:00:00Z")}),
+            ],
+            false,
+        );
+    }
+    let row = open_row(dir.path(), "O01");
+    assert_eq!(row["turns_since_reference"], 2);
+    assert_eq!(row["session_days_since_reference"], 2);
+    assert_eq!(row["reference_basis"], "staging_timestamp");
+    assert_eq!(row["last_reference_turn"], Value::Null);
+    assert_eq!(row["last_reference_date"], "2026-10-01");
+    assert_eq!(row["evidence_sources"][0]["status"], "before_staging");
+
+    // A hand-written reasoning note naming a turn the session never logged.
+    let path = dir.path().join("trace/pm_reasoning_log.yaml");
+    let mut text = fs::read_to_string(&path).unwrap();
+    text.push_str("  - turn: \"2026-10-03_001#9\"\n    notes: [\"Used O01\"]\n");
+    fs::write(&path, text).unwrap();
+    let row = open_row(dir.path(), "O01");
+    assert_eq!(row["turns_since_reference"], Value::Null);
+    assert_eq!(row["history_status"], "ambiguous");
+    assert_eq!(
+        row["history_diagnostics"][0]["code"],
+        "history.contradictory"
+    );
+}
+
+#[test]
+fn open_reports_undecodable_aliases_without_failing() {
+    let dir = inactivity_fixture();
+    fs::write(dir.path().join("trace/aliases.yaml"), [0xff, 0xfe, b'\n']).unwrap();
+    let row = open_row(dir.path(), "O01");
+    assert_eq!(row["turns_since_reference"], Value::Null);
+    assert_eq!(row["session_days_since_reference"], Value::Null);
+    assert_eq!(row["history_status"], "ambiguous");
+    assert_eq!(
+        row["history_diagnostics"][0]["code"],
+        "history.alias_invalid"
+    );
+}

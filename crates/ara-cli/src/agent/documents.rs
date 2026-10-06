@@ -148,6 +148,14 @@ pub(super) fn select<'a>(
         })) => {
             let sections = artifact.sections(&path, artifact.document_text(&path)?);
             let lookup = sections.canonical(&heading, occurrence);
+            // A retired heading vector follows its authenticated mapping.
+            if matches!(lookup, Lookup::Missing)
+                && occurrence.is_none()
+                && artifact.has_identity_records()
+                && let Some(row) = archived_row(artifact, &sections, &path, &heading, full)?
+            {
+                return Ok(Selected::Source(row));
+            }
             return sections
                 .row(lookup, id, label(&heading), &heading, full)
                 .map(Selected::Source);
@@ -190,6 +198,27 @@ pub(super) fn select<'a>(
         return Ok(Selected::Source(
             sections.section_row(index, &heading, full),
         ));
+    }
+    // A retired `path#A/B` or `path:A/B` locator (a recorded mapping's own
+    // spelling included) follows its authenticated mapping.
+    if let Miss::Unknown = miss
+        && id.contains(['#', ':'])
+        && artifact.has_identity_records()
+    {
+        let snapshot = artifact.snapshot()?;
+        match ara_core::merge::resolve_locator(snapshot, id) {
+            Ok(Some(resolved)) => {
+                if let Some(row) = redirected_row(artifact, resolved, full)? {
+                    return Ok(Selected::Source(row));
+                }
+            }
+            Ok(None) => {}
+            Err(error) => {
+                if let Miss::Ambiguous = candidates::classify(error, snapshot)? {
+                    return Err(artifact.miss(id, Miss::Ambiguous));
+                }
+            }
+        }
     }
     Err(artifact.miss(id, miss))
 }
@@ -317,6 +346,15 @@ fn archived_row(
             };
         }
     };
+    redirected_row(artifact, resolved, full)
+}
+
+/// The current section a resolved redirect names.
+fn redirected_row(
+    artifact: &Artifact,
+    resolved: EntrySelector,
+    full: bool,
+) -> Result<Option<Value>, AgentError> {
     let (current, heading) = match resolved {
         EntrySelector::Document {
             document,

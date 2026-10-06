@@ -7,6 +7,7 @@ use tempfile::TempDir;
 
 const TREE: &str = "trace/exploration_tree.yaml";
 
+const BATCH_TIME: &str = "2026-10-01T12:00:00Z";
 fn working(source: &str) -> (TempDir, WorkingArtifact) {
     let directory = tempfile::tempdir().unwrap();
     std::fs::create_dir(directory.path().join("trace")).unwrap();
@@ -17,7 +18,10 @@ fn working(source: &str) -> (TempDir, WorkingArtifact) {
     .unwrap();
     std::fs::write(directory.path().join(TREE), source).unwrap();
     let snapshot = ArtifactSnapshot::load(directory.path()).unwrap();
-    (directory, WorkingArtifact::new(snapshot))
+    let mut working = WorkingArtifact::new(snapshot);
+    // Planner-level tests stand in for the writer's one locked clock read.
+    working.batch_time = Some(BATCH_TIME.into());
+    (directory, working)
 }
 
 fn add(parent: &str) -> WriteOperation {

@@ -611,10 +611,15 @@ fn field_resolution_rejects_stale_current_fingerprint_before_any_history_write()
         &later,
         &conflict.id,
         "theirs",
-        "2026-10-01_001",
-        1,
-        "user-directive",
-        "user",
+        &ara_core::merge::AuditOwner {
+            session: "2026-10-01_001".into(),
+            turn: Some(1),
+            timestamp: None,
+            summary: None,
+            signal: "user-directive".into(),
+            provenance: "user".into(),
+        },
+        "2026-10-01T23:59:00Z",
     )
     .unwrap_err();
     assert_eq!(error.code, "merge.stale_conflict");

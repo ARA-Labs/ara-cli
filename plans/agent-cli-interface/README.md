@@ -2,7 +2,7 @@
 
 The non-experiment implementation has permanent [design records](../../docs/agent-cli-interface/README.md)
 and an [actual frozen-binary verification report](../../docs/verification/agent-cli-2026-10-02/README.md).
-Workspace version is 0.1.24 after plan 18's CLI implementation. The non-experiment
+Workspace version is 0.1.25 after plan 19's CLI implementation. The non-experiment
 features are implemented; fixed performance measurement and final delivery are being
 recorded. Historical reproduction and human protocol approval remain distinct gates.
 
@@ -18,7 +18,7 @@ recorded. Historical reproduction and human protocol approval remain distinct ga
 | [15](15-experiment-harness.md) | Harness/collection remain deferred; revised external-repo, three-submodule, and sharing-disabled-control plan pending review; no E0–E6 experiment claimed |
 | [16](16-local-semantic-search.md), [17](17-cli-write-enforcement.md) | Closed conditionals for this delivery; evidence gates have not fired |
 | [18](18-failed-blocked-calls.md) | Approved 2026-10-04; CLI changes B1–B10 and skills S1–S5 implemented in 0.1.24; external H1/H2/C1, viewer embed rebuild and pilot evidence pending |
-| [19](19-deterministic-bookkeeping.md) | Approved 2026-10-04: derive bookkeeping with explicit turn ownership and protected history; implementation and verification pending |
+| [19](19-deterministic-bookkeeping.md) | Approved 2026-10-04; revised and re-approved 2026-10-05 (bug reproduced, clock and day-count rules tightened, split into sub-PRs 19a–19e): 19a–19e implemented in 0.1.25 with [CLI smokes](../../docs/verification/plan-19-bookkeeping/README.md); repeated six-skill audit (acceptance item 6) and upstream protocol review of the event `target` field pending |
 
 Plan 18's CLI and skill changes are implemented; its external changes and pilot evidence are not, so it stays a plan. Plan 18 supersedes the parent plan's default-JSON agent workflow with brief text while retaining programmatic JSON access, and [the command reference](../../docs/agent-cli.md) documents the shipped behavior. Plan 19 is an approved design revision, not a completed feature; it moves deterministic recording work into the CLI without delegating research judgment to it.
 

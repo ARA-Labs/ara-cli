@@ -1182,10 +1182,18 @@ class Runner:
                 signal = "empirical-resolution" if kind == "dead_end" else "verbal-affirmation"
                 promotion = {"op": "observation.promote", "observation": oid, "to": kind, "title": "Synthetic promoted " + kind, "fields": fields, "signal": signal}
                 self.apply(root, [{"op": "observation.stage", "id": oid, "content": FULL_TEXT, "context": "Synthetic promotion signal supplied by caller", "potential_type": "unknown" if kind == "dead_end" else kind, "provenance": "ai-suggested", "timestamp": "2026-10-01T10:03", "bound_to": ["N03"]}, promotion,
-                    {"op": "session.log", "session": SESSION, "timestamp": "2026-10-01T10:04", "events": [{"type": "observation", "id": oid, "routing": "crystallized", "provenance": "ai-suggested", "summary": "Caller supplied " + signal + " for " + kind}], "key_context": [{"excerpt": "Synthetic caller signal; not inferred from silence"}]}])
+                    {"op": "session.log", "session": SESSION, "timestamp": "2026-10-01T10:04", "key_context": [{"excerpt": "Synthetic caller signal; not inferred from silence"}]}])
                 obs = next(o for o in yaml_load(root / "staging/observations.yaml")["observations"] if o["id"] == oid)
                 require(obs["content"] == FULL_TEXT and obs["promoted"] is True and obs["crystallized_via"] == signal and obs["provenance"] == "ai-suggested", "Promotion lost source or upgraded provenance")
                 target = obs["promoted_to"]
+                # The writer derives the turn's events: one stage and one crystallization.
+                session = yaml_load(root / f"trace/sessions/{SESSION}.yaml")
+                turn = session["session"]["turn_count"]
+                events = [row for row in session["events_logged"] if row["turn"] == turn]
+                document, _, section = target.partition("#")
+                crystallized = {"type": kind, "routing": "crystallized", "provenance": "ai-suggested", "summary": promotion["title"], "turn": turn}
+                crystallized |= {"id": oid, "target": {"document": document, "heading": [section]}} if section else {"id": target.rsplit(":", 1)[1]}
+                require(events == [{"type": "observation", "id": oid, "routing": "staged", "provenance": "ai-suggested", "summary": FULL_TEXT, "turn": turn}, crystallized], "Promotion turn lacks its derived stage and crystallization events")
                 if target.startswith("trace:"):
                     rows, _ = node_source(root); created = next(n for n in rows if n["id"] == target.split(":", 1)[1])
                     require(created["type"] == "dead_end" and created["hypothesis"] == FULL_TEXT, "Refutation did not retain full dead end")
@@ -1352,7 +1360,10 @@ class Runner:
                 sid = date + "_001"
                 ops += [{"op": "session.start", "id": sid, "date": date, "started": date + "T10:00", "summary": "Synthetic unrelated day"}, {"op": "session.log", "session": sid, "timestamp": date + "T10:01", "key_context": [{"excerpt": "Synthetic unrelated activity"}]}]
             reason = "Caller triage: retain this idle observation for review; do not discard or crystallize.\n  Exact why = α\n"
-            owner = dates[-1] + "_001"
+            # The stale decision owns its own new turn; that turn never proves its own idleness.
+            owner = dates[-1] + "_002"
+            ops += [{"op": "session.start", "id": owner, "date": dates[-1], "started": dates[-1] + "T11:00", "summary": "Synthetic stale audit"},
+                    {"op": "session.log", "session": owner, "timestamp": dates[-1] + "T11:01"}]
             audit = {"session": owner, "turn": 1, "signal": "user-directive", "provenance": "user",
                      "note": "Caller selected the final newly logged synthetic turn."}
             ops += [{"op": "observation.mark_stale", "observation": "O40", "session_days": dates,

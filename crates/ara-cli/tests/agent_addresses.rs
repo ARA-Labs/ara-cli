@@ -482,6 +482,7 @@ fn recorded_ambiguity_is_not_overridden_by_a_unique_current_section() {
             turn: Some(1),
             signal: Some("user-directive".into()),
             provenance: Some("user".into()),
+            rewrite_references: false,
         },
     )
     .unwrap();

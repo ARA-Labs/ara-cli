@@ -536,6 +536,13 @@ pub fn plan(
                 .map(|(key, value)| (key.clone(), value.clone()))
                 .collect();
             authored.insert("id".into(), Value::String(assigned.clone()));
+            if !authored.contains_key("timestamp") {
+                // An omitted creation time is the writer's captured batch time.
+                authored.insert(
+                    "timestamp".into(),
+                    Value::String(working.clock_time()?.to_owned()),
+                );
+            }
             authored.insert("type".into(), Value::String(kind.clone()));
             authored.insert("title".into(), Value::String(title.clone()));
             let (selector, new_parent, replace_root) = if parent == "root" {
@@ -608,7 +615,7 @@ pub fn plan(
                     parent: new_parent,
                     dependencies: Vec::new(),
                     same_as: Vec::new(),
-                    timestamp: fields
+                    timestamp: authored
                         .get("timestamp")
                         .and_then(Value::as_str)
                         .map(str::to_owned),
