@@ -33,13 +33,25 @@ provenance fails with `write.event_provenance`, and unattributed creations in
 multi-log batches fail with `write.owner_ambiguous`. The full contract is in
 [Operation-derived session rows](../agent-cli.md#operation-derived-session-rows).
 
+Step 19d makes `observation.mark_stale` `session_days` optional. The writer
+builds the same explicit-reference history as `open`
+(`write/history/`), excludes the stale operation's own turn, cuts days off at
+the owning audit date, and records the full canonical list when the list is
+omitted. A supplied list stays an exact verified subset: duplicates, invalid
+dates, days not after the last reference, days after the audit date, days
+without another logged turn and fewer than three days reject at
+`session_days[i]`/`session_days`. Unknown day evidence refuses with
+`write.stale_history_unknown`. The evidence record shape is unchanged and is
+recomputed at validation. Contract: [Session history and
+transactions](../agent-cli.md#session-history-and-transactions).
+
 ## Boundaries and remaining gates
 
 Historic content is immutable. Promotion tuple replay exceptions authenticate exact unresolved captured candidates; they do not authorize arbitrary changes after promotion.
 
 ## Code and proof boundaries
 
-Implementation: `crates/ara-core/src/write/{staging,sessions,records,clock,bookkeeping}.rs`.
+Implementation: `crates/ara-core/src/write/{staging,sessions,records,clock,bookkeeping}.rs, write/history/`.
 
-Permanent consumer regressions: `write_sessions_staging.rs, write_owner_clock.rs, write_bookkeeping.rs, merge_yaml_layers.rs`. Final locked workspace, Clippy, wasm
+Permanent consumer regressions: `write_sessions_staging.rs, write_owner_clock.rs, write_bookkeeping.rs, write_history.rs, merge_yaml_layers.rs`. Final locked workspace, Clippy, wasm
 and actual-release checks are linked from the delivery verification report.

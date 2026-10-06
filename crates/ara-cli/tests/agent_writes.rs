@@ -1638,3 +1638,317 @@ fn derived_row_conflicts_report_both_physical_lines() {
         "rejected batches write nothing"
     );
 }
+
+/// Plan 19 D1/D2: an observation staged on 10-01 and three later logged days.
+fn inactivity_fixture() -> TempDir {
+    let dir = fixture();
+    // Staged outside any logged turn: only its timestamp places it.
+    apply(
+        dir.path(),
+        &[
+            json!({"op":"observation.stage","content":"Boundary looks odd","potential_type":"claim","provenance":"user","timestamp":"2026-10-01T10:00:00Z","bound_to":["N01"]}),
+        ],
+        false,
+    );
+    for date in ["2026-10-02", "2026-10-03", "2026-10-04"] {
+        apply(
+            dir.path(),
+            &[
+                json!({"op":"session.log","summary":format!("Work on {date}"),"timestamp":format!("{date}T10:00:00Z")}),
+            ],
+            false,
+        );
+    }
+    dir
+}
+fn open_row(root: &Path, id: &str) -> Value {
+    let report = run(root, &["open"]);
+    assert_eq!(report["format"], "ara.open/v1");
+    report["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|row| row["id"] == id)
+        .unwrap_or_else(|| panic!("{report}"))
+        .clone()
+}
+
+#[test]
+fn open_reports_measured_inactivity_with_its_limits() {
+    let dir = inactivity_fixture();
+    let row = open_row(dir.path(), "O01");
+    assert_eq!(row["kind"], "observation");
+    assert_eq!(row["content"], "Boundary looks odd");
+    assert_eq!(
+        row["reasons"],
+        json!(["unpromoted_observation", "stale_observation"])
+    );
+    assert_eq!(row["turns_since_reference"], 3);
+    assert_eq!(row["session_days_since_reference"], 3);
+    assert_eq!(row["last_reference_turn"], Value::Null);
+    assert_eq!(row["last_reference_date"], "2026-10-01");
+    assert_eq!(row["reference_basis"], "staging_timestamp");
+    assert_eq!(row["evidence_sources"], json!([]));
+    assert_eq!(row["history_status"], "complete");
+    assert_eq!(row["history_diagnostics"], json!([]));
+
+    // A literal reference in a later turn resets both counts.
+    apply(
+        dir.path(),
+        &[
+            json!({"op":"session.log","summary":"Revisited O01 against N01","timestamp":"2026-10-04T12:00:00Z"}),
+        ],
+        false,
+    );
+    let row = open_row(dir.path(), "O01");
+    assert_eq!(row["turns_since_reference"], 0);
+    assert_eq!(row["session_days_since_reference"], 0);
+    assert_eq!(row["last_reference_turn"], "2026-10-04_001#2");
+    assert_eq!(row["reference_basis"], "literal");
+    let targets: Vec<&str> = row["evidence_sources"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|e| e["target"].as_str().unwrap())
+        .collect();
+    assert_eq!(targets, ["N01", "O01"]);
+    assert_eq!(row["evidence_sources"][0]["session"], "2026-10-04_001");
+    assert_eq!(row["evidence_sources"][0]["turn"], 2);
+    assert_eq!(row["reasons"], json!(["unpromoted_observation"]));
+
+    // Projection keeps the new fields addressable.
+    let projected = run(
+        dir.path(),
+        &["open", "--fields", "turns_since_reference,history_status"],
+    );
+    let row = projected["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|row| row["id"] == "O01")
+        .unwrap();
+    assert_eq!(row["turns_since_reference"], 0);
+    assert!(row.get("evidence_sources").is_none());
+    // Brief text ends observation rows with the measurement.
+    let output = ara(dir.path())
+        .arg("open")
+        .assert()
+        .success()
+        .get_output()
+        .clone();
+    let text = String::from_utf8(output.stdout).unwrap();
+    let line = text.lines().find(|l| l.starts_with("O01\t")).unwrap();
+    assert!(
+        line.ends_with("\tturns=0 days=0 last_reference=2026-10-04_001#2 history=complete"),
+        "{line}"
+    );
+}
+
+#[test]
+fn open_shows_overlapping_sessions_as_unknown_turns_with_known_days() {
+    let dir = inactivity_fixture();
+    // A second agent's session overlaps the 10-04 one.
+    apply(
+        dir.path(),
+        &[
+            json!({"op":"session.start","started":"2026-10-04T09:00:00Z","summary":"Peer agent"}),
+            json!({"op":"session.log","session":"$s","timestamp":"2026-10-04T11:00:00Z"}),
+        ]
+        .iter()
+        .enumerate()
+        .map(|(i, op)| {
+            let mut op = op.clone();
+            if i == 0 {
+                op["id"] = json!("$s");
+            }
+            op
+        })
+        .collect::<Vec<_>>(),
+        false,
+    );
+    apply(
+        dir.path(),
+        &[
+            json!({"op":"session.log","session":"2026-10-04_001","timestamp":"2026-10-04T12:00:00Z","summary":"Later work"}),
+        ],
+        false,
+    );
+    let row = open_row(dir.path(), "O01");
+    assert_eq!(row["turns_since_reference"], Value::Null);
+    assert_eq!(row["session_days_since_reference"], 3);
+    assert_eq!(row["history_status"], "ambiguous");
+    assert_eq!(row["history_diagnostics"][0]["code"], "history.overlap");
+}
+
+#[test]
+fn mark_stale_derives_session_days_and_refuses_unproven_evidence() {
+    let dir = inactivity_fixture();
+    let stale = |days: Option<Value>| {
+        let mut op = json!({"op":"observation.mark_stale","observation":"O01","reason":"Caller judged the topic abandoned","audit":{"signal":"user-directive","provenance":"user"}});
+        if let Some(days) = days {
+            op["session_days"] = days;
+        }
+        op
+    };
+    let log =
+        json!({"op":"session.log","summary":"Stale audit","timestamp":"2026-10-05T10:00:00Z"});
+    let text = |ops: &[Value]| ops.iter().map(|op| format!("{op}\n")).collect::<String>();
+
+    // Invalid supplied lists refuse at their physical line and field.
+    let before = artifact_bytes(dir.path());
+    for (days, field) in [
+        (
+            json!(["2026-10-02", "2026-10-02", "2026-10-03"]),
+            "session_days[1]",
+        ),
+        (
+            json!(["2026-10-02", "2026-10-03", "2026-10-09"]),
+            "session_days[2]",
+        ),
+        (
+            json!(["2026-10-02", "2026-10-03", "2026-10-05"]),
+            "session_days[2]",
+        ),
+        (json!(["2026-10-02", "2026-10-03"]), "session_days"),
+    ] {
+        let failure = apply_failure(dir.path(), &text(&[log.clone(), stale(Some(days))]));
+        let error = &failure["error"];
+        assert_eq!(error["code"], "write.observation", "{failure}");
+        assert_eq!(error["line"], 2, "{failure}");
+        assert_eq!(error["details"]["field"], field, "{failure}");
+        assert_eq!(artifact_bytes(dir.path()), before);
+    }
+
+    // A dry run previews the derived list without persisting it.
+    let preview = apply(dir.path(), &[log.clone(), stale(None)], true);
+    assert_eq!(preview["dry_run"], true);
+    assert_eq!(artifact_bytes(dir.path()), before);
+
+    apply(dir.path(), &[log.clone(), stale(None)], false);
+    let reasoning = yaml(dir.path(), "trace/pm_reasoning_log.yaml");
+    let note = reasoning["entries"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|e| e["notes"][0] == "Caller judged the topic abandoned")
+        .unwrap();
+    assert_eq!(note["turn"], "2026-10-05_001#1");
+    let evidence: Value = serde_json::from_str(note["notes"][1].as_str().unwrap()).unwrap();
+    assert_eq!(
+        evidence["session_days"],
+        json!(["2026-10-02", "2026-10-03", "2026-10-04"])
+    );
+    let row = open_row(dir.path(), "O01");
+    assert_eq!(row["stale"], true);
+    assert_eq!(row["promoted"], false);
+
+    // A later reference changes the measurement, never the stored flag.
+    apply(
+        dir.path(),
+        &[json!({"op":"session.log","summary":"Back to O01","timestamp":"2026-10-06T10:00:00Z"})],
+        false,
+    );
+    let row = open_row(dir.path(), "O01");
+    assert_eq!(row["stale"], true);
+    assert_eq!(row["session_days_since_reference"], 0);
+    assert!(
+        row["reasons"]
+            .as_array()
+            .unwrap()
+            .contains(&json!("stale_observation"))
+    );
+}
+
+#[test]
+fn mark_stale_refuses_unknown_day_evidence_without_writing() {
+    let dir = inactivity_fixture();
+    // Drop the staging timestamp: no staging turn or time remains.
+    let path = dir.path().join("staging/observations.yaml");
+    let source = fs::read_to_string(&path).unwrap();
+    let edited: String = source
+        .lines()
+        .filter(|line| !line.trim_start().starts_with("timestamp:"))
+        .map(|line| format!("{line}\n"))
+        .collect();
+    assert_ne!(edited, source);
+    fs::write(&path, edited).unwrap();
+    let row = open_row(dir.path(), "O01");
+    assert_eq!(row["turns_since_reference"], Value::Null);
+    assert_eq!(row["session_days_since_reference"], Value::Null);
+    assert_eq!(row["history_status"], "missing");
+    assert_eq!(
+        row["history_diagnostics"][0]["code"],
+        "history.creation_evidence_missing"
+    );
+    let before = artifact_bytes(dir.path());
+    let error = apply_failure(
+        dir.path(),
+        "{\"op\":\"session.log\",\"summary\":\"Audit\",\"timestamp\":\"2026-10-05T10:00:00Z\"}\n{\"op\":\"observation.mark_stale\",\"observation\":\"O01\",\"reason\":\"Abandoned\",\"audit\":{\"signal\":\"user-directive\",\"provenance\":\"user\"}}\n",
+    );
+    let error = &error["error"];
+    assert_eq!(error["code"], "write.stale_history_unknown", "{error}");
+    assert_eq!(error["line"], 2);
+    assert_eq!(error["details"]["field"], "session_days");
+    assert_eq!(artifact_bytes(dir.path()), before);
+}
+
+#[test]
+fn open_ignores_pre_staging_references_and_out_of_range_reasoning_turns() {
+    let dir = fixture();
+    // N01 is used before the observation bound to it exists.
+    apply(
+        dir.path(),
+        &[json!({"op":"session.log","summary":"Looked at N01","timestamp":"2026-10-01T09:00:00Z"})],
+        false,
+    );
+    apply(
+        dir.path(),
+        &[
+            json!({"op":"observation.stage","content":"Boundary looks odd","potential_type":"claim","provenance":"user","timestamp":"2026-10-01T10:00:00Z","bound_to":["N01"]}),
+        ],
+        false,
+    );
+    for date in ["2026-10-02", "2026-10-03"] {
+        apply(
+            dir.path(),
+            &[
+                json!({"op":"session.log","summary":format!("Work on {date}"),"timestamp":format!("{date}T10:00:00Z")}),
+            ],
+            false,
+        );
+    }
+    let row = open_row(dir.path(), "O01");
+    assert_eq!(row["turns_since_reference"], 2);
+    assert_eq!(row["session_days_since_reference"], 2);
+    assert_eq!(row["reference_basis"], "staging_timestamp");
+    assert_eq!(row["last_reference_turn"], Value::Null);
+    assert_eq!(row["last_reference_date"], "2026-10-01");
+    assert_eq!(row["evidence_sources"][0]["status"], "before_staging");
+
+    // A hand-written reasoning note naming a turn the session never logged.
+    let path = dir.path().join("trace/pm_reasoning_log.yaml");
+    let mut text = fs::read_to_string(&path).unwrap();
+    text.push_str("  - turn: \"2026-10-03_001#9\"\n    notes: [\"Used O01\"]\n");
+    fs::write(&path, text).unwrap();
+    let row = open_row(dir.path(), "O01");
+    assert_eq!(row["turns_since_reference"], Value::Null);
+    assert_eq!(row["history_status"], "ambiguous");
+    assert_eq!(
+        row["history_diagnostics"][0]["code"],
+        "history.contradictory"
+    );
+}
+
+#[test]
+fn open_reports_undecodable_aliases_without_failing() {
+    let dir = inactivity_fixture();
+    fs::write(dir.path().join("trace/aliases.yaml"), [0xff, 0xfe, b'\n']).unwrap();
+    let row = open_row(dir.path(), "O01");
+    assert_eq!(row["turns_since_reference"], Value::Null);
+    assert_eq!(row["session_days_since_reference"], Value::Null);
+    assert_eq!(row["history_status"], "ambiguous");
+    assert_eq!(
+        row["history_diagnostics"][0]["code"],
+        "history.alias_invalid"
+    );
+}

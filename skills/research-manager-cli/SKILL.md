@@ -134,7 +134,12 @@ A staged observation crystallizes when **at least one** of these signals is pres
 1. **Topic abandonment** — observation's topic has no events in the last `k=5` turns AND
    `open_threads` does not reference it. Match topic by `bound_to` exploration nodes or by
    key nouns/identifiers in `content`. Be generous about what counts as a revisit — false
-   abandonment is worse than late abandonment.
+   abandonment is worse than late abandonment. Do not count turns by hand: `ara open --json`
+   reports each observation's `turns_since_reference`, the logged turns since the last exact
+   reference to its ID or a bound node (`evidence_sources` lists what was matched). That count
+   only bounds the judgment: topic wording and current `open_threads` can still show a revisit,
+   so five reference-free turns are not proof of abandonment. `null` means the history cannot
+   prove a count (`history_diagnostics` says why): treat it as unknown, never as zero or five.
 
 2. **Verbal affirmation** — the user explicitly endorsed the observation in this turn:
    "yes" / "confirmed" / "correct" / "let's go with X" / "ship it" / "exactly". The
@@ -241,7 +246,11 @@ writer, and a report is INPUT to it, not an edit.
 
 A staged observation that has neither been promoted nor referenced for **3+ session-days**
 gets `stale: true`. Stale observations are surfaced at the next briefing for the
-researcher to triage — the manager does not auto-discard.
+researcher to triage — the manager does not auto-discard. `ara open --json` reports the
+measured `session_days_since_reference`; when it is 3 or more, write `observation.mark_stale`
+with your reason and signal and **omit `session_days`**: the CLI derives the logged days after
+the last reference (excluding this turn) and records them, or refuses when the history cannot
+prove three. Do not count days by hand, and never mark stale on a `null` count.
 
 ### Stage 4 — Logic Layer Reconciliation
 
@@ -382,7 +391,7 @@ When a signal fires for entry `E` (claim, heuristic, or concept):
 1. Read existing ara/ knowledge with ara full source shows (current state); use CLI allocation/results for new IDs.
 2. Stage 1 — harvest this turn's candidate events.
 3. Stage 2 — classify/route each (per event-taxonomy.md): journey facts direct to trace/; interpretive events staged to staging/observations.yaml.
-4. Stage 3 — crystallize staged observations whose closure signal fired; flag contradictions; mark 3+-day-idle observations stale.
+4. Stage 3 — crystallize staged observations whose closure signal fired; flag contradictions; mark observations stale whose `open` row shows `session_days_since_reference` >= 3 (omit `session_days`).
 5. Stage 4 — for each crystallized logic/ entry, apply status/content/structural edits when a signal fires; run the cross-ref consistency pass (logic.revise records each before/after in the session record); log near-misses.
 6. Use one ara apply batch anchored by one session.log with your one-line summary and no session/timestamp: the CLI selects today's open session or creates it, allocates the turn, and fills session/turn for revisions and reasoning that omit them. It also derives the turn's mechanical events_logged and claims_touched rows from the batch's node.add, observation.stage, claim/heuristic add, observation.promote and logic.revise operations (supply provenance on each). You supply what only you know: claim judgments, ai_actions, key_context, open_threads, ai_suggestions_pending, and event rows for entries not created in this batch or that need your own summary. record.append appends the complete PM reasoning notes. If the CLI reports write.session_ambiguous, name the session; report any open_sessions it lists.
 7. Print one-line summary, e.g.:

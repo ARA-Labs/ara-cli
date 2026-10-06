@@ -63,6 +63,15 @@ fn stale(observation: &str, days: Value, owner_date: &str) -> Value {
         "reason":"Caller decided the topic has been abandoned.\nKeep exact wording.\n",
         "audit":{"session":format!("{owner_date}_001"),"turn":1,"signal":"user-directive","provenance":"user","note":"Caller audit note"}})
 }
+/// Start a session on `date` and log its first turn: the batch-owned turn a
+/// stale decision's `audit` names. Its own day never proves inactivity.
+fn owner_turn(working: &mut WorkingArtifact, date: &str) {
+    let session = start(working, date);
+    apply(
+        working,
+        json!({"op":"session.log","session":session,"timestamp":format!("{date}T11:00"),"summary":"Stale audit turn"}),
+    );
+}
 fn claim_fields() -> Value {
     json!({"Statement":"Mechanism persists\n","Conditions":"Within caller boundary","Status":"hypothesis","Falsification":"A contrary observation"})
 }
@@ -387,19 +396,21 @@ fn stale_requires_three_distinct_proven_subsequent_session_days() {
             json!({"op":"session.log","session":session,"timestamp":format!("{date}T10:01"),"ai_actions":[{"action":"Unrelated action","provenance":"ai-executed","files_changed":[]}]}),
         );
     }
+    owner_turn(&mut working, "2026-10-05");
     for days in [
         json!(["2026-10-02", "2026-10-03"]),
         json!(["2026-10-02", "2026-10-02", "2026-10-03"]),
         json!(["2026-10-02", "2026-10-03", "2026-10-05"]),
+        json!(["2026-10-02", "2026-10-03", "2026-10-06"]),
     ] {
-        assert!(plan_operation(&mut working, &op(stale(&id, days, "2026-10-04"))).is_err());
+        assert!(plan_operation(&mut working, &op(stale(&id, days, "2026-10-05"))).is_err());
     }
     apply(
         &mut working,
         stale(
             &id,
             json!(["2026-10-02", "2026-10-03", "2026-10-04"]),
-            "2026-10-04",
+            "2026-10-05",
         ),
     );
     assert_eq!(
@@ -418,7 +429,7 @@ fn stale_requires_three_distinct_proven_subsequent_session_days() {
                 == "Caller decided the topic has been abandoned.\nKeep exact wording.\n"
         })
         .unwrap();
-    assert_eq!(note["turn"], "2026-10-04_001#1");
+    assert_eq!(note["turn"], "2026-10-05_001#1");
     assert_eq!(note["notes"][2], "Caller audit note");
     let evidence: Value = serde_json::from_str(note["notes"][1].as_str().unwrap()).unwrap();
     assert_eq!(
@@ -431,7 +442,7 @@ fn stale_requires_three_distinct_proven_subsequent_session_days() {
     assert_eq!(evidence["provenance"], "user");
     assert_eq!(
         evidence["audit"],
-        json!({"session":"2026-10-04_001","turn":1,"source_refs":["trace/sessions/2026-10-04_001.yaml"]})
+        json!({"session":"2026-10-05_001","turn":1,"source_refs":["trace/sessions/2026-10-05_001.yaml"]})
     );
     assert_eq!(
         evidence["session_sources"],
@@ -521,12 +532,13 @@ fn reference_evidence_resets_stale_window_and_empty_sessions_do_not_count() {
             json!({"op":"session.log","session":session,"timestamp":format!("{date}T10:01")}),
         );
     }
+    owner_turn(&mut working, "2026-10-07");
     apply(
         &mut working,
         stale(
             &id,
             json!(["2026-10-04", "2026-10-05", "2026-10-06"]),
-            "2026-10-06",
+            "2026-10-07",
         ),
     );
     assert_eq!(
@@ -832,11 +844,12 @@ fn stale_requires_reason_owned_turn_and_exact_notes_and_rechecks_final_reference
             json!({"op":"session.log","session":session,"timestamp":format!("{date}T10:01")}),
         );
     }
+    owner_turn(&mut working, "2026-10-05");
     let before = working.text(staging::OBSERVATIONS).unwrap().to_owned();
     let mut request = stale(
         &id,
         json!(["2026-10-02", "2026-10-03", "2026-10-04"]),
-        "2026-10-04",
+        "2026-10-05",
     );
     request["reason"] = json!(" \n");
     assert!(plan_operation(&mut working, &op(request)).is_err());
@@ -869,18 +882,18 @@ fn stale_requires_reason_owned_turn_and_exact_notes_and_rechecks_final_reference
         stale(
             &id,
             json!(["2026-10-02", "2026-10-03", "2026-10-04"]),
-            "2026-10-04",
+            "2026-10-05",
         ),
     );
     staging::validate_references(&working).unwrap();
-    let owner = ("2026-10-04_001".into(), 1);
+    let owner = ("2026-10-05_001".into(), 1);
     let timestamp = working.owned_turns.remove(&owner).unwrap();
     assert!(staging::validate_references(&working).is_err());
     working.owned_turns.insert(owner, timestamp);
     // A later reference in the same atomic candidate invalidates the evidence.
     apply(
         &mut working,
-        json!({"op":"session.log","session":"2026-10-04_001","timestamp":"2026-10-04T10:02","events":[{"type":"observation","id":id,"routing":"staged","provenance":"user","summary":"Actual later reference"}]}),
+        json!({"op":"session.log","session":"2026-10-05_001","timestamp":"2026-10-05T11:02","events":[{"type":"observation","id":id,"routing":"staged","provenance":"user","summary":"Actual later reference"}]}),
     );
     assert!(staging::validate_references(&working).is_err());
 }
@@ -926,12 +939,13 @@ fn stale_is_consumer_visible_and_legacy_flags_and_notes_remain_byte_identical() 
             json!({"op":"session.log","session":session,"timestamp":format!("{date}T10:01")}),
         );
     }
+    owner_turn(&mut working, "2026-10-05");
     apply(
         &mut working,
         stale(
             &id,
             json!(["2026-10-04", "2026-10-02", "2026-10-03"]),
-            "2026-10-04",
+            "2026-10-05",
         ),
     );
     staging::validate_references(&working).unwrap();
@@ -1033,4 +1047,215 @@ fn imported_historical_stale_flags_are_readable_without_fabricating_a_native_aud
     staging::validate_references(&working).unwrap();
     assert_eq!(working.text(staging::OBSERVATIONS).unwrap(), source);
     assert!(!working.exists(records::REASONING));
+}
+
+fn logged_days(working: &mut WorkingArtifact, dates: &[&str]) {
+    for date in dates {
+        let session = start(working, date);
+        apply(
+            working,
+            json!({"op":"session.log","session":session,"timestamp":format!("{date}T10:01")}),
+        );
+    }
+}
+fn stale_error(working: &mut WorkingArtifact, request: Value) -> ara_core::write::WriteError {
+    let before = working.text(staging::OBSERVATIONS).unwrap().to_owned();
+    let error = plan_operation(working, &op(request)).unwrap_err();
+    assert_eq!(working.text(staging::OBSERVATIONS).unwrap(), before);
+    error
+}
+fn evidence(working: &WorkingArtifact) -> Value {
+    let reasoning = yaml(working, records::REASONING);
+    let note = reasoning["entries"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .rev()
+        .find(|entry| entry.get("notes").is_some())
+        .unwrap()
+        .clone();
+    serde_json::from_str(note["notes"][1].as_str().unwrap()).unwrap()
+}
+
+#[test]
+fn omitted_session_days_record_the_canonical_eligible_list() {
+    let (_dir, mut working) = fixture();
+    let id = stage(&mut working);
+    logged_days(
+        &mut working,
+        &["2026-10-02", "2026-10-03", "2026-10-04", "2026-10-05"],
+    );
+    owner_turn(&mut working, "2026-10-06");
+    let mut request = stale(&id, json!(null), "2026-10-06");
+    request.as_object_mut().unwrap().remove("session_days");
+    apply(&mut working, request);
+    staging::validate_references(&working).unwrap();
+    let evidence = evidence(&working);
+    assert_eq!(
+        evidence["session_days"],
+        json!(["2026-10-02", "2026-10-03", "2026-10-04", "2026-10-05"])
+    );
+    assert_eq!(evidence["last_reference"], "2026-10-01");
+    assert_eq!(evidence["session_sources"].as_array().unwrap().len(), 4);
+    assert_eq!(evidence["audit"]["session"], "2026-10-06_001");
+}
+
+#[test]
+fn supplied_session_days_stay_an_exact_verified_subset() {
+    let (_dir, mut working) = fixture();
+    let id = stage(&mut working);
+    logged_days(
+        &mut working,
+        &["2026-10-02", "2026-10-03", "2026-10-04", "2026-10-05"],
+    );
+    owner_turn(&mut working, "2026-10-06");
+    let cases = [
+        (
+            json!(["2026-10-02", "2026-10-03", "2026-10-03"]),
+            "session_days[2]",
+            "repeats",
+        ),
+        (
+            json!(["2026-10-01", "2026-10-03", "2026-10-04"]),
+            "session_days[0]",
+            "not after the last reference",
+        ),
+        (
+            json!(["2026-10-02", "2026-10-03", "2026-10-07"]),
+            "session_days[2]",
+            "after the owning audit date",
+        ),
+        (
+            json!(["2026-10-02", "2026-10-03", "2026-10-06"]),
+            "session_days[2]",
+            "own",
+        ),
+        (
+            json!(["2026-10-02", "2026-10-03", "2026-02-30"]),
+            "session_days[2]",
+            "calendar",
+        ),
+        (
+            json!(["2026-10-02", "2026-10-03"]),
+            "session_days",
+            "at least three",
+        ),
+        (json!([]), "session_days", "at least three"),
+    ];
+    for (days, field, text) in cases {
+        let error = stale_error(&mut working, stale(&id, days.clone(), "2026-10-06"));
+        assert_eq!(error.field.as_deref(), Some(field), "{days}: {error:?}");
+        assert!(error.message.contains(text), "{days}: {}", error.message);
+    }
+    apply(
+        &mut working,
+        stale(
+            &id,
+            json!(["2026-10-05", "2026-10-02", "2026-10-04"]),
+            "2026-10-06",
+        ),
+    );
+    staging::validate_references(&working).unwrap();
+    let evidence = evidence(&working);
+    assert_eq!(
+        evidence["session_days"],
+        json!(["2026-10-05", "2026-10-02", "2026-10-04"])
+    );
+    assert_eq!(
+        evidence["session_sources"],
+        json!([
+            {"date":"2026-10-02","document":"trace/sessions/2026-10-02_001.yaml"},
+            {"date":"2026-10-04","document":"trace/sessions/2026-10-04_001.yaml"},
+            {"date":"2026-10-05","document":"trace/sessions/2026-10-05_001.yaml"}
+        ])
+    );
+}
+
+#[test]
+fn stale_owner_text_and_unknown_day_evidence_never_prove_inactivity() {
+    // The owning turn mentions the observation; that is not later use, and
+    // its own day is not an eligible day.
+    let (_dir, mut working) = fixture();
+    let id = stage(&mut working);
+    logged_days(&mut working, &["2026-10-02", "2026-10-03"]);
+    let session = start(&mut working, "2026-10-04");
+    apply(
+        &mut working,
+        json!({"op":"session.log","session":session,"timestamp":"2026-10-04T11:00","summary":format!("Marking {id} stale")}),
+    );
+    let mut request = stale(&id, json!(null), "2026-10-04");
+    request.as_object_mut().unwrap().remove("session_days");
+    let error = stale_error(&mut working, request.clone());
+    assert_eq!(error.code, "write.observation");
+    assert!(
+        error.message.contains("only 2 logged session-day"),
+        "{}",
+        error.message
+    );
+    let (_dir, mut working) = fixture();
+    let id = stage(&mut working);
+    logged_days(&mut working, &["2026-10-02", "2026-10-03", "2026-10-04"]);
+    let session = start(&mut working, "2026-10-05");
+    apply(
+        &mut working,
+        json!({"op":"session.log","session":session,"timestamp":"2026-10-05T11:00","summary":format!("Marking {id} stale")}),
+    );
+    request["audit"]["session"] = json!("2026-10-05_001");
+    apply(&mut working, request);
+    staging::validate_references(&working).unwrap();
+    assert_eq!(
+        evidence(&working)["session_days"],
+        json!(["2026-10-02", "2026-10-03", "2026-10-04"])
+    );
+
+    // No staging timestamp and no staging turn: unknown evidence refuses.
+    let (dir, _) = fixture();
+    std::fs::create_dir_all(dir.path().join("staging")).unwrap();
+    std::fs::write(
+        dir.path().join(staging::OBSERVATIONS),
+        "observations:\n  - id: O01\n    content: Undated\n    potential_type: claim\n    provenance: user\n    promoted: false\n    stale: false\n",
+    )
+    .unwrap();
+    let mut working = WorkingArtifact::new(ArtifactSnapshot::load(dir.path()).unwrap());
+    working.batch_time = Some("2026-10-01T12:00:00Z".into());
+    logged_days(&mut working, &["2026-10-02", "2026-10-03", "2026-10-04"]);
+    owner_turn(&mut working, "2026-10-05");
+    let mut request = stale("O01", json!(null), "2026-10-05");
+    request.as_object_mut().unwrap().remove("session_days");
+    let error = stale_error(&mut working, request);
+    assert_eq!(error.code, "write.stale_history_unknown");
+    assert_eq!(error.field.as_deref(), Some("session_days"));
+    assert!(error.message.contains("history.creation_evidence_missing"));
+}
+
+#[test]
+fn stale_evidence_with_an_absurd_turn_count_neither_aborts_nor_overflows() {
+    let (dir, _) = fixture();
+    let id = "2026-10-02_001";
+    std::fs::create_dir_all(dir.path().join("trace/sessions")).unwrap();
+    std::fs::write(
+        dir.path().join(format!("trace/sessions/{id}.yaml")),
+        format!("session:\n  id: \"{id}\"\n  date: \"2026-10-02\"\n  started: \"2026-10-02T09:00\"\n  last_turn: \"2026-10-02T10:00\"\n  turn_count: 18446744073709551615\n  summary: Huge\n"),
+    )
+    .unwrap();
+    std::fs::write(
+        dir.path().join(sessions::INDEX),
+        format!("sessions:\n  - id: \"{id}\"\n    date: \"2026-10-02\"\n    summary: Huge\n    turn_count: 18446744073709551615\n    events_count: 0\n    claims_touched: []\n    open_threads: 0\n"),
+    )
+    .unwrap();
+    let mut working = WorkingArtifact::new(ArtifactSnapshot::load(dir.path()).unwrap());
+    working.batch_time = Some("2026-10-01T12:00:00Z".into());
+    let observation = stage(&mut working);
+    logged_days(&mut working, &["2026-10-03", "2026-10-04"]);
+    owner_turn(&mut working, "2026-10-05");
+    let mut request = stale(&observation, json!(null), "2026-10-05");
+    request.as_object_mut().unwrap().remove("session_days");
+    // Day evidence is known (the record logged turns on 10-02); turn order
+    // is not needed for days, so the write records the three dates.
+    apply(&mut working, request);
+    staging::validate_references(&working).unwrap();
+    assert_eq!(
+        evidence(&working)["session_days"],
+        json!(["2026-10-02", "2026-10-03", "2026-10-04"])
+    );
 }

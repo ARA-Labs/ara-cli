@@ -44,7 +44,7 @@ ara -C ./ara find 'failure boundary' --limit 10 --full --json
 | `show` | Entry projection, relations via `--with`, full body or bounded native document; `--lines A:B` windows and `--max-bytes` budgets | One labeled block per selection: native source with its `source_digest`, or a projection without a digest; 16 KiB budget, paged at whole lines |
 | `path` | Root-to-node nesting, with cross-edges kept distinct | Root-to-node IDs, indented by depth |
 | `refs` | Typed references with source spans, separately reported possible prose mentions | Referencing ID, field, `source:line`, literal; prose mentions labeled as possible |
-| `open` | Unfinished questions/experiments, unpromoted observations and active continuity | Address, kind, reasons, title |
+| `open` | Unfinished questions/experiments, unpromoted observations and active continuity; observation rows add measured inactivity ([below](#observation-inactivity-in-open)) | Address, kind, reasons, title; observation rows end with `turns=… days=… last_reference=… history=…` |
 | `find` | Stateless keyword ranking over loaded knowledge | Ranked addresses with one-based source lines; `--context N` adds merged context |
 | `resolve` | Resolve a qualified imported identity through the portable identity records | The resolved ID |
 
@@ -56,6 +56,92 @@ or lock failure. `--fields` projects supported fields while retaining
 transaction/result identity. JSON excerpts are bounded to 160 Unicode
 characters; `--full` retains source content. Incomplete source representation
 must not be reported as success.
+
+### Observation inactivity in `open`
+
+Every observation row of `ara.open/v1` adds these fields to its existing ones
+(plan 19 D1). The envelope and the other fields do not change.
+
+| Field | Meaning |
+|---|---|
+| `turns_since_reference` | Fully logged turns strictly after the latest attributable reference, through the latest provably ordered turn; `null` when unknown |
+| `session_days_since_reference` | Distinct later written dates with at least one logged turn; `null` when unknown |
+| `last_reference_turn` | `session#turn` of that reference, when turn order proves which one is latest |
+| `last_reference_date` | Written date the day count starts after |
+| `reference_basis` | `structured`, `literal`, `staging_timestamp`, or `null` |
+| `evidence_sources` | Every matched occurrence: `source`, `line`, `field`, `session`, `turn`, `date`, `basis`, `literal`, `target`, `status` (`attributed`, `unresolved`, or `before_staging` for a reference stamped before the staging instant), optional `resolved_via` |
+| `history_status` | `complete` (both counts known), `missing` or `ambiguous` |
+| `history_diagnostics` | Why a count is `null`: `code`, `status`, `message`, `count` (occurrences; a range of unstamped turns counts every turn), up to three `examples` |
+
+A reference is the observation's exact ID, or the exact ID of a node in its
+`bound_to`, either as a typed `id`/`entry` field of a turn row (`structured`)
+or as an exact token in caller-written turn text (`literal`). `O011`, `XO01`
+or a topic word are not references. The CLI does not decide whether a topic
+was semantically revisited; the five-turn topic-abandonment rule stays the
+caller's judgment.
+
+The timeline comes from the session records, the per-turn stamps (a session's
+`last_turn` for its latest turn and the archived `session_metadata` in
+`trace/pm_reasoning_log.yaml` for each turn) and, for imported sessions,
+`trace/aliases.yaml`. It never uses numeric IDs, file times, index totals or
+lexical session order. Turn text is the turn's typed rows (`events_logged`,
+`ai_actions`, `claims_touched`, `logic_revisions` `entry`/`note`,
+`key_context`), the summary and new `open_threads`/`ai_suggestions_pending`
+items that turn wrote (the first turn also owns the summary the session was
+started with), and its reasoning notes. Generated counters, the session index,
+unchanged archived copies, revision `before`/`after` values and
+`observation.mark_stale` evidence records are not references.
+
+- **Turn order.** Within a session the turn number orders turns and the stamps
+  must agree. Sessions are ordered only when their turn intervals are separated
+  by instant. Overlapping intervals, equal timestamps across sessions, a turn
+  without a stamp, a legacy record without turn identities, a session named in
+  the reasoning log or index without a record, contradictory metadata
+  (including a reasoning entry naming a turn beyond the session's
+  `turn_count`, or a session that archives its turns but claims more than
+  its archive and `last_turn` reach), or an
+  unresolved imported literal make the affected turn count `null`. Overlap
+  entirely before the latest reference does not.
+- **Starting point.** The latest attributable reference. The structured
+  staging event (`events_logged` row with the O ID) is itself one. A
+  reference whose turn is stamped strictly before the staging `timestamp`
+  predates the observation: it is listed as `before_staging` and counts for
+  neither turns nor days; one at the same instant is the staging turn. With a
+  date-only staging timestamp, a reference on an earlier date is
+  `before_staging`, and a latest reference on the staging date itself makes
+  the turn count `null` (`history.staging_position`); days still count after
+  the staging date. Without any
+  reference the staging `timestamp` is used (`staging_timestamp`): only turns
+  provably after that instant count, and a turn with the same instant or a
+  date-only timestamp makes the turn count `null`. No reference and no
+  timestamp make both counts `null` (`history.creation_evidence_missing`).
+- **Days.** Counted separately from turns: the later of the latest reference
+  date and the staging date, then each later date with a logged turn. Empty
+  sessions and calendar dates without a logged turn do not count. Overlapping
+  sessions (concurrent agents, see plan 14) leave the day count known. It is
+  `null` only when a logged turn has no date, a reference has no attributable
+  date, an unresolved literal may fall after the start, or a session's
+  `turn_count` is unreadable (whether it logged a turn is unknown).
+- **Imported literals.** In a session that `trace/aliases.yaml` records as
+  imported, an ID-shaped token is attributed through the import's alias for
+  that original ID (`resolved_via: "alias:<source>:<original>"`). Without an
+  alias it is `unresolved`; it never silently matches a local ID.
+
+`stale_observation` stays in `reasons` whenever the stored flag is `true`,
+whatever the current history proves, and is added when a known day count is 3
+or more. `open` never promotes, discards or marks anything stale. The history is
+computed only when the artifact has observations, from the sources this read
+already loaded plus the raw bytes of `trace/aliases.yaml` (an undecodable
+ledger is `history.alias_invalid`, not a read failure). A session's turns are
+held as a count plus the stamps actually recorded, so a huge `turn_count`
+costs nothing, and every turn total uses checked arithmetic (overflow is
+`history.contradictory`, never a saturated count). It takes no lock and opens no write
+state. Codes: `history.invalid_source`, `history.alias_invalid`,
+`history.legacy_session`, `history.turn_stamp_missing`, `history.contradictory`,
+`history.session_missing`, `history.overlap`, `history.undated_turn`,
+`history.reference_undated`, `history.reference_turn_unknown`,
+`history.unresolved_reference`, `history.creation_evidence_missing`,
+`history.staging_position`.
 
 ### Brief text output
 
@@ -684,6 +770,32 @@ before/after source history, signal, provenance and the owning next session turn
 Stale transitions need at least three distinct actual logged session days after
 last observation/bound-node use, a caller-supplied reason and an atomic owning
 `session.log` turn. They do not infer a scientific rationale from elapsed time.
+
+`observation.mark_stale` uses the same history as `open`
+([Observation inactivity](#observation-inactivity-in-open)), without the stale
+operation's own turn and its notes, and with days ending at the owning audit
+date (plan 19 D2):
+
+- **Omitted `session_days`.** The writer derives the sorted distinct eligible
+  logged dates after the latest attributable reference, up to the audit date,
+  and records that full list. Fewer than three fail with `write.observation`
+  at `session_days`.
+- **Supplied `session_days`.** A verified subset, kept exactly as written in
+  the evidence record. A repeated day, an invalid date, a day not after the
+  last reference, a day after the audit date, a day whose only turn is the
+  stale decision's own (or with no logged turn), and fewer than three distinct
+  days fail with `write.observation` at `session_days[i]` or `session_days`.
+  The list is never replaced.
+- **Unknown day evidence** (any reason a day count would be `null`) refuses the
+  write with `write.stale_history_unknown` at `session_days`, naming the
+  history diagnostics. Silence is never assumed.
+
+The evidence record keeps its fields (`session_days`, `last_reference`,
+`bound_to`, `signal`, `provenance`, `session_sources`, `audit`); validation
+recomputes it from the final candidate and rejects any difference. A refused
+write leaves every byte unchanged, and a dry run persists nothing. An existing
+`stale: true` is never cleared or re-derived, and an already stale observation
+is a no-op.
 Promotion creates its complete destination and forward pointers together;
 immutable original observation content and prior turns remain exact.
 

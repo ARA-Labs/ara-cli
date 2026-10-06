@@ -151,7 +151,7 @@ pub fn open(value: &Value, out: &mut impl Write) -> Result<()> {
     }
     for row in rows(value, "items") {
         let reasons: Vec<&str> = rows(row, "reasons").map(text).collect();
-        writeln!(
+        write!(
             out,
             "{}\t{}\t{}\t{}",
             row_address(row),
@@ -159,6 +159,26 @@ pub fn open(value: &Value, out: &mut impl Write) -> Result<()> {
             reasons.join(","),
             title(row)
         )?;
+        // Observation rows end with their measured inactivity; an unknown
+        // count prints `unknown`, never zero.
+        if let Some(status) = row["history_status"].as_str() {
+            let count = |key: &str| {
+                row[key]
+                    .as_u64()
+                    .map_or_else(|| "unknown".to_owned(), |n| n.to_string())
+            };
+            write!(
+                out,
+                "\tturns={} days={} last_reference={} history={status}",
+                count("turns_since_reference"),
+                count("session_days_since_reference"),
+                row["last_reference_turn"]
+                    .as_str()
+                    .or_else(|| row["last_reference_date"].as_str())
+                    .unwrap_or("unknown"),
+            )?;
+        }
+        writeln!(out)?;
     }
     Ok(())
 }

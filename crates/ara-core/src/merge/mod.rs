@@ -1098,6 +1098,15 @@ pub fn plan_merge_with_observer(
     })
 }
 
+/// Portable alias rows `(source_key, original, target)` decoded strictly from
+/// raw `trace/aliases.yaml` bytes. Session history reads them to attribute an
+/// imported literal through its authenticated redirect.
+pub(crate) fn alias_rows(raw: &[u8]) -> Result<Vec<(String, String, String)>, MergeError> {
+    Ok(identity::aliases_bytes(raw)?
+        .into_iter()
+        .map(|alias| (alias.source_key, alias.original, alias.target))
+        .collect())
+}
 pub fn resolve(snapshot: &ArtifactSnapshot, address: &str) -> Result<String, MergeError> {
     let view = inventory(snapshot)?;
     let identities = ids(&view);

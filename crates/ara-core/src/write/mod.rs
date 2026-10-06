@@ -6,6 +6,7 @@ pub mod bookkeeping;
 pub mod clock;
 pub mod documents;
 pub mod fields;
+pub mod history;
 pub mod intent;
 pub mod journal;
 pub mod logic;
@@ -133,7 +134,10 @@ pub enum WriteOperation {
     #[serde(rename = "observation.mark_stale")]
     ObservationMarkStale {
         observation: String,
-        session_days: Vec<String>,
+        /// Omitted: the writer derives the canonical list of eligible
+        /// logged dates. Supplied: a verified evidence subset kept exactly.
+        #[serde(default)]
+        session_days: Option<Vec<String>>,
         reason: String,
         audit: RevisionContext,
     },

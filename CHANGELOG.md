@@ -85,6 +85,17 @@ All notable changes to this project are documented here. The format follows
   reports it.
 - Agent CLI: write errors that involve two inputs report the other one as
   `related_line` and `related_field`.
+- Agent reads: `open` observation rows add `turns_since_reference`,
+  `session_days_since_reference`, `last_reference_turn`,
+  `last_reference_date`, `reference_basis`, `evidence_sources`,
+  `history_status` and `history_diagnostics`, counted from exact ID and
+  bound-node references on a validated session timeline. Unknown chronology is
+  `null` with a diagnostic; overlapping sessions keep the day count. Brief text
+  ends observation rows with the counts.
+- Agent CLI: `observation.mark_stale` `session_days` is optional; the writer
+  derives and records the eligible logged days after the last reference, up to
+  the audit date, and refuses unknown day evidence with
+  `write.stale_history_unknown`.
 
 ### Changed
 - Agent reads default to brief address-led text; `--json` output keeps its
@@ -141,6 +152,12 @@ All notable changes to this project are documented here. The format follows
   manual `Last revised`, `logic_revisions` copy, observation pointer and
   `Crystallized via`/`From staging` steps, use the owner-anchor `session.log`,
   and show which session rows the CLI derives.
+- Agent CLI (compatibility): stale evidence no longer counts the stale
+  decision's own turn, so an audit that owned the third proving day now needs
+  another logged turn on that day or a later owner. A supplied `session_days`
+  entry that is not eligible reports `session_days[i]`.
+- Skills: `research-manager-cli` reads turn and day counts from `ara open`
+  instead of counting by hand, and marks stale without `session_days`.
 
 ### Removed
 - Native PaperBench rubric handling: `rubric/requirements.md` is no longer
@@ -151,6 +168,10 @@ All notable changes to this project are documented here. The format follows
   `invalid_document` errors name these roots. Old rubric history stays readable.
 
 ### Fixed
+- Agent reads and writes: copied audit text (revision before/after values,
+  archived rolling fields, stale-evidence records, the session index) no
+  longer counts as new activity for an observation; `open` and
+  `observation.mark_stale` share one explicit-reference history.
 - Agent CLI: new claim and heuristic blocks (`claim add`, `heuristic add`,
   promotion) list fields in the fixed schema order instead of alphabetically,
   write single-line values inline, render Dependencies as `[C03, C04]`, and

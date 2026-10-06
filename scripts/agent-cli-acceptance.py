@@ -1360,7 +1360,10 @@ class Runner:
                 sid = date + "_001"
                 ops += [{"op": "session.start", "id": sid, "date": date, "started": date + "T10:00", "summary": "Synthetic unrelated day"}, {"op": "session.log", "session": sid, "timestamp": date + "T10:01", "key_context": [{"excerpt": "Synthetic unrelated activity"}]}]
             reason = "Caller triage: retain this idle observation for review; do not discard or crystallize.\n  Exact why = α\n"
-            owner = dates[-1] + "_001"
+            # The stale decision owns its own new turn; that turn never proves its own idleness.
+            owner = dates[-1] + "_002"
+            ops += [{"op": "session.start", "id": owner, "date": dates[-1], "started": dates[-1] + "T11:00", "summary": "Synthetic stale audit"},
+                    {"op": "session.log", "session": owner, "timestamp": dates[-1] + "T11:01"}]
             audit = {"session": owner, "turn": 1, "signal": "user-directive", "provenance": "user",
                      "note": "Caller selected the final newly logged synthetic turn."}
             ops += [{"op": "observation.mark_stale", "observation": "O40", "session_days": dates,

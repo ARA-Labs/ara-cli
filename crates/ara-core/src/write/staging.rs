@@ -364,7 +364,7 @@ pub fn plan(
                 working,
                 observation,
                 &value,
-                session_days,
+                session_days.as_deref(),
                 &StaleOwner {
                     session,
                     turn,
@@ -416,7 +416,7 @@ fn stale_evidence(
     working: &WorkingArtifact,
     observation: &str,
     value: &Value,
-    session_days: &[String],
+    session_days: Option<&[String]>,
     owner: &StaleOwner<'_>,
 ) -> Result<Value, WriteError> {
     let StaleOwner {
@@ -425,31 +425,11 @@ fn stale_evidence(
         signal,
         provenance,
     } = *owner;
-    let timestamp = value
-        .get("timestamp")
-        .and_then(Value::as_str)
-        .ok_or_else(|| invalid("timestamp", "observation timestamp is required"))?;
-    super::sessions::validate_timestamp(timestamp)?;
+    let timestamp = value.get("timestamp").and_then(Value::as_str);
+    if let Some(timestamp) = timestamp {
+        super::sessions::validate_timestamp(timestamp)?;
+    }
     super::sessions::validate_index(working)?;
-    let mut days = BTreeSet::new();
-    for day in session_days {
-        super::sessions::validate_date(day)?;
-        if day.as_str() <= &timestamp[..10] || !days.insert(day.clone()) {
-            return Err(invalid(
-                "session_days",
-                "evidence must contain distinct subsequent calendar days",
-            ));
-        }
-    }
-    if days.len() < 3 {
-        return Err(invalid(
-            "session_days",
-            "stale requires at least three distinct subsequent session-days",
-        ));
-    }
-    let latest = days
-        .last()
-        .ok_or_else(|| invalid("session_days", "missing session-days"))?;
     let bounds: BTreeSet<&str> = value
         .get("bound_to")
         .and_then(Value::as_array)
@@ -457,83 +437,132 @@ fn stale_evidence(
         .flatten()
         .filter_map(Value::as_str)
         .collect();
-    let mut proven = BTreeSet::new();
-    let mut session_sources = Vec::new();
-    let mut last_reference = timestamp[..10].to_owned();
-    for path in working.paths() {
-        if !path.starts_with("trace/sessions/")
-            || !path.ends_with(".yaml")
-            || path == super::sessions::INDEX
-        {
-            continue;
+    // The shared explicit-reference history (plan 19 D2), without the stale
+    // operation's own turn and with days ending at the owning audit date.
+    let cutoff = &session[..10];
+    let measured = {
+        let paths: Vec<String> = working
+            .paths()
+            .into_iter()
+            .filter(|path| super::history::is_history_path(path))
+            .collect();
+        let mut parsed = Vec::with_capacity(paths.len());
+        for path in &paths {
+            parsed.push((path.as_str(), working.text(path)?, working.yaml(path)?));
         }
-        let doc = working.yaml(&path)?;
-        let metadata = doc
-            .root
-            .get("session")?
-            .ok_or_else(|| invalid("session_days", "session metadata is missing"))?;
-        let date = metadata
-            .get("date")?
-            .and_then(|n| n.scalar())
-            .ok_or_else(|| invalid("session_days", "session date is missing"))?;
-        if date <= &timestamp[..10] || date > &session[..10] {
-            continue;
-        }
-        if metadata
-            .get("turn_count")?
-            .and_then(|n| n.scalar())
-            .and_then(|s| s.parse::<u64>().ok())
-            .unwrap_or(0)
-            == 0
-        {
-            continue;
-        }
-        if days.contains(date) {
-            proven.insert(date.to_owned());
-            session_sources.push(json!({"date":date,"document":path}));
-        }
-        if referenced_source(&doc.root, observation, &bounds) {
-            last_reference = last_reference.max(date.to_owned());
-        }
-    }
-    if proven != days
-        || proven
+        let sources: Vec<super::history::Source<'_>> = parsed
             .iter()
-            .filter(|d| d.as_str() > last_reference.as_str())
-            .count()
-            < 3
-    {
-        return Err(invalid(
-            "session_days",
-            "three session-days after the observation's most recent reference are not proven",
-        ));
-    }
-    if &session[..10] < latest.as_str() {
-        return Err(invalid(
-            "audit",
-            "audit owner cannot precede the proven session-days",
-        ));
-    }
+            .map(|(path, text, document)| super::history::Source {
+                path,
+                text,
+                root: Ok(&document.root),
+            })
+            .collect();
+        // Raw bytes: an undecodable ledger is a history diagnostic, not a
+        // UTF-8 failure of the whole write.
+        let aliases = if working.exists(super::history::ALIASES) {
+            Some(working.bytes(super::history::ALIASES)?)
+        } else {
+            None
+        };
+        let timeline = super::history::Timeline::build(&sources, aliases);
+        timeline.measure(
+            &super::history::Subject {
+                id: observation,
+                bound_to: bounds.iter().copied().collect(),
+                timestamp,
+            },
+            super::history::Window {
+                exclude: Some((session, turn)),
+                cutoff: Some(cutoff),
+            },
+        )
+    };
+    let (Some(_), Some(last_reference)) = (
+        measured.session_days_since_reference,
+        measured.last_reference_date.clone(),
+    ) else {
+        let reasons = measured
+            .diagnostics
+            .iter()
+            .map(|d| match d.examples.first() {
+                Some(example) => format!("{} ({example})", d.code),
+                None => d.code.to_owned(),
+            })
+            .collect::<Vec<_>>()
+            .join("; ");
+        return Err(WriteError::semantic(
+            "write.stale_history_unknown",
+            format!(
+                "session-day evidence for {observation} is unknown, so inactivity is not proven: {reasons}"
+            ),
+        )
+        .at("session_days"));
+    };
+    let eligible: BTreeMap<&str, &[String]> = measured
+        .eligible_days
+        .iter()
+        .map(|(date, documents)| (date.as_str(), documents.as_slice()))
+        .collect();
+    let days: Vec<String> = match session_days {
+        None => {
+            if eligible.len() < 3 {
+                return Err(invalid(
+                    "session_days",
+                    format!(
+                        "only {} logged session-day(s) after {observation}'s last reference ({last_reference}) up to the audit date {cutoff}; three are required",
+                        eligible.len()
+                    ),
+                ));
+            }
+            eligible.keys().map(|day| (*day).to_owned()).collect()
+        }
+        Some(supplied) => {
+            let mut seen = BTreeSet::new();
+            for (index, day) in supplied.iter().enumerate() {
+                super::sessions::validate_date(day)
+                    .map_err(|error| error.at(format!("session_days[{index}]")))?;
+                if !seen.insert(day.as_str()) {
+                    return Err(invalid(
+                        &format!("session_days[{index}]"),
+                        format!("evidence must contain distinct session-days; {day} repeats"),
+                    ));
+                }
+                if !eligible.contains_key(day.as_str()) {
+                    let why = if day.as_str() <= last_reference.as_str() {
+                        format!("is not after the last reference ({last_reference})")
+                    } else if day.as_str() > cutoff {
+                        format!("is after the owning audit date {cutoff}")
+                    } else {
+                        "has no logged turn other than this stale operation's own".to_owned()
+                    };
+                    return Err(invalid(
+                        &format!("session_days[{index}]"),
+                        format!("session-day {day} {why}"),
+                    ));
+                }
+            }
+            if seen.len() < 3 {
+                return Err(invalid(
+                    "session_days",
+                    "stale requires at least three distinct subsequent session-days",
+                ));
+            }
+            supplied.to_vec()
+        }
+    };
+    let proven: BTreeSet<&str> = days.iter().map(String::as_str).collect();
+    let session_sources: Vec<Value> = proven
+        .iter()
+        .flat_map(|day| {
+            eligible[day]
+                .iter()
+                .map(move |document| json!({"date":day,"document":document}))
+        })
+        .collect();
     Ok(
-        json!({"operation":"observation.mark_stale","observation":observation,"session_days":session_days,"last_reference":last_reference,"bound_to":bounds,"signal":signal,"provenance":provenance,"session_sources":session_sources,"audit":{"session":session,"turn":turn,"source_refs":[format!("trace/sessions/{session}.yaml")]}}),
+        json!({"operation":"observation.mark_stale","observation":observation,"session_days":days,"last_reference":last_reference,"bound_to":bounds,"signal":signal,"provenance":provenance,"session_sources":session_sources,"audit":{"session":session,"turn":turn,"source_refs":[format!("trace/sessions/{session}.yaml")]}}),
     )
-}
-
-fn referenced_source(node: &super::positions::YamlNode, id: &str, bounds: &BTreeSet<&str>) -> bool {
-    use super::positions::YamlKind;
-    match &node.kind {
-        YamlKind::Scalar { value, .. } => value
-            .split(|c: char| !c.is_ascii_alphanumeric())
-            .any(|token| token == id || bounds.contains(token)),
-        YamlKind::Sequence(values) => values
-            .iter()
-            .any(|value| referenced_source(value, id, bounds)),
-        YamlKind::Mapping(entries) => entries
-            .iter()
-            .any(|(_, value)| referenced_source(value, id, bounds)),
-        // Anchor definitions occur in this same source tree and are visited above.
-        YamlKind::Alias(_) => false,
-    }
 }
 
 /// No generic entry setter can finalize or retarget an immutable observation.
@@ -746,7 +775,7 @@ pub fn validate_references(working: &WorkingArtifact) -> Result<(), WriteError> 
                     "audited stale flag must remain true and unpromoted",
                 ));
             }
-            if stale_evidence(working, observation, &value, &days, &context)? != captured {
+            if stale_evidence(working, observation, &value, Some(&days), &context)? != captured {
                 return Err(invalid(
                     "audit",
                     "stale evidence changed after authoring; regenerate the decision against final sessions",
