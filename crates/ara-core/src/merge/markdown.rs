@@ -819,6 +819,37 @@ pub(crate) fn concept_address(view: &Inventory, name: &str) -> Result<Option<Str
     Ok(found)
 }
 
+/// Literal heading vectors of every live section of `document`, for literal
+/// locator resolution (`merge::resolve_locator`).
+pub(crate) fn literal_paths<'a>(view: &'a Inventory, document: &str) -> Vec<&'a [String]> {
+    view.docs.get(document).map_or_else(Vec::new, |document| {
+        document
+            .entries
+            .iter()
+            .filter(|entry| !entry.literal_path.is_empty())
+            .map(|entry| entry.literal_path.as_slice())
+            .collect()
+    })
+}
+/// The literal heading vector of the live entry that owns `address` in
+/// `document`, if there is exactly one.
+pub(crate) fn live_literal_path<'a>(
+    view: &'a Inventory,
+    document: &str,
+    address: &str,
+) -> Option<&'a [String]> {
+    let mut found = view
+        .docs
+        .get(document)?
+        .entries
+        .iter()
+        .filter(|entry| entry.address == address);
+    let first = found.next()?;
+    found
+        .next()
+        .is_none()
+        .then_some(first.literal_path.as_slice())
+}
 /// Address an exact, cached source selector. Missing archived headings return
 /// None; ambiguous suffixes never resolve by guessing a parent or splitting '/'.
 pub(crate) fn selector_address(

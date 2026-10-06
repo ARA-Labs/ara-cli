@@ -339,19 +339,30 @@ When a signal fires for entry `E` (claim, heuristic, or concept):
 3. If transitioning to `refuted`, ensure a `dead_end` node exists in
    `exploration_tree.yaml` referencing the entry (create one if not).
 4. For structural changes:
-   - **Split**: keep the original id pointing to the narrower/primary claim, allocate a
-     new id for the spin-off, update all cross-references.
-   - **Merge**: keep the lower id, mark the higher id as `withdrawn` with
-     `Merged into: C{XX}`, redirect cross-references.
+   - **Split**: keep the original id pointing to the narrower/primary claim and create the
+     spin-off with `claim.add` earlier in the same batch (give it an explicit `id` so later
+     lines can name it). Then `logic.revise` the primary with its narrowed fields,
+     `action: "split"`, `split_into: [{"id": "C{YY}"}]` and one `references` row
+     (`{target, field, before, after}`) for every current citing field, including unchanged
+     rows that deliberately keep the primary. You decide where each citer points; the CLI
+     refuses an unclassified citer and never chooses.
+   - **Merge**: keep the lower id; `logic.revise` the higher id with `Status: withdrawn`,
+     `Merged into: C{XX}` and `rewrite_references: true`. The CLI repairs the current typed
+     citations to the survivor and lists prose or unknown-field mentions it left alone
+     (`skipped_references`); edit those yourself if they should change.
+   - **Rename**: `entry.rename` with `rewrite_references: true` repairs typed citations;
+     do not hand-write `references` for it. A remaining prose mention refuses the rename
+     with its locations.
    - **Generalize**: allocate a new id for the more general claim, set its `Dependencies`
      to the narrower claims, and leave those claims in place (they remain its grounding).
 5. **Full before/after goes to the session record** under `logic_revisions:` — the CLI
    writes it from each `logic.revise` for the owning turn, verbatim. This is the ONLY place
    the prior wording is preserved; do not copy it into `session.log` a second time.
 6. **Judge the claim in the turn's `claims_touched`.** The CLI adds a generic `revised` row
-   for every claim a revision changed (a merge's `Merged into` included). When the turn is a
-   scientific judgment — `advanced`, `weakened`, `confirmed`, `refuted`, `withdrawn`, or
-   `merged`/`split` for a structural change — supply that row; it replaces `revised`. A
+   for every claim a revision changed, including citers it repaired, and `merged`/`split`
+   for the source of a `rewrite_references`/`references` merge or an `action: "split"`.
+   When the turn is a scientific judgment — `advanced`, `weakened`, `confirmed`, `refuted`
+   or `withdrawn` — supply that row; it replaces the derived one. A
    Status flip to `supported` is not itself `confirmed`; say so only when the evidence
    warrants. If you also change Status this turn, `confirmed` needs `supported`, `refuted`
    needs `refuted`, and `withdrawn`/`merged` need `withdrawn`.

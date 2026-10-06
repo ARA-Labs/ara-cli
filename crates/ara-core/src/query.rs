@@ -172,7 +172,7 @@ pub fn scan_tokens(text: &str) -> Vec<TokenMatch<'_>> {
     }
     matches
 }
-fn local_boundary_block(byte: u8) -> bool {
+pub(crate) fn local_boundary_block(byte: u8) -> bool {
     byte.is_ascii_alphanumeric()
         || matches!(byte, b'_' | b'/' | b'\\' | b'.' | b':' | b'#' | b'~' | b'-')
 }

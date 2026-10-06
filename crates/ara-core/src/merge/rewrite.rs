@@ -461,7 +461,7 @@ fn protected_span(ranges: &[std::ops::Range<usize>], target: &std::ops::Range<us
         .get(index)
         .is_some_and(|range| range.start <= target.start && target.end <= range.end)
 }
-fn quoted_ranges(text: &str) -> Vec<std::ops::Range<usize>> {
+pub(crate) fn quoted_ranges(text: &str) -> Vec<std::ops::Range<usize>> {
     let mut ranges = Vec::new();
     let bytes = text.as_bytes();
     let mut i = 0;

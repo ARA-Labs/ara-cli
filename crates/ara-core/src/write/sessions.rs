@@ -313,6 +313,11 @@ struct Revision {
     provenance: String,
     #[serde(default)]
     note: Option<String>,
+    /// `"split"` on the primary claim's rows of a split (plan 19 C1).
+    #[serde(default)]
+    action: Option<String>,
+    #[serde(default)]
+    split_into: Option<Vec<super::EntrySelector>>,
 }
 
 fn typed<T: serde::de::DeserializeOwned>(value: &Value, field: &str) -> Result<T, WriteError> {
@@ -350,6 +355,16 @@ pub fn validate_revision(value: &Value) -> Result<(), WriteError> {
         ));
     }
     validate_provenance(&r.provenance)?;
+    match (r.action.as_deref(), r.split_into.as_deref()) {
+        (None, None) => {}
+        (Some("split"), Some(destinations)) if !destinations.is_empty() => {}
+        _ => {
+            return Err(invalid(
+                "logic_revisions.action",
+                "a revision `action` must be `split` together with a nonempty `split_into`",
+            ));
+        }
+    }
     // The caller's complete typed values are retained, never inferred or normalized.
     let _ = (r.before, r.after, r.note);
     Ok(())

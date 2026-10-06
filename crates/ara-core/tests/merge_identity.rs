@@ -1459,6 +1459,7 @@ fn accepted_writer_parent_rename_keeps_colliding_literal_vectors_readable_and_me
             turn: Some(1),
             signal: Some("user-directive".into()),
             provenance: Some("user".into()),
+            rewrite_references: false,
         },
     )
     .unwrap();

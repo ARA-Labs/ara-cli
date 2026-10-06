@@ -72,6 +72,23 @@ timestamp. An omitted summary keeps the rolling summary. The planners return
 `merge::AuditedResolution` (candidate, session, turn), and reports add the
 resolved `session` and `turn`. Protected-history repair checks are unchanged.
 
+Plan 19 (step 19e): a split's primary `logic_revisions` rows may carry the
+optional `action: split` and `split_into` keys. The merger treats
+`split_into` as an opaque row field: unchanged rows merge normally, and an
+incoming row whose `split_into` names a relocated identity is reported as an
+`unsupported_structured_reference` conflict instead of being rewritten.
+
+`identity::local_redirects` no longer rejects a valid authenticated rename
+of one of two concept leaves that share a display key
+(`logic/concepts.md#Term` for `Group A/Term` and `Group B/Term` in a
+document without an H1): when the display key belongs to a different live
+entry, the retired origin uses its exact heading-vector key, and a retired
+suffix alias never shadows a live identity. A real reuse of the same heading
+vector is still `merge.redirect_ambiguous`. `merge::resolve_locator` resolves a literal
+locator against live sections, then authenticated mutation rows; `show` uses
+it for retired spellings and `merge::check_citations` lets the writer check
+historical literals against one identity view.
+
 ## Boundaries and remaining gates
 
 The final frozen binary passes all five 10k process samples at 868.62–894.49 ms

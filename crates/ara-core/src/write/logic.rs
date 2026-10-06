@@ -1,4 +1,5 @@
 //! Precise mutable-entry operations and coupled revision history.
+use super::citation_rules::joined_heading_path;
 use super::{
     EntrySelector, Fields, OperationResult, ReferenceEdit, WorkingArtifact, WriteError,
     WriteOperation,
@@ -8,6 +9,14 @@ use super::{
 use crate::markdown;
 use serde_json::{Value, json};
 use std::{collections::BTreeSet, ops::Range};
+
+mod citations;
+mod history_refs;
+mod restructure;
+mod row_mapping;
+mod tokens;
+pub use citations::{MarkdownCitation, markdown_citations};
+pub use history_refs::HistoricalCitation;
 
 #[derive(Debug, Clone)]
 pub struct Entry {
@@ -681,6 +690,7 @@ fn structural(
     signal: Option<&str>,
     provenance: Option<&str>,
     redirect: Option<&EntrySelector>,
+    rewrite: bool,
 ) -> Result<OperationResult, WriteError> {
     let (Some(session), Some(turn), Some(signal), Some(provenance)) =
         (session, turn, signal, provenance)
@@ -691,6 +701,21 @@ fn structural(
         ));
     };
     revision_context(session, turn, signal, provenance)?;
+    if rewrite && !references.is_empty() {
+        return Err(WriteError::semantic(
+            "write.reference_mode",
+            "`rewrite_references` and explicit `references` are mutually exclusive",
+        )
+        .at("rewrite_references")
+        .related_here("references"));
+    }
+    if rewrite && name.is_none() && redirect.is_none() {
+        return Err(WriteError::semantic(
+            "write.redirect_required",
+            "rewrite_references on entry.remove needs an explicit existing `redirect`",
+        )
+        .at("redirect"));
+    }
     let entry = resolve(working, target)?;
     let before = working.text(&entry.document)?[entry.range.clone()].to_owned();
     if source::digest(before.as_bytes()) != expected {
@@ -945,6 +970,61 @@ fn structural(
             ));
         }
     }
+    // The restructured identity; its range is refreshed for the guard after
+    // earlier edits shift offsets.
+    let mut subject = citations::Subject {
+        document: entry.document.clone(),
+        path: entry.path.clone(),
+        range: entry.range.clone(),
+        root_id_retained: name.is_some() && (canonical.is_none() || title_only),
+        descendant_ids_retained: name.is_some(),
+    };
+    let rewrite_plan = if rewrite {
+        let destination = if let Some(heading) = new_heading.as_ref() {
+            let mut path = entry.path.clone();
+            if let Some(last) = path.last_mut() {
+                last.clone_from(heading);
+            }
+            restructure::Destination {
+                document: entry.document.clone(),
+                path,
+                id: canonical.map(|_| heading_id(heading).to_owned()),
+                keeps_suffix: true,
+                start: None,
+            }
+        } else {
+            let redirect = redirect.ok_or_else(|| {
+                WriteError::semantic("write.redirect_required", "redirect is required")
+                    .at("redirect")
+            })?;
+            let e = resolve(working, redirect)?;
+            let id = native_document_prefix(&e.document)
+                .filter(|prefix| fields::typed_id(heading_id(&e.heading), prefix))
+                .map(|_| heading_id(&e.heading).to_owned());
+            restructure::Destination {
+                document: e.document.clone(),
+                path: e.path.clone(),
+                id,
+                keeps_suffix: false,
+                start: Some(e.range.start),
+            }
+        };
+        Some(restructure::rewrite_structural(
+            working,
+            &subject,
+            &audit_names,
+            destination,
+            name.is_none(),
+            restructure::Audit {
+                session,
+                turn,
+                signal,
+                provenance,
+            },
+        )?)
+    } else {
+        None
+    };
     let mut ref_seen = BTreeSet::new();
     for reference in references {
         let referred = resolve(working, &reference.target)?;
@@ -1023,6 +1103,10 @@ fn structural(
             continue;
         };
         if working.is_allowed_document(&path)? {
+            if rewrite_plan.is_some() {
+                // The typed inventory guard below replaces the textual one.
+                continue;
+            }
             let remaining = if path == entry.document {
                 if name.is_some() {
                     format!(
@@ -1059,6 +1143,18 @@ fn structural(
             historical.push(path);
         }
     }
+    let skipped = if let Some(plan) = &rewrite_plan {
+        subject.range = entry.range.clone();
+        restructure::guard(
+            working,
+            &subject,
+            &audit_names,
+            name.is_none().then(|| entry.range.clone()),
+            &plan.produced,
+        )?
+    } else {
+        Vec::new()
+    };
     if name.is_none() && destination.is_none() && (!historical.is_empty() || !references.is_empty())
     {
         return Err(WriteError::semantic(
@@ -1180,6 +1276,12 @@ fn structural(
     );
     result.target = destination.or_else(|| Some(format!("{}:{old}", entry.document)));
     result.turn = Some(turn);
+    if let Some(plan) = rewrite_plan {
+        restructure::verify(working, &plan)?;
+        result.rewritten_references = plan.rewritten;
+        result.historical_citations = plan.history;
+        result.skipped_references = skipped;
+    }
     Ok(result)
 }
 
@@ -1435,17 +1537,51 @@ pub fn plan(
             provenance,
             note,
             expected,
-        } => revise(
-            working,
-            target,
-            set,
-            session.as_deref().ok_or_else(missing_owner)?,
-            turn.ok_or_else(missing_owner)?,
-            signal,
-            provenance,
-            note.as_deref(),
-            expected.as_deref(),
-        ),
+            rewrite_references,
+            references,
+            action,
+            split_into,
+        } => {
+            let session = session.as_deref().ok_or_else(missing_owner)?;
+            let turn = turn.ok_or_else(missing_owner)?;
+            if *rewrite_references
+                || !references.is_empty()
+                || action.is_some()
+                || !split_into.is_empty()
+            {
+                restructure::revise_restructure(
+                    working,
+                    restructure::Restructure {
+                        target,
+                        set,
+                        audit: restructure::Audit {
+                            session,
+                            turn,
+                            signal,
+                            provenance,
+                        },
+                        note: note.as_deref(),
+                        expected: expected.as_deref(),
+                        rewrite: *rewrite_references,
+                        references,
+                        action: action.as_deref(),
+                        split_into,
+                    },
+                )
+            } else {
+                revise(
+                    working,
+                    target,
+                    set,
+                    session,
+                    turn,
+                    signal,
+                    provenance,
+                    note.as_deref(),
+                    expected.as_deref(),
+                )
+            }
+        }
         WriteOperation::EntryRename {
             target,
             name,
@@ -1455,6 +1591,7 @@ pub fn plan(
             turn,
             signal,
             provenance,
+            rewrite_references,
         } => structural(
             working,
             target,
@@ -1466,6 +1603,7 @@ pub fn plan(
             signal.as_deref(),
             provenance.as_deref(),
             None,
+            *rewrite_references,
         ),
         WriteOperation::EntryRemove {
             target,
@@ -1476,6 +1614,7 @@ pub fn plan(
             signal,
             provenance,
             redirect,
+            rewrite_references,
         } => structural(
             working,
             target,
@@ -1487,6 +1626,7 @@ pub fn plan(
             signal.as_deref(),
             provenance.as_deref(),
             redirect.as_ref(),
+            *rewrite_references,
         ),
         WriteOperation::EntryTasteAppend { target, record } => taste(working, target, record),
         WriteOperation::EntryAnnotate {
@@ -1506,6 +1646,7 @@ pub fn plan(
 /// newly introduced dangling dependencies, plan-proof links and conflicts.
 pub fn validate_references(working: &WorkingArtifact) -> Result<(), WriteError> {
     validate_claim_retention(working)?;
+    history_refs::validate_history(working)?;
     validate_registry_removals(working)?;
     validate_retired_origins(working)?;
     validate_new_annotations(working)?;
@@ -2464,24 +2605,6 @@ fn native_id_document(id: &str) -> Option<&'static str> {
     ]
     .into_iter()
     .find_map(|(prefix, document)| fields::typed_id(id, prefix).then_some(document))
-}
-
-fn joined_heading_path<S: AsRef<str>>(path: &[S], text: &str) -> bool {
-    let mut offset = 0;
-    for (index, part) in path.iter().enumerate() {
-        if index > 0 {
-            if text.as_bytes().get(offset) != Some(&b'/') {
-                return false;
-            }
-            offset += 1;
-        }
-        let part = part.as_ref();
-        if !text[offset..].starts_with(part) {
-            return false;
-        }
-        offset += part.len();
-    }
-    offset == text.len()
 }
 
 fn locator_parts(reference: &str) -> Option<(&str, Option<&str>, bool)> {

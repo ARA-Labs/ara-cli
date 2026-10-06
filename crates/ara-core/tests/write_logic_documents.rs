@@ -534,6 +534,10 @@ fn revisions_record_exact_source_endpoints_and_revision_pointer() {
             provenance: "user-revised".into(),
             note: Some("Caller requested narrower scope".into()),
             expected: None,
+            rewrite_references: false,
+            references: vec![],
+            action: None,
+            split_into: vec![],
         },
     )
     .unwrap();
@@ -608,6 +612,7 @@ fn structural_mutations_audit_prose_and_preserve_immutable_history() {
             turn: Some(1),
             signal: Some("user-directive".into()),
             provenance: Some("user-revised".into()),
+            rewrite_references: false,
         },
     )
     .unwrap();
@@ -668,7 +673,8 @@ fn structural_mutations_audit_prose_and_preserve_immutable_history() {
                 turn: Some(1),
                 signal: Some("user-directive".into()),
                 provenance: Some("user-revised".into()),
-                redirect: None
+                redirect: None,
+                rewrite_references: false,
             }
         )
         .is_err()
@@ -882,6 +888,7 @@ fn structural_reference_edits_are_exact_and_typed_dependencies_migrate() {
             turn: Some(1),
             signal: Some("dependency-change".into()),
             provenance: Some("user-revised".into()),
+            rewrite_references: false,
         },
     )
     .unwrap();
@@ -927,6 +934,10 @@ fn revision_batches_refuse_historical_turns_without_batch_ownership() {
         provenance: "user-revised".into(),
         note: None,
         expected: None,
+        rewrite_references: false,
+        references: vec![],
+        action: None,
+        split_into: vec![],
     };
     assert!(write::execute(root.path(), &[revise], ApplyMode::Commit).is_err());
     assert!(
@@ -962,6 +973,10 @@ fn body_revision_requires_digest_and_preserves_exact_before_after_with_owned_tur
         provenance: "ai-executed".into(),
         note: Some("Caller component revision".into()),
         expected: None,
+        rewrite_references: false,
+        references: vec![],
+        action: None,
+        split_into: vec![],
     };
     assert!(write::plan_operation(&mut candidate, &operation).is_err());
     assert_eq!(
@@ -1087,6 +1102,10 @@ fn merged_claim_redirect_is_revision_owned_typed_and_cycle_checked() {
             provenance: "user-revised".into(),
             note: None,
             expected: None,
+            rewrite_references: false,
+            references: vec![],
+            action: None,
+            split_into: vec![],
         },
     )
     .unwrap();
@@ -1109,6 +1128,10 @@ fn merged_claim_redirect_is_revision_owned_typed_and_cycle_checked() {
             provenance: "user-revised".into(),
             note: None,
             expected: None,
+            rewrite_references: false,
+            references: vec![],
+            action: None,
+            split_into: vec![],
         },
     )
     .unwrap();
@@ -1139,6 +1162,7 @@ fn referenced_removal_requires_live_redirect_and_unreferenced_removal_archives_b
         signal: Some("user-directive".into()),
         provenance: Some("user-revised".into()),
         redirect: None,
+        rewrite_references: false,
     };
     assert!(write::plan_operation(&mut candidate, &operation).is_err());
     assert_eq!(candidate.text("logic/concepts.md").unwrap(), concepts);
@@ -1182,6 +1206,7 @@ fn referenced_removal_requires_live_redirect_and_unreferenced_removal_archives_b
             signal: Some("user-directive".into()),
             provenance: Some("user-revised".into()),
             redirect: None,
+            rewrite_references: false,
         },
     )
     .unwrap();
@@ -1694,6 +1719,7 @@ fn rename(working: &mut WorkingArtifact, document: &str, heading: &[&str], name:
             turn: Some(turn),
             signal: Some("user-directive".into()),
             provenance: Some("user".into()),
+            rewrite_references: false,
         },
     )
     .unwrap();
@@ -1758,7 +1784,8 @@ fn rename_and_retired_identity_checks_use_literal_heading_vectors() {
                 session: Some("2026-10-01_001".into()),
                 turn: Some(2),
                 signal: Some("user-directive".into()),
-                provenance: Some("user".into())
+                provenance: Some("user".into()),
+                rewrite_references: false,
             }
         )
         .is_err()
@@ -1792,7 +1819,8 @@ fn rename_and_retired_identity_checks_use_literal_heading_vectors() {
                 session: Some("2026-10-01_001".into()),
                 turn: Some(3),
                 signal: Some("user-directive".into()),
-                provenance: Some("user".into())
+                provenance: Some("user".into()),
+                rewrite_references: false,
             }
         )
         .is_err()
@@ -1875,6 +1903,10 @@ fn generic_claim_body_and_document_replacement_cannot_remove_canonical_entries()
         provenance: "user".into(),
         note: None,
         expected: Some(expected),
+        rewrite_references: false,
+        references: vec![],
+        action: None,
+        split_into: vec![],
     };
     assert!(write::plan_operation(&mut working, &operation).is_err());
     assert_eq!(working.text("logic/claims.md").unwrap(), source);
@@ -1923,6 +1955,10 @@ fn canonical_rename_is_owned_and_archived_while_withdrawal_and_merge_retain_clai
             provenance: "user".into(),
             note: None,
             expected: None,
+            rewrite_references: false,
+            references: vec![],
+            action: None,
+            split_into: vec![],
         },
     )
     .unwrap();

@@ -1,6 +1,8 @@
 use super::{Artifact, Entry};
 use crate::output::AgentError;
+use ara_core::write::citation_rules::{self, HistoryRole};
 use ara_core::write::positions::{YamlDocument, YamlKind, YamlNode};
+use ara_core::write::{EntrySelector, WorkingArtifact};
 use serde_json::{Value, json};
 use std::collections::{BTreeMap, BTreeSet};
 use std::ops::Range;
@@ -140,35 +142,6 @@ fn values(
         }
     }
 }
-fn fields(
-    result: &mut References,
-    source: &str,
-    owner: Option<&str>,
-    node: &YamlNode,
-    names: &[&str],
-    target: Target<'_>,
-) {
-    for name in names {
-        if let Some(value) = get(node, name) {
-            values(result, source, owner, name, value, target);
-        }
-    }
-}
-fn annotations(
-    result: &mut References,
-    source: &str,
-    owner: Option<&str>,
-    node: &YamlNode,
-    target: Target<'_>,
-) {
-    for name in ["annotations", "conflict_annotations"] {
-        if let Some(list) = get(node, name) {
-            for row in rows(list) {
-                fields(result, source, owner, row, &["references"], target);
-            }
-        }
-    }
-}
 fn yaml(
     result: &mut References,
     source: &str,
@@ -176,111 +149,95 @@ fn yaml(
     target: Target<'_>,
 ) -> Result<(), AgentError> {
     let parsed = YamlDocument::parse(text).map_err(crate::write::convert_error)?;
-    let root = &parsed.root;
-    match source {
-        "trace/exploration_tree.yaml" => {
-            if let Some(tree) = get(root, "tree").or_else(|| get(root, "root")) {
-                let mut pending: Vec<_> = rows(tree).rev().map(|node| (node, None)).collect();
-                while let Some((node, parent)) = pending.pop() {
-                    let owner = get(node, "id").and_then(YamlNode::scalar);
-                    if let (Some(parent), Some(id)) = (parent, get(node, "id")) {
-                        values(result, source, Some(parent), "children", id, target);
-                    }
-                    fields(
-                        result,
-                        source,
-                        owner,
-                        node,
-                        &["parent", "evidence", "also_depends_on", "same_as"],
-                        target,
-                    );
-                    if matches!(target.entry, Entry::Concept(_)) {
-                        fields(
-                            result,
-                            source,
-                            owner,
-                            node,
-                            &["concepts"],
-                            Target {
-                                bare_unique: true,
-                                ..target
-                            },
-                        );
-                    }
-                    fields(result, source, owner, node, &["source_refs"], target);
-                    if let Some(artifacts) = get(node, "artifacts") {
-                        for artifact in rows(artifacts) {
-                            fields(result, source, owner, artifact, &["pointer"], target);
-                        }
-                    }
-                    annotations(result, source, owner, node, target);
-                    if let Some(children) = get(node, "children") {
-                        pending.extend(rows(children).rev().map(|node| (node, owner)));
-                    }
-                }
+    let concepts = concept_paths(target);
+    citation_rules::walk_history(source, &parsed.root, &mut |value| {
+        if value.role == HistoryRole::ConceptName {
+            if let Entry::Concept(concept) = target.entry {
+                concept_values(result, source, value, &concept.term, concepts.as_deref());
             }
+            return;
         }
-        "staging/observations.yaml"
-        | "trace/taste_log.yaml"
-        | "trace/taste.yaml"
-        | "trace/pm_reasoning_log.yaml"
-        | "trace/reasoning.yaml"
-        | "trace/logic_mutations.yaml" => {
-            let (list, names): (&str, &[&str]) = match source {
-                "staging/observations.yaml" => (
-                    "observations",
-                    &["bound_to", "promoted_to", "crystallized_via"],
-                ),
-                "trace/taste_log.yaml" | "trace/taste.yaml" => ("entries", &["target"]),
-                "trace/logic_mutations.yaml" => (
-                    "mutations",
-                    &[
-                        "from",
-                        "to",
-                        "from_selector",
-                        "to_selector",
-                        "session",
-                        "turn",
-                        "historical_references",
-                    ],
-                ),
-                _ => ("entries", &["turn"]),
-            };
-            if let Some(list) = get(root, list) {
-                for row in rows(list) {
-                    let owner = get(row, "id").and_then(YamlNode::scalar);
-                    fields(result, source, owner, row, names, target);
-                    annotations(result, source, owner, row, target);
-                }
-            }
-        }
-        "trace/sessions/session_index.yaml" => {
-            if let Some(list) = get(root, "sessions") {
-                for row in rows(list) {
-                    fields(result, source, None, row, &["id", "file", "path"], target);
-                }
-            }
-        }
-        _ if source.starts_with("trace/sessions/") => {
-            let owner = get(root, "session")
-                .and_then(|metadata| get(metadata, "id"))
-                .and_then(YamlNode::scalar);
-            for (list, names) in [
-                ("events_logged", &["id", "target"] as &[&str]),
-                ("claims_touched", &["id"]),
-                ("logic_revisions", &["entry"]),
-                ("ai_actions", &["files_changed"]),
-            ] {
-                if let Some(list) = get(root, list) {
-                    for row in rows(list) {
-                        fields(result, source, owner, row, names, target);
-                    }
-                }
-            }
-        }
-        _ => {}
-    }
+        values(result, source, value.owner, value.field, value.node, target);
+    });
     Ok(())
+}
+/// Concept headings of the current `logic/concepts.md` as (leaf, path).
+fn concept_paths(target: Target<'_>) -> Option<Vec<(String, Vec<String>)>> {
+    let text = target.artifact.sources.get("logic/concepts.md")?;
+    Some(
+        ara_core::markdown::headings(text)
+            .into_iter()
+            .map(|h| {
+                (
+                    h.heading.to_owned(),
+                    h.path.iter().map(|part| (*part).to_owned()).collect(),
+                )
+            })
+            .collect(),
+    )
+}
+/// A bare tree concept name cites a concept only when it resolves to exactly
+/// one concept heading, by the writer's rule ([`citation_rules::concept_name_targets`]).
+fn concept_values(
+    result: &mut References,
+    source: &str,
+    value: citation_rules::HistoryValue<'_>,
+    term: &str,
+    paths: Option<&[(String, Vec<String>)]>,
+) {
+    let Some(paths) = paths else {
+        return;
+    };
+    let shaped: Vec<(&str, &[String])> = paths
+        .iter()
+        .map(|(leaf, path)| (leaf.as_str(), path.as_slice()))
+        .collect();
+    let mut pending = vec![value.node];
+    while let Some(node) = pending.pop() {
+        match &node.kind {
+            YamlKind::Scalar { value: literal, .. } => {
+                let found = citation_rules::concept_name_targets(&shaped, literal);
+                if let [index] = found.as_slice()
+                    && shaped[*index].0 == term
+                {
+                    result.add(
+                        source,
+                        value.owner,
+                        value.field,
+                        literal,
+                        node.start..node.end,
+                    );
+                }
+            }
+            YamlKind::Sequence(items) => pending.extend(items.iter().rev()),
+            _ => {}
+        }
+    }
+}
+/// The writer selector of a native logic entry, when it has one.
+fn logic_selector(entry: Entry<'_>) -> Option<EntrySelector> {
+    let document = |document: &str, id: &str| EntrySelector::Document {
+        document: document.into(),
+        heading: Vec::new(),
+        entry: Some(id.into()),
+    };
+    match entry {
+        Entry::Claim(claim) => Some(EntrySelector::Id {
+            id: claim.id.as_str().into(),
+        }),
+        Entry::Heuristic(heuristic) => {
+            Some(document(&heuristic.source_file, heuristic.id.as_str()))
+        }
+        Entry::Experiment(experiment) => {
+            Some(document(&experiment.source_file, experiment.id.as_str()))
+        }
+        Entry::Concept(concept) => Some(EntrySelector::Document {
+            document: "logic/concepts.md".into(),
+            heading: vec![concept.term.clone()],
+            entry: None,
+        }),
+        _ => None,
+    }
 }
 pub fn structured(artifact: &Artifact, target: Entry<'_>) -> Result<References, AgentError> {
     let mut result = References {
@@ -297,37 +254,69 @@ pub fn structured(artifact: &Artifact, target: Entry<'_>) -> Result<References, 
             .count()
             == 1,
     };
+    // Native logic entries share the writer's typed citation inventory, the
+    // same classifier C1 repairs with.
+    let shared = match logic_selector(target.entry) {
+        Some(selector) => {
+            let working = WorkingArtifact::new(artifact.snapshot()?.clone());
+            // A selector the writer cannot resolve (a duplicate or recovered
+            // heading the read model still lists) falls back to the
+            // read-only token scan below, which uses the same field table
+            // and protected spans; `refs` stays a read, never a refusal.
+            ara_core::write::logic::markdown_citations(&working, &selector).ok()
+        }
+        None => None,
+    };
+    if let Some(citations) = &shared {
+        for citation in citations {
+            result.add(
+                &citation.document,
+                Some(&citation.owner),
+                &citation.field,
+                &citation.literal,
+                citation.range.clone(),
+            );
+        }
+    }
+    // History layers the read model does not load (the portable alias
+    // ledger) still carry citations; walk them from the exact snapshot.
+    if artifact
+        .sources
+        .keys()
+        .all(|path| path != "trace/aliases.yaml")
+        && artifact.root.join("trace/aliases.yaml").is_file()
+    {
+        let snapshot = artifact.snapshot()?;
+        if let Some(text) = snapshot
+            .files
+            .get("trace/aliases.yaml")
+            .filter(|file| file.existed)
+            .and_then(|file| std::str::from_utf8(&file.bytes).ok())
+        {
+            yaml(&mut result, "trace/aliases.yaml", text, target)?;
+        }
+    }
     for (source, text) in &artifact.sources {
         if !artifact.is_knowledge(source) {
             continue;
         }
         if source.ends_with(".yaml") || source.ends_with(".yml") {
-            yaml(&mut result, source, text, target)?;
+            if citation_rules::is_history_source(source) {
+                yaml(&mut result, source, text, target)?;
+            }
             continue;
         }
-        if !source.ends_with(".md") {
+        if !source.ends_with(".md") || shared.is_some() {
             continue;
         }
         for section in ara_core::markdown::document_sections(source, text) {
             let owner = super::headings::heading_id(section.heading);
             for field in ara_core::markdown::fields(text, section.body_range) {
-                if !matches!(
-                    field.name,
-                    "Proof"
-                        | "Dependencies"
-                        | "Depends on"
-                        | "Deps"
-                        | "Sources"
-                        | "Claims affected"
-                        | "Related"
-                        | "Promoted from"
-                        | "Last revised"
-                        | "Merged into"
-                        | "Evidence output"
-                        | "Code ref"
-                ) {
+                if citation_rules::reference_field(field.name).is_none() {
                     continue;
                 }
+                // Quoted, backticked and commented tokens are not references.
+                let protected = citation_rules::protected_ranges(field.value);
                 if matches(target, field.value) {
                     result.add(
                         source,
@@ -339,7 +328,9 @@ pub fn structured(artifact: &Artifact, target: Entry<'_>) -> Result<References, 
                     continue;
                 }
                 for token in ara_core::query::scan_tokens(field.value) {
-                    if matches(target, token.literal) {
+                    if matches(target, token.literal)
+                        && !citation_rules::is_protected(&protected, &token.range)
+                    {
                         result.add(
                             source,
                             owner,
@@ -361,8 +352,12 @@ pub fn structured(artifact: &Artifact, target: Entry<'_>) -> Result<References, 
                         character.is_whitespace()
                             || matches!(character, ',' | '[' | ']' | '(' | ')' | '`' | '\"' | '\'')
                     });
-                    if !literal.is_empty() && matches(target, literal) {
-                        let start = part.find(literal).expect("trimmed slice");
+                    let start = part.find(literal).unwrap_or(0);
+                    let range = offset + start..offset + start + literal.len();
+                    if !literal.is_empty()
+                        && matches(target, literal)
+                        && !citation_rules::is_protected(&protected, &range)
+                    {
                         result.add(
                             source,
                             owner,

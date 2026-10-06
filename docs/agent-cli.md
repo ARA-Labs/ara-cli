@@ -43,7 +43,7 @@ ara -C ./ara find 'failure boundary' --limit 10 --full --json
 | `ls` | Source-order entries; intersecting type, subtree, date, status and provenance filters | No arguments: one line per knowledge document with entry counts by kind (or heading count) and line count, then the direct-file roots. `ls <path>`: that document's entries, or its heading addresses when it has none. Filters: matching entries |
 | `show` | Entry projection, relations via `--with`, full body or bounded native document; `--lines A:B` windows and `--max-bytes` budgets | One labeled block per selection: native source with its `source_digest`, or a projection without a digest; 16 KiB budget, paged at whole lines |
 | `path` | Root-to-node nesting, with cross-edges kept distinct | Root-to-node IDs, indented by depth |
-| `refs` | Typed references with source spans, separately reported possible prose mentions | Referencing ID, field, `source:line`, literal; prose mentions labeled as possible |
+| `refs` | Typed references with source spans, separately reported possible prose mentions; classified by the writer's citation rules ([Citation repair](#citation-repair-for-restructures)) | Referencing ID, field, `source:line`, literal; prose mentions labeled as possible |
 | `open` | Unfinished questions/experiments, unpromoted observations and active continuity; observation rows add measured inactivity ([below](#observation-inactivity-in-open)) | Address, kind, reasons, title; observation rows end with `turns=… days=… last_reference=… history=…` |
 | `find` | Stateless keyword ranking over loaded knowledge | Ranked addresses with one-based source lines; `--context N` adds merged context |
 | `resolve` | Resolve a qualified imported identity through the portable identity records | The resolved ID |
@@ -559,6 +559,162 @@ transitions. Terminal nodes cannot acquire children. `same_as` points from a
 later node to a provably earlier existing node using recorded time or actual
 creation order; numeric IDs and preorder do not establish chronology.
 
+### Citation repair for restructures
+
+Plan 19 C1 lets four restructures repair the current citations of the
+entry they change, inside the same transaction and through the same audit
+path as a caller-written edit:
+
+| Restructure | Operation | Caller supplies |
+|---|---|---|
+| Rename | `entry.rename` with `rewrite_references: true` | `target`, `name`, entry-span `expected`, audit context |
+| Claim merge | `logic.revise` with `rewrite_references: true` | `set` with `Status: withdrawn` and `Merged into: <live claim>` |
+| Removal with replacement | `entry.remove` with `rewrite_references: true` | an explicit existing `redirect` (claims still cannot be removed) |
+| Claim split | `logic.revise` with `action: "split"`, `split_into`, `references` | spin-offs created earlier, one row per current citing field |
+
+`rewrite_references` and explicit `references` are mutually exclusive on one
+operation (`write.reference_mode`). A merge may instead list explicit
+`references` rows (see the row rule under **Split**); each must move the
+source's citations in that field to the survivor.
+
+**Shared rules.** `ara refs` and the writer classify citations with the same
+rules (`ara_core::write::citation_rules` and the writer's citation
+inventory): one table of reference-bearing Markdown fields, one set of
+historical sources, and one rule for protected spans. For a claim,
+heuristic, experiment plan or concept target, `refs` lists exactly the
+Markdown citations the writer's inventory finds, so what `refs` shows in a
+rewritable field is what a restructure repairs.
+
+| Markdown field | Listed by `refs` | Rewritten by C1 |
+|---|---|---|
+| `Dependencies`, `Proof`, `Sources`, `Claims affected`, `Related` / `Related concepts`, `Merged into`, `Evidence output`, `Code ref` | yes | yes, where the entry's schema accepts the field |
+| `Depends on`, `Deps`, `Promoted from`, `Last revised` (read-only aliases) | yes | no: a `read_only_field` mention |
+
+Historical sources, read the same way by both: the exploration tree
+(`parent`, `evidence`, `also_depends_on`, `same_as`, `concepts`,
+`source_refs`, artifact `pointer`s, annotation `references`, child IDs),
+observations (`bound_to`, `promoted_to`, `crystallized_via`), taste
+`target`s, `trace/aliases.yaml` alias `target`s, reasoning-log `turn`s, the
+session index, session rows (`events_logged` `id`/`target`,
+`claims_touched` `id`, `logic_revisions` `entry`, `ai_actions`
+`files_changed`) and the mutation ledger. Reasoning turns, the index, child
+IDs and the ledger describe identity bookkeeping, not citations, so the
+writer does not validate them as historical citations. A tree `concepts`
+name cites a concept only when it resolves to exactly one concept heading
+(leaf text or full heading path); `refs` lists nothing for an ambiguous name
+and a restructure of one of its candidates refuses.
+
+**What is rewritten.** The writer builds a typed inventory of the current
+mutable Markdown: in each native entry it reads only the accepted reference
+fields `Dependencies`, `Proof`, `Sources`, `Claims affected`, `Related`
+(`Related concepts`), `Merged into`, `Evidence output` and `Code ref`, where
+that entry's schema accepts the field. Inside a field it parses native ID
+tokens (with the read model's boundaries), qualified locators
+`document:ID`, `document#ID`, `document#<leaf heading>` or
+`document#<full heading path>`, and in `Related` comma-separated concept
+names. Tokens inside quotes, backticks, fenced code or HTML comments are
+protected, as in merge rewriting: they are never rewritten or listed by
+`refs`, and they count as `protected` mentions. A value that is exactly a
+JSON array of strings is a native list, so its item quotes are list syntax,
+not quotation (an item with an escape sequence stays protected). A token counts only when it resolves to exactly one heading of the
+subject (or of its subtree), directly or through an authenticated claim
+redirect (a retired alias). The longest spelling that ends at a delimiter
+wins; a multi-word heading followed by more words is prose. Each rewrite
+replaces only those token bytes and keeps quotes, prose, list delimiters and
+the spelling style (bare ID, qualified ID, path with the same number of
+segments, bare name). Afterwards every new spelling must resolve to exactly
+its destination, or the operation fails with `write.reference_rewrite`.
+
+**What is never rewritten.** PAPER frontmatter, other registered documents,
+headings, prose, fields outside the list above, unknown fields, inline values
+followed by unindented prose lines, and every historical record: tree
+`evidence`, `parent`, `also_depends_on`, `same_as`, `concepts`,
+`source_refs`, artifact pointers and annotations, observation `bound_to`,
+content and promotion tuples, prior session rows, reasoning, taste, the
+mutation and merge ledgers and archived before/after payloads. Possible
+mentions are reported in the operation result as `skipped_references`, each
+with `document`, `heading`, `field`, one-based `line`, `literal` and
+`reason` (`prose`, `heading`, `untyped_field`, `unknown_field`,
+`read_only_field`, `protected`, `unparsed`, `ambiguous`).
+
+**Renames and removals.** The existing dangling-reference guard still
+applies, now computed from the inventory: after the repairs, any remaining
+non-heading mention of the old identity refuses the operation with
+`write.dangling_reference` and lists every location in the error's
+`details.locations`. A skipped citation is never permission to leave a
+broken identity. One deliberate difference from the textual guard: a parsed
+token in a reference field that resolves to a *different* entry is not a
+mention. Renaming `Group A/Term` therefore leaves
+`Sources: logic/concepts.md#Group B/Term` alone and is not blocked by it,
+while the explicit-`references` path keeps the textual guard and still
+counts the `Term` inside that locator. Typed historical citations of the old identity are recorded
+and, at final validation, must resolve through the retained entry or the
+appended authenticated `trace/logic_mutations.yaml` mapping, both by the
+writer's redirect chain and by the read side's identity index that `show`
+and `refs` consult (`write.history_unresolved` otherwise, reported on the
+restructure's line even when a later operation broke the chain). The read
+side checks each citation's literal spelling, not only a normalized
+selector: a scalar locator must resolve the way `show` resolves it. The
+result lists the checked citations as `historical_citations` (`source`,
+`field`, `literal`). `show` follows an authenticated mapping for every
+spelling of a retired heading: the canonical `path#h/...` address, a legacy
+`path#A/B` joined-path locator (any suffix of the old vector) and the
+mapping's own `path:A/B` origin all read the renamed section. The read-side index keys a two-heading concept path by its leaf
+(`logic/concepts.md#Term`); when that key belongs to a different live entry,
+a retired origin now keeps its exact heading vector instead of colliding with
+it, and a retired suffix alias never shadows a live identity. A historical citation that is
+ambiguous between the subject and another entry (for example
+`logic/concepts.md#Term` with two `Term` leaves) refuses the restructure,
+because changing one heading would silently re-point it. A removal needs a
+`redirect`; a bare-ID citation cannot point at an unnumbered destination and
+a concept name cannot leave `logic/concepts.md` (`write.reference_rewrite`).
+An entry that would come to cite itself (the survivor or redirect already
+cites the subject) is refused; revise it explicitly first.
+
+**Merge.** The source claim is retained with its `Status: withdrawn` and
+`Merged into` relation, so prose mentions stay valid and are only listed.
+The survivor must be a different live claim (`write.merge_survivor`) that
+is not already merged, directly or transitively, into the source
+(`write.redirect_cycle`). Claims previously merged into the source move to
+the survivor too.
+
+**`expected` on a merge or split** keeps the meaning it has for a `Body`
+revision: the digest of the selected heading body, which `show` prints as
+`source_digest` (JSON `digest`). It is optional for a merge or split, required
+for `Body`, and rejected for other field revisions. `entry.rename` and
+`entry.remove` keep their separate entry-span digest.
+
+**Split.** `action: "split"` and a nonempty `split_into` of exact selectors
+come together (`write.split`). Destinations are distinct existing claims
+other than the primary (`write.split_destination`); a spin-off created
+earlier in the batch qualifies, a forward binding does not. Every current
+citing field of the primary, spin-offs included, needs exactly one
+`{target, field, before, after}` row with the exact current `before`
+(`write.split_unclassified` lists the missing ones). A row's `after` must
+equal its `before` except that each unprotected citation of the primary is
+replaced; every other byte, including prose, quotes and other claims'
+citations, stays (`write.reference_mapping`). Each replacement names the
+primary or a declared spin-off (`write.split_destination`); keeping the
+primary unchanged is allowed and writes no audit row. Only list-typed values
+fan one citation out to several destinations, joined by the list separator:
+`Dependencies`, or a value that is a JSON array of strings before and after.
+In `Proof`, `Sources` prose and other mixed or scalar values each citation
+becomes exactly one destination; `Merged into` stays one claim
+(`write.reference_scalar`). Any other content change needs its own audited
+revision. The CLI never chooses which proposition a citer
+meant. The primary's own `set` must change it. `after` is literal text, so
+name spin-offs by explicit IDs (`claim.add` with `id`). The primary's
+`logic_revisions` rows carry `action: split` and `split_into`; this is an
+additive, optional row shape.
+
+**Audit.** Every changed citing field gets one `logic_revisions` row with its
+exact decoded before and after, plus `Last revised`; the result lists them
+as `rewritten_references`. Rename and removal mappings append to
+`trace/logic_mutations.yaml` as before. Existing historical rows stay byte
+exact; only files that receive a new row grow. A failure anywhere in the
+batch, including the post-change spelling check and final validation, writes
+nothing, and a dry run persists nothing.
+
 ## Batches, audit ownership and recovery
 
 Each nonempty JSONL line is one operation. A creation ID such as `$question`
@@ -673,7 +829,8 @@ from the operations that succeeded. The caller no longer repeats them.
 | `claim.add`, `heuristic.add` | new C/H ID, `claim`/`heuristic`, `direct` | `created` for a claim |
 | `observation.promote` to claim, heuristic or dead end | new C/H/N ID, destination type, `crystallized` | `crystallized` for a claim |
 | `observation.promote` to concept, constraint or architecture | source O ID, destination type, `crystallized`, `target` | none |
-| `logic.revise`, or a rename's reference repair, that changes a claim | none | `revised` (also when it sets `Merged into`) |
+| `logic.revise`, or a rename's reference repair, that changes a claim | none | `revised` (also when a plain revision sets `Merged into`) |
+| C1 merge (`rewrite_references` or `references` with `Merged into`) or split (`action: "split"`) | none | `merged` / `split` for the source or primary claim; repaired citers `revised` |
 
 - **Summary and provenance.** A derived event's `summary` is the operation's
   `title`, or the observation's complete `content`, copied without
@@ -733,10 +890,11 @@ A fully explicit request still validates every supplied row and receives any
 deterministic row it left out, so its meaning is kept, but its bytes, event
 counts and index rows can differ from the old binary's output. A
 whole-document `Body` revision of `logic/claims.md` derives no claim touch,
-because it does not name one claim; supply the rows. A `logic.revise` that
-sets `Merged into` derives `revised`; `merged` and `split` are derived only by
-plan 19's explicit merge and split operations (step 19e). Until then a caller
-may supply them as judgments.
+because it does not name one claim; supply the rows. A plain `logic.revise`
+that sets `Merged into` derives `revised`; `merged` and `split` are derived
+only by the explicit merge and split operations of
+[Citation repair](#citation-repair-for-restructures). A caller judgment for
+that claim still replaces the derived row and is checked as above.
 
 Compatibility changes for requests that worked before 19c, all in batches
 with a `session.log`:

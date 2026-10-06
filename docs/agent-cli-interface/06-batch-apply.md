@@ -31,6 +31,13 @@ remaining rows in their turns before the candidate is validated. Finalize errors
 carry the log's or operation's line plus the other input as `related_line` and
 `related_field`; the CLI maps both to physical JSONL lines.
 
+Step 19e lets an explicit C1 merge or split record its judgment on the
+claim change (`bookkeeping::Ledger::claim_judgment`): with no caller judgment
+for that claim, `finalize` derives `merged` or `split` instead of `revised`.
+Citers repaired by a restructure derive `revised`. `logic.revise`
+`references[].target` and `split_into` selectors take earlier creation
+bindings; `references[].after` stays literal text.
+
 ## Boundaries and remaining gates
 
 Native operation proof covers the 107-row inventory: 88 required CLI operations plus 19 explicit permitted access/output cases. Unchanged historical replay is blocked by recorded dialect/ancestor/leaf incompatibilities and missing session-index files; no historical-import API is invented.

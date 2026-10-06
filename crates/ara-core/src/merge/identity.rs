@@ -1288,6 +1288,21 @@ pub(crate) fn local_redirects(
                 return Err(error("native origin and literal selector disagree"));
             }
             origin = archived_selector_key(selector, rows).unwrap_or(display_origin);
+            // A display key can name a different live entry (two concept
+            // leaves under different parents share `concepts.md#Leaf`). The
+            // retired origin is then its exact vector, not that live key.
+            if let crate::write::EntrySelector::Document {
+                document: scope,
+                heading,
+                entry: None,
+            } = selector
+                && identities.contains(&origin)
+                && super::markdown::live_literal_path(markdown, scope, &origin)
+                    .is_some_and(|live| live != heading.as_slice())
+                && let Some(exact) = super::markdown::exact_selector_key(selector)
+            {
+                origin = exact;
+            }
         }
         let to = row
             .get("to")
@@ -1376,7 +1391,8 @@ pub(crate) fn local_redirects(
         }
     }
     for (suffix, choice) in suffixes {
-        if edges.contains_key(&suffix) {
+        // A live identity is never shadowed by a retired suffix alias.
+        if edges.contains_key(&suffix) || identities.contains(&suffix) {
             continue;
         }
         if let Some((_, target)) = choice {

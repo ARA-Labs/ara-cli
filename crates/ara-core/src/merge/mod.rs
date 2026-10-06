@@ -11,6 +11,7 @@ use crate::write::{ArtifactSnapshot, WorkingArtifact, WriteOperation};
 use identity::{ALIASES, Alias, LOG, Record, bytes};
 pub(crate) use identity::{Ledger, load_bytes as decode_ledger_bytes};
 pub use identity::{SourceHistory, fingerprint, source_history};
+pub(crate) use rewrite::quoted_ranges;
 use serde::Deserialize;
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
@@ -19,6 +20,7 @@ pub use types::{
     MergePlan, MergeReport, MergeValue, RewriteFact,
 };
 use types::{EntryIdentity, IdentityMap, conflict};
+pub(crate) use yaml::candidate_snapshot;
 
 struct Inventory {
     yaml: yaml::Inventory,
@@ -1342,6 +1344,140 @@ pub fn resolve_selector(
     snapshot: &ArtifactSnapshot,
     selector: &crate::write::EntrySelector,
 ) -> Result<crate::write::EntrySelector, MergeError> {
+    resolve_selector_in(snapshot, &inventory(snapshot)?, selector)
+}
+/// Check historical citations against one identity view: each selector,
+/// and each literal spelling when one is given, must resolve through a live
+/// section or an authenticated mapping. Returns one failure message per item
+/// (`None` when it resolves); the outer error is an unconsultable view.
+pub fn check_citations(
+    snapshot: &ArtifactSnapshot,
+    items: &[(crate::write::EntrySelector, Option<String>)],
+) -> Result<Vec<Option<String>>, MergeError> {
+    let view = inventory(snapshot)?;
+    let identities = ids(&view);
+    let aliases = identity::aliases(snapshot)?;
+    identity::alias_index(&aliases, &identities, &view.redirects, &view.markdown)?;
+    Ok(items
+        .iter()
+        .map(|(selector, literal)| {
+            if let Err(error) = resolve_selector_in(snapshot, &view, selector) {
+                return Some(error.message);
+            }
+            let literal = literal.as_deref()?;
+            match resolve_locator_in(snapshot, &view, literal) {
+                Ok(Some(_)) => None,
+                Ok(None) => Some(format!("`{literal}` names no live or retired section")),
+                Err(error) => Some(error.message),
+            }
+        })
+        .collect())
+}
+/// Resolve a literal locator as a read would: a native ID, or
+/// `document#identity` / `document:identity` naming a live section by leaf,
+/// joined heading suffix or native ID, else a retired section through its
+/// authenticated mutation row (joined heading suffix of `from_selector`, or
+/// the row's own `from`). `Ok(None)` when it names nothing.
+pub fn resolve_locator(
+    snapshot: &ArtifactSnapshot,
+    literal: &str,
+) -> Result<Option<crate::write::EntrySelector>, MergeError> {
+    resolve_locator_in(snapshot, &inventory(snapshot)?, literal)
+}
+fn resolve_locator_in(
+    snapshot: &ArtifactSnapshot,
+    view: &Inventory,
+    literal: &str,
+) -> Result<Option<crate::write::EntrySelector>, MergeError> {
+    use crate::write::EntrySelector;
+    let split = literal
+        .find(['#', ':'])
+        .map(|at| (&literal[..at], &literal[at + 1..]))
+        .filter(|(document, identity)| document.ends_with(".md") && !identity.is_empty());
+    let Some((document, identity)) = split else {
+        let typed = |prefix| crate::write::fields::typed_id(literal, prefix);
+        let qualified = if typed("E") {
+            Some("logic/experiments.md")
+        } else if typed("RW") {
+            Some("logic/related_work.md")
+        } else {
+            None
+        };
+        if let Some(document) = qualified {
+            return resolve_locator_in(snapshot, view, &format!("{document}:{literal}"));
+        }
+        let native = typed("C") || typed("H");
+        return if native {
+            resolve_selector_in(snapshot, view, &EntrySelector::Id { id: literal.into() }).map(Some)
+        } else {
+            Ok(None)
+        };
+    };
+    let names = |path: &[String]| {
+        (1..=path.len()).any(|segments| path[path.len() - segments..].join("/") == identity)
+            || path
+                .last()
+                .is_some_and(|heading| crate::write::logic::heading_id(heading) == identity)
+    };
+    let live: Vec<&[String]> = markdown::literal_paths(&view.markdown, document)
+        .into_iter()
+        .filter(|path| names(path))
+        .collect();
+    match live.as_slice() {
+        [path] => {
+            return Ok(Some(EntrySelector::Document {
+                document: document.into(),
+                heading: path.to_vec(),
+                entry: None,
+            }));
+        }
+        [] => {}
+        _ => {
+            return Err(MergeError::content(
+                "merge.selector_ambiguous",
+                format!("`{literal}` names several live sections"),
+            ));
+        }
+    }
+    let normalized = identity::normalize_local(literal);
+    let mut origins: Vec<EntrySelector> = Vec::new();
+    for row in &view.mutations {
+        let Some(from) = row
+            .get("from_selector")
+            .and_then(|value| EntrySelector::deserialize(value).ok())
+        else {
+            continue;
+        };
+        let EntrySelector::Document {
+            document: scope,
+            heading,
+            entry: None,
+        } = &from
+        else {
+            continue;
+        };
+        let literal_from = row
+            .get("from")
+            .and_then(serde_json::Value::as_str)
+            .is_some_and(|from| from == literal || identity::normalize_local(from) == normalized);
+        if scope == document && (names(heading) || literal_from) && !origins.contains(&from) {
+            origins.push(from);
+        }
+    }
+    match origins.as_slice() {
+        [] => Ok(None),
+        [origin] => resolve_selector_in(snapshot, view, origin).map(Some),
+        _ => Err(MergeError::content(
+            "merge.redirect_ambiguous",
+            format!("`{literal}` names several retired sections"),
+        )),
+    }
+}
+fn resolve_selector_in(
+    snapshot: &ArtifactSnapshot,
+    view: &Inventory,
+    selector: &crate::write::EntrySelector,
+) -> Result<crate::write::EntrySelector, MergeError> {
     use crate::write::EntrySelector;
     fn matches_selector(archived: &EntrySelector, wanted: &EntrySelector) -> bool {
         if archived == wanted {
@@ -1373,9 +1509,8 @@ pub fn resolve_selector(
             _ => false,
         }
     }
-    let view = inventory(snapshot)?;
     if let EntrySelector::Id { id } = selector {
-        let identities = ids(&view);
+        let identities = ids(view);
         let aliases = identity::aliases(snapshot)?;
         let index = identity::alias_index(&aliases, &identities, &view.redirects, &view.markdown)?;
         identity::reject_ambiguous_display(id, &view.markdown, &view.mutations, &aliases)?;

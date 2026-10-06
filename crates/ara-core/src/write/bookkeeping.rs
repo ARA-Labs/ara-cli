@@ -60,6 +60,9 @@ pub struct ClaimChange {
     pub claim: String,
     /// The Status value written by this change, when it changed Status.
     pub status: Option<String>,
+    /// The derived judgment of an explicit C1 merge or split (`merged`,
+    /// `split`); `None` derives the generic `revised`.
+    pub judgment: Option<&'static str>,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -100,7 +103,21 @@ impl Ledger {
             turn,
             claim: claim.to_owned(),
             status,
+            judgment: None,
         });
+    }
+
+    /// Mark this operation's recorded changes to `claim` as an explicit C1
+    /// merge or split, which derives `judgment` instead of `revised`.
+    pub fn claim_judgment(&mut self, claim: &str, judgment: &'static str) {
+        let current = self.current;
+        for change in self
+            .changes
+            .iter_mut()
+            .filter(|change| change.operation == current && change.claim == claim)
+        {
+            change.judgment = Some(judgment);
+        }
     }
 }
 
@@ -783,8 +800,13 @@ fn derive_touches(
             .collect();
         check_judgments(log, &change.claim, &judgments, &own)?;
         // A caller judgment replaces the generic row; otherwise derive it.
+        // An explicit C1 merge or split derives its own judgment.
         if judgments.is_empty() {
-            derived.push((change.operation, change.claim.clone(), "revised"));
+            let action = own
+                .iter()
+                .find_map(|other| other.judgment)
+                .unwrap_or("revised");
+            derived.push((change.operation, change.claim.clone(), action));
         }
     }
     derived.sort_by_key(|(operation, _, _)| *operation);

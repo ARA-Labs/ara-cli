@@ -122,6 +122,9 @@ pub struct WorkingArtifact {
     pub owner: Option<super::sessions::OwnerAnchor>,
     /// Operation facts and logged turns for operation-derived session rows.
     pub bookkeeping: super::bookkeeping::Ledger,
+    /// Historical citations of restructured identities (plan 19 C1) that
+    /// final validation must resolve through retained or audited identities.
+    pub citation_checks: Vec<super::logic::HistoricalCitation>,
     pub intents: Vec<Intent>,
     yaml_cache: RefCell<BTreeMap<String, YamlIndexes>>,
     pub(super) node_index_cache: RefCell<Option<super::node::CachedNodeIndex>>,
@@ -338,6 +341,7 @@ impl WorkingArtifact {
             batch_time: None,
             owner: None,
             bookkeeping: Default::default(),
+            citation_checks: Vec::new(),
             intents: Vec::new(),
             yaml_cache: RefCell::new(BTreeMap::new()),
             node_index_cache: RefCell::new(None),

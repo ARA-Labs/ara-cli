@@ -96,8 +96,30 @@ All notable changes to this project are documented here. The format follows
   derives and records the eligible logged days after the last reference, up to
   the audit date, and refuses unknown day evidence with
   `write.stale_history_unknown`.
+- Agent CLI: `entry.rename`, `entry.remove` (with `redirect`) and a claim-merge
+  `logic.revise` (`Status: withdrawn` plus `Merged into`) accept
+  `rewrite_references: true`, which repairs typed citations in accepted
+  reference fields through exact audited edits and reports
+  `rewritten_references` and located `skipped_references`. A claim split is
+  `logic.revise` with `action: "split"`, `split_into` and a `references` row for
+  every current citing field. Remaining mentions, ambiguous history,
+  self-citations, merge cycles and unclassified citers refuse with
+  `details.locations`; historical records are never rewritten and must resolve
+  through the retained entry or the authenticated mutation ledger.
+- Agent CLI: the source of an explicit merge derives `claims_touched`
+  `merged`, and a split's primary derives `split`; the primary's
+  `logic_revisions` rows may carry `action: split` and `split_into`.
+- Agent CLI: restructure results list the historical citations they verified
+  as `historical_citations`; final validation also resolves them through the
+  read side's identity index.
 
 ### Changed
+- Agent reads: `refs` uses the writer's citation rules. For claims,
+  heuristics, experiment plans and concepts it lists the same Markdown
+  citations a restructure repairs (including qualified heading spellings);
+  tokens inside quotes, backticks or HTML comments are no longer listed;
+  `trace/aliases.yaml` alias targets are listed; a tree `concepts` name is
+  listed only when it resolves to exactly one concept heading.
 - Agent reads default to brief address-led text; `--json` output keeps its
   fields, with additive `find` hit lines and opt-in bounded `display` metadata.
   Text diagnostics print once on stderr as counts and codes.
@@ -168,6 +190,12 @@ All notable changes to this project are documented here. The format follows
   `invalid_document` errors name these roots. Old rubric history stays readable.
 
 ### Fixed
+- Agent reads: renaming one of two concept leaves that share a display key
+  (`Group A/Term`, `Group B/Term`) no longer makes `show`/`refs` fail with
+  "retired native identity was reused by live content".
+- Agent reads: `show` follows an authenticated rename or removal mapping for
+  a retired nested heading's canonical `#h/...` address, its joined-path
+  `path#A/B` locator and the mapping's `path:A/B` origin.
 - Agent reads and writes: copied audit text (revision before/after values,
   archived rolling fields, stale-evidence records, the session index) no
   longer counts as new activity for an observation; `open` and

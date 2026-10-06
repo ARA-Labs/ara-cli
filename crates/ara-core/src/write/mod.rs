@@ -3,6 +3,7 @@
 
 pub mod batch;
 pub mod bookkeeping;
+pub mod citation_rules;
 pub mod clock;
 pub mod documents;
 pub mod fields;
@@ -223,8 +224,26 @@ pub enum WriteOperation {
         provenance: String,
         #[serde(default)]
         note: Option<String>,
+        /// Digest of the selected heading body (the `source_digest` `show`
+        /// prints). Required for a `Body` revision; an optional precondition
+        /// for a merge or split; rejected for other field revisions.
         #[serde(default)]
         expected: Option<String>,
+        /// Claim merge (plan 19 C1): with `Status: withdrawn` and
+        /// `Merged into: <claim>` in `set`, repair the eligible current citers
+        /// of the retained source to the survivor in this transaction.
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        rewrite_references: bool,
+        /// Explicit citer edits for a merge (instead of `rewrite_references`)
+        /// or the complete classification of a split's citing fields.
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        references: Vec<ReferenceEdit>,
+        /// `"split"`, only together with a nonempty `split_into`.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        action: Option<String>,
+        /// Exact selectors of the existing spin-off claims of a split.
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        split_into: Vec<EntrySelector>,
     },
     #[serde(rename = "entry.rename")]
     EntryRename {
@@ -241,6 +260,9 @@ pub enum WriteOperation {
         signal: Option<String>,
         #[serde(default)]
         provenance: Option<String>,
+        /// Generate the permitted typed citation edits internally (plan 19 C1).
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        rewrite_references: bool,
     },
     #[serde(rename = "entry.remove")]
     EntryRemove {
@@ -258,6 +280,9 @@ pub enum WriteOperation {
         provenance: Option<String>,
         #[serde(default)]
         redirect: Option<EntrySelector>,
+        /// Repair current typed citations to `redirect` (plan 19 C1).
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        rewrite_references: bool,
     },
     #[serde(rename = "entry.taste_append")]
     EntryTasteAppend {
@@ -305,6 +330,17 @@ pub struct OperationResult {
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub session_created: bool,
     pub no_op: bool,
+    /// Citing fields this operation changed (plan 19 C1), each with its
+    /// exact before/after field source.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub rewritten_references: Vec<Value>,
+    /// Possible mentions left untouched, with their source locations.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub skipped_references: Vec<Value>,
+    /// Typed historical citations of a renamed or removed identity, left
+    /// byte-exact and resolved through the authenticated mapping.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub historical_citations: Vec<Value>,
 }
 impl OperationResult {
     pub fn new(operation: &str, id: Option<String>) -> Self {
@@ -352,6 +388,10 @@ pub struct WriteError {
     /// A second input location for conflicts between two inputs.
     #[serde(flatten, skip_serializing_if = "Option::is_none")]
     pub related: Option<Box<RelatedLocation>>,
+    /// Source locations that caused a refusal (unresolved mentions,
+    /// unclassified citing fields, unresolvable history).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub locations: Option<Box<Vec<Value>>>,
     #[serde(skip)]
     exit: u8,
 }
@@ -363,6 +403,7 @@ impl WriteError {
             line: None,
             field: None,
             related: None,
+            locations: None,
             exit: 1,
         }
     }
@@ -373,6 +414,7 @@ impl WriteError {
             line: None,
             field: None,
             related: None,
+            locations: None,
             exit: 2,
         }
     }
@@ -395,6 +437,11 @@ impl WriteError {
             related_line: None,
             related_field: field.into(),
         }));
+        self
+    }
+    /// Attach the source locations behind a refusal.
+    pub fn with_locations(mut self, locations: Vec<Value>) -> Self {
+        self.locations = (!locations.is_empty()).then(|| Box::new(locations));
         self
     }
     pub fn related_line(&self) -> Option<usize> {
