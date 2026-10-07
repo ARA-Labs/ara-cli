@@ -19,13 +19,13 @@ recorded. Historical reproduction and human protocol approval remain distinct ga
 | [16](16-local-semantic-search.md), [17](17-cli-write-enforcement.md) | Closed conditionals for this delivery; evidence gates have not fired |
 | [18](18-failed-blocked-calls.md) | Approved 2026-10-04; CLI changes B1–B10 and skills S1–S5 implemented in 0.1.24; H1 landed in ara-eval; 120-session dev pilot recorded 2026-10-06, with skill and `show --source` follow-ups in 0.1.26; H2/C1 and viewer embed rebuild pending |
 | [19](19-deterministic-bookkeeping.md) | Approved 2026-10-04; revised and re-approved 2026-10-05 (bug reproduced, clock and day-count rules tightened, split into sub-PRs 19a–19e): 19a–19e implemented in 0.1.25 with [CLI smokes](../../docs/verification/plan-19-bookkeeping/README.md); repeated six-skill audit (acceptance item 6) and upstream protocol review of the event `target` field pending |
-| [20](20-command-simplification.md) | Draft 2026-10-06; retains direct setters and merge, proposes a smaller command surface with research workflows taught in skill subsections; review pending, no implementation |
+| [20](20-command-simplification.md) | Approved with revisions 2026-10-06 at the user's direction; retains direct setters and merge, consolidates reads with explicit selector/output contracts, and teaches research workflows in skill subsections; implementation pending |
 
 Plan 18's CLI and skill changes are implemented; its external changes and pilot evidence are not, so it stays a plan. Plan 18 supersedes the parent plan's default-JSON agent workflow with brief text while retaining programmatic JSON access, and [the command reference](../../docs/agent-cli.md) documents the shipped behavior. Plan 19 is an approved design revision, not a completed feature; it moves deterministic recording work into the CLI without delegating research judgment to it.
 
 Their functional sub-PRs target `feat/agent-cli-interface` and are squash-merged there under the [parent rollout policy](../agent-cli-interface.md#order-of-work). Harness and corpus changes stay in their owning repositories. These approvals do not alter frozen experiment conditions, approve upstream protocol changes, authorize a paid run, or create a commit or PR.
 
-Plan 20 is a new cutover proposal. Its removals and read options are not approved by the earlier plans. Existing format checking and visualization commands remain outside its scope. No functional change, version bump, commit, or PR is authorized by the draft.
+Plan 20's command removals, read modes, and migration contracts are approved with revisions. Existing format checking and visualization commands remain outside its scope. Implementation is pending and was not requested in the approval review. Approval does not authorize commits, PR creation, merging, release, upstream protocol adoption, or experiments.
 
 Actual browser and installed-agent smokes are recorded in the verification report.
 The final CLI PR targets main and must use a merge commit, preserving the integration
