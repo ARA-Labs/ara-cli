@@ -32,7 +32,7 @@ the drift is catalogued in [`ara-format-feedback.md`](ara-format-feedback.md)
               │                                     │
               ▼                                     ▼
         schema.rs (raw serde)                 claims.rs (markdown)
-        RawDoc{tree|root}                     `## C\d+: title` + bullets
+        RawDoc{tree|root}                     `## C\d+: title` (or ` - `/` – `/` — `) + bullets
         RawNode{canonical fields}             (lenient; token-scan refs)
         #[flatten] extra → unknown keys
               │                                     │
@@ -124,6 +124,17 @@ even error ordering is hash-seed independent. Nothing is sorted by id.
 - **WARNING (exit 0):** unknown fields, unresolved bindings (`claims_md = None`),
   duplicate/redundant link, `tree: []` (empty manifest), unknown `type:` body
   fields dropped, missing `type:`.
+- **WARNING, unclosed leading `---` (`ARA228`/`ARA229`):** frontmatter
+  that never closes hides the rest of a Markdown document, and the warning
+  names `path:line` of the opener (`ARA229`). The one exception is
+  `logic/claims.md` whose opener is followed only by blank lines, the exact
+  title `# Claims`, blank lines and an unindented claim heading whose first
+  content is a known claim field with a value; every later level-two section
+  must be a distinct claim, no other level-one title may follow, and no code
+  fence left open at EOF may hide a claim-like heading. That stray
+  line is skipped and its claims are read (`ARA228`). Metadata-like content,
+  comments or heading-only blocks never qualify
+  ([`stray_fence.rs`](../crates/ara-core/src/stray_fence.rs)).
 - **IGNORED (stored raw):** `Proof:[E##]` — no evidence registry exists yet
   (tracked as `T-EVIDENCE`).
 
@@ -150,9 +161,29 @@ compiles for `wasm32-unknown-unknown` in the wasm-safe path. The `Manifest`
 schema is **provisionally frozen** (geometry in Stage 2 is the only planned
 addition; full freeze is end of Stage 2).
 
+## Deep branch extension
+
+The agent CLI read model extends the original depth limits with bounded,
+stack-safe extraction for real 10,000-deep `children:` hierarchies in both
+native and pure builds. See [deep-tree-parsing.md](deep-tree-parsing.md) for
+the exact resource bounds, source-retention behavior, and writer integration
+boundary. This supersedes the original recursive raw-serde path for documents
+whose structural depth exceeds 64.
+
 ## Deferred
 
 DAG layout (Stage 2); HTTP/serve + wasm rendering (Stages 3–4); `notify`
 file-watching (Stage 4); `E##` evidence resolution (`T-EVIDENCE`); the real-
 corpus schema widening and `ara-2.0` support (`T-REAL-CORPUS`); adopting an
 upstream schema (`T-ARA-SCHEMA`).
+
+## Claim headings
+
+A level-two heading is a claim when it is a canonical `C##` ID, then `:` or
+a dash separator (`-`, U+2013 or U+2014) with whitespace on both sides, then a
+nonempty title (`ara_core::claim_heading`). `C01-Title`, `C01 -Title` and
+hyphens inside IDs or prose never split a heading. Source bytes, including the
+claim's `body`, keep the original spelling; duplicate IDs stay errors whatever
+the separator. These spellings are native, so `ara check` does not report
+them; `ARA004` repairs only unspaced or half-spaced dashes, whose claims are
+dropped. Merge reads claim titles with the same split.

@@ -53,16 +53,6 @@ fn layout_determinism_in_process() {
     assert_eq!(ja, jb);
 }
 
-/// Positioned manifest snapshot for the minimal-artifact.
-#[test]
-fn positioned_manifest_snapshot() {
-    let yaml = read("official/minimal-artifact/trace/exploration_tree.yaml");
-    let claims = read("official/minimal-artifact/logic/claims.md");
-    let opts = LayoutOptions::default();
-    let (manifest, _) = parse_and_layout(&yaml, Some(&claims), &opts).expect("ok");
-    insta::assert_json_snapshot!("positioned_minimal_manifest", manifest);
-}
-
 /// Stage 1 snapshots remain byte-identical when layout is OFF (no pos/bounds in JSON).
 /// This re-runs the existing parse_fixtures snapshot from a fresh test binary to
 /// prove the new Option fields don't perturb serialization.

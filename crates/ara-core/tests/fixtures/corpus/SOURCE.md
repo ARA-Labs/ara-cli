@@ -66,7 +66,7 @@ no-panic test.
 | `extra/andes` | node fields `failure_mode` / `hypothesis` / `lesson` — now modeled (clean) | PASS (`Ok`) | 0 | 0 |
 | `extra/expbench` | redundant ancestor back-edge (tolerated) + `pivot` transition fields `from`/`to`/`trigger` — now modeled | PASS (`Ok`) | 0 | 1 |
 | `paperbench/sample-specific-masks` | multiple redundant ancestor back-edges (tolerated as warnings) | PASS (`Ok`) | 0 | 2 |
-| `speedrun/nanogpt-speedrun` | broken `evidence:` claim refs — stresses the error path | FAIL (`Err`) | 29 | 2 |
+| `speedrun/nanogpt-speedrun` | em-dash claim headers (`## C01 — Title`), now read natively | PASS (`Ok`) | 0 | 7 |
 | `rebench/rebench-rust_codecontests` | large; many unknown-field warnings | PASS (`Ok`) | 0 | 29 |
 | `rebench/rebench-restricted_mlm` | **`ara-2.0`** streams format (no `tree:`/`root:`) | FAIL (`Err`) | 1 | 8 |
 
@@ -82,8 +82,10 @@ Notes on outcomes observed during verification:
   cycle error, so both artifacts `PASS`. Genuine cross-cycles (a dependency on a
   sibling/descendant that closes a loop) remain fatal — covered by the synthetic
   `broken/cycle.yaml` and `crates/ara-cli/tests/fixtures/cycle-dir`.
-- `speedrun/nanogpt-speedrun` still exercises the broken `evidence:` claim-ref
-  error path: its 29 errors are all `evidence references unknown claim`.
+- `speedrun/nanogpt-speedrun` used to fail with 29 `evidence references
+  unknown claim` errors because its `## C01 — Title` headers were not parsed.
+  Spaced dash separators are now native claim spellings, so every reference
+  resolves and `ara check` does not report the headers.
 - `rebench/rebench-restricted_mlm` is the `ara-2.0` streams document: it has no
   `tree:` or `root:`, so the single error is `neither tree: nor root: is
   present`, with warnings for the `ara-2.0` fields (`schema_version`, `anchors`,

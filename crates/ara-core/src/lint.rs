@@ -506,14 +506,18 @@ fn lint_claims(text: &str) -> Vec<LintDiagnostic> {
         .collect()
 }
 
-/// Detects a claim header whose id/title separator is a dash instead of a colon
-/// (`## C01 — Title` / `## C01 - Title`) and returns the fix that rewrites the
-/// separator to `: `. Non-claim `##` headers (id not `^C\d+$`) and canonical
-/// colon headers are left untouched.
+/// Detects a claim header whose id/title separator is a dash the parser does
+/// not accept (`## C01—Title` / `## C01 -Title`) and returns the fix that
+/// rewrites the separator to `: `, recovering the dropped claim. Native claim
+/// spellings (`:` or a spaced `-`, `–`, `—`; see [`crate::claim_heading`]),
+/// non-claim `##` headers and IDs that are not `^C\d+$` are left untouched.
 #[cfg(feature = "native")]
 fn claim_header_drift(line: &str, line_idx: usize) -> Option<LintDiagnostic> {
     let ws = leading_spaces(line);
     let rest = line[ws..].strip_prefix("## ")?;
+    if crate::claims::claim_heading(rest.trim()).is_some() {
+        return None;
+    }
     let id_start = ws + 3; // "## " is three bytes.
 
     let id: String = rest
@@ -990,8 +994,8 @@ tree:
     // ---- ARA004 -----------------------------------------------------------
 
     #[test]
-    fn ara004_em_dash_header_is_detected() {
-        let md = "## C01 — Attention is all you need";
+    fn ara004_unspaced_em_dash_header_is_detected() {
+        let md = "## C01—Attention is all you need";
         let d = only(lint_claims(md), LintRuleId::ClaimHeaderStyle);
         assert!(d.fixable);
         assert_eq!(d.file, LintFile::Claims);
@@ -1014,8 +1018,8 @@ tree:
     }
 
     #[test]
-    fn ara004_hyphen_header_is_detected() {
-        let md = "## C02 - Faster training";
+    fn ara004_half_spaced_hyphen_header_is_detected() {
+        let md = "## C02 -Faster training";
         let d = only(lint_claims(md), LintRuleId::ClaimHeaderStyle);
         match &d.fix {
             Some(FixCandidate::ReplaceInLine {
@@ -1028,6 +1032,17 @@ tree:
                 assert_eq!(fixed, "## C02: Faster training");
             }
             other => panic!("expected ReplaceInLine, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn ara004_native_spaced_dash_headers_not_flagged() {
+        for md in [
+            "## C01 - Faster training",
+            "## C01 \u{2013} Faster training",
+            "## C01 \u{2014} Faster training: with a colon",
+        ] {
+            assert!(lint_claims(md).is_empty(), "{md:?}");
         }
     }
 

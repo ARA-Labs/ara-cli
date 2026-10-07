@@ -1,0 +1,1359 @@
+//! Agent reads over one complete native load and a borrowing graph index.
+use crate::output::{AgentError, excerpt};
+use ara_core::query::{QueryIndex, scan_tokens, token_may_refer};
+use ara_core::write::history;
+use ara_core::write::positions::YamlDocument;
+use ara_core::{Manifest, NodeFields, NodeKind, parse_dir_detailed};
+use serde_json::{Value, json};
+use std::collections::BTreeMap;
+use std::path::Path;
+pub(crate) mod address;
+mod boundary;
+mod candidates;
+mod display;
+mod documents;
+mod find;
+mod headings;
+mod hits;
+mod references;
+mod spans;
+mod validity;
+mod window;
+use boundary::{invalid_document, knowledge_document};
+use documents::{Selected, show_document, show_source};
+pub use find::{FindArgs, find};
+use validity::representable;
+
+#[derive(Debug, Default, Clone, clap::Args)]
+pub struct ReadOptions {
+    #[arg(long)]
+    pub json: bool,
+    #[arg(long)]
+    pub full: bool,
+    #[arg(long)]
+    pub fields: Option<String>,
+}
+impl ReadOptions {
+    /// Brief text: no `--json`, and no `--fields`, which keeps the row text.
+    pub fn brief(&self) -> bool {
+        !self.json && self.fields.is_none()
+    }
+}
+#[derive(Debug, Default, Clone, clap::Args)]
+pub struct ListArgs {
+    /// List one document's entries, or its headings when it has none.
+    pub path: Option<String>,
+    #[command(flatten)]
+    pub output: ReadOptions,
+    #[arg(long = "type")]
+    pub kind: Option<String>,
+    #[arg(long)]
+    pub under: Option<String>,
+    #[arg(long)]
+    pub since: Option<String>,
+    #[arg(long)]
+    pub status: Option<String>,
+    #[arg(long)]
+    pub provenance: Option<String>,
+    /// Intersect filters with unfinished-work predicates.
+    #[arg(long)]
+    pub unfinished: bool,
+}
+#[derive(Debug, Default, Clone, clap::Args)]
+pub struct ShowArgs {
+    pub ids: Vec<String>,
+    /// Resolve one exact qualified identity without loading current content.
+    #[arg(long, conflicts_with_all = ["document", "heading", "source", "lines", "relations"])]
+    pub identity: bool,
+    #[command(flatten)]
+    pub output: ReadOptions,
+    #[arg(long = "with", value_delimiter = ',')]
+    pub relations: Vec<String>,
+    #[arg(long)]
+    pub document: Option<String>,
+    #[arg(long)]
+    pub heading: Vec<String>,
+    #[arg(long)]
+    pub source: bool,
+    /// One-based inclusive source lines `A:B`, `A:` or `:B` of each selection.
+    #[arg(long, allow_hyphen_values = true, conflicts_with = "fields")]
+    pub lines: Option<String>,
+    /// Response byte budget; brief text defaults to 16 KiB.
+    #[arg(long, allow_hyphen_values = true, conflicts_with = "fields")]
+    pub max_bytes: Option<String>,
+}
+
+pub struct Artifact {
+    pub manifest: Manifest,
+    pub sources: BTreeMap<String, String>,
+    pub root: std::path::PathBuf,
+    pub report: ara_core::ParseReport,
+    pub claim_redirects: BTreeMap<String, String>,
+    snapshot: std::cell::OnceCell<ara_core::write::ArtifactSnapshot>,
+}
+impl Artifact {
+    /// A structural read: a fully represented artifact, possibly with
+    /// dangling-reference errors kept in `report` ([`validity`]).
+    pub fn load(root: &Path) -> Result<Self, AgentError> {
+        let loaded = parse_dir_detailed(root);
+        if !loaded.io_issues.is_empty() {
+            return Err(AgentError::io(format!(
+                "Cannot read artifact sources: {:?}",
+                loaded.io_issues
+            )));
+        }
+        if let Some(refusal) =
+            validity::read_refusal(&loaded.report, &loaded.sources, loaded.manifest.as_ref())
+        {
+            return Err(refusal);
+        }
+        let manifest = loaded.manifest.ok_or_else(|| {
+            AgentError::semantic(
+                "incomplete_artifact",
+                "The source cannot be represented completely; structural queries refused",
+            )
+        })?;
+        Ok(Self {
+            manifest,
+            sources: loaded.sources,
+            root: root.to_path_buf(),
+            report: loaded.report,
+            claim_redirects: loaded.claim_redirects,
+            snapshot: std::cell::OnceCell::new(),
+        })
+    }
+    /// The load's validation report, with original severities.
+    pub fn diagnostics(&self) -> Value {
+        diagnostics(&self.report)
+    }
+    /// [`Artifact::load`] for a write command: any validation error refuses.
+    pub fn load_valid(root: &Path) -> Result<Self, AgentError> {
+        let artifact = Self::load(root)?;
+        if !artifact.report.is_ok() {
+            let blocking = artifact.report.errors().iter().map(|d| d.code).collect();
+            return Err(validity::refusal(
+                "invalid_artifact",
+                &artifact.report,
+                blocking,
+            ));
+        }
+        Ok(artifact)
+    }
+    fn entries(&self) -> Vec<Entry<'_>> {
+        let mut result = entries(&self.manifest);
+        result.extend(
+            self.sources
+                .iter()
+                .filter(|(path, _)| self.is_knowledge(path))
+                .map(|(path, content)| Entry::Document { path, content }),
+        );
+        result
+    }
+    fn is_knowledge(&self, path: &str) -> bool {
+        knowledge_document(path) || !ara_core::file_access_path(path)
+    }
+    pub fn searchable_documents(&self) -> Vec<(&str, &str)> {
+        self.sources
+            .iter()
+            .filter(|(path, _)| path.ends_with(".md") && self.is_knowledge(path))
+            .filter_map(|(path, text)| Some((path.as_str(), self.searchable_text(path, text)?)))
+            .collect()
+    }
+    /// The prefix of a Markdown document that search indexes as the document
+    /// itself: typed documents index only the text before their entries.
+    fn searchable_text<'a>(&self, path: &str, text: &'a str) -> Option<&'a str> {
+        if path != "logic/solution/heuristics.md"
+            && path
+                .strip_prefix("logic/solution/")
+                .and_then(|path| path.strip_suffix(".md"))
+                .is_some_and(|name| {
+                    self.manifest
+                        .recipes
+                        .iter()
+                        .any(|recipe| recipe.name == name)
+                })
+        {
+            return None;
+        }
+        let typed = matches!(
+            path,
+            "logic/claims.md"
+                | "logic/concepts.md"
+                | "logic/related_work.md"
+                | "logic/experiments.md"
+                | "logic/solution/heuristics.md"
+        );
+        let content = if typed {
+            let end = ara_core::markdown::document_sections(path, text)
+                .first()
+                .map_or(text.len(), |section| section.range.start);
+            &text[..end]
+        } else {
+            text
+        };
+        (!content.trim().is_empty()).then_some(content)
+    }
+    fn snapshot(&self) -> Result<&ara_core::write::ArtifactSnapshot, AgentError> {
+        if self.snapshot.get().is_none() {
+            let snapshot = ara_core::write::ArtifactSnapshot::load_with_identities(&self.root)
+                .map_err(crate::write::convert_error)?;
+            for (path, source) in &self.sources {
+                if self.is_knowledge(path)
+                    && !snapshot
+                        .files
+                        .get(path)
+                        .is_some_and(|file| file.existed && file.bytes == source.as_bytes())
+                {
+                    return Err(AgentError::semantic(
+                        "stale_read_snapshot",
+                        format!("Source `{path}` changed while resolving identities"),
+                    ));
+                }
+            }
+            let _ = self.snapshot.set(snapshot);
+        }
+        Ok(self.snapshot.get().expect("initialized"))
+    }
+    fn entry(&self, id: &str) -> Result<Entry<'_>, AgentError> {
+        self.lookup_entry(id)?.map_err(|miss| self.miss(id, miss))
+    }
+    /// The outer error is a read failure; the inner one is a selection miss
+    /// whose ranked error is built only if the caller cannot recover.
+    fn lookup_entry(&self, id: &str) -> Result<Result<Entry<'_>, candidates::Miss>, AgentError> {
+        // Without identity records there is nothing to redirect: native
+        // `path#ID`, `path:ID` and `trace:N01` forms resolve locally, so an
+        // unrelated document the merge index cannot represent never blocks them.
+        let resolved = if id.contains('@')
+            || self.sources.contains_key("trace/logic_mutations.yaml")
+            || self.sources.contains_key("trace/merge_log.yaml")
+            || id.contains([':', '#']) && self.has_identity_records()
+        {
+            let snapshot = self.snapshot()?;
+            match ara_core::merge::resolve_local(snapshot, id) {
+                Ok(resolved) => Some(resolved),
+                Err(error) => return Ok(Err(candidates::classify(error, snapshot)?)),
+            }
+        } else {
+            id.split_once(':')
+                .filter(|(document, entry)| {
+                    !entry.is_empty()
+                        && (*document == "trace"
+                            || *document == "PAPER.md"
+                            || document.contains('/') && self.is_knowledge(document))
+                })
+                .map(|(document, entry)| match document {
+                    "trace" => format!("trace/exploration_tree.yaml#{entry}"),
+                    _ => format!("{document}#{entry}"),
+                })
+        };
+        let resolved = resolved.as_deref().unwrap_or(id);
+        let native = id
+            .split_once(':')
+            .or_else(|| id.split_once('#'))
+            .filter(|(path, _)| self.is_knowledge(path) && path.contains('/'));
+        let (scope, key) = if let Some((path, key)) = resolved.split_once('#') {
+            (Some(path), key)
+        } else {
+            (native.map(|(path, _)| path), resolved)
+        };
+        let recipe_key = key
+            .strip_prefix("logic/solution/")
+            .and_then(|path| path.strip_suffix(".md"));
+        // As in `entries`, the heuristics file is a document, not a recipe.
+        let has_recipe = recipe_key.is_some_and(|name| {
+            name != "heuristics"
+                && self
+                    .manifest
+                    .recipes
+                    .iter()
+                    .any(|recipe| recipe.name == name)
+        });
+        let mut matching = self.entries().into_iter().filter(|entry|scope.is_none_or(|path|entry.source_matches(path))&&(entry.key()==key||matches!(entry,Entry::Recipe(recipe) if recipe_key==Some(recipe.name.as_str())))&&!(has_recipe&&matches!(entry,Entry::Document{..})));
+        Ok(match (matching.next(), matching.next()) {
+            (Some(entry), None) => Ok(entry),
+            (Some(_), Some(_)) => Err(candidates::Miss::Ambiguous),
+            (None, _) => Err(candidates::Miss::Unknown),
+        })
+    }
+}
+fn diagnostics(report: &ara_core::ParseReport) -> Value {
+    json!({"errors":report.errors().iter().map(|diagnostic|json!({"code":diagnostic.code,"severity":diagnostic.severity,"path":diagnostic.path,"message":diagnostic.message})).collect::<Vec<_>>(),"warnings":report.warnings().iter().map(|diagnostic|json!({"code":diagnostic.code,"severity":diagnostic.severity,"path":diagnostic.path,"message":diagnostic.message})).collect::<Vec<_>>()})
+}
+
+#[derive(Clone, Copy)]
+enum Entry<'a> {
+    Node(&'a ara_core::Node),
+    Claim(&'a ara_core::Claim),
+    Observation(&'a ara_core::Observation),
+    Session(&'a ara_core::Session),
+    Heuristic(&'a ara_core::Heuristic),
+    Experiment(&'a ara_core::ExperimentPlan),
+    Taste(&'a ara_core::TasteComment),
+    Concept(&'a ara_core::Concept),
+    RelatedWork(&'a ara_core::RelatedWork),
+    Recipe(&'a ara_core::Recipe),
+    Exhibit(&'a ara_core::Exhibit),
+    Document { path: &'a str, content: &'a str },
+}
+fn entries(manifest: &Manifest) -> Vec<Entry<'_>> {
+    manifest
+        .nodes
+        .iter()
+        .map(Entry::Node)
+        .chain(manifest.claims.iter().map(Entry::Claim))
+        .chain(manifest.observations.iter().map(Entry::Observation))
+        .chain(manifest.sessions.iter().map(Entry::Session))
+        .chain(manifest.heuristics.iter().map(Entry::Heuristic))
+        .chain(manifest.experiment_plans.iter().map(Entry::Experiment))
+        .chain(manifest.taste_comments.iter().map(Entry::Taste))
+        .chain(manifest.concepts.iter().map(Entry::Concept))
+        .chain(manifest.related_work.iter().map(Entry::RelatedWork))
+        .chain(
+            manifest
+                .recipes
+                .iter()
+                .filter(|recipe| recipe.name != "heuristics")
+                .map(Entry::Recipe),
+        )
+        .chain(manifest.exhibits.iter().map(Entry::Exhibit))
+        .collect()
+}
+impl<'a> Entry<'a> {
+    fn key(self) -> &'a str {
+        match self {
+            Self::Node(v) => v.id.as_str(),
+            Self::Claim(v) => v.id.as_str(),
+            Self::Observation(v) => v.id.as_str(),
+            Self::Session(v) => v.id.as_str(),
+            Self::Heuristic(v) => v.id.as_str(),
+            Self::Experiment(v) => v.id.as_str(),
+            Self::Taste(v) => v.id.as_str(),
+            Self::Concept(v) => &v.term,
+            Self::RelatedWork(v) => &v.id,
+            Self::Recipe(v) => &v.name,
+            Self::Exhibit(v) => &v.id,
+            Self::Document { path, .. } => path,
+        }
+    }
+    fn kind(self) -> &'a str {
+        match self {
+            Self::Node(v) => node_kind(&v.kind),
+            Self::Claim(_) => "claim",
+            Self::Observation(_) => "observation",
+            Self::Session(_) => "session",
+            Self::Heuristic(_) => "heuristic",
+            Self::Experiment(_) => "experiment_plan",
+            Self::Taste(_) => "taste",
+            Self::Concept(_) => "concept",
+            Self::RelatedWork(_) => "related_work",
+            Self::Recipe(_) => "solution",
+            Self::Exhibit(_) => "exhibit",
+            Self::Document { .. } => "source_document",
+        }
+    }
+    fn date(self) -> Option<&'a str> {
+        match self {
+            Self::Node(v) => v.timestamp.as_deref(),
+            Self::Observation(v) => v.timestamp.as_deref(),
+            Self::Session(v) => v.date.as_deref(),
+            Self::Taste(v) => v.timestamp.as_deref(),
+            _ => None,
+        }
+    }
+    fn status(self) -> Option<&'a str> {
+        match self {
+            Self::Node(v) => v.status.as_deref().or({
+                if let NodeFields::Experiment { status, .. } = &v.fields {
+                    status.as_deref()
+                } else {
+                    None
+                }
+            }),
+            Self::Claim(v) => v.status.as_deref(),
+            Self::Heuristic(v) => v.status.as_deref(),
+            Self::Experiment(v) => v.status.as_deref(),
+            _ => None,
+        }
+    }
+    fn provenance(self) -> Option<&'a str> {
+        match self {
+            Self::Node(v) => v.provenance.as_deref(),
+            Self::Claim(v) => v.provenance.as_deref(),
+            Self::Observation(v) => v.provenance.as_deref(),
+            Self::Heuristic(v) => v.provenance.as_deref(),
+            Self::Experiment(v) => v.provenance.as_deref(),
+            _ => None,
+        }
+    }
+    fn source_matches(self, path: &str) -> bool {
+        match self {
+            Self::Node(_) => path == "trace/exploration_tree.yaml",
+            Self::Claim(_) => path == "logic/claims.md",
+            Self::Observation(entry) => path == entry.source_file,
+            Self::Session(entry) => path == entry.source_file,
+            Self::Heuristic(entry) => path == entry.source_file,
+            Self::Experiment(entry) => path == entry.source_file,
+            Self::Taste(entry) => path == entry.source_file,
+            Self::Concept(_) => path == "logic/concepts.md",
+            Self::RelatedWork(_) => path == "logic/related_work.md",
+            Self::Recipe(entry) => {
+                path.strip_prefix("logic/solution/")
+                    .and_then(|path| path.strip_suffix(".md"))
+                    == Some(entry.name.as_str())
+            }
+            Self::Exhibit(entry) => path == entry.file,
+            Self::Document { path: source, .. } => path == source,
+        }
+    }
+    fn value(self, full: bool) -> Value {
+        let mut value = match self {
+            Self::Node(v) => serde_json::to_value(v),
+            Self::Claim(v) => serde_json::to_value(v),
+            Self::Observation(v) => serde_json::to_value(v),
+            Self::Session(v) => serde_json::to_value(v),
+            Self::Heuristic(v) => serde_json::to_value(v),
+            Self::Experiment(v) => serde_json::to_value(v),
+            Self::Taste(v) => serde_json::to_value(v),
+            Self::Concept(v) => serde_json::to_value(v),
+            Self::RelatedWork(v) => serde_json::to_value(v),
+            Self::Recipe(v) => serde_json::to_value(v),
+            Self::Exhibit(v) => serde_json::to_value(v),
+            Self::Document { content, .. } => Ok(json!({"content":content})),
+        }
+        .expect("entry serialization is infallible");
+        let object = value.as_object_mut().expect("entry object");
+        object.insert("kind".into(), json!(self.kind()));
+        if !object.contains_key("id") {
+            object.insert("key".into(), json!(self.key()));
+        }
+        if let Some(status) = self.status() {
+            object.insert("status".into(), json!(status));
+        }
+        let source = self.source_path();
+        object.insert("source".into(), json!(source));
+        if matches!(self, Self::Recipe(_)) {
+            object.insert("key".into(), json!(source));
+        }
+        if let Self::Node(node) = self {
+            object.insert("title".into(), json!(node.label));
+        }
+        if !full {
+            shorten(&mut value);
+        }
+        value
+    }
+}
+/// Add the brief `address` of `entry` to its row; JSON rows stay unchanged.
+fn addressed<'a>(
+    addresses: &Option<display::EntryAddresses<'a>>,
+    entry: Entry<'a>,
+    mut row: Value,
+) -> Value {
+    if let Some(addresses) = addresses {
+        row["address"] = json!(addresses.address(entry));
+    }
+    row
+}
+pub fn node_kind(kind: &NodeKind) -> &str {
+    match kind {
+        NodeKind::Question => "question",
+        NodeKind::Experiment => "experiment",
+        NodeKind::Decision => "decision",
+        NodeKind::DeadEnd => "dead_end",
+        NodeKind::Insight => "insight",
+        NodeKind::Pivot => "pivot",
+        NodeKind::Other(name) => name,
+    }
+}
+fn shorten(value: &mut Value) {
+    match value {
+        Value::Object(object) => {
+            for (key, value) in object {
+                if !matches!(
+                    key.as_str(),
+                    "id" | "key"
+                        | "kind"
+                        | "source"
+                        | "source_file"
+                        | "timestamp"
+                        | "date"
+                        | "promoted_to"
+                        | "target"
+                        | "provenance"
+                        | "status"
+                ) {
+                    shorten(value);
+                }
+            }
+        }
+        Value::Array(values) => {
+            for value in values {
+                shorten(value);
+            }
+        }
+        Value::String(text) => *text = excerpt(text),
+        _ => {}
+    }
+}
+fn validate_kind(artifact: &Artifact, kind: &str) -> Result<(), AgentError> {
+    if matches!(
+        kind,
+        "question"
+            | "experiment"
+            | "decision"
+            | "dead_end"
+            | "insight"
+            | "pivot"
+            | "claim"
+            | "heuristic"
+            | "observation"
+            | "session"
+            | "exhibit"
+            | "concept"
+            | "related_work"
+            | "solution"
+            | "experiment_plan"
+            | "taste"
+            | "source_document"
+    ) || artifact
+        .manifest
+        .nodes
+        .iter()
+        .any(|n| node_kind(&n.kind) == kind)
+    {
+        Ok(())
+    } else {
+        Err(AgentError::semantic(
+            "unknown_type",
+            format!("Unknown entry type `{kind}`"),
+        ))
+    }
+}
+pub fn list(root: &Path, args: &ListArgs) -> Result<Value, AgentError> {
+    let artifact = Artifact::load(root)?;
+    if let Some(kind) = &args.kind {
+        validate_kind(&artifact, kind)?;
+    }
+    if let Some(date) = &args.since {
+        validate_date(date)?;
+    }
+    let index = QueryIndex::new(&artifact.manifest);
+    let descendants = args
+        .under
+        .as_deref()
+        .map(|id| {
+            artifact.entry(id).and_then(|entry| {
+                index
+                    .descendants(entry.key())
+                    .ok_or_else(|| AgentError::unknown(id))
+            })
+        })
+        .transpose()?;
+    let document = args
+        .path
+        .as_deref()
+        .map(|path| artifact.list_document(path))
+        .transpose()?;
+    let filtered = args.kind.is_some()
+        || args.under.is_some()
+        || args.since.is_some()
+        || args.status.is_some()
+        || args.provenance.is_some();
+    if args.output.brief() && document.is_none() && !filtered && !args.unfinished {
+        return Ok(
+            json!({"format":"ara.ls/v1","documents":artifact.document_summaries(),"file_access":ara_core::FILE_ACCESS_ROOTS,"diagnostics":diagnostics(&artifact.report)}),
+        );
+    }
+    let matches_filters = |entry: &Entry<'_>| {
+        document.as_ref().is_none_or(|(path, _)| {
+            (args.unfinished || !matches!(entry, Entry::Document { .. } | Entry::Recipe(_)))
+                && entry.source_matches(path)
+        }) && args.kind.as_deref().is_none_or(|kind| entry.kind() == kind)
+            && descendants
+                .as_ref()
+                .is_none_or(|ids| matches!(entry, Entry::Node(_)) && ids.contains(entry.key()))
+            && args.since.as_deref().is_none_or(|since| {
+                entry
+                    .date()
+                    .and_then(|date| date.get(..10))
+                    .is_some_and(|date| date >= since)
+            })
+            && args
+                .status
+                .as_deref()
+                .is_none_or(|status| entry.status() == Some(status))
+            && args
+                .provenance
+                .as_deref()
+                .is_none_or(|provenance| entry.provenance() == Some(provenance))
+    };
+    let mut rows: Vec<Value> = if args.unfinished {
+        unfinished_loaded(&artifact, &args.output, &index)?
+            .into_iter()
+            .filter(|(entry, _)| matches_filters(entry))
+            .map(|(_, row)| row)
+            .collect()
+    } else {
+        let addresses = args.output.brief().then(|| artifact.entry_addresses());
+        artifact
+            .entries()
+            .into_iter()
+            .filter(matches_filters)
+            .map(|entry| addressed(&addresses, entry, entry.value(args.output.full)))
+            .collect()
+    };
+    if let Some((path, text)) = document
+        && rows.is_empty()
+        && !filtered
+        && !args.unfinished
+        && path.ends_with(".md")
+    {
+        rows = display::heading_rows(&path, text);
+    }
+    Ok(json!({"format":"ara.ls/v1","entries":rows,"diagnostics":diagnostics(&artifact.report)}))
+}
+pub fn show(root: &Path, args: &ShowArgs) -> Result<Value, AgentError> {
+    if args.identity {
+        if args.ids.len() != 1
+            || args.document.is_some()
+            || !args.heading.is_empty()
+            || args.source
+            || args.lines.is_some()
+            || !args.relations.is_empty()
+        {
+            return Err(AgentError::setup(
+                "argument_error",
+                "--identity requires exactly one address and cannot be combined with content selectors or relations",
+            ));
+        }
+        let bounds = window::Bounds::new(args)?;
+        let snapshot = ara_core::write::ArtifactSnapshot::load_with_identities(root)
+            .map_err(crate::write::convert_error)?;
+        let resolved = ara_core::merge::resolve(&snapshot, &args.ids[0])
+            .map_err(crate::merge::convert_error)?;
+        let mut value = json!({"format":"ara.show/v1","entries":[{"kind":"identity","requested_address":args.ids[0],"resolved_target":resolved}]});
+        bounds.apply(&mut value)?;
+        return Ok(value);
+    }
+    let bounds = window::Bounds::new(args)?;
+    let document = source_document(args);
+    // File-access roots are rejected by path alone, before any registry or
+    // artifact load can fail or serve them.
+    if document
+        .as_deref()
+        .is_some_and(ara_core::file_access_location)
+    {
+        return Err(invalid_document());
+    }
+    if args.source {
+        let document = document.ok_or_else(|| {
+            AgentError::semantic(
+                "invalid_selector",
+                "--source requires --document or one document path",
+            )
+        })?;
+        let positional = args.document.is_none();
+        if (!positional && !args.ids.is_empty()) || !args.relations.is_empty() {
+            return Err(AgentError::semantic(
+                "invalid_selector",
+                "Source selection cannot be mixed with entry IDs or relations",
+            ));
+        }
+        let annotate = args.output.brief() || bounded(args);
+        let mut value = show_source(root, &document, &args.heading, annotate)?;
+        bounds.apply(&mut value)?;
+        return Ok(value);
+    }
+    let artifact = Artifact::load(root)?;
+    let mut value = show_loaded(&artifact, args)?;
+    bounds.apply(&mut value)?;
+    Ok(value)
+}
+/// The document a read names: `--document`, or for `--source` a lone
+/// positional document path (`show logic/problem.md --source`).
+fn source_document(args: &ShowArgs) -> Option<String> {
+    if let Some(document) = &args.document {
+        return Some(document.clone());
+    }
+    match (args.source, args.ids.as_slice(), args.relations.is_empty()) {
+        (true, [id], true) => match address::parse(id) {
+            Some(Ok(address::Address::Document { path })) => Some(path),
+            _ => None,
+        },
+        _ => None,
+    }
+}
+/// Whether `--lines` or `--max-bytes` bounds this read.
+fn bounded(args: &ShowArgs) -> bool {
+    args.lines.is_some() || args.max_bytes.is_some()
+}
+/// `show` over a loaded artifact. In brief mode ([`ReadOptions::brief`]), selections print in
+/// full and carry brief display data ([`display`]). Explicit bounds also
+/// read source selections in full and annotate them, and `--lines` selects
+/// an entry's native section as brief mode does.
+pub fn show_loaded(artifact: &Artifact, args: &ShowArgs) -> Result<Value, AgentError> {
+    let brief = args.output.brief();
+    let mut value = show_rows(artifact, args, brief)?;
+    if brief || bounded(args) {
+        artifact.annotate_rows(&mut value);
+    }
+    Ok(value)
+}
+fn show_rows(artifact: &Artifact, args: &ShowArgs, brief: bool) -> Result<Value, AgentError> {
+    let full = args.output.full || brief;
+    let native = brief || args.lines.is_some();
+    let source_full = full || bounded(args);
+    if let Some(document) = &args.document {
+        if !args.relations.is_empty() {
+            if !args.heading.is_empty()
+                || args.source
+                || !args.ids.is_empty()
+                || args.relations.iter().any(|relation| relation != "refs")
+            {
+                return Err(AgentError::semantic(
+                    "invalid_selector",
+                    "Whole-document selection supports only refs; headings and source selections cannot supply relations",
+                ));
+            }
+            let target = artifact.entry(document)?;
+            let inventory = references::Inventory::new(artifact, &[target])?;
+            let mut value = show_document(artifact, document, &[], false, source_full)?;
+            value["entries"][0]["relations"] =
+                json!({"refs":refs_loaded(artifact, target, &args.output, &inventory)?});
+            return Ok(value);
+        }
+        return show_document(artifact, document, &args.heading, args.source, source_full);
+    }
+    if args.ids.is_empty() || !args.heading.is_empty() || args.source {
+        return Err(AgentError::semantic(
+            "invalid_selector",
+            "Supply entry IDs or --document; heading/source require a document",
+        ));
+    }
+    for relation in &args.relations {
+        if !matches!(
+            relation.as_str(),
+            "parents"
+                | "children"
+                | "claims"
+                | "sessions"
+                | "same_as"
+                | "depends_on"
+                | "path"
+                | "refs"
+        ) {
+            return Err(AgentError::semantic(
+                "unknown_relation",
+                format!("Unknown relation `{relation}`"),
+            ));
+        }
+    }
+    let selected = args
+        .ids
+        .iter()
+        .map(|id| documents::select(artifact, id, source_full))
+        .collect::<Result<Vec<_>, _>>()?;
+    let mut targets = Vec::new();
+    if !args.relations.is_empty() {
+        for selection in &selected {
+            let entry = match selection {
+                Selected::Entry(entry) => *entry,
+                Selected::Source(row) => {
+                    if args.relations.iter().any(|relation| relation != "refs")
+                        || row["heading_path"]
+                            .as_array()
+                            .is_some_and(|path| !path.is_empty())
+                    {
+                        return Err(AgentError::semantic(
+                            "invalid_selector",
+                            "This selection cannot supply the requested relations",
+                        ));
+                    }
+                    artifact.entry(row["document"].as_str().ok_or_else(|| {
+                        AgentError::semantic(
+                            "invalid_selector",
+                            "refs requires an entry or whole document",
+                        )
+                    })?)?
+                }
+            };
+            if args.relations.iter().any(|relation| relation == "path")
+                && !matches!(entry, Entry::Node(_))
+            {
+                return Err(AgentError::semantic(
+                    "invalid_selector",
+                    "path requires node selections",
+                ));
+            }
+            targets.push(entry);
+        }
+    }
+    let inventory = args
+        .relations
+        .iter()
+        .any(|relation| relation == "refs")
+        .then(|| references::Inventory::new(artifact, &targets))
+        .transpose()?;
+    let index = QueryIndex::new(&artifact.manifest);
+    let addresses = brief.then(|| artifact.entry_addresses());
+    let mut rows = Vec::with_capacity(selected.len());
+    let requested: Vec<_> = selected
+        .iter()
+        .filter_map(|selected| {
+            if let Selected::Entry(Entry::Node(node)) = selected {
+                Some(node.id.as_str())
+            } else {
+                None
+            }
+        })
+        .collect();
+    let raw_nodes = if args.output.full && !requested.is_empty() {
+        ara_core::source_node_fields(
+            artifact
+                .sources
+                .get("trace/exploration_tree.yaml")
+                .expect("loaded tree"),
+            &requested,
+        )
+        .map_err(|message| AgentError::semantic("invalid_artifact", message))?
+    } else {
+        BTreeMap::new()
+    };
+    for selected in selected {
+        let entry = match selected {
+            Selected::Entry(entry) => entry,
+            Selected::Source(mut row) => {
+                if !args.relations.is_empty() {
+                    if args.relations.iter().any(|relation| relation != "refs")
+                        || row["heading_path"]
+                            .as_array()
+                            .is_some_and(|path| !path.is_empty())
+                    {
+                        return Err(AgentError::semantic(
+                            "invalid_selector",
+                            "This selection cannot supply the requested relations",
+                        ));
+                    }
+                    let target = artifact.entry(
+                        row["key"]
+                            .as_str()
+                            .or(row["source"].as_str())
+                            .ok_or_else(|| {
+                                AgentError::semantic(
+                                    "invalid_selector",
+                                    "Reference target must be a whole document",
+                                )
+                            })?,
+                    )?;
+                    row["relations"] = json!({"refs":refs_loaded(artifact, target, &args.output, inventory.as_ref().expect("refs inventory"))?});
+                }
+                rows.push(row);
+                continue;
+            }
+        };
+        let native = if native {
+            artifact.native_row(entry)
+        } else {
+            None
+        };
+        let mut value = match native {
+            Some(row) => row,
+            None => addressed(&addresses, entry, entry.value(full)),
+        };
+        if let Entry::Node(node) = entry
+            && let Some(raw) = raw_nodes.get(node.id.as_str())
+        {
+            value.as_object_mut().unwrap().insert(
+                "source_fields".into(),
+                serde_json::to_value(raw).map_err(|error| {
+                    AgentError::semantic("invalid_source_value", error.to_string())
+                })?,
+            );
+        }
+        let mut relations = serde_json::Map::new();
+        for relation in args
+            .relations
+            .iter()
+            .collect::<std::collections::BTreeSet<_>>()
+        {
+            let data = match relation.as_str() {
+                "path" => {
+                    if !matches!(entry, Entry::Node(_)) {
+                        return Err(AgentError::semantic(
+                            "invalid_selector",
+                            "path requires a node selection",
+                        ));
+                    }
+                    json!(
+                        index
+                            .path(entry.key())
+                            .ok_or_else(|| AgentError::unknown(entry.key()))?
+                            .into_iter()
+                            .map(|node| {
+                                let step = Entry::Node(node);
+                                addressed(&addresses, step, step.value(args.output.full))
+                            })
+                            .collect::<Vec<_>>()
+                    )
+                }
+                "refs" => refs_loaded(
+                    artifact,
+                    entry,
+                    &args.output,
+                    inventory.as_ref().expect("refs inventory"),
+                )?,
+                "parents" => json!(index.parent(entry.key()).into_iter().collect::<Vec<_>>()),
+                "children" => json!(index.children(entry.key())),
+                "depends_on" => json!(index.dependencies(entry.key())),
+                "claims" => json!(
+                    artifact
+                        .manifest
+                        .bindings
+                        .iter()
+                        .filter(|b| b.node.as_str() == entry.key())
+                        .map(|b| b.claim.as_str())
+                        .collect::<Vec<_>>()
+                ),
+                "sessions" => json!(
+                    artifact
+                        .manifest
+                        .sessions
+                        .iter()
+                        .filter(|s| scan_tokens(&s.body)
+                            .iter()
+                            .any(|t| t.literal == entry.key()))
+                        .map(|s| s.id.as_str())
+                        .collect::<Vec<_>>()
+                ),
+                "same_as" => same_as_relation(artifact, entry.key()),
+                _ => unreachable!(),
+            };
+            relations.insert(relation.clone(), data);
+        }
+        if !relations.is_empty() {
+            value
+                .as_object_mut()
+                .unwrap()
+                .insert("relations".into(), Value::Object(relations));
+        }
+        rows.push(value);
+    }
+    Ok(json!({"format":"ara.show/v1","entries":rows,"diagnostics":diagnostics(&artifact.report)}))
+}
+fn same_as_relation(artifact: &Artifact, id: &str) -> Value {
+    let outgoing = artifact
+        .manifest
+        .nodes
+        .iter()
+        .find(|node| node.id.as_str() == id)
+        .map(|node| &node.same_as);
+    let incoming = artifact
+        .manifest
+        .nodes
+        .iter()
+        .filter(|node| node.same_as.iter().any(|target| target.as_str() == id))
+        .map(|node| node.id.as_str())
+        .collect::<Vec<_>>();
+    json!({"outgoing":outgoing.into_iter().flatten().collect::<Vec<_>>(),"incoming":incoming})
+}
+/// In brief mode, `display` adds the rule codes behind the
+/// diagnostic counts.
+pub fn status(root: &Path, brief: bool) -> Result<Value, AgentError> {
+    let loaded = parse_dir_detailed(root);
+    if !loaded.io_issues.is_empty() {
+        return Err(AgentError::io(format!(
+            "Cannot read artifact: {:?}",
+            loaded.io_issues
+        )));
+    }
+    let complete =
+        loaded.report.is_ok() && loaded.manifest.is_some() && representable(&loaded.report);
+    let mut counts = BTreeMap::<String, usize>::new();
+    let mut native_ids = BTreeMap::<char, Vec<String>>::from([
+        ('N', Vec::new()),
+        ('C', Vec::new()),
+        ('H', Vec::new()),
+        ('E', Vec::new()),
+        ('O', Vec::new()),
+        ('T', Vec::new()),
+    ]);
+    let mut latest: Option<&str> = None;
+    if let Some(manifest) = &loaded.manifest {
+        for entry in entries(manifest) {
+            *counts.entry(entry.kind().into()).or_default() += 1;
+            let prefix = match entry {
+                Entry::Node(_) => Some('N'),
+                Entry::Claim(_) => Some('C'),
+                Entry::Heuristic(_) => Some('H'),
+                Entry::Experiment(_) => Some('E'),
+                Entry::Observation(_) => Some('O'),
+                Entry::Taste(_) => Some('T'),
+                _ => None,
+            };
+            if let Some(prefix) = prefix {
+                native_ids
+                    .get_mut(&prefix)
+                    .expect("native namespace")
+                    .push(entry.key().into());
+            }
+        }
+        latest = manifest.sessions.iter().map(|s| s.id.as_str()).max();
+    }
+    let historical = complete
+        && (loaded.sources.contains_key("trace/logic_mutations.yaml")
+            || loaded.sources.contains_key("trace/merge_log.yaml"));
+    let working = if historical {
+        Some(ara_core::write::WorkingArtifact::new(
+            ara_core::write::ArtifactSnapshot::load(root).map_err(crate::write::convert_error)?,
+        ))
+    } else {
+        None
+    };
+    let mut next_ids = BTreeMap::new();
+    let mut next_id_errors = BTreeMap::new();
+    if complete {
+        for (prefix, ids) in native_ids {
+            let next = if let Some(working) = &working {
+                working.allocate_id(prefix, &ids, None)
+            } else {
+                ara_core::write::source::allocate_id(prefix, &ids, None)
+            };
+            match next {
+                Ok(id) => {
+                    next_ids.insert(prefix.to_string(), Some(id));
+                }
+                Err(error) => {
+                    next_ids.insert(prefix.to_string(), None);
+                    next_id_errors.insert(prefix.to_string(), error);
+                }
+            }
+        }
+    }
+    let files = artifact_files(root)?;
+    let total_bytes = files
+        .iter()
+        .try_fold(0u64, |total, file| total.checked_add(file.bytes))
+        .ok_or_else(|| AgentError::io("Artifact byte size exceeds u64"))?;
+    let mut value = json!({"format":"ara.status/v1","artifact_location":root.canonicalize().map_err(|error|AgentError::io(error.to_string()))?,"file_count":files.len(),"total_bytes":total_bytes,"files":files,"complete":complete,"counts":if complete {json!(counts)}else{Value::Null},"next_ids":if complete{json!(next_ids)}else{Value::Null},"next_id_errors":next_id_errors,"latest_session":latest,"diagnostics":{"errors":loaded.report.errors().len(),"warnings":loaded.report.warnings().len(),"report":loaded.report}});
+    if brief {
+        let codes = |diagnostics: &[ara_core::Diagnostic]| {
+            diagnostics
+                .iter()
+                .map(|d| json!(d.code))
+                .collect::<Vec<_>>()
+        };
+        value["display"] = json!({
+            "error_codes": codes(loaded.report.errors()),
+            "warning_codes": codes(loaded.report.warnings()),
+        });
+    }
+    Ok(value)
+}
+#[derive(serde::Serialize)]
+struct ArtifactFile {
+    path: String,
+    bytes: u64,
+    kind: &'static str,
+}
+fn artifact_files(root: &Path) -> Result<Vec<ArtifactFile>, AgentError> {
+    let mut pending = vec![root.to_path_buf()];
+    let mut files = Vec::new();
+    while let Some(directory) = pending.pop() {
+        for entry in std::fs::read_dir(&directory)
+            .map_err(|error| AgentError::io(format!("{}: {error}", directory.display())))?
+        {
+            let entry = entry.map_err(|error| AgentError::io(error.to_string()))?;
+            if matches!(entry.file_name().to_str(), Some(".git" | ".ara"))
+                || entry
+                    .file_name()
+                    .to_str()
+                    .is_some_and(ara_core::write::source::is_temporary_path)
+            {
+                continue;
+            }
+            let path = entry.path();
+            let kind = entry
+                .file_type()
+                .map_err(|error| AgentError::io(format!("{}: {error}", path.display())))?;
+            if kind.is_dir() {
+                pending.push(path);
+            } else if kind.is_file() || kind.is_symlink() {
+                let relative = path
+                    .strip_prefix(root)
+                    .expect("child of artifact root")
+                    .to_str()
+                    .ok_or_else(|| AgentError::io("Artifact file paths must be UTF-8"))?
+                    .to_owned();
+                let bytes = entry
+                    .metadata()
+                    .map_err(|error| AgentError::io(format!("{}: {error}", path.display())))?
+                    .len();
+                files.push(ArtifactFile {
+                    path: relative,
+                    bytes,
+                    kind: if kind.is_symlink() { "symlink" } else { "file" },
+                });
+            } else {
+                return Err(AgentError::io(format!(
+                    "Unsupported special file: {}",
+                    path.display()
+                )));
+            }
+        }
+    }
+    files.sort_by(|a, b| a.path.cmp(&b.path));
+    Ok(files)
+}
+fn refs_loaded(
+    artifact: &Artifact,
+    target: Entry<'_>,
+    options: &ReadOptions,
+    inventory: &references::Inventory<'_>,
+) -> Result<Value, AgentError> {
+    let structured = references::structured(artifact, target, inventory)?;
+    let mut prose = Vec::new();
+    for (source, text) in &artifact.sources {
+        if !artifact.is_knowledge(source) {
+            continue;
+        }
+        for token in inventory
+            .tokens
+            .get(source.as_str())
+            .into_iter()
+            .flatten()
+            .filter(|token| {
+                (token_may_refer(token.literal, target.key())
+                    || matches!(target, Entry::Claim(_))
+                        && artifact
+                            .claim_redirects
+                            .get(token.literal)
+                            .is_some_and(|current| current == target.key()))
+                    && !structured
+                        .ranges
+                        .get(source)
+                        .and_then(|ranges| {
+                            ranges.range(..=(token.range.start, usize::MAX)).next_back()
+                        })
+                        .is_some_and(|(start, end)| {
+                            *start <= token.range.start && *end >= token.range.end
+                        })
+            })
+        {
+            let start = text[..token.range.start]
+                .char_indices()
+                .rev()
+                .nth(40)
+                .map_or(0, |(i, _)| i);
+            let end = text[token.range.end..]
+                .char_indices()
+                .nth(80)
+                .map_or(text.len(), |(i, _)| token.range.end + i);
+            prose.push(json!({"source":source,"field":"source_text","literal":token.literal,"range":token.range,"certainty":"possible","context":excerpt(&text[start..end])}));
+        }
+    }
+    let mut value = json!({"target":target.key(),"structured":structured.rows,"prose":prose});
+    if options.brief() {
+        artifact.annotate_lines(&mut value);
+        let addresses = artifact.entry_addresses();
+        value["display"] = json!({"target": addresses.address(target)});
+        for row in value["structured"].as_array_mut().into_iter().flatten() {
+            if let (Some(owner), Some(source)) = (row["id"].as_str(), row["source"].as_str())
+                && let Some(address) = addresses.owner(owner, source)
+            {
+                row["address"] = json!(address);
+            }
+        }
+    }
+    Ok(value)
+}
+fn unfinished_loaded<'a>(
+    artifact: &'a Artifact,
+    options: &ReadOptions,
+    index: &QueryIndex<'_>,
+) -> Result<Vec<(Entry<'a>, Value)>, AgentError> {
+    let mut rows = Vec::new();
+    let history = (!artifact.manifest.observations.is_empty())
+        .then(|| SessionHistory::new(artifact))
+        .transpose()?;
+    let sources = history.as_ref().map(|history| history.sources(artifact));
+    let timeline = history.as_ref().map(|history| {
+        history::Timeline::build(
+            sources.as_ref().expect("history sources"),
+            history.aliases.as_deref(),
+            history.merge_log.as_deref(),
+        )
+    });
+    let addresses = options.brief().then(|| artifact.entry_addresses());
+    for entry in artifact.entries() {
+        let mut reasons = Vec::new();
+        let mut inactivity = None;
+        match entry {
+            Entry::Node(n)
+                if n.kind == NodeKind::Question && index.children(n.id.as_str()).is_empty() =>
+            {
+                reasons.push("childless_question")
+            }
+            Entry::Claim(c) if c.status.as_deref() == Some("hypothesis") => {
+                reasons.push("hypothesis_claim")
+            }
+            Entry::Observation(o) => {
+                if o.promoted != Some(true) {
+                    reasons.push("unpromoted_observation");
+                }
+                let measured = timeline.as_ref().expect("observation timeline").measure(
+                    &history::Subject {
+                        id: o.id.as_str(),
+                        bound_to: o.bound_to.iter().map(|id| id.as_str()).collect(),
+                        timestamp: o.timestamp.as_deref(),
+                    },
+                    history::Window::default(),
+                );
+                // A stored flag stays visible whatever the current history
+                // proves; a known day count of three or more is a hint only.
+                if o.stale == Some(true)
+                    || measured
+                        .session_days_since_reference
+                        .is_some_and(|days| days >= 3)
+                {
+                    reasons.push("stale_observation");
+                }
+                inactivity = Some(measured);
+            }
+            _ => {}
+        }
+        let mut value = entry.value(true);
+        if contains_pending(&value) {
+            reasons.push("pending_binding");
+        }
+        if !reasons.is_empty() {
+            if !options.full {
+                shorten(&mut value);
+            }
+            let mut value = addressed(&addresses, entry, value);
+            let object = value.as_object_mut().unwrap();
+            object.insert("reasons".into(), json!(reasons));
+            if let Some(measured) = inactivity
+                && let Value::Object(fields) = measured.to_json()
+            {
+                object.extend(fields);
+            }
+            rows.push((entry, value));
+        }
+    }
+    Ok(rows)
+}
+fn contains_pending(value: &Value) -> bool {
+    match value {
+        Value::String(s) => s.contains("[pending]") || s == "pending",
+        Value::Array(v) => v.iter().any(contains_pending),
+        Value::Object(o) => o.values().any(contains_pending),
+        _ => false,
+    }
+}
+/// The read side of the shared explicit-reference history
+/// (`ara_core::write::history`), built once per `open` and only when the
+/// artifact has observations. Session records, the session index and the
+/// reasoning log come from the sources this read already loaded;
+/// merge aliases and their captured occurrence ledger are read as raw bytes,
+/// so undecodable provenance makes inactivity unknown rather than failing
+/// the whole read.
+struct SessionHistory {
+    documents: Vec<(String, Result<YamlDocument, String>)>,
+    aliases: Option<Vec<u8>>,
+    merge_log: Option<Vec<u8>>,
+}
+impl SessionHistory {
+    fn new(artifact: &Artifact) -> Result<Self, AgentError> {
+        if artifact.manifest.observations.is_empty() {
+            return Ok(Self {
+                documents: Vec::new(),
+                aliases: None,
+                merge_log: None,
+            });
+        }
+        let documents = artifact
+            .sources
+            .iter()
+            .filter(|(path, _)| history::is_history_path(path))
+            .map(|(path, text)| {
+                (
+                    path.clone(),
+                    YamlDocument::parse(text).map_err(|error| error.message),
+                )
+            })
+            .collect();
+        let aliases = match std::fs::read(artifact.root.join(history::ALIASES)) {
+            Ok(text) => Some(text),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
+            Err(error) => {
+                return Err(AgentError::io(format!(
+                    "Cannot read {}: {error}",
+                    history::ALIASES
+                )));
+            }
+        };
+        let merge_log = match std::fs::read(artifact.root.join(history::MERGE_LOG)) {
+            Ok(bytes) => Some(bytes),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
+            Err(error) => {
+                return Err(AgentError::io(format!(
+                    "Cannot read {}: {error}",
+                    history::MERGE_LOG
+                )));
+            }
+        };
+        Ok(Self {
+            documents,
+            aliases,
+            merge_log,
+        })
+    }
+    fn sources<'a>(&'a self, artifact: &'a Artifact) -> Vec<history::Source<'a>> {
+        self.documents
+            .iter()
+            .map(|(path, parsed)| history::Source {
+                path,
+                text: artifact.sources[path].as_str(),
+                root: parsed
+                    .as_ref()
+                    .map(|document| &document.root)
+                    .map_err(Clone::clone),
+            })
+            .collect()
+    }
+}
+pub fn validate_date(date: &str) -> Result<(), AgentError> {
+    let valid = (|| {
+        let bytes = date.as_bytes();
+        if !bytes.is_ascii() || bytes.len() != 10 || bytes[4] != b'-' || bytes[7] != b'-' {
+            return false;
+        }
+        let year = date[..4].parse::<u32>().ok();
+        let month = date[5..7].parse::<u32>().ok();
+        let day = date[8..].parse::<u32>().ok();
+        let (Some(year), Some(month), Some(day)) = (year, month, day) else {
+            return false;
+        };
+        let days = match month {
+            1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+            4 | 6 | 9 | 11 => 30,
+            2 => {
+                if year % 4 == 0 && (year % 100 != 0 || year % 400 == 0) {
+                    29
+                } else {
+                    28
+                }
+            }
+            _ => 0,
+        };
+        year > 0 && day > 0 && day <= days
+    })();
+    if valid {
+        Ok(())
+    } else {
+        Err(AgentError::semantic(
+            "invalid_date",
+            format!("Invalid calendar date `{date}`; expected YYYY-MM-DD"),
+        ))
+    }
+}

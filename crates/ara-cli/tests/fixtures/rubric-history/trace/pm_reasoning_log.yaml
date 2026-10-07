@@ -1,0 +1,61 @@
+entries: 
+  - session_metadata: 
+      after: 
+        ai_suggestions_pending: []
+        last_turn: "2026-10-01T10:01"
+        open_threads: []
+        summary: "log1"
+        turn_count: 1
+      before: 
+        ai_suggestions_pending: []
+        last_turn: "2026-10-01T10:00"
+        open_threads: []
+        summary: "Hist"
+        turn_count: 0
+      session: "2026-10-01_001"
+    turn: "2026-10-01_001#1"
+  - session_metadata: 
+      after: 
+        ai_suggestions_pending: []
+        last_turn: "2026-10-01T10:02"
+        open_threads: []
+        summary: "Second turn"
+        turn_count: 2
+      before: 
+        ai_suggestions_pending: []
+        last_turn: "2026-10-01T10:01"
+        open_threads: []
+        summary: "log1"
+        turn_count: 1
+      session: "2026-10-01_001"
+    turn: "2026-10-01_001#2"
+  - session_metadata: 
+      after: 
+        ai_suggestions_pending: []
+        last_turn: "2026-10-01T10:03"
+        open_threads: []
+        summary: "Third turn"
+        turn_count: 3
+      before: 
+        ai_suggestions_pending: []
+        last_turn: "2026-10-01T10:02"
+        open_threads: []
+        summary: "Second turn"
+        turn_count: 2
+      session: "2026-10-01_001"
+    turn: "2026-10-01_001#3"
+  - session_metadata: 
+      after: 
+        ai_suggestions_pending: []
+        last_turn: "2026-10-01T10:04"
+        open_threads: []
+        summary: "Fourth turn"
+        turn_count: 4
+      before: 
+        ai_suggestions_pending: []
+        last_turn: "2026-10-01T10:03"
+        open_threads: []
+        summary: "Third turn"
+        turn_count: 3
+      session: "2026-10-01_001"
+    turn: "2026-10-01_001#4"

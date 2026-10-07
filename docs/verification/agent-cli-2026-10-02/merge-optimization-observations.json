@@ -1,0 +1,515 @@
+{
+  "format": "ara.merge-optimization-observations/v1",
+  "date": "2026-10-02",
+  "required_limit_ms": 1000,
+  "measurement": {
+    "scope": "focused exact acceptance.merge_trio(10000), original unmerged input copies; default duplicate advice; subprocess start through stdout/stderr and exit; all five invocations retained",
+    "warmup_discard": false,
+    "os_cache_state": "uncontrolled",
+    "functional_scope": "JSON subset readback and successful real merges; full preservation/replay acceptance is a separate run"
+  },
+  "iterations": [
+    {
+      "binary_sha256": "b085e5eb6ab1168871d61cc0874448ca8ece2a9f350fd461d2a5bbbf54e17c31",
+      "change": "quoted scalar event decoding; shallow documents still dispatch through serde_saphyr",
+      "wall_ms": [
+        1814.223041,
+        1400.916833,
+        1416.012333,
+        1401.065333,
+        1407.759958
+      ],
+      "passed": false
+    },
+    {
+      "binary_sha256": "6c0779e77b148a681ff7f00e186944dddfe58eb7b99fa120923887f6eb37148c",
+      "binary": "/tmp/ara-integration-binary/ara-0.1.23-6c0779e77b148a68",
+      "change": "flow-map child insertion preserves quoted JSON keys",
+      "wall_ms": [
+        1287.016583001241,
+        1285.5902500003576,
+        1296.142457999289,
+        1294.7543329987675,
+        1290.1192920003086
+      ],
+      "phases": [
+        {
+          "advisory_ms": 130.048208,
+          "commit_ms": 261.734167,
+          "input_recheck_ms": 11.910458,
+          "load_ms": 21.309459,
+          "operation_ms": 1246.271084,
+          "planning_ms": 602.876708,
+          "validation_ms": 179.784167
+        },
+        {
+          "advisory_ms": 129.95658400000002,
+          "commit_ms": 261.648291,
+          "input_recheck_ms": 12.076625,
+          "load_ms": 20.480625,
+          "operation_ms": 1244.982292,
+          "planning_ms": 598.236625,
+          "validation_ms": 182.880417
+        },
+        {
+          "advisory_ms": 130.69745799999998,
+          "commit_ms": 271.680625,
+          "input_recheck_ms": 12.374583,
+          "load_ms": 20.092916,
+          "operation_ms": 1254.845125,
+          "planning_ms": 597.1437090000001,
+          "validation_ms": 180.549583
+        },
+        {
+          "advisory_ms": 130.458833,
+          "commit_ms": 269.712583,
+          "input_recheck_ms": 11.891708000000001,
+          "load_ms": 20.624750000000002,
+          "operation_ms": 1251.901083,
+          "planning_ms": 601.6122499999999,
+          "validation_ms": 178.45641700000002
+        },
+        {
+          "advisory_ms": 131.687,
+          "commit_ms": 258.668792,
+          "input_recheck_ms": 12.093875,
+          "load_ms": 20.3115,
+          "operation_ms": 1249.551084,
+          "planning_ms": 599.205084,
+          "validation_ms": 185.119583
+        }
+      ],
+      "passed": false
+    },
+    {
+      "binary_sha256": "800473f8adad01ba4ddd6ddacda15c3f6dd39317d4dd6f2dc43afb860faf8ad0",
+      "binary": "/tmp/ara-integration-binary/ara-0.1.23-800473f8adad01ba",
+      "change": "exact preimage and full-node index reuse; hardware SHA-256; snapshot-local scoring reuse",
+      "wall_ms": [
+        1361.8451669998467,
+        1068.2107909992337,
+        1076.5410840008408,
+        1077.735040999949,
+        1073.938458999619
+      ],
+      "phases": [
+        {
+          "advisory_ms": 99.51412499999999,
+          "commit_ms": 170.22799999999998,
+          "input_recheck_ms": 3.8105,
+          "load_ms": 16.085416000000002,
+          "operation_ms": 1038.363583,
+          "planning_ms": 564.3205839999999,
+          "validation_ms": 146.552666
+        },
+        {
+          "advisory_ms": 97.44624999999999,
+          "commit_ms": 167.34229200000001,
+          "input_recheck_ms": 4.092917,
+          "load_ms": 7.756749999999999,
+          "operation_ms": 1021.3209999999999,
+          "planning_ms": 561.672459,
+          "validation_ms": 147.72574999999998
+        },
+        {
+          "advisory_ms": 97.9365,
+          "commit_ms": 177.19,
+          "input_recheck_ms": 4.4124170000000005,
+          "load_ms": 7.623958999999999,
+          "operation_ms": 1034.120417,
+          "planning_ms": 555.280541,
+          "validation_ms": 150.04149999999998
+        },
+        {
+          "advisory_ms": 102.622083,
+          "commit_ms": 180.27183399999998,
+          "input_recheck_ms": 3.9093340000000003,
+          "load_ms": 7.594958,
+          "operation_ms": 1033.867042,
+          "planning_ms": 553.553667,
+          "validation_ms": 148.431333
+        },
+        {
+          "advisory_ms": 98.12887500000001,
+          "commit_ms": 180.293083,
+          "input_recheck_ms": 3.7836250000000002,
+          "load_ms": 7.900667,
+          "operation_ms": 1029.579542,
+          "planning_ms": 554.503375,
+          "validation_ms": 147.600958
+        }
+      ],
+      "passed": false
+    },
+    {
+      "binary_sha256": "8e16186274701c55bc99d181c4883dc8be4112c61cad38af1fd862110ca0dc6d",
+      "binary": "/tmp/ara-integration-binary/ara-0.1.23-8e16186274701c55",
+      "change": "two scoped immutable-input inventory workers; version metadata queried before measurements",
+      "wall_ms": [
+        1008.7123750001192,
+        994.605624999851,
+        998.7506670001894,
+        988.5135420002043,
+        992.4330840017647
+      ],
+      "phases": [
+        {
+          "advisory_ms": 105.000917,
+          "commit_ms": 184.105416,
+          "input_recheck_ms": 3.559708,
+          "load_ms": 14.078917,
+          "operation_ms": 963.434792,
+          "planning_ms": 459.31037499999996,
+          "validation_ms": 150.49337500000001
+        },
+        {
+          "advisory_ms": 103.365042,
+          "commit_ms": 185.305333,
+          "input_recheck_ms": 3.8388329999999997,
+          "load_ms": 7.699834,
+          "operation_ms": 947.195459,
+          "planning_ms": 453.1345,
+          "validation_ms": 148.85125
+        },
+        {
+          "advisory_ms": 103.60062500000001,
+          "commit_ms": 189.11462500000002,
+          "input_recheck_ms": 3.78525,
+          "load_ms": 7.572500000000001,
+          "operation_ms": 952.6013330000001,
+          "planning_ms": 453.26262499999996,
+          "validation_ms": 150.2975
+        },
+        {
+          "advisory_ms": 103.791834,
+          "commit_ms": 179.329625,
+          "input_recheck_ms": 3.9205409999999996,
+          "load_ms": 7.644583,
+          "operation_ms": 942.917208,
+          "planning_ms": 454.83241699999996,
+          "validation_ms": 148.2955
+        },
+        {
+          "advisory_ms": 102.21395799999999,
+          "commit_ms": 185.2115,
+          "input_recheck_ms": 3.8825000000000003,
+          "load_ms": 7.73775,
+          "operation_ms": 945.985375,
+          "planning_ms": 452.208416,
+          "validation_ms": 148.746792
+        }
+      ],
+      "passed": false
+    },
+    {
+      "binary_sha256": "4c41323565d0b616d039e9651d513260f40674bd7c033dee22448ec05e81b6ef",
+      "binary": "/tmp/ara-integration-binary/ara-0.1.23-4c41323565d0b616",
+      "change": "buffered compact JSON stdout; independent Bun focused probe",
+      "wall_ms": [
+        1007.1238749995828,
+        1017.1112500000745,
+        974.9060420002788,
+        978.9061249997467,
+        977.5799589995295
+      ],
+      "phases": [
+        {
+          "advisory_ms": 103.798458,
+          "commit_ms": 191.61862499999998,
+          "input_recheck_ms": 3.876708,
+          "load_ms": 11.691125,
+          "operation_ms": 966.718333,
+          "planning_ms": 462.946667,
+          "validation_ms": 147.800625
+        },
+        {
+          "advisory_ms": 105.1825,
+          "commit_ms": 194.39225,
+          "input_recheck_ms": 3.8249999999999997,
+          "load_ms": 7.27575,
+          "operation_ms": 976.97925,
+          "planning_ms": 460.93899999999996,
+          "validation_ms": 157.99933299999998
+        },
+        {
+          "advisory_ms": 100.818417,
+          "commit_ms": 174.523334,
+          "input_recheck_ms": 3.87325,
+          "load_ms": 7.137791999999999,
+          "operation_ms": 935.9537919999999,
+          "planning_ms": 452.041083,
+          "validation_ms": 148.025375
+        },
+        {
+          "advisory_ms": 100.6155,
+          "commit_ms": 175.411708,
+          "input_recheck_ms": 3.773916,
+          "load_ms": 7.675333,
+          "operation_ms": 937.7872080000001,
+          "planning_ms": 455.389625,
+          "validation_ms": 150.030583
+        },
+        {
+          "advisory_ms": 99.591209,
+          "commit_ms": 174.343375,
+          "input_recheck_ms": 3.9076249999999995,
+          "load_ms": 7.58825,
+          "operation_ms": 927.089666,
+          "planning_ms": 449.87433300000004,
+          "validation_ms": 147.186042
+        }
+      ],
+      "passed": false
+    },
+    {
+      "binary": "/tmp/ara-integration-binary/ara-0.1.23-4c41323565d0b616",
+      "binary_sha256": "4c41323565d0b616d039e9651d513260f40674bd7c033dee22448ec05e81b6ef",
+      "timer": "Popen/perf_counter_ns",
+      "change": "Original Popen/perf_counter_ns measurement; full runner still failed the required gate",
+      "wall_ms": [
+        995.540417,
+        979.091958,
+        984.942875,
+        965.9575,
+        972.557375
+      ],
+      "phases": [
+        {
+          "advisory_ms": 103.44137500000001,
+          "commit_ms": 186.773709,
+          "input_recheck_ms": 3.761833,
+          "load_ms": 7.972083,
+          "operation_ms": 952.1335829999999,
+          "planning_ms": 454.67170899999996,
+          "validation_ms": 150.217333
+        },
+        {
+          "advisory_ms": 102.11004199999999,
+          "commit_ms": 184.480708,
+          "input_recheck_ms": 3.7611670000000004,
+          "load_ms": 5.651458,
+          "operation_ms": 938.753875,
+          "planning_ms": 449.095959,
+          "validation_ms": 149.453541
+        },
+        {
+          "advisory_ms": 105.134917,
+          "commit_ms": 187.006125,
+          "input_recheck_ms": 3.67225,
+          "load_ms": 5.529625,
+          "operation_ms": 944.031791,
+          "planning_ms": 449.706125,
+          "validation_ms": 147.84491599999998
+        },
+        {
+          "advisory_ms": 103.24775,
+          "commit_ms": 170.390292,
+          "input_recheck_ms": 3.8690830000000003,
+          "load_ms": 6.016125,
+          "operation_ms": 927.4613750000001,
+          "planning_ms": 450.65325,
+          "validation_ms": 148.370375
+        },
+        {
+          "advisory_ms": 101.351833,
+          "commit_ms": 179.376958,
+          "input_recheck_ms": 3.891333,
+          "load_ms": 5.681333,
+          "operation_ms": 933.223833,
+          "planning_ms": 448.764,
+          "validation_ms": 148.72570800000003
+        }
+      ],
+      "passed": true
+    },
+    {
+      "binary": "/tmp/ara-integration-binary/ara-0.1.23-80f4a58f20cef383",
+      "binary_sha256": "80f4a58f20cef38373bc81cf4152e68ee396c165c2d03aed7f56e616f17cbd06",
+      "timer": "Popen/perf_counter_ns",
+      "change": "Allocation-free scalar registry audit and lazy diagnostic addresses",
+      "wall_ms": [
+        1009.057167,
+        965.728417,
+        988.732625,
+        970.924083,
+        972.78275
+      ],
+      "phases": [
+        {
+          "advisory_ms": 97.759208,
+          "commit_ms": 200.374125,
+          "input_recheck_ms": 3.775417,
+          "load_ms": 12.934833,
+          "operation_ms": 951.177917,
+          "planning_ms": 446.923417,
+          "validation_ms": 144.99
+        },
+        {
+          "advisory_ms": 99.012709,
+          "commit_ms": 186.36012499999998,
+          "input_recheck_ms": 3.624417,
+          "load_ms": 5.972334,
+          "operation_ms": 927.490542,
+          "planning_ms": 445.060083,
+          "validation_ms": 145.27675000000002
+        },
+        {
+          "advisory_ms": 102.112458,
+          "commit_ms": 197.58724999999998,
+          "input_recheck_ms": 4.0221670000000005,
+          "load_ms": 5.550834,
+          "operation_ms": 952.444417,
+          "planning_ms": 445.88158300000003,
+          "validation_ms": 145.484417
+        },
+        {
+          "advisory_ms": 101.732792,
+          "commit_ms": 187.034458,
+          "input_recheck_ms": 3.772459,
+          "load_ms": 5.919417,
+          "operation_ms": 934.578334,
+          "planning_ms": 445.127333,
+          "validation_ms": 145.213125
+        },
+        {
+          "advisory_ms": 100.3275,
+          "commit_ms": 179.396667,
+          "input_recheck_ms": 3.768541,
+          "load_ms": 5.762334,
+          "operation_ms": 927.541875,
+          "planning_ms": 448.357291,
+          "validation_ms": 145.243459
+        }
+      ],
+      "passed": false
+    },
+    {
+      "binary": "/tmp/ara-integration-binary/ara-0.1.23-d8ffa85840f0e633",
+      "binary_sha256": "d8ffa85840f0e633734bd3c2d7206da799e49fbd4c5cdb6c154c826c80ec296e",
+      "timer": "Popen/perf_counter_ns",
+      "change": "Reuse cached BM25 length normalization only when appended average is exactly equal",
+      "wall_ms": [
+        954.81775,
+        1043.152541,
+        975.486833,
+        964.91825,
+        945.856292
+      ],
+      "phases": [
+        {
+          "advisory_ms": 97.210833,
+          "commit_ms": 178.39962500000001,
+          "input_recheck_ms": 3.7330419999999997,
+          "load_ms": 7.078791,
+          "operation_ms": 917.3289580000001,
+          "planning_ms": 445.865917,
+          "validation_ms": 143.14350000000002
+        },
+        {
+          "advisory_ms": 107.58624999999999,
+          "commit_ms": 193.445042,
+          "input_recheck_ms": 3.759583,
+          "load_ms": 5.761167,
+          "operation_ms": 1002.5566249999999,
+          "planning_ms": 481.465583,
+          "validation_ms": 165.5485
+        },
+        {
+          "advisory_ms": 102.652167,
+          "commit_ms": 191.476375,
+          "input_recheck_ms": 3.741625,
+          "load_ms": 5.988333,
+          "operation_ms": 935.881791,
+          "planning_ms": 444.160917,
+          "validation_ms": 145.51274999999998
+        },
+        {
+          "advisory_ms": 100.58916699999999,
+          "commit_ms": 182.53729099999998,
+          "input_recheck_ms": 3.793583,
+          "load_ms": 5.672167,
+          "operation_ms": 927.5376669999999,
+          "planning_ms": 446.63741600000003,
+          "validation_ms": 145.317584
+        },
+        {
+          "advisory_ms": 100.44787500000001,
+          "commit_ms": 165.425459,
+          "input_recheck_ms": 3.8667089999999997,
+          "load_ms": 5.556208,
+          "operation_ms": 909.2005829999999,
+          "planning_ms": 445.021,
+          "validation_ms": 145.414292
+        }
+      ],
+      "passed": false
+    },
+    {
+      "binary": "/tmp/ara-integration-binary/ara-0.1.23-fdda2cb6dc0cf54c",
+      "binary_sha256": "fdda2cb6dc0cf54cd027ad8be205d4d81d7e623091954db3b7c3d00bd915f911",
+      "timer": "Popen/perf_counter_ns",
+      "change": "Overlap immutable manifest advice with durable commit; first process launch remains recorded",
+      "wall_ms": [
+        1222.76575,
+        856.389333,
+        845.391167,
+        855.235291,
+        848.980542
+      ],
+      "phases": [
+        {
+          "advisory_ms": 102.347,
+          "commit_ms": 179.3835,
+          "input_recheck_ms": 3.788542,
+          "load_ms": 12.960833999999998,
+          "operation_ms": 839.9216670000001,
+          "planning_ms": 456.978458,
+          "validation_ms": 144.743792
+        },
+        {
+          "advisory_ms": 102.691875,
+          "commit_ms": 185.40170799999999,
+          "input_recheck_ms": 3.8485,
+          "load_ms": 5.502042,
+          "operation_ms": 819.838792,
+          "planning_ms": 439.673208,
+          "validation_ms": 143.962917
+        },
+        {
+          "advisory_ms": 102.857875,
+          "commit_ms": 174.39445800000001,
+          "input_recheck_ms": 3.83325,
+          "load_ms": 5.890958,
+          "operation_ms": 808.195417,
+          "planning_ms": 440.90575,
+          "validation_ms": 141.71724999999998
+        },
+        {
+          "advisory_ms": 103.061542,
+          "commit_ms": 186.22725,
+          "input_recheck_ms": 3.648791,
+          "load_ms": 5.894917,
+          "operation_ms": 819.0163339999999,
+          "planning_ms": 441.67820800000004,
+          "validation_ms": 140.673667
+        },
+        {
+          "advisory_ms": 102.0125,
+          "commit_ms": 176.34925,
+          "input_recheck_ms": 3.6215829999999998,
+          "load_ms": 5.879792,
+          "operation_ms": 811.187459,
+          "planning_ms": 442.849417,
+          "validation_ms": 141.259875
+        }
+      ],
+      "passed": false
+    }
+  ],
+  "profile": {
+    "binary_sha256": "6c0779e77b148a681ff7f00e186944dddfe58eb7b99fa120923887f6eb37148c",
+    "path": "/tmp/ara-quoted-10k-profile.txt",
+    "report": "/tmp/ara-quoted-10k-report.json",
+    "excluded_from_acceptance_samples": true
+  }
+}

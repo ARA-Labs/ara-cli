@@ -1,0 +1,37 @@
+{
+  "format": "ara.search-criteria-review/v1",
+  "status": "approved",
+  "reviewer": "SearchCriteriaReview (independent automated review)",
+  "approval_scope": "Pre-measurement labels, fixed criteria and corrected corpus inclusion for bounded functional acceptance only. Not human approval, upstream protocol approval, runtime verification or generalization evidence.",
+  "corpus_revision": "e52a925e9d03b4ada3008653e72f99b04116fca2",
+  "relevance_sha256": "sha256:9a38b81ec4ebefee87bba7b93b4e0ae423f49029d6408c9a1096ba671366b4da",
+  "pairs_sha256": "sha256:5c8b937ccabd8c6bf49df3c201bb51730f1cc22c99179065fa598d87d241f6cb",
+  "digest_provenance": "Parent shasum -a256 output; independent reviewer reread unchanged labels and corrected source semantics before measurement.",
+  "allows_crafted_controls": true,
+  "development": {"recall_at_10": 0.9, "duplicate_precision": 0.9, "duplicate_recall": 0.8},
+  "heldout": {"recall_at_10": 0.8, "duplicate_precision": 0.9, "duplicate_recall": 0.8},
+  "frozen_design": {
+    "tokenizer": "Maximal Unicode alphanumeric runs followed by Unicode lowercase; punctuation separates; no stemming, accent folding, model or network",
+    "bm25_k1": 1.2,
+    "bm25_b": 0.75,
+    "document_inclusion": "Each native entry once; complete native C/H/E/session section or file once, no repeated ID/title prefix; node title and substantive body disjoint; typed Markdown file extra documents contain only introductory prose; recipes already indexed whole are excluded from extra documents; other loaded knowledge Markdown is complete; raw src/evidence excluded",
+    "similarity": "Weighted set Jaccard over title and substantive typed-body tokens with equal field weights; weight(t)=ln(1+(N-df(t)+0.5)/(df(t)+0.5)); empty union scores zero",
+    "duplicate_threshold": 0.8,
+    "retrieval_candidates": 64,
+    "duplicate_output_limit": 10,
+    "relevance_result_limit": 10,
+    "heldout_policy": "Freeze labels, criteria, tokenizer and inclusion before measurement; no tuning on heldout"
+  },
+  "limitations": [
+    "Four singleton queries per split; both recall thresholds require four hits. Not population recall.",
+    "One crafted exact-replay duplicate per split; no claimed natural duplicate discovery or paraphrase robustness.",
+    "Duplicate precision covers labeled left-versus-appended-right relations only, not other emitted candidates.",
+    "Natural duplicates and further verification controls remain prerequisites for broader quality or publication claims.",
+    "Separate automated approval does not replace original label human-review metadata or upstream F1-F7 review."
+  ],
+  "human_approval": false,
+  "upstream_protocol_approval": false,
+  "generalization_claim": false,
+  "probability_claim": false,
+  "measurement_status": "frozen before parent verification; no measurements in review"
+}

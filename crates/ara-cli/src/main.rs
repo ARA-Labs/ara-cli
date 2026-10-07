@@ -8,6 +8,7 @@
 mod check;
 mod check_config;
 mod serve;
+use ara_cli::{agent, context, merge, output, write};
 
 use std::path::PathBuf;
 use std::process::ExitCode;
@@ -18,6 +19,9 @@ use clap::{Parser, Subcommand};
 #[derive(Parser)]
 #[command(name = "ara", version, about = "ARA viewer runtime")]
 struct Cli {
+    /// Select the ARA directory for agent commands.
+    #[arg(short = 'C', global = true)]
+    directory: Option<PathBuf>,
     #[command(subcommand)]
     command: Command,
 }
@@ -32,6 +36,24 @@ enum Command {
     Check(check::CheckArgs),
     /// Serve an ARA directory with a live-reloading web viewer.
     Serve(serve::ServeArgs),
+    /// Summarize layer counts, diagnostics, and next-ID advice.
+    Status(agent::ReadOptions),
+    /// List source-order entries with intersecting structural filters.
+    Ls(agent::ListArgs),
+    /// Retrieve complete entries or bounded source documents.
+    Show(agent::ShowArgs),
+    /// Rank knowledge entries with offline BM25 keyword search.
+    Find(agent::FindArgs),
+    /// Edit mutable logic or permitted metadata fields.
+    Edit(write::EditArgs),
+    /// Update claims.
+    Claim(write::LogicArgs),
+    /// Update heuristics.
+    Heuristic(write::LogicArgs),
+    /// Apply an all-or-none typed JSONL batch.
+    Apply(write::ApplyArgs),
+    /// Merge complete knowledge layers from directories or local Git objects.
+    Merge(merge::MergeArgs),
 }
 
 #[derive(clap::Args)]
@@ -58,13 +80,152 @@ struct LayoutArgs {
     json: bool,
 }
 
+fn agent_command(
+    directory: Option<&std::path::Path>,
+    format: &str,
+    options: &agent::ReadOptions,
+    writer: bool,
+    command: impl FnOnce(&std::path::Path) -> Result<serde_json::Value, output::AgentError>,
+) -> ExitCode {
+    let result = if writer {
+        context::discover_writer(directory)
+    } else {
+        context::discover(directory)
+    }
+    .and_then(|root| command(&root));
+    let incomplete = result.as_ref().is_ok_and(|value| {
+        value.get("complete") == Some(&serde_json::Value::Bool(false))
+            || value
+                .get("unresolved_count")
+                .and_then(serde_json::Value::as_u64)
+                .is_some_and(|count| count > 0)
+    });
+    let exit = output::emit(format, result, options.json, options.fields.as_deref());
+    if exit == ExitCode::SUCCESS && incomplete {
+        ExitCode::FAILURE
+    } else {
+        exit
+    }
+}
+
+fn argument_command(args: &[std::ffi::OsString]) -> Option<&str> {
+    let mut arguments = args.iter().skip(1);
+    while let Some(argument) = arguments.next() {
+        let argument = argument.to_str()?;
+        if argument == "-C" {
+            arguments.next();
+            continue;
+        }
+        if !argument.starts_with('-') {
+            return Some(argument);
+        }
+    }
+    None
+}
+
 fn main() -> ExitCode {
-    let cli = Cli::parse();
+    let cli = match Cli::try_parse() {
+        Ok(cli) => cli,
+        Err(error) => {
+            let args = std::env::args_os().collect::<Vec<_>>();
+            let command = argument_command(&args).unwrap_or("cli");
+            let legacy = matches!(command, "validate" | "layout" | "check" | "serve");
+            if error.exit_code() != 0 && !legacy && args.iter().any(|arg| arg == "--json") {
+                return output::emit(
+                    &format!("ara.{command}/v1"),
+                    Err(output::AgentError::setup(
+                        "argument_error",
+                        error.to_string(),
+                    )),
+                    true,
+                    None,
+                );
+            }
+            error.exit();
+        }
+    };
+    let directory = cli.directory.as_deref();
+    let heuristic = matches!(&cli.command, Command::Heuristic(_));
     match cli.command {
         Command::Validate(args) => validate(args),
         Command::Layout(args) => layout_cmd(args),
         Command::Check(args) => check::run(args),
         Command::Serve(args) => serve::run(args),
+        Command::Status(args) => agent_command(directory, "ara.status/v1", &args, false, |root| {
+            agent::status(root, args.brief())
+        }),
+        Command::Ls(args) => agent_command(directory, "ara.ls/v1", &args.output, false, |root| {
+            agent::list(root, &args)
+        }),
+        Command::Show(args) => {
+            if args.identity && args.ids.len() != 1 {
+                return output::emit(
+                    "ara.show/v1",
+                    Err(output::AgentError::setup(
+                        "argument_error",
+                        "--identity requires exactly one positional address",
+                    )),
+                    args.output.json,
+                    args.output.fields.as_deref(),
+                );
+            }
+            if args.source {
+                let result =
+                    context::discover_source(directory).and_then(|root| agent::show(&root, &args));
+                output::emit(
+                    "ara.show/v1",
+                    result,
+                    args.output.json,
+                    args.output.fields.as_deref(),
+                )
+            } else {
+                agent_command(directory, "ara.show/v1", &args.output, false, |root| {
+                    agent::show(root, &args)
+                })
+            }
+        }
+        Command::Find(args) => {
+            agent_command(directory, "ara.find/v1", &args.output, false, |root| {
+                agent::find(root, &args)
+            })
+        }
+        Command::Edit(args) => {
+            agent_command(directory, "ara.edit/v1", &args.output, true, |root| {
+                write::edit(root, &args)
+            })
+        }
+        Command::Claim(args) | Command::Heuristic(args) => {
+            let options = match &args.command {
+                write::LogicCommand::Set(set) => &set.output,
+            };
+            agent_command(
+                directory,
+                if heuristic {
+                    "ara.heuristic/v1"
+                } else {
+                    "ara.claim/v1"
+                },
+                options,
+                true,
+                |root| write::logic(root, &args, heuristic),
+            )
+        }
+        Command::Apply(args) => output::emit(
+            "ara.apply/v1",
+            write::apply_discover(directory, &args),
+            args.output.json,
+            args.output.fields.as_deref(),
+        ),
+        Command::Merge(args) => {
+            let options = match args.command.as_deref() {
+                Some(merge::MergeCommand::Resolve(resolution)) => &resolution.output,
+                Some(merge::MergeCommand::Repair(repair)) => &repair.output,
+                None => &args.output,
+            };
+            agent_command(directory, "ara.merge/v1", options, !args.dry_run, |root| {
+                merge::run(root, &args)
+            })
+        }
     }
 }
 

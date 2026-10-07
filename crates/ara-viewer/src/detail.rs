@@ -442,7 +442,7 @@ fn exhibit_kind_label(kind: &ExhibitKind) -> &'static str {
 ///   `("lesson", lesson?)`; omit None
 /// - `Other`     → none
 fn typed_fields_for(node: &Node) -> Vec<TypedField> {
-    match &node.fields {
+    let mut fields = match &node.fields {
         NodeFields::Question | NodeFields::Insight | NodeFields::Other => vec![],
 
         NodeFields::Experiment {
@@ -593,7 +593,15 @@ fn typed_fields_for(node: &Node) -> Vec<TypedField> {
             }
             fields
         }
+    };
+    if let Some(thinking) = &node.thinking {
+        fields.push(TypedField {
+            label: "thinking",
+            value: FieldValue::Text(thinking.clone()),
+            is_primary: false,
+        });
     }
+    fields
 }
 
 // ── Leptos component ──────────────────────────────────────────────────────────
@@ -1107,6 +1115,11 @@ mod tests {
             exhibits: vec![],
             built_on: vec![],
             node_exhibits: vec![],
+            observations: Vec::new(),
+            sessions: Vec::new(),
+            heuristics: Vec::new(),
+            experiment_plans: Vec::new(),
+            taste_comments: Vec::new(),
         }
     }
 
@@ -1118,6 +1131,8 @@ mod tests {
             support_level: None,
             source_refs: vec![],
             description: None,
+            thinking: None,
+            status: None,
             provenance: None,
             timestamp: None,
             fields,
@@ -1126,6 +1141,7 @@ mod tests {
             concepts: vec![],
             isolated: false,
             pos: None,
+            same_as: Vec::new(),
         }
     }
 
@@ -1137,11 +1153,13 @@ mod tests {
                 name: " ".into(),
                 pointer: "\n".into(),
                 what: "".into(),
+                extra: Default::default(),
             },
             ara_core::NodeArtifact {
                 name: "".into(),
                 pointer: "<script>remote/path</script>".into(),
                 what: "Purpose".into(),
+                extra: Default::default(),
             },
         ];
         let model = detail_model(&node, &bare_manifest());
@@ -1564,9 +1582,17 @@ mod tests {
             title: "ResNet convergence".to_string(),
             statement: Some("The model converges.".to_string()),
             status: Some("refuted".to_string()),
-            falsification: Some("A matched trial fails.".into()),
             proof: vec!["E01".into(), "E99".into()],
             deps: vec![ClaimId::new("C02")],
+            proof_content: None,
+            provenance: None,
+            falsification: Some("A matched trial fails.".into()),
+            conditions: None,
+            sources: None,
+            tags: None,
+            last_revised: None,
+            source_fields: Vec::new(),
+            body: None,
         });
 
         let m = detail_model(&node, &manifest);
@@ -1628,6 +1654,14 @@ mod tests {
             falsification: None,
             proof: vec![],
             deps: vec![],
+            proof_content: None,
+            provenance: None,
+            conditions: None,
+            sources: None,
+            tags: None,
+            last_revised: None,
+            source_fields: Vec::new(),
+            body: None,
         });
 
         let m = detail_model(&node, &manifest);
