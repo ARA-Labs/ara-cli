@@ -416,3 +416,61 @@ fn native_annotation_status_filters_preserve_nonexperiment_metadata() {
     assert_eq!(shown["entries"][1]["status"], "unresolved");
     assert!(!dir.path().join(".ara").exists());
 }
+#[test]
+fn source_read_accepts_one_positional_document_path() {
+    let dir = TempDir::new().unwrap();
+    artifact(dir.path(), "Root");
+    std::fs::create_dir_all(dir.path().join("logic/solution")).unwrap();
+    std::fs::write(
+        dir.path().join("logic/solution/method.md"),
+        "# Method\n\n## Boundary\nexact prose\n",
+    )
+    .unwrap();
+    for heading in [&[][..], &["--heading", "Boundary"][..]] {
+        let named = run(
+            dir.path(),
+            &[
+                &["show", "--document", "logic/solution/method.md", "--source"],
+                heading,
+            ]
+            .concat(),
+        );
+        let positional = run(
+            dir.path(),
+            &[&["show", "logic/solution/method.md", "--source"], heading].concat(),
+        );
+        assert_eq!(positional["entries"], named["entries"], "{heading:?}");
+    }
+    for (args, code) in [
+        (
+            &["show", "rubric/requirements.md", "--source"][..],
+            "invalid_document",
+        ),
+        (&["show", "C01", "--source"][..], "invalid_selector"),
+        (
+            &[
+                "show",
+                "logic/claims.md",
+                "logic/solution/method.md",
+                "--source",
+            ][..],
+            "invalid_selector",
+        ),
+    ] {
+        let output = ara()
+            .arg("-C")
+            .arg(dir.path())
+            .args(args)
+            .arg("--json")
+            .assert()
+            .code(1)
+            .get_output()
+            .clone();
+        let text = format!(
+            "{}{}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert!(text.contains(code), "{args:?}: {text}");
+    }
+}

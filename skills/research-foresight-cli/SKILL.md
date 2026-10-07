@@ -32,7 +32,7 @@ and the exact-source read before a guarded write;
 `ls`, `find`, `path`, `refs`, `open` and `status` are access aids, not semantic judgments.
 Native `ara` documents are `PAPER.md`, `logic/`, `trace/`, `staging/` and paths registered
 in `PAPER.md` `knowledge_paths`. `rubric/`, `evidence/` and `src/` are not: when the procedure
-or question directs you to them, read and search them directly with Read/Grep/Glob
+or question directs you to them, read and search them directly with the Read/Grep/Glob/LS tools, never through a shell
 (`ara show --document rubric/...` returns `invalid_document`). Skill pages remain direct.
 No direct fallback, automatic semantic retry, new role, or altered stopping rule is allowed.
 The entrypoint loads `references/cli-access.md` directly for executable wire details.

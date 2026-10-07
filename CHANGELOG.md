@@ -190,6 +190,10 @@ All notable changes to this project are documented here. The format follows
   `invalid_document` errors name these roots. Old rubric history stays readable.
 
 ### Fixed
+- Agent CLI: `show <document> --source` accepts one positional document
+  path in place of `--document`; file-access roots still return
+  `invalid_document`. CLI skills tell agents to list, search and read
+  `rubric/`, `src/` and `evidence/` with file tools rather than shell commands.
 - Agent CLI: observation history no longer ignores reference-bearing YAML
   aliases, redirects native continuation text through an imported session, or
   treats scoped IDs/filenames as local references. Imported literal origins

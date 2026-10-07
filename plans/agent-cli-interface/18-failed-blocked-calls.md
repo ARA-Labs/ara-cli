@@ -203,3 +203,12 @@ The proposed dev split covers 4 papers, 40 Category A and 20 Category B question
 6. Land H1/H2/C1 in their owning repositories for new conditions only, after e1-test completes. Run the shared engineering checks once each sub-PR is complete, including workspace tests, pinned formatting/lint checks, viewer freshness when affected and relevant source/merge fixtures.
 7. Obtain separate run authorization and freeze the pilot analysis before collection. Publish the screening results and limitations without declaring non-inferiority. Registered collection and any follow-on scope require their own approval.
 8. After implementation and its evidence are complete, move the design record to `docs/agent-cli-interface/` and retire this plan. Until then, approval records the decisions above while implementation, external adoption, release compatibility and measurement remain open delivery requirements.
+
+## Pilot evidence and follow-ups (2026-10-06)
+
+The development pilot ran under the analysis frozen in `ara-eval` (`plans/cli-dev-pilot-plan18.md`, commit `918ff35`): 60 dev questions, Files and the plan 18 CLI (`ara` 0.1.25 at `a5dd91b`, revised skill, guard hints from H1), one repetition, 120 sessions, all `ok`. Failed or blocked calls fell to 0.76 model calls per CLI session (95% interval 0.42 to 1.11), against 5.64 for the historical CLI. No session had five bad calls in a row, and Category B sessions made 0.05 native rubric calls each. CLI/Files cost was 1.60 and time 1.30, against 2.45 and 1.89 historically.
+
+Two causes remained, and this follow-up addresses both. First, 37 of 53 denials were shell `ls`, `find` or `grep` on `evidence/`, `src/` or `rubric/`, the roots the skill sends to direct file access; the CLI skills and shared access copies now name the file tools and rule out shell commands for those roots. Second, 6 calls used `show <document> --source` without `--document`, which `ara` rejected; `show` now accepts one positional document path with `--source`.
+
+Most other unresolved addresses (about 11 of 24) came from the two dev artifacts whose `logic/` files open with an unclosed `---`, which this plan deliberately keeps hidden. When the headings are visible, the labelled forms the agent used (`#H02: <title>`, `--heading 'H06: <title>'`) already resolve, so C1's corpus repair, not a resolver change, is the remaining fix.
+
