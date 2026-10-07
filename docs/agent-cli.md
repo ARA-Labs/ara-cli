@@ -258,7 +258,9 @@ Native nodes, claims, heuristics, observations, sessions, experiment plans,
 concepts and typed documents keep their own namespaces. A concept named `C05`
 is a concept name, not an instruction to relocate claim C05. Unknown fields
 and complete source bodies remain available in full reads. `--source` returns
-original UTF-8 source rather than regenerated normalized YAML/Markdown. Source
+original UTF-8 source rather than regenerated normalized YAML/Markdown. It
+takes the document from `--document` or from one positional document path, so
+`show logic/problem.md --source` reads the same bytes. Source
 digests refer to the selected exact bytes; replacement preconditions must use
 the corresponding source selection. Pure parser and native source spans are
 both bounded; see [deep-tree-parsing.md](deep-tree-parsing.md).

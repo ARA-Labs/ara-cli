@@ -604,27 +604,31 @@ pub fn list(root: &Path, args: &ListArgs) -> Result<Value, AgentError> {
 }
 pub fn show(root: &Path, args: &ShowArgs) -> Result<Value, AgentError> {
     let bounds = window::Bounds::new(args)?;
+    let document = source_document(args);
     // File-access roots are rejected by path alone, before any registry or
     // artifact load can fail or serve them.
-    if args
-        .document
+    if document
         .as_deref()
         .is_some_and(ara_core::file_access_location)
     {
         return Err(invalid_document());
     }
     if args.source {
-        let document = args.document.as_deref().ok_or_else(|| {
-            AgentError::semantic("invalid_selector", "--source requires --document")
+        let document = document.ok_or_else(|| {
+            AgentError::semantic(
+                "invalid_selector",
+                "--source requires --document or one document path",
+            )
         })?;
-        if !args.ids.is_empty() || !args.relations.is_empty() {
+        let positional = args.document.is_none();
+        if (!positional && !args.ids.is_empty()) || !args.relations.is_empty() {
             return Err(AgentError::semantic(
                 "invalid_selector",
                 "Source selection cannot be mixed with entry IDs or relations",
             ));
         }
         let annotate = args.output.brief() || bounded(args);
-        let mut value = show_source(root, document, &args.heading, annotate)?;
+        let mut value = show_source(root, &document, &args.heading, annotate)?;
         bounds.apply(&mut value)?;
         return Ok(value);
     }
@@ -632,6 +636,20 @@ pub fn show(root: &Path, args: &ShowArgs) -> Result<Value, AgentError> {
     let mut value = show_loaded(&artifact, args)?;
     bounds.apply(&mut value)?;
     Ok(value)
+}
+/// The document a read names: `--document`, or for `--source` a lone
+/// positional document path (`show logic/problem.md --source`).
+fn source_document(args: &ShowArgs) -> Option<String> {
+    if let Some(document) = &args.document {
+        return Some(document.clone());
+    }
+    match (args.source, args.ids.as_slice(), args.relations.is_empty()) {
+        (true, [id], true) => match address::parse(id) {
+            Some(Ok(address::Address::Document { path })) => Some(path),
+            _ => None,
+        },
+        _ => None,
+    }
 }
 /// Whether `--lines` or `--max-bytes` bounds this read.
 fn bounded(args: &ShowArgs) -> bool {
