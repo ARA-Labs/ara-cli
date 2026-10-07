@@ -537,6 +537,77 @@ fn combined_relations_preserve_order_documents_and_projection() {
 }
 
 #[test]
+fn projected_text_documents_preserve_requested_refs() {
+    let dir = TempDir::new().unwrap();
+    artifact(dir.path(), "Parent");
+    std::fs::write(
+        dir.path().join("trace/exploration_tree.yaml"),
+        "tree:\n  - id: N01\n    type: question\n    title: Parent\n    source_refs: [\"logic/claims.md#C01\"]\n",
+    )
+    .unwrap();
+    let content = std::fs::read_to_string(dir.path().join("logic/claims.md")).unwrap();
+    for selector in [
+        &["--document", "logic/claims.md"][..],
+        &["logic/claims.md"][..],
+    ] {
+        let output = ara()
+            .arg("-C")
+            .arg(dir.path())
+            .arg("show")
+            .args(selector)
+            .args(["--with", "refs", "--fields", "content,relations", "--full"])
+            .assert()
+            .success()
+            .get_output()
+            .clone();
+        let row: Value = serde_json::from_slice(&output.stdout)
+            .unwrap_or_else(|error| panic!("{selector:?}: {error}; {output:?}"));
+        assert_eq!(row["content"], content, "{selector:?}");
+        let refs = &row["relations"]["refs"];
+        assert_eq!(refs["target"], "logic/claims.md", "{selector:?}");
+        assert!(
+            refs["structured"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|citation| {
+                    citation["id"] == "N01"
+                        && citation["field"] == "source_refs"
+                        && citation["literal"] == "logic/claims.md#C01"
+                }),
+            "{selector:?}: {refs}"
+        );
+        assert_eq!(refs["prose"], json!([]), "{selector:?}");
+    }
+}
+
+#[test]
+fn projected_text_documents_without_selected_relations_keep_raw_content() {
+    let dir = TempDir::new().unwrap();
+    artifact(dir.path(), "Parent");
+    let content = std::fs::read(dir.path().join("logic/claims.md")).unwrap();
+    for selector in [
+        &["--document", "logic/claims.md"][..],
+        &["logic/claims.md"][..],
+    ] {
+        for relations in [&[][..], &["--with", "refs"][..]] {
+            let output = ara()
+                .arg("-C")
+                .arg(dir.path())
+                .arg("show")
+                .args(selector)
+                .args(relations)
+                .args(["--fields", "content", "--full"])
+                .assert()
+                .success()
+                .get_output()
+                .clone();
+            assert_eq!(output.stdout, content, "{selector:?} {relations:?}");
+        }
+    }
+}
+
+#[test]
 fn incompatible_relations_reject_the_entire_selection() {
     let dir = TempDir::new().unwrap();
     artifact(dir.path(), "Parent");

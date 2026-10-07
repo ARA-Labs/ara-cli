@@ -386,6 +386,7 @@ fn print_human(value: &Value, warnings: bool) {
         if value["format"] == "ara.show/v1" {
             for row in rows {
                 if row["kind"] == "source_document"
+                    && row.get("relations").is_none()
                     && let Some(content) = row["content"].as_str()
                 {
                     print!("{content}");

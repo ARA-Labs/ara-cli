@@ -49,6 +49,8 @@ The mode requires exactly one positional argument and rejects document, heading,
 
 `--fields` selects top-level row fields. Selecting `relations` keeps the complete nested citation payload; it is not a nested-field language. The recognized field registry covers empty unfinished selections, including `source_refs`.
 
+Projected text reads of a whole document preserve selected `relations` in the complete printed row, for both positional and `--document` selectors. Rows without selected relations still print exact raw content. PR #117 review comment 4210650271 identified the earlier content-only shortcut, which discarded refs after projection. Actual-binary regressions cover both selector forms and raw-content preservation.
+
 Bounds apply to the complete serialized response. Requested relations never truncate, disappear, or paginate independently. Native Markdown content pages contain whole lines and repeat the complete requested relations on every page; an insufficient metadata/line budget reports actionable required bytes. A relation request never falls back to relation-free source content. Multi-target and identity responses are complete or error. JSON remains unbounded unless an explicit maximum is supplied.
 
 ### Authoring cutover

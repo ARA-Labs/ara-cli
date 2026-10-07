@@ -208,6 +208,9 @@ All notable changes to this project are documented here. The format follows
   `invalid_document` errors name these roots. Old rubric history stays readable.
 
 ### Fixed
+- Agent CLI: projected non-JSON whole-document reads retain requested refs for
+  positional and `--document` selectors; reads without selected relations keep
+  exact raw content (#117).
 - Agent CLI: `show <document> --source` accepts one positional document
   path in place of `--document`; file-access roots still return
   `invalid_document`. CLI skills tell agents to list, search and read
