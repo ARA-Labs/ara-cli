@@ -112,7 +112,7 @@ checksum = "2a4385e2e34eb35d6b3efe798b9eb88096925d87726c0798709bf56d9ed84af3"
 
 [[package]]
 name = "ara-cli"
-version = "0.1.23"
+version = "0.1.24"
 dependencies = [
  "ara-core",
  "arc-swap",
@@ -136,7 +136,7 @@ dependencies = [
 
 [[package]]
 name = "ara-core"
-version = "0.1.23"
+version = "0.1.24"
 dependencies = [
  "dagre-dgl-rs",
  "insta",
@@ -148,7 +148,7 @@ dependencies = [
 
 [[package]]
 name = "ara-viewer"
-version = "0.1.23"
+version = "0.1.24"
 dependencies = [
  "ara-core",
  "console_error_panic_hook",
@@ -166,7 +166,7 @@ dependencies = [
 
 [[package]]
 name = "ara-wasm"
-version = "0.1.23"
+version = "0.1.24"
 
 [[package]]
 name = "arc-swap"
@@ -2650,9 +2650,9 @@ dependencies = [
 
 [[package]]
 name = "tokio"
-version = "1.53.1"
+version = "1.53.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "202caea871b69668250d242070849eb495be178ed697a3e98aebce5bc81a0bed"
+checksum = "e95f91fcc7a621e8b030f6aa23c71fe9838ae2fb4d8118b75602a328f5144044"
 dependencies = [
  "bytes",
  "libc",

@@ -44,6 +44,7 @@ All notable changes to this project are documented here. The format follows
 
 ### Changed
 - CLI: update toml to 1.1.6+spec-1.1.0, including its parser and writer dependencies (#119).
+- CLI: update tokio to 1.53.2 for the local server runtime (#120).
 - Core: bump serde-saphyr to 1.3.0 (#90).
 - `ara check`: validate-layer findings are now prefixed with their rule code
   (`ARA105 error: nodes[N01]: duplicate node id`), and each `--json`
