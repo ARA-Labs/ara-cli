@@ -9,12 +9,12 @@ Before choosing work, build a source-qualified frontier from the exact selected 
 
 ```sh
 ara -C <fork> status --json
-ara -C <fork> open
+ara -C <fork> ls --unfinished
 ara -C <fork> ls
 ara -C <fork> show PAPER.md
 ara -C <fork> show staging/observations.yaml
 ara -C <fork> show trace/exploration_tree.yaml
-ara -C <fork> refs <native-selector>
+ara -C <fork> show <native-selector> --with refs
 ```
 
 Run each command as its own shell call with quoted arguments and no pipes, redirects, `&&`, `;`
@@ -27,10 +27,10 @@ complete logic/session/merge/conflict body with `show <address>`, using the addr
 A node, observation or session address (`trace:N01`, `O01`) prints a projection with no digest;
 read the exact source it names and use that `source_digest`, for example:
 `ara -C <fork> show --document trace/exploration_tree.yaml --source`.
-Respect the source skill's scope and roles. `open` reasons and excerpts are aids, not a complete
+Respect the source skill's scope and roles. `ls --unfinished` reasons and excerpts are aids, not a complete
 research judgment. Include unresolved questions, unpromoted or stale observations, pending
 forensic bindings, unfinished claims, unresolved merge conflicts, and relevant negative evidence.
-Use `ls`/`show` to recover items outside open's bounded categories.
+Use `ls`/`show` to recover items outside the unfinished selection's categories.
 No new public frontier command is assumed.
 
 Return context for the agent's original reasoning, not an automatic priority schedule. Example
@@ -56,7 +56,7 @@ Each fact carries native ref, exact source-qualified revision and verified full 
 Use merge reports/retained conflict candidates, never an optimistic synthesized resolution.
 If intentions are also installed, obtain their authoritative committed snapshot separately,
 record `installed: true`, sequence/round and active/stale source-qualified intention context.
-Without that component explicitly report it absent; never imply open includes unseen forks.
+Without that component explicitly report it absent; never imply `ls --unfinished` includes unseen forks.
 Remote planned/completed/expired records are advisory intentions, not imported knowledge facts
 or evidence that a question is answered. Stale records remain visible as stale context.
 

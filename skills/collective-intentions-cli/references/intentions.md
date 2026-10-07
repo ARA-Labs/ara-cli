@@ -58,7 +58,7 @@ both owners/signatures for explicit agent judgment, not an exclusive lock or aut
 1. Refresh the latest **committed common** snapshot before each work-selection boundary, after
    every action result, before publication, and immediately before budget-consuming execution.
    Record snapshot sequence/round with your choice. Read full relevant knowledge through the
-   source skill's access mechanism; do not infer unseen fork facts from local open output.
+   source skill's access mechanism; do not infer unseen fork facts from local `ls --unfinished` output.
 2. Choose under the original research procedures and shared total budget. If duplication is
    intentional, include verification reference/rationale. Do not treat a planned intention as
    an answered question, empirical result, maturity signal or new write authority.

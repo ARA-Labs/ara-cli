@@ -114,6 +114,19 @@ All notable changes to this project are documented here. The format follows
   read side's identity index.
 
 ### Changed
+- Agent CLI: consolidate ancestry and citation reads into `show --with path,refs`,
+  unfinished work into `ls --unfinished`, and exact imported/retained identity
+  lookup into `show --identity`. Relation arrays stay complete under output
+  bounds; unsupported selector combinations reject explicitly.
+- Live CLI skills and the offline acceptance runner use the simplified command
+  surface. Task-oriented skill sections teach typed `apply` workflows while
+  retaining direct setters, research judgment, and atomic audit protections.
+- Core: replace the native single-target citation query with
+  `markdown_citations_many`, sharing the writer's token classification once per
+  multi-target request. The CLI dependency minimum is now `ara-core` 0.1.27.
+- Command removal is a breaking public-interface change. Workspace 0.1.27 is an
+  unreleased engineering revision; the integration release must settle the
+  repository's major-version rule before publication.
 - Agent reads: `refs` uses the writer's citation rules. For claims,
   heuristics, experiment plans and concepts it lists the same Markdown
   citations a restructure repairs (including qualified heading spellings);
@@ -182,6 +195,11 @@ All notable changes to this project are documented here. The format follows
   instead of counting by hand, and marks stale without `session_days`.
 
 ### Removed
+- Agent CLI: remove `add`, `stage`, `promote`, `session`, `link`, standalone
+  `path`, `refs`, `open`, and `resolve`, plus `claim add` and `heuristic add`.
+  Their typed writer operations remain available through `apply`; the
+  [migration guide](docs/agent-cli.md#command-simplification-migration) records
+  argument and result mappings. No compatibility aliases remain.
 - Native PaperBench rubric handling: `rubric/requirements.md` is no longer
   parsed, read, written or merged as native knowledge, and the public
   `EntryKind::Requirement` variant and `R` IDs are gone. `rubric/` joins

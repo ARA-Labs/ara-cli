@@ -28,7 +28,7 @@ fn history_fixture() -> TempDir {
 }
 
 fn structured(root: &Path, id: &str) -> Vec<Value> {
-    read(root, &["refs", id])["structured"]
+    read(root, &["show", id, "--with", "refs"])["entries"][0]["relations"]["refs"]["structured"]
         .as_array()
         .unwrap()
         .clone()
@@ -250,7 +250,8 @@ fn assert_duplicate_leaf_reads(root: &Path) {
     );
     let node = read(root, &["show", "N01"]);
     assert_eq!(node["entries"][0]["id"], "N01");
-    let refs = read(root, &["refs", "N01"]);
+    let refs =
+        read(root, &["show", "N01", "--with", "refs"])["entries"][0]["relations"]["refs"].clone();
     assert_eq!(refs["target"], "N01");
     let other = read(root, &["show", "logic/concepts.md#Group B/Term"]);
     let content = other["entries"][0]["content"].as_str().unwrap();
@@ -562,6 +563,84 @@ fn nested_rename_in_a_standard_concepts_document_keeps_old_spellings_readable() 
         "logic/concepts.md#h/Concepts/Group%20A/Word",
     );
     read(root, &["show", "N01"]);
-    read(root, &["refs", "N01"]);
+    read(root, &["show", "N01", "--with", "refs"]);
     ara(root).arg("check").arg(root).assert().success();
+}
+
+#[test]
+fn multi_target_refs_keep_each_exact_inventory_and_source_span() {
+    let dir = fixture(true);
+    let root = dir.path();
+    let claims = fs::read_to_string(root.join("logic/claims.md")).unwrap();
+    write_file(root, "logic/claims.md", format!("{claims}{MIXED}"));
+    let selected = ["C02", "H02", "C03", "C02"];
+    let combined = read(
+        root,
+        &["show", "C02", "H02", "C03", "C02", "--with", "refs"],
+    );
+    assert_eq!(
+        combined["entries"].as_array().unwrap().len(),
+        selected.len()
+    );
+    for (index, target) in selected.iter().enumerate() {
+        assert_eq!(combined["entries"][index]["id"], *target);
+        let single = read(root, &["show", target, "--with", "refs"]);
+        let refs = &combined["entries"][index]["relations"]["refs"];
+        assert_eq!(*refs, single["entries"][0]["relations"]["refs"], "{target}");
+        for citation in refs["structured"].as_array().unwrap() {
+            let source = citation["source"].as_str().unwrap();
+            if !source.ends_with(".md") {
+                continue;
+            }
+            let text = fs::read_to_string(root.join(source)).unwrap();
+            let start = citation["range"]["start"].as_u64().unwrap() as usize;
+            let end = citation["range"]["end"].as_u64().unwrap() as usize;
+            assert_eq!(
+                &text[start..end],
+                citation["literal"].as_str().unwrap(),
+                "{citation}"
+            );
+        }
+    }
+    let rows = combined["entries"][0]["relations"]["refs"]["structured"]
+        .as_array()
+        .unwrap();
+    assert!(rows.iter().any(|row| row["id"] == "C04"
+        && row["field"] == "Dependencies"
+        && row["literal"] == "C02"));
+    let mixed_proof = rows
+        .iter()
+        .filter(|row| row["id"] == "C06" && row["field"] == "Proof")
+        .collect::<Vec<_>>();
+    assert_eq!(mixed_proof.len(), 1, "{mixed_proof:?}");
+    assert_eq!(mixed_proof[0]["literal"], "C02");
+}
+
+#[test]
+fn ordinary_reads_do_not_touch_requested_only_citation_history() {
+    let dir = fixture(false);
+    let root = dir.path();
+    write_file(
+        root,
+        "trace/aliases.yaml",
+        "format: ara.aliases/v1\naliases: [\n",
+    );
+    assert_eq!(read(root, &["show", "C02"])["entries"][0]["id"], "C02");
+    assert!(
+        read(root, &["ls"])["entries"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|row| row["id"] == "C02")
+    );
+    ara(root)
+        .args(["show", "C02", "C03", "--with", "refs", "--json"])
+        .assert()
+        .code(1)
+        .stdout("");
+    assert_eq!(
+        fs::read_to_string(root.join("trace/aliases.yaml")).unwrap(),
+        "format: ara.aliases/v1\naliases: [\n"
+    );
+    assert!(!root.join(".ara").exists());
 }

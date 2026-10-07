@@ -25,9 +25,9 @@ ara -C ./ara find 'failure boundary' --context 2
 ara -C ./ara show C01 'logic/solution/architecture.md#h/Architecture/A%2FB'
 ara -C ./ara show --document logic/problem.md --source
 ara -C ./ara show logic/problem.md --lines 120:200 --max-bytes 32768
-ara -C ./ara path N12
-ara -C ./ara refs C01
-ara -C ./ara open
+ara -C ./ara show N12 --with path
+ara -C ./ara show C01 --with refs
+ara -C ./ara ls --unfinished
 
 ara -C ./ara status --json
 ara -C ./ara show N01 C01 --full --json
@@ -42,11 +42,11 @@ ara -C ./ara find 'failure boundary' --limit 10 --full --json
 | `status` | Layer counts, diagnostics and advisory next IDs | Counts and next IDs only when complete; error and warning counts with rule codes |
 | `ls` | Source-order entries; intersecting type, subtree, date, status and provenance filters | No arguments: one line per knowledge document with entry counts by kind (or heading count) and line count, then the direct-file roots. `ls <path>`: that document's entries, or its heading addresses when it has none. Filters: matching entries |
 | `show` | Entry projection, relations via `--with`, full body or bounded native document; `--lines A:B` windows and `--max-bytes` budgets | One labeled block per selection: native source with its `source_digest`, or a projection without a digest; 16 KiB budget, paged at whole lines |
-| `path` | Root-to-node nesting, with cross-edges kept distinct | Root-to-node IDs, indented by depth |
-| `refs` | Typed references with source spans, separately reported possible prose mentions; classified by the writer's citation rules ([Citation repair](#citation-repair-for-restructures)) | Referencing ID, field, `source:line`, literal; prose mentions labeled as possible |
-| `open` | Unfinished questions/experiments, unpromoted observations and active continuity; observation rows add measured inactivity ([below](#observation-inactivity-in-open)) | Address, kind, reasons, title; observation rows end with `turns=… days=… last_reference=… history=…` |
+| `show --with path` | Root-to-node nesting, with cross-edges kept distinct | Root-to-node IDs, indented by depth |
+| `show --with refs` | Typed references with source spans, separately reported possible prose mentions; classified by the writer's citation rules ([Citation repair](#citation-repair-for-restructures)) | Referencing ID, field, `source:line`, literal; prose mentions labeled as possible |
+| `ls --unfinished` | Unfinished questions/experiments, unpromoted observations and active continuity; observation rows add measured inactivity ([below](#observation-inactivity-in-ls---unfinished)) | Address, kind, reasons, title; observation rows end with `turns=… days=… last_reference=… history=…` |
 | `find` | Stateless keyword ranking over loaded knowledge | Ranked addresses with one-based source lines; `--context N` adds merged context |
-| `resolve` | Resolve a qualified imported identity through the portable identity records | The resolved ID |
+| `show --identity` | Resolve a qualified imported identity through the portable identity records | The resolved ID |
 
 With `--json`, results use command-specific `ara.<command>/v1` JSON formats.
 Success goes to stdout; a JSON error goes to stderr with `code`, `message`,
@@ -57,10 +57,10 @@ transaction/result identity. JSON excerpts are bounded to 160 Unicode
 characters; `--full` retains source content. Incomplete source representation
 must not be reported as success.
 
-### Observation inactivity in `open`
+### Observation inactivity in `ls --unfinished`
 
-Every observation row of `ara.open/v1` adds these fields to its existing ones
-(plan 19 D1). The envelope and the other fields do not change.
+Every observation row of `ara.ls/v1` adds these fields to its existing ones
+in `entries`; reason predicates and history fields retain their meanings.
 
 | Field | Meaning |
 |---|---|
@@ -144,7 +144,7 @@ unchanged archived copies, revision `before`/`after` values and
 
 `stale_observation` stays in `reasons` whenever the stored flag is `true`,
 whatever the current history proves, and is added when a known day count is 3
-or more. `open` never promotes, discards or marks anything stale. The history is
+or more. `ls --unfinished` never promotes, discards or marks anything stale. The history is
 computed only when the artifact has observations, from the sources this read
 already loaded plus the raw bytes of `trace/aliases.yaml` (an undecodable
 ledger is `history.alias_invalid`, not a read failure). A session's turns are
@@ -160,7 +160,7 @@ state. Codes: `history.invalid_source`, `history.alias_invalid`,
 
 ### Brief text output
 
-Without `--json`, `status`, `ls`, `show`, `path`, `refs`, `open` and `find`
+Without `--json`, `status`, `ls`, `show` and `find`
 print address-led text ([`brief/`](../crates/ara-cli/src/brief)). Each item line
 starts with an address `show` accepts: a native ID (`C04`), a heading address
 or a document path. A key that another loaded entry shares (claim `C01` and
@@ -169,7 +169,7 @@ the section's cited form (`logic/claims.md#C01`, `logic/concepts.md#C01`, or
 the canonical heading address when the key needs escaping) for a
 heading-backed entry, and `path#ID` (`trace/exploration_tree.yaml#N02`) for
 any other. A key no other entry has stays bare. This applies to `ls`, `find`,
-`open`, `path`, `refs` (the target and each referencing entry), a `show`
+`ls --unfinished`, `show --with path`, `show --with refs` (the target and each referencing entry), a `show`
 projection header and miss candidates; `--json` rows keep their `id`/`key`.
 Data only the text needs is computed only without
 `--json` (or, for `show`, with a JSON bound; see below). `--fields` keeps its row meaning: with it, reads print the projected
@@ -328,7 +328,7 @@ When a response does not fit:
   `--max-bytes`. No empty page is returned and no line is skipped, so a tiny
   budget cannot loop without progress.
 - Several selections fit together or not at all: `output_limit_too_small`
-  names the aggregate `required` and advises reading each address
+  names the aggregate `required` and advises raising the budget or reading each address
   separately to page through it. No selection is dropped or truncated, the
   request order is kept, and overlapping selections stay separate items.
 - A single entry projection has no line mapping, so it fails with
@@ -350,7 +350,7 @@ with `end = start - 1` when empty), `truncated` and `next` (the next
 envelope, diagnostics included, fits the budget or the read rejects.
 
 An empty brief result prints `no results` (`find`), `no entries` (`ls`) or
-`no open items` (`open`) on stdout; JSON keeps the empty array.
+`no entries` (`ls --unfinished`) on stdout; JSON keeps the empty array.
 Other brief commands are compact but not byte-bounded. Use `find --limit`,
 filters and `ls <path>` to narrow them.
 
@@ -417,12 +417,12 @@ ranked by edit distance to the request and then by source order. When
 identity records cannot be indexed (for example a corrupt alias file), a read
 that reaches them fails with `identity_lookup_failed` instead of an ordinary
 miss.
-Selection errors from `show`, `path`, `refs` and `ls --under` never carry
-internal `merge.*` codes; `ara resolve` and `merge` keep theirs.
+Selection errors from `show` and `ls --under` never carry
+internal `merge.*` codes; `ara show --identity` and `merge` keep theirs.
 
 ### Invalid artifacts, stray fences and claim spellings
 
-Structural reads (`find`, `ls`, `show`, `open`, `refs`, `path`) need a
+Structural reads (`find`, `ls`, `show`) need a
 complete representation, not a valid artifact. Each result carries
 `diagnostics` with `errors` and `warnings` at their original severities. A
 validation error is read through only when its code is in this allowlist
@@ -458,10 +458,10 @@ reason`). `ARA217`, `ARA218`, `ARA222` and `ARA226` warnings still refuse with
 (`invalid_artifact` or `incomplete_artifact`) has `details.blocking` (the
 refusing rule codes) and `details.hint` (run `ara check`; source reads still
 work). Relationship reads never invent a missing target: `show --with
-claims,depends_on` omits it and `refs`/`show` on the missing ID return
+claims,depends_on` omits it and `show --with refs`/`show` on the missing ID return
 `unknown_id`. `status` is unchanged: `complete` is false, and counts and next
 IDs are null, whenever any error exists. `check` and `validate` still fail on
-these errors. Write commands do not use this tolerance; `session log` refuses
+these errors. Write commands do not use this tolerance; `apply` refuses
 any validation error. Explicit `--source` reads keep
 `artifact_validation: "not_run"`, which does not mean the artifact is valid.
 
@@ -482,25 +482,22 @@ claims: a repair that drops one fails with `write.claim_retention` like any
 other edit that retires a canonical claim.
 
 Claim headings accept `:` and a spaced `-`, U+2013 or U+2014 separator
-(`## C04 — Title`). `show C04`, `--heading C04`, `refs` and merge titles
+(`## C04 — Title`). `show C04`, `--heading C04`, `show --with refs` and merge titles
 resolve them, source bytes keep the original spelling, and `ara check` does
 not report them (`ARA004` covers only unspaced dashes).
 
 ## Authoring commands and source inputs
 
-Convenience commands cover `add node`, `add edge`, `edit`, `claim add/set`,
-`heuristic add/set`, `stage`, `promote`, `session start/log`, and `link --same-as`.
-`session log` without `--session` asks the writer to select or create the
-session and therefore requires `--summary`; omitted `--timestamp`/`--started`
-values come from the writer's locked clock (see
-[One clock value per batch](#one-clock-value-per-batch)).
-`apply` exposes the complete typed operation contract in
-[`write/mod.rs`](../crates/ara-core/src/write/mod.rs).
+Retained authoring commands are `edit`, `claim set`, `heuristic set` and `apply`; creation and staging use the complete typed operation contract in [`write/mod.rs`](../crates/ara-core/src/write/mod.rs). Retained setters use `EntryEdit` and do not create an audit session. Audited PM revisions use `logic.revise` with the owning summarized `session.log` in one atomic batch.
+
+Save request JSONL outside the artifact with the caller's file tool. Run each invocation as its own shell call:
+
+```jsonl
+{"op":"session.log","summary":"Recorded a boundary question"}
+{"op":"node.add","id":"$question","type":"question","parent":"root","title":"Boundary behavior","fields":{"description":"Complete caller-authored question text.","provenance":"ai-suggested"}}
+```
 
 ```sh
-ara -C ./ara add node --type question --parent N01 --title 'Boundary behavior' \
-  --set description=@description.txt --provenance ai-suggested --json
-ara -C ./ara add edge N02 --depends-on N01 --json
 ara -C ./ara apply /tmp/request.jsonl --dry-run --json
 ara -C ./ara apply /tmp/request.jsonl --json
 ```
@@ -594,15 +591,15 @@ operation (`write.reference_mode`). A merge may instead list explicit
 `references` rows (see the row rule under **Split**); each must move the
 source's citations in that field to the survivor.
 
-**Shared rules.** `ara refs` and the writer classify citations with the same
+**Shared rules.** `ara show --with refs` and the writer classify citations with the same
 rules (`ara_core::write::citation_rules` and the writer's citation
 inventory): one table of reference-bearing Markdown fields, one set of
 historical sources, and one rule for protected spans. For a claim,
-heuristic, experiment plan or concept target, `refs` lists exactly the
-Markdown citations the writer's inventory finds, so what `refs` shows in a
+heuristic, experiment plan or concept target, `show --with refs` lists exactly the
+Markdown citations the writer's inventory finds, so what `show --with refs` shows in a
 rewritable field is what a restructure repairs.
 
-| Markdown field | Listed by `refs` | Rewritten by C1 |
+| Markdown field | Listed by `show --with refs` | Rewritten by C1 |
 |---|---|---|
 | `Dependencies`, `Proof`, `Sources`, `Claims affected`, `Related` / `Related concepts`, `Merged into`, `Evidence output`, `Code ref` | yes | yes, where the entry's schema accepts the field |
 | `Depends on`, `Deps`, `Promoted from`, `Last revised` (read-only aliases) | yes | no: a `read_only_field` mention |
@@ -618,7 +615,7 @@ session index, session rows (`events_logged` `id`/`target`,
 IDs and the ledger describe identity bookkeeping, not citations, so the
 writer does not validate them as historical citations. A tree `concepts`
 name cites a concept only when it resolves to exactly one concept heading
-(leaf text or full heading path); `refs` lists nothing for an ambiguous name
+(leaf text or full heading path); `show --with refs` lists nothing for an ambiguous name
 and a restructure of one of its candidates refuses.
 
 **What is rewritten.** The writer builds a typed inventory of the current
@@ -631,7 +628,7 @@ tokens (with the read model's boundaries), qualified locators
 `document#<full heading path>`, and in `Related` comma-separated concept
 names. Tokens inside quotes, backticks, fenced code or HTML comments are
 protected, as in merge rewriting: they are never rewritten or listed by
-`refs`, and they count as `protected` mentions. A value that is exactly a
+`show --with refs`, and they count as `protected` mentions. A value that is exactly a
 JSON array of strings is a native list: only the outer item quotes are list
 syntax. Quotes and backticks inside each item remain protected, and an item
 with an escape sequence stays wholly protected. A token counts only when it
@@ -670,7 +667,7 @@ counts the `Term` inside that locator. Typed historical citations of the old ide
 and, at final validation, must resolve through the retained entry or the
 appended authenticated `trace/logic_mutations.yaml` mapping, both by the
 writer's redirect chain and by the read side's identity index that `show`
-and `refs` consult (`write.history_unresolved` otherwise, reported on the
+and `show --with refs` consult (`write.history_unresolved` otherwise, reported on the
 restructure's line even when a later operation broke the chain). The read
 side checks each citation's literal spelling, not only a normalized
 selector: a scalar locator must resolve the way `show` resolves it. The
@@ -778,9 +775,7 @@ belongs to 2026-10-04. Chronology checks compare instants. An explicit past
 session with an omitted timestamp therefore fails with a message that names
 both dates; the writer does not swap the session or backdate the clock.
 
-`add node`, `stage`, `promote`, `session start` and `session log` send omitted
-values to this same locked path. The CLI never chooses an ID, session or
-timestamp from an unlocked pre-read.
+Typed creation and session operations send omitted defaults to the same locked writer path; the caller never chooses IDs or times from an unlocked pre-read.
 
 ### Owner anchor for omitted audit context
 
@@ -950,10 +945,7 @@ with a `session.log`:
 - Identical repeated rows are written once, and missing deterministic rows are
   appended.
 
-Errors that involve two inputs carry the other one as `related_line` (the same
-physical-line numbering as `line`) and `related_field`. The CLI's
-`session log --node` still builds rows for existing nodes from their titles; it
-runs no operations, so nothing else is derived.
+Errors that involve two inputs carry `related_line` and `related_field`; `line` and `related_line` use physical JSONL line numbers. Explicit event rows retain full native fields and caller summaries.
 
 ### Session history and transactions
 
@@ -964,8 +956,8 @@ Stale transitions need at least three distinct actual logged session days after
 last observation/bound-node use, a caller-supplied reason and an atomic owning
 `session.log` turn. They do not infer a scientific rationale from elapsed time.
 
-`observation.mark_stale` uses the same history as `open`
-([Observation inactivity](#observation-inactivity-in-open)), without the stale
+`observation.mark_stale` uses the same history as `ls --unfinished`
+([Observation inactivity](#observation-inactivity-in-ls---unfinished)), without the stale
 operation's own turn and its notes, and with days ending at the owning audit
 date (plan 19 D2):
 
@@ -1013,11 +1005,13 @@ portable merge evidence.
 ## Directory and Git merge
 
 ```sh
-ara -C ./ours merge --base ./base --theirs ./theirs --as peer --dry-run --json
-ara -C ./ours merge --base ./base --theirs ./theirs --as peer --json
-ara -C ./ours merge --git peer-branch --as peer --json
-ara -C ./ours resolve 'peer:N02' --json
+ara -C ./ours merge --base ./base --theirs ./theirs --source-key peer-fork --as peer --dry-run --json
+ara -C ./ours merge --base ./base --theirs ./theirs --source-key peer-fork --as peer --json
+ara -C ./ours merge --git peer-branch --source-key peer-fork --as peer --json
+ara -C ./ours show --identity 'peer:N02' --json
 ```
+
+Supply a stable fork identity through `--source-key` unless the source carries its own authenticated identity. Reuse it for later imports and replay. `--as` is only a display label; it does not establish fork identity.
 
 Directory roots must be nonoverlapping. The planner reads complete native layers,
 including opaque files. It preserves ours, allocates incoming collisions within
@@ -1087,6 +1081,50 @@ population recall or natural/paraphrase duplicate quality. Automated criteria
 review is not human protocol approval. Fixed gates must not be retuned after
 measurement.
 
+## Command simplification migration
+
+Ship the simplified binary and all six live skills from one revision. Removed routes have no aliases. Keep frozen experiment inputs, registered skill digests and historical reports unchanged; downstream harnesses must migrate in their owning repository before pinning a new condition. Tooling `validate`, `check`, `layout` and `serve` is unchanged.
+
+### Replace read routes and envelopes
+
+| Old route/envelope | New invocation/envelope | Consumer mapping |
+|---|---|---|
+| `path`, `ara.path/v1` | `show N01 --with path`, `ara.show/v1` | `steps` becomes `entries[0].relations.path`, ordered root through selected node |
+| `refs`, `ara.refs/v1` | `show C01 --with refs`, `ara.show/v1` | `target`, `structured`, `prose` move into `entries[0].relations.refs`; source spans and certainty remain |
+| `open`, `ara.open/v1` | `ls --unfinished`, `ara.ls/v1` | `items` becomes `entries`; reasons and every inactivity/evidence field remain |
+| `resolve`, `ara.resolve/v1` | `show --identity 'peer:N01'`, `ara.show/v1` | one identity entry: old `address` becomes `requested_address`; old `id` becomes exact `resolved_target` |
+
+`--with` accepts comma-separated and repeated names, deduplicated per selection. Multiple selectors preserve request order and reject the whole request if one cannot supply a relation. `path` needs a node. `refs` accepts positional whole-document paths or `--document` without heading/source mode. Source/heading relations reject with `invalid_selector`, never disappear. Identity mode is boolean, takes exactly one positional address, rejects document/heading/source/lines/relations before loading, and uses the resolver snapshot without requiring current content. Unknown/ambiguous/corrupt mappings keep resolver error codes and exit classes.
+
+`--fields` projects top-level row fields only. Replace old refs row projections with `--fields relations`; nested reference objects remain complete. Unfinished fields are accepted even for `entries: []`. Identity projections retain `kind`, `requested_address` and `resolved_target`. Unfiltered brief `ls` lists documents; unfiltered JSON `ls` lists entries. Unfinished filters intersect selected rows but never filter the history used to measure inactivity; unknown counts stay null.
+
+The entire show response, metadata and relations included, must fit its byte budget. Native content may page only at whole lines; each page retains every complete requested relation. Relations never truncate or paginate. When required metadata, relations and the next line cannot fit, `output_limit_too_small` reports the required budget and asks the caller to raise `--max-bytes`. Multi-selection and identity outputs fit completely or reject. JSON is unbounded unless explicitly given `--max-bytes`. Source fallback cannot satisfy a relation request; projection/bounds argument conflicts remain.
+
+### Replace write wrappers with literal JSONL
+
+Write scratch JSONL outside knowledge files with the permitted file tool. Each old wrapper maps to one existing operation; coupled research actions belong in one batch. Decode old `@file`/`@-` inputs into complete text and `@@text` into literal leading `@` before encoding JSON strings. JSONL does not expand these spellings. Preserve arrays and mappings, explicit replay IDs, guards and dry runs. A later failure rolls back the whole source change and reports its physical line.
+
+| Removed wrapper | Argument to operation mapping | Result mapping |
+|---|---|---|
+| `add node` | `node.add`: `--id`→`id`, `--type`→`type`, `--parent`→`parent`, `--title`→`title`, `--set`→`fields`, provenance/support/source options→their native fields, repeated `--depends-on`→`depends_on` | assigned node `operations[i].id` |
+| `add edge` | `edge.add`: positional node→`node`, `--depends-on`→`depends_on` | operation result, no new identity |
+| `claim add` | `claim.add`: `--id`, `--title`, complete `--set` values→`id`, `title`, `fields` | assigned claim `operations[i].id` |
+| `heuristic add` | `heuristic.add`: `--id`, `--title`, complete source-dialect `--set` values→`id`, `title`, `fields` | assigned heuristic `operations[i].id` |
+| `stage` | `observation.stage`: `--id`, content/context, potential type, provenance, timestamp and repeated bound nodes→`id`, `content`, `context`, `potential_type`, `provenance`, `timestamp`, `bound_to` | assigned observation `operations[i].id` |
+| `promote` | `observation.promote`: positional observation, `--to`, `--id`, `--title`, `--set`, `--signal`, `--content`→`observation`, `to`, `id`, `title`, `fields`, `signal`, `content`; document/heading→native `target` | `operations[i].target` is the native destination string; `operations[i].id` exists only for numeric claim/heuristic/dead-end destinations; named sections have no ID |
+| `session start` | `session.start`: `--date`, `--started`, `--summary`→`date`, `started`, `summary` | session `operations[i].id`; optional provisional `id` binds it |
+| `session log` | `session.log`: full `--record` object plus optional session/timestamp/summary→native keys; `--node` rows become complete `events` rows with actual kind, ID, routing, provenance and summary | owning `operations[i].id` and `turn`; `session_created`, report `open_sessions` |
+| `link --same-as` | `node.link_same_as`: positional node→`node`, `--same-as`→`same_as` | operation result; both records retained |
+
+A claim promotion can return `operations[i].id: "C02"` and `operations[i].target: "logic/claims.md:C02"`. A concept promotion returns a named destination such as `operations[i].target: "logic/concepts.md#Measurement boundary"` with no `id`. The observation's `promoted`, `promoted_to` and `crystallized_via` tuple commits to staging, not to the operation result; inspect it with a subsequent `show` when needed.
+
+Every migrated write returns `ara.apply/v1`, not its old command envelope. Consume `operations[i]` in request order and top-level `bindings`; use provisional names for later structured references, never scan files to allocate IDs. Dry-run IDs, timestamps and turns are tentative. Retained setters continue CLI text expansion and `EntryEdit` semantics, without an implicit session. Audited revisions require `logic.revise` plus owning summarized `session.log` in one atomic request; separate setter/log calls do not provide that audit guarantee.
+
+```sh
+ara -C ./ara apply /tmp/request.jsonl --dry-run --json
+ara -C ./ara apply /tmp/request.jsonl --json
+```
+
 ## Compatibility and delivery gates
 
 Brief text migration: default output of the read commands is now brief text,
@@ -1097,8 +1135,8 @@ are listed below. Some outcomes change:
 - New error codes: `ambiguous_heading`, `identity_lookup_failed`,
   `invalid_address`, `line_out_of_range`, `lines_unavailable` and
   `output_limit_too_small`.
-- Reads (`show`, `path`, `refs`, `ls --under`) no longer return internal
-  `merge.*` codes; `ara resolve` and `merge` keep them.
+- Reads (`show`, `ls --under`) no longer return internal
+  `merge.*` codes; `ara show --identity` and `merge` keep them.
 - Reads of artifacts whose only errors are `ARA107`–`ARA109` now succeed and
   carry those errors in `diagnostics`; `status`, `check` and `validate` still
   report them.

@@ -55,10 +55,16 @@ pub struct ListArgs {
     pub status: Option<String>,
     #[arg(long)]
     pub provenance: Option<String>,
+    /// Intersect filters with unfinished-work predicates.
+    #[arg(long)]
+    pub unfinished: bool,
 }
 #[derive(Debug, Default, Clone, clap::Args)]
 pub struct ShowArgs {
     pub ids: Vec<String>,
+    /// Resolve one exact qualified identity without loading current content.
+    #[arg(long, conflicts_with_all = ["document", "heading", "source", "lines", "relations"])]
+    pub identity: bool,
     #[command(flatten)]
     pub output: ReadOptions,
     #[arg(long = "with", value_delimiter = ',')]
@@ -75,12 +81,6 @@ pub struct ShowArgs {
     /// Response byte budget; brief text defaults to 16 KiB.
     #[arg(long, allow_hyphen_values = true, conflicts_with = "fields")]
     pub max_bytes: Option<String>,
-}
-#[derive(Debug, Clone, clap::Args)]
-pub struct IdArgs {
-    pub id: String,
-    #[command(flatten)]
-    pub output: ReadOptions,
 }
 
 pub struct Artifact {
@@ -559,43 +559,53 @@ pub fn list(root: &Path, args: &ListArgs) -> Result<Value, AgentError> {
         || args.since.is_some()
         || args.status.is_some()
         || args.provenance.is_some();
-    if args.output.brief() && document.is_none() && !filtered {
+    if args.output.brief() && document.is_none() && !filtered && !args.unfinished {
         return Ok(
             json!({"format":"ara.ls/v1","documents":artifact.document_summaries(),"file_access":ara_core::FILE_ACCESS_ROOTS,"diagnostics":diagnostics(&artifact.report)}),
         );
     }
-    let addresses = args.output.brief().then(|| artifact.entry_addresses());
-    let mut rows = artifact
-        .entries()
-        .into_iter()
-        .filter(|entry| {
-            document.as_ref().is_none_or(|(path, _)| {
-                !matches!(entry, Entry::Document { .. } | Entry::Recipe(_))
-                    && entry.source_matches(path)
-            }) && args.kind.as_deref().is_none_or(|kind| entry.kind() == kind)
-                && descendants
-                    .as_ref()
-                    .is_none_or(|ids| matches!(entry, Entry::Node(_)) && ids.contains(entry.key()))
-                && args.since.as_deref().is_none_or(|since| {
-                    entry
-                        .date()
-                        .and_then(|date| date.get(..10))
-                        .is_some_and(|date| date >= since)
-                })
-                && args
-                    .status
-                    .as_deref()
-                    .is_none_or(|status| entry.status() == Some(status))
-                && args
-                    .provenance
-                    .as_deref()
-                    .is_none_or(|provenance| entry.provenance() == Some(provenance))
-        })
-        .map(|entry| addressed(&addresses, entry, entry.value(args.output.full)))
-        .collect::<Vec<_>>();
+    let matches_filters = |entry: &Entry<'_>| {
+        document.as_ref().is_none_or(|(path, _)| {
+            (args.unfinished || !matches!(entry, Entry::Document { .. } | Entry::Recipe(_)))
+                && entry.source_matches(path)
+        }) && args.kind.as_deref().is_none_or(|kind| entry.kind() == kind)
+            && descendants
+                .as_ref()
+                .is_none_or(|ids| matches!(entry, Entry::Node(_)) && ids.contains(entry.key()))
+            && args.since.as_deref().is_none_or(|since| {
+                entry
+                    .date()
+                    .and_then(|date| date.get(..10))
+                    .is_some_and(|date| date >= since)
+            })
+            && args
+                .status
+                .as_deref()
+                .is_none_or(|status| entry.status() == Some(status))
+            && args
+                .provenance
+                .as_deref()
+                .is_none_or(|provenance| entry.provenance() == Some(provenance))
+    };
+    let mut rows: Vec<Value> = if args.unfinished {
+        unfinished_loaded(&artifact, &args.output, &index)?
+            .into_iter()
+            .filter(|(entry, _)| matches_filters(entry))
+            .map(|(_, row)| row)
+            .collect()
+    } else {
+        let addresses = args.output.brief().then(|| artifact.entry_addresses());
+        artifact
+            .entries()
+            .into_iter()
+            .filter(matches_filters)
+            .map(|entry| addressed(&addresses, entry, entry.value(args.output.full)))
+            .collect()
+    };
     if let Some((path, text)) = document
         && rows.is_empty()
         && !filtered
+        && !args.unfinished
         && path.ends_with(".md")
     {
         rows = display::heading_rows(&path, text);
@@ -603,6 +613,28 @@ pub fn list(root: &Path, args: &ListArgs) -> Result<Value, AgentError> {
     Ok(json!({"format":"ara.ls/v1","entries":rows,"diagnostics":diagnostics(&artifact.report)}))
 }
 pub fn show(root: &Path, args: &ShowArgs) -> Result<Value, AgentError> {
+    if args.identity {
+        if args.ids.len() != 1
+            || args.document.is_some()
+            || !args.heading.is_empty()
+            || args.source
+            || args.lines.is_some()
+            || !args.relations.is_empty()
+        {
+            return Err(AgentError::setup(
+                "argument_error",
+                "--identity requires exactly one address and cannot be combined with content selectors or relations",
+            ));
+        }
+        let bounds = window::Bounds::new(args)?;
+        let snapshot = ara_core::write::ArtifactSnapshot::load_with_identities(root)
+            .map_err(crate::write::convert_error)?;
+        let resolved = ara_core::merge::resolve(&snapshot, &args.ids[0])
+            .map_err(crate::merge::convert_error)?;
+        let mut value = json!({"format":"ara.show/v1","entries":[{"kind":"identity","requested_address":args.ids[0],"resolved_target":resolved}]});
+        bounds.apply(&mut value)?;
+        return Ok(value);
+    }
     let bounds = window::Bounds::new(args)?;
     let document = source_document(args);
     // File-access roots are rejected by path alone, before any registry or
@@ -672,6 +704,24 @@ fn show_rows(artifact: &Artifact, args: &ShowArgs, brief: bool) -> Result<Value,
     let native = brief || args.lines.is_some();
     let source_full = full || bounded(args);
     if let Some(document) = &args.document {
+        if !args.relations.is_empty() {
+            if !args.heading.is_empty()
+                || args.source
+                || !args.ids.is_empty()
+                || args.relations.iter().any(|relation| relation != "refs")
+            {
+                return Err(AgentError::semantic(
+                    "invalid_selector",
+                    "Whole-document selection supports only refs; headings and source selections cannot supply relations",
+                ));
+            }
+            let target = artifact.entry(document)?;
+            let inventory = references::Inventory::new(artifact, &[target])?;
+            let mut value = show_document(artifact, document, &[], false, source_full)?;
+            value["entries"][0]["relations"] =
+                json!({"refs":refs_loaded(artifact, target, &args.output, &inventory)?});
+            return Ok(value);
+        }
         return show_document(artifact, document, &args.heading, args.source, source_full);
     }
     if args.ids.is_empty() || !args.heading.is_empty() || args.source {
@@ -683,7 +733,14 @@ fn show_rows(artifact: &Artifact, args: &ShowArgs, brief: bool) -> Result<Value,
     for relation in &args.relations {
         if !matches!(
             relation.as_str(),
-            "parents" | "children" | "claims" | "sessions" | "same_as" | "depends_on"
+            "parents"
+                | "children"
+                | "claims"
+                | "sessions"
+                | "same_as"
+                | "depends_on"
+                | "path"
+                | "refs"
         ) {
             return Err(AgentError::semantic(
                 "unknown_relation",
@@ -696,6 +753,47 @@ fn show_rows(artifact: &Artifact, args: &ShowArgs, brief: bool) -> Result<Value,
         .iter()
         .map(|id| documents::select(artifact, id, source_full))
         .collect::<Result<Vec<_>, _>>()?;
+    let mut targets = Vec::new();
+    if !args.relations.is_empty() {
+        for selection in &selected {
+            let entry = match selection {
+                Selected::Entry(entry) => *entry,
+                Selected::Source(row) => {
+                    if args.relations.iter().any(|relation| relation != "refs")
+                        || row["heading_path"]
+                            .as_array()
+                            .is_some_and(|path| !path.is_empty())
+                    {
+                        return Err(AgentError::semantic(
+                            "invalid_selector",
+                            "This selection cannot supply the requested relations",
+                        ));
+                    }
+                    artifact.entry(row["document"].as_str().ok_or_else(|| {
+                        AgentError::semantic(
+                            "invalid_selector",
+                            "refs requires an entry or whole document",
+                        )
+                    })?)?
+                }
+            };
+            if args.relations.iter().any(|relation| relation == "path")
+                && !matches!(entry, Entry::Node(_))
+            {
+                return Err(AgentError::semantic(
+                    "invalid_selector",
+                    "path requires node selections",
+                ));
+            }
+            targets.push(entry);
+        }
+    }
+    let inventory = args
+        .relations
+        .iter()
+        .any(|relation| relation == "refs")
+        .then(|| references::Inventory::new(artifact, &targets))
+        .transpose()?;
     let index = QueryIndex::new(&artifact.manifest);
     let addresses = brief.then(|| artifact.entry_addresses());
     let mut rows = Vec::with_capacity(selected.len());
@@ -724,7 +822,31 @@ fn show_rows(artifact: &Artifact, args: &ShowArgs, brief: bool) -> Result<Value,
     for selected in selected {
         let entry = match selected {
             Selected::Entry(entry) => entry,
-            Selected::Source(row) => {
+            Selected::Source(mut row) => {
+                if !args.relations.is_empty() {
+                    if args.relations.iter().any(|relation| relation != "refs")
+                        || row["heading_path"]
+                            .as_array()
+                            .is_some_and(|path| !path.is_empty())
+                    {
+                        return Err(AgentError::semantic(
+                            "invalid_selector",
+                            "This selection cannot supply the requested relations",
+                        ));
+                    }
+                    let target = artifact.entry(
+                        row["key"]
+                            .as_str()
+                            .or(row["source"].as_str())
+                            .ok_or_else(|| {
+                                AgentError::semantic(
+                                    "invalid_selector",
+                                    "Reference target must be a whole document",
+                                )
+                            })?,
+                    )?;
+                    row["relations"] = json!({"refs":refs_loaded(artifact, target, &args.output, inventory.as_ref().expect("refs inventory"))?});
+                }
                 rows.push(row);
                 continue;
             }
@@ -749,8 +871,37 @@ fn show_rows(artifact: &Artifact, args: &ShowArgs, brief: bool) -> Result<Value,
             );
         }
         let mut relations = serde_json::Map::new();
-        for relation in &args.relations {
+        for relation in args
+            .relations
+            .iter()
+            .collect::<std::collections::BTreeSet<_>>()
+        {
             let data = match relation.as_str() {
+                "path" => {
+                    if !matches!(entry, Entry::Node(_)) {
+                        return Err(AgentError::semantic(
+                            "invalid_selector",
+                            "path requires a node selection",
+                        ));
+                    }
+                    json!(
+                        index
+                            .path(entry.key())
+                            .ok_or_else(|| AgentError::unknown(entry.key()))?
+                            .into_iter()
+                            .map(|node| {
+                                let step = Entry::Node(node);
+                                addressed(&addresses, step, step.value(args.output.full))
+                            })
+                            .collect::<Vec<_>>()
+                    )
+                }
+                "refs" => refs_loaded(
+                    artifact,
+                    entry,
+                    &args.output,
+                    inventory.as_ref().expect("refs inventory"),
+                )?,
                 "parents" => json!(index.parent(entry.key()).into_iter().collect::<Vec<_>>()),
                 "children" => json!(index.children(entry.key())),
                 "depends_on" => json!(index.dependencies(entry.key())),
@@ -804,23 +955,6 @@ fn same_as_relation(artifact: &Artifact, id: &str) -> Value {
         .map(|node| node.id.as_str())
         .collect::<Vec<_>>();
     json!({"outgoing":outgoing.into_iter().flatten().collect::<Vec<_>>(),"incoming":incoming})
-}
-pub fn path(root: &Path, args: &IdArgs) -> Result<Value, AgentError> {
-    let artifact = Artifact::load(root)?;
-    let index = QueryIndex::new(&artifact.manifest);
-    let selected = artifact.entry(&args.id)?;
-    let path = index
-        .path(selected.key())
-        .ok_or_else(|| AgentError::unknown(&args.id))?;
-    let addresses = args.output.brief().then(|| artifact.entry_addresses());
-    let steps: Vec<Value> = path
-        .into_iter()
-        .map(|node| {
-            let entry = Entry::Node(node);
-            addressed(&addresses, entry, entry.value(args.output.full))
-        })
-        .collect();
-    Ok(json!({"format":"ara.path/v1","steps":steps,"diagnostics":artifact.diagnostics()}))
 }
 /// In brief mode, `display` adds the rule codes behind the
 /// diagnostic counts.
@@ -970,30 +1104,41 @@ fn artifact_files(root: &Path) -> Result<Vec<ArtifactFile>, AgentError> {
     files.sort_by(|a, b| a.path.cmp(&b.path));
     Ok(files)
 }
-pub fn refs(root: &Path, args: &IdArgs) -> Result<Value, AgentError> {
-    let artifact = Artifact::load(root)?;
-    let target = artifact.entry(&args.id)?;
-    let structured = references::structured(&artifact, target)?;
+fn refs_loaded(
+    artifact: &Artifact,
+    target: Entry<'_>,
+    options: &ReadOptions,
+    inventory: &references::Inventory<'_>,
+) -> Result<Value, AgentError> {
+    let structured = references::structured(artifact, target, inventory)?;
     let mut prose = Vec::new();
     for (source, text) in &artifact.sources {
         if !artifact.is_knowledge(source) {
             continue;
         }
-        for token in scan_tokens(text).into_iter().filter(|token| {
-            (token_may_refer(token.literal, target.key())
-                || matches!(target, Entry::Claim(_))
-                    && artifact
-                        .claim_redirects
-                        .get(token.literal)
-                        .is_some_and(|current| current == target.key()))
-                && !structured
-                    .ranges
-                    .get(source)
-                    .and_then(|ranges| ranges.range(..=(token.range.start, usize::MAX)).next_back())
-                    .is_some_and(|(start, end)| {
-                        *start <= token.range.start && *end >= token.range.end
-                    })
-        }) {
+        for token in inventory
+            .tokens
+            .get(source.as_str())
+            .into_iter()
+            .flatten()
+            .filter(|token| {
+                (token_may_refer(token.literal, target.key())
+                    || matches!(target, Entry::Claim(_))
+                        && artifact
+                            .claim_redirects
+                            .get(token.literal)
+                            .is_some_and(|current| current == target.key()))
+                    && !structured
+                        .ranges
+                        .get(source)
+                        .and_then(|ranges| {
+                            ranges.range(..=(token.range.start, usize::MAX)).next_back()
+                        })
+                        .is_some_and(|(start, end)| {
+                            *start <= token.range.start && *end >= token.range.end
+                        })
+            })
+        {
             let start = text[..token.range.start]
                 .char_indices()
                 .rev()
@@ -1006,8 +1151,8 @@ pub fn refs(root: &Path, args: &IdArgs) -> Result<Value, AgentError> {
             prose.push(json!({"source":source,"field":"source_text","literal":token.literal,"range":token.range,"certainty":"possible","context":excerpt(&text[start..end])}));
         }
     }
-    let mut value = json!({"format":"ara.refs/v1","target":target.key(),"structured":structured.rows,"prose":prose,"diagnostics":diagnostics(&artifact.report)});
-    if args.output.brief() {
+    let mut value = json!({"target":target.key(),"structured":structured.rows,"prose":prose});
+    if options.brief() {
         artifact.annotate_lines(&mut value);
         let addresses = artifact.entry_addresses();
         value["display"] = json!({"target": addresses.address(target)});
@@ -1021,17 +1166,23 @@ pub fn refs(root: &Path, args: &IdArgs) -> Result<Value, AgentError> {
     }
     Ok(value)
 }
-pub fn open(root: &Path, options: &ReadOptions) -> Result<Value, AgentError> {
-    let artifact = Artifact::load(root)?;
-    let index = QueryIndex::new(&artifact.manifest);
+fn unfinished_loaded<'a>(
+    artifact: &'a Artifact,
+    options: &ReadOptions,
+    index: &QueryIndex<'_>,
+) -> Result<Vec<(Entry<'a>, Value)>, AgentError> {
     let mut rows = Vec::new();
-    let history = SessionHistory::new(&artifact)?;
-    let sources = history.sources(&artifact);
-    let timeline = history::Timeline::build(
-        &sources,
-        history.aliases.as_deref(),
-        history.merge_log.as_deref(),
-    );
+    let history = (!artifact.manifest.observations.is_empty())
+        .then(|| SessionHistory::new(artifact))
+        .transpose()?;
+    let sources = history.as_ref().map(|history| history.sources(artifact));
+    let timeline = history.as_ref().map(|history| {
+        history::Timeline::build(
+            sources.as_ref().expect("history sources"),
+            history.aliases.as_deref(),
+            history.merge_log.as_deref(),
+        )
+    });
     let addresses = options.brief().then(|| artifact.entry_addresses());
     for entry in artifact.entries() {
         let mut reasons = Vec::new();
@@ -1049,7 +1200,7 @@ pub fn open(root: &Path, options: &ReadOptions) -> Result<Value, AgentError> {
                 if o.promoted != Some(true) {
                     reasons.push("unpromoted_observation");
                 }
-                let measured = timeline.measure(
+                let measured = timeline.as_ref().expect("observation timeline").measure(
                     &history::Subject {
                         id: o.id.as_str(),
                         bound_to: o.bound_to.iter().map(|id| id.as_str()).collect(),
@@ -1070,12 +1221,15 @@ pub fn open(root: &Path, options: &ReadOptions) -> Result<Value, AgentError> {
             }
             _ => {}
         }
-        let value = entry.value(true);
+        let mut value = entry.value(true);
         if contains_pending(&value) {
             reasons.push("pending_binding");
         }
         if !reasons.is_empty() {
-            let mut value = addressed(&addresses, entry, entry.value(options.full));
+            if !options.full {
+                shorten(&mut value);
+            }
+            let mut value = addressed(&addresses, entry, value);
             let object = value.as_object_mut().unwrap();
             object.insert("reasons".into(), json!(reasons));
             if let Some(measured) = inactivity
@@ -1083,10 +1237,10 @@ pub fn open(root: &Path, options: &ReadOptions) -> Result<Value, AgentError> {
             {
                 object.extend(fields);
             }
-            rows.push(value);
+            rows.push((entry, value));
         }
     }
-    Ok(json!({"format":"ara.open/v1","items":rows,"diagnostics":diagnostics(&artifact.report)}))
+    Ok(rows)
 }
 fn contains_pending(value: &Value) -> bool {
     match value {

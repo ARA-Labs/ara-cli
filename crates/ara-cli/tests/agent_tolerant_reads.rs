@@ -5,16 +5,6 @@ use serde_json::{Value, json};
 use std::path::Path;
 use tempfile::TempDir;
 
-const CLAIM_FIELDS: [&str; 7] = [
-    "statement=x",
-    "conditions=y",
-    "proof=E01",
-    "falsification=z",
-    "status=hypothesis",
-    "dependencies=[]",
-    "provenance=ai-suggested",
-];
-
 /// Artifact files as (relative path, contents).
 type Files = Vec<(&'static str, &'static str)>;
 
@@ -121,13 +111,18 @@ fn complete_but_invalid_artifact_reads_with_original_diagnostics() {
     let shown = run(root, &["show", "N02", "--with", "claims,depends_on"]);
     assert_eq!(shown["entries"][0]["relations"]["claims"], json!(["C01"]));
     assert_eq!(shown["entries"][0]["relations"]["depends_on"], json!([]));
-    let path = run(root, &["path", "N02"]);
-    assert_eq!(ids(&path["steps"]), ["N01", "N02"]);
-    assert_eq!(codes(&path["diagnostics"], "errors").len(), 3);
-    let refs = run(root, &["refs", "C01"]);
-    assert!(ids(&refs["structured"]).contains(&"N02".to_owned()));
+    let path = run(root, &["show", "N02", "--with", "path"]);
     assert_eq!(
-        fail(root, &["refs", "C99"], 1)["error"]["code"],
+        ids(&path["entries"][0]["relations"]["path"]),
+        ["N01", "N02"]
+    );
+    assert_eq!(codes(&path["diagnostics"], "errors").len(), 3);
+    let refs = run(root, &["show", "C01", "--with", "refs"]);
+    assert!(
+        ids(&refs["entries"][0]["relations"]["refs"]["structured"]).contains(&"N02".to_owned())
+    );
+    assert_eq!(
+        fail(root, &["show", "C99", "--with", "refs"], 1)["error"]["code"],
         "unknown_id"
     );
     assert_eq!(
@@ -139,7 +134,7 @@ fn complete_but_invalid_artifact_reads_with_original_diagnostics() {
     let found = run(root, &["find", "mechanism"]);
     assert!(!found["results"].as_array().unwrap().is_empty());
     assert_eq!(codes(&found["diagnostics"], "errors").len(), 3);
-    let open = run(root, &["open"]);
+    let open = run(root, &["ls", "--unfinished"]);
     assert_eq!(codes(&open["diagnostics"], "errors").len(), 3);
 
     // Validity is unchanged: status, check and validate still report invalid.
@@ -160,9 +155,6 @@ fn complete_but_invalid_artifact_reads_with_original_diagnostics() {
     ara().arg("check").arg(root).assert().code(1);
     ara().arg("validate").arg(root).assert().failure();
 
-    // A write command's own artifact load stays strict.
-    let refused = fail(root, &["session", "log", "--summary", "x"], 1);
-    assert_eq!(refused["error"]["code"], "invalid_artifact");
     assert_eq!(
         snapshot(root),
         before,
@@ -230,9 +222,9 @@ fn retained_refusals_name_their_blocking_codes() {
         for read in [
             &["ls"][..],
             &["show", "N01"],
-            &["path", "N01"],
-            &["refs", "N01"],
-            &["open"],
+            &["show", "N01", "--with", "path"],
+            &["show", "N01", "--with", "refs"],
+            &["ls", "--unfinished"],
             &["find", "question"],
         ] {
             let refused = fail(dir.path(), read, 1);
@@ -316,7 +308,7 @@ fn stray_fence_claims_read_natively_and_writes_stay_strict() {
         ],
     );
     assert_eq!(source["artifact_validation"], "not_run");
-    assert!(ids(&run(root, &["refs", "C01"])["structured"]).contains(&"N01".to_owned()));
+    assert!(ids(&run(root, &["show", "C01", "--with", "refs"])["entries"][0]["relations"]["refs"]["structured"]).contains(&"N01".to_owned()));
     let status = run(root, &["status"]);
     assert_eq!(status["complete"], true);
     assert_eq!(status["counts"]["claim"], 2);
@@ -331,13 +323,21 @@ fn stray_fence_claims_read_natively_and_writes_stay_strict() {
         .code(1);
 
     let before = snapshot(root);
-    let mut add = vec!["claim", "add", "--title", "Third"];
-    for field in CLAIM_FIELDS {
-        add.extend(["--set", field]);
-    }
-    let refused = fail(root, &add, 1);
+    let input = TempDir::new().unwrap();
+    let create = input.path().join("create.jsonl");
+    std::fs::write(
+        &create,
+        concat!(
+            "{\"op\":\"claim.add\",\"title\":\"Third\",\"fields\":",
+            "{\"Statement\":\"x\",\"Conditions\":\"y\",\"Proof\":\"E01\",",
+            "\"Falsification\":\"z\",\"Status\":\"hypothesis\",",
+            "\"Dependencies\":[],\"Provenance\":\"ai-suggested\"}}\n",
+        ),
+    )
+    .unwrap();
+    let refused = fail(root, &["apply", create.to_str().unwrap()], 1);
     assert_eq!(refused["error"]["code"], "write.frontmatter");
-    let request = root.join("../request.jsonl");
+    let request = input.path().join("request.jsonl");
     std::fs::write(
         &request,
         r#"{"op":"entry.edit","target":{"id":"C01"},"set":{"Statement":"changed"}}"#,
@@ -515,7 +515,8 @@ fn dash_claim_headings_resolve_without_rewriting_source() {
             .unwrap()
             .starts_with("## C02 - Hyphen")
     );
-    let refs = run(root, &["refs", "C02"]);
+    let refs =
+        run(root, &["show", "C02", "--with", "refs"])["entries"][0]["relations"]["refs"].clone();
     let owners = ids(&refs["structured"]);
     assert!(owners.contains(&"N01".to_owned()), "{refs}");
     assert!(owners.contains(&"C04".to_owned()), "{refs}");

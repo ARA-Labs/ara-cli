@@ -27,6 +27,18 @@ def flatten(document):
 
 
 class AcceptanceGeneratorTests(unittest.TestCase):
+    def test_binding_consumer_reads_nested_show_citations(self):
+        response = {"format": "ara.show/v1", "entries": [{"relations": {"refs": {"structured": [
+            {"id": "N02", "field": "evidence"}, {"id": "N03", "field": "parent"}], "prose": []}}}]}
+        self.assertEqual(acceptance.citation_evidence_ids(response), {"N02"})
+
+
+    def test_consolidated_reads_keep_distinct_measurement_cases(self):
+        cases = [["show", "N01", "--json"], ["show", "N01", "--with", "path", "--json"],
+                 ["show", "C01", "--with", "refs", "--json"], ["ls", "--unfinished", "--json"]]
+        self.assertEqual([acceptance.read_case_name(case) for case in cases], ["show", "show.path", "show.refs", "ls.unfinished"])
+
+
     def test_broad_fields_and_references_resolve_in_generated_namespaces(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

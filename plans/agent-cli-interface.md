@@ -12,10 +12,8 @@ reads YAML and Markdown with Read/Grep, finds the highest existing ID by
 reading the file, and writes with Write/Edit. This plan makes the `ara` binary
 the agent's interface instead:
 
-1. **Read commands** (`ara ls`, `show`, `path`, `refs`, `open`, `status`) answer
-   structural questions in one call, with JSON output.
-2. **Write commands** (`ara add`, `ara edit`, `ara stage`, `ara promote`,
-   `ara apply`) assign IDs, check the result, and edit the files in place.
+1. **Read commands** (`ara ls`, `show`, `status`, and `find`) answer structural questions in one call. Brief text is the agent default; `--json` supports structured consumers.
+2. **Write commands** (`ara edit`, `claim set`, `heuristic set`, and `apply`) validate changes and edit native files in place. Creation, staging, promotion, and session recording use typed `apply` operations.
 3. **`ara merge`** combines two copies of one ARA, renumbering colliding IDs and
    rewriting the references to them, and writes a short report of what still
    needs a decision.
@@ -211,15 +209,15 @@ missing produce empty lists, not errors. New warnings get new `ARA2xx` codes.
 | `ara status` | Counts per layer, the next free ID for each prefix, the latest session, and the number of errors and warnings. Meant as the first call in an agent session. | `ara status --json` |
 | `ara ls` | Lists entries, filtered by type, subtree, date, status or provenance. | `ara ls --type dead_end --under N12 --since 2026-04-01` |
 | `ara show` | One or more entries, with chosen relations attached. | `ara show N62 --with parents,children,claims,sessions` |
-| `ara path` | The ancestor chain from the root to a node, one line per step. | `ara path N85` |
-| `ara refs` | Everything that cites an ID: structured fields first, then mentions in prose. | `ara refs C05` |
-| `ara open` | Work that is not finished: question nodes with no children, observations not yet promoted, claims still marked `hypothesis`, `[pending]` bindings, and observations not referenced for 3 or more sessions (research-manager's "stale" rule). | `ara open --json` |
+| `ara show --with path` | The ancestor chain from the root to a node, separate from dependency cross-edges. | `ara show N85 --with path` |
+| `ara show --with refs` | Structured citations and separate possible prose mentions, including source spans. | `ara show C05 --with refs` |
+| `ara ls --unfinished` | Reason-selected unfinished entries and observation inactivity measured from complete history; unknown counts remain `null`. | `ara ls --unfinished --json` |
 
 `ara ls --type` accepts node types (`question`, `experiment`, `dead_end`,
 `decision`, `insight`, `pivot`) and the other entry kinds (`claim`,
 `heuristic`, `observation`, `session`, `exhibit`, `concept`).
 
-**Finding prose mentions.** `ara refs` scans text fields for whole-word
+**Finding prose mentions.** `ara show --with refs` scans text fields for whole-word
 matches of the ID. Short IDs produce false matches. For example, "E2" in prose
 may mean a section of the paper rather than the plan `E02`. Structured
 references are therefore listed separately from prose matches and marked as
@@ -242,26 +240,23 @@ meets the speed budget, and has its documentation in `docs/agent-cli.md`.
 
 ## Phase 2: write commands
 
-Starts after F1–F4 are agreed. F5 only affects `ara link --same-as`, which can
-ship last.
+Starts after F1–F4 are agreed. F5 affects the typed `node.link_same_as` operation.
 
 **Commands.**
 
 | Command | Effect |
 |---|---|
-| `ara add node --type T --parent N12 --title "..." [--set key=value ...] [--depends-on N3] [--provenance P]` | Appends a node under its parent, with the next free `N` ID, and prints that ID. `--parent root` adds a root node. |
-| `ara add edge N40 --depends-on N12` | Adds an `also_depends_on` edge. Refuses an edge that would create a cycle. |
-| `ara edit <ID> --set key=value` | Changes fields. Allowed on `logic/` entries, and on the pointer fields from F4 in `trace/` and `staging/`. Anything else is refused with an explanation that cites the protocol rule. |
-| `ara claim add` / `ara claim set C05 --set Statement="..."` | Creates or edits a claim. `ara heuristic add/set` does the same for heuristics. |
-| `ara stage --content "..." --potential-type claim` | Adds an `O` observation with the next free ID. |
-| `ara promote O12 --to claim [--set ...]` | Creates the claim or heuristic and marks the observation promoted, in one write. |
-| `ara session start` / `ara session log --node N131` | Creates today's session record with the next sequence number, or appends to it. |
-| `ara link N131 --same-as N128` | Records F5. |
-| `ara apply ops.jsonl [--dry-run]` | Applies a list of the operations above. Either all of them succeed or none is written. Inside the batch, `"id": "$a"` names a new entry so later operations can refer to it (`"parent": "$a"`) before its real ID exists. |
+| `ara apply` with `node.add` | Appends a complete node under `parent`, allocates its ID, and returns it in `operations[i].id`. `parent: "root"` adds a root node; provisional IDs resolve through `bindings`. |
+| `ara apply` with `edge.add` | Adds a validated dependency edge and refuses cycles. |
+| `ara edit <ID> --set key=value` | Changes permitted mutable fields without inventing an audit session. |
+| `ara claim set C05 --set Statement="..."` / `ara heuristic set H01 --set Rationale="..."` | Retains the direct field setters. Creation uses complete `claim.add` or `heuristic.add` payloads in `apply`. |
+| `ara apply` with `observation.stage` | Appends complete observation content, context, provenance, and bindings; returns the allocated O ID. |
+| `ara apply` with `observation.promote` | Commits the destination and original observation's promotion tuple together. Consume `operations[i].target` and a numeric destination's `id`. |
+| `ara apply` with `session.start` / `session.log` | Explicit setup or complete turn recording. A summarized log can own later audited operations in the same batch; consume its `id` and `turn`. |
+| `ara apply` with `node.link_same_as` | Retains both records and requires proven chronology. |
+| `ara apply ops.jsonl [--dry-run] --json` | Applies a complete typed batch atomically. Consume `ara.apply/v1` operation results and bindings; dry-run identities and timestamps remain tentative. |
 
-**Long text.** Prose fields can be long and full of quotes, which is awkward in
-a shell argument. Any `--set key=value` also accepts `key=@file` and `key=@-`
-(read from stdin).
+**Long text.** Retained setters accept `key=@file`, `key=@-`, and `key=@@text`. JSONL values are literal, so a migrated `apply` request contains the intended text rather than a wrapper expansion token. Scratch requests stay outside the artifact.
 
 **Several processes, one checkout.** Each write takes an exclusive lock on
 `.ara/lock` (a gitignored directory) for the few milliseconds it runs, so two
@@ -293,12 +288,7 @@ question Q4.
 
 Starts after Phase 2, because the merge reuses its write code.
 
-**Command.** `ara merge --base <dir> --theirs <dir> [--as bob] [--dry-run] [--json]`
-merges into the ARA found by the usual lookup. `--base` is the copy both sides
-started from. `--as` sets the source label used in the alias log; it defaults
-to the name of the theirs directory. A later slice adds `--git <ref>`, which
-builds the base and theirs copies from git history so the agent does not have
-to.
+**Command.** `ara merge --base <dir> --theirs <dir> --source-key <opaque-key> [--as bob] [--dry-run] [--json]` merges into the artifact found by normal discovery. `--base` is the verified common starting copy. A stable fork identity is required unless the source carries an authenticated identity; reuse it across imports and replay. `--as` supplies only the display label, never identity. `merge --git <ref>` obtains base and incoming captures from local Git history under the same identity rule.
 
 **What the merge does, per layer.**
 
@@ -330,25 +320,10 @@ to.
      conflict, with both values;
    - new entries from theirs are renumbered like nodes.
 5. **Alias log.** Every renumbering is appended to `trace/aliases.yaml` (F1).
-   `ara resolve bob:N124` prints `N131`. Merging the same theirs a second time
-   finds its entries in the alias log and changes nothing.
+   `ara show --identity bob:N124 --json` returns the exact mapping in
+   `entries[0].resolved_target`. Repeating the same merge preserves its portable sources.
 
-**The report.** This is what the agent reads instead of the two ARAs:
-
-```json
-{
-  "format": "ara.merge/v1",
-  "renamed": {"bob:N124": "N131"},
-  "rewritten": {"structured": 14, "prose": 3},
-  "needs_review": [{"node": "N131", "field": "reasoning", "match": "C4"}],
-  "duplicate_candidates": [{"a": "N128", "b": "N131", "score": 0.91}],
-  "logic_conflicts": [{"claim": "C05", "field": "Statement", "ours": "...", "theirs": "..."}]
-}
-```
-
-`duplicate_candidates` stays empty until Phase 4. The exit code is `1` while
-any conflict is left open. The agent resolves conflicts with the Phase 2
-commands (`ara claim set`, `ara edit`, `ara link --same-as`).
+**The report.** The [command reference](../docs/agent-cli.md#directory-and-git-merge) defines the current `ara.merge/v1` mapping, conflict, replay, and evidence fields. An unresolved merge exits 1. `merge resolve` records ordinary mutable decisions; `merge repair` requires the separate protected-history permission boundary. Equivalence annotation remains a typed `node.link_same_as` write and does not collapse either record.
 
 **Tests.** No LLM is involved, so everything is a deterministic test.
 
@@ -382,10 +357,7 @@ and 3.
   milliseconds, so there is nothing to cache, keep fresh, or gitignore. The
   research note suggests tantivy with a cache under `.ara/cache/`. We switch to
   that only if the 10,000-node timing test misses the speed budget.
-- **Duplicate warnings.** `ara add node` prints, without blocking, the closest
-  existing nodes above a similarity threshold. `ara merge` fills
-  `duplicate_candidates` the same way. The agent decides; the CLI never merges
-  two nodes on its own.
+- **Duplicate warnings.** An `apply` request containing `node.add` reports nonblocking `duplicate_candidates`. `ara merge` reports the same advisory field. The agent decides whether entries are equivalent; the CLI never merges them automatically.
 - **Meaning-based search** (local embeddings through a small model such as a
   bge-class model, via fastembed) is built only if the research experiments show
   keyword search missing paraphrases. It sits behind a cargo feature that is off
@@ -416,11 +388,11 @@ documentation needed to use the commands:
 
 | Existing skill operation | CLI-backed operation |
 |---|---|
-| Read or grep knowledge-layer files to locate entries and relations | Use `ara ls`, `show`, `path`, `refs`, `open`, and `find`; retrieve the needed prose with `--full`. |
-| Read files to choose the next ID, then write or edit an entry | Use the corresponding `ara add`, `edit`, `claim`, or `heuristic` command; the CLI assigns new IDs. |
-| Stage an observation, or promote it when the skill's closure rule fires | Use `ara stage` or `ara promote`, retaining the same closure decision and provenance. |
+| Read or grep knowledge-layer files to locate entries and relations | Use `ara ls`, `show`, and `find`; inspect ancestry/citations with `show --with path,refs`, and review unfinished work with `ls --unfinished`. |
+| Read files to choose the next ID, then write or edit an entry | Create entries with typed `ara apply` operations and consume returned bindings. Keep `edit`, `claim set`, and `heuristic set` for permitted standalone field edits. |
+| Stage an observation, or promote it when the skill's closure rule fires | Use `observation.stage` or `observation.promote` in `ara apply`, retaining the same closure decision and provenance. |
 | Write a compiled artifact through many file edits | Emit operations and call `ara apply`; retain the compiler's content and evidence requirements. |
-| Maintain session records and revision history | Use session commands and batch operations that preserve every record required by the source skill. |
+| Maintain session records and revision history | Start an atomic `apply` request with a summarized `session.log`, followed by typed events, audited revisions, and reasoning. |
 | Read or write code and evidence bodies | Keep direct file access, as required by the non-goals. |
 
 Revise research-foresight's "no index layer" instruction only in its copied

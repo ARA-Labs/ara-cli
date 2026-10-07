@@ -38,7 +38,7 @@ fn every_printed_address_is_accepted_by_show() {
             addresses.extend(leading(&listed));
         }
     }
-    addresses.extend(leading(&stdout(&["open"])));
+    addresses.extend(leading(&stdout(&["ls", "--unfinished"])));
     for query in [
         "semaphore",
         "rubric heuristics",

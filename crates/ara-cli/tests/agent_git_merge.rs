@@ -359,19 +359,22 @@ fn binary_merge_preserves_dirty_ours_and_exact_git_state_and_replays() {
     assert!(session.contains("ai_suggestions_pending: [review Bob finding]"));
     assert_eq!(git_state(&repo.root), state);
     let resolve = ara_command(&repo.artifact)
-        .args(["resolve", "bob:N124"])
+        .args(["show", "bob:N124", "--identity", "--json"])
         .output()
         .unwrap();
     assert_exit(&resolve, 0);
-    assert!(String::from_utf8(resolve.stdout).unwrap().contains("N125"));
+    assert_eq!(
+        serde_json::from_slice::<Value>(&resolve.stdout).unwrap()["entries"][0]["resolved_target"],
+        "N125"
+    );
     for address in ["bob:src/opaque.bin", "bob:logic/vendor.yaml"] {
         let resolved = ara_command(&repo.artifact)
-            .args(["resolve", address, "--json"])
+            .args(["show", address, "--identity", "--json"])
             .output()
             .unwrap();
         assert_exit(&resolved, 0);
         assert_eq!(
-            serde_json::from_slice::<Value>(&resolved.stdout).unwrap()["id"],
+            serde_json::from_slice::<Value>(&resolved.stdout).unwrap()["entries"][0]["resolved_target"],
             address.strip_prefix("bob:").unwrap()
         );
     }
@@ -1089,11 +1092,14 @@ fn advancing_committed_source_reuses_imports_and_reset_rejects_without_mutation(
     let repo = Repository::new("ara");
     assert_exit(&repo.merge(&[]), 0);
     let first_resolve = ara_command(&repo.artifact)
-        .args(["resolve", "bob:C05"])
+        .args(["show", "bob:C05", "--identity", "--json"])
         .output()
         .unwrap();
     assert_exit(&first_resolve, 0);
-    assert!(String::from_utf8_lossy(&first_resolve.stdout).contains("C01"));
+    assert_eq!(
+        serde_json::from_slice::<Value>(&first_resolve.stdout).unwrap()["entries"][0]["resolved_target"],
+        "C01"
+    );
     let source = repo._owner.path().join("Bob checkout");
     run_git(
         &repo.root,
@@ -1123,13 +1129,16 @@ fn advancing_committed_source_reuses_imports_and_reset_rejects_without_mutation(
         fs::read_to_string(repo.artifact.join("logic/claims.md")).unwrap()
     );
     let resolve = ara_command(&repo.artifact)
-        .args(["resolve", "bob:N124"])
+        .args(["show", "bob:N124", "--identity", "--json"])
         .output()
         .unwrap();
     assert_exit(&resolve, 0);
-    assert!(String::from_utf8_lossy(&resolve.stdout).contains("N125"));
+    assert_eq!(
+        serde_json::from_slice::<Value>(&resolve.stdout).unwrap()["entries"][0]["resolved_target"],
+        "N125"
+    );
     let claim_resolve = ara_command(&repo.artifact)
-        .args(["resolve", "bob:C05"])
+        .args(["show", "bob:C05", "--identity", "--json"])
         .output()
         .unwrap();
     assert_exit(&claim_resolve, 0);

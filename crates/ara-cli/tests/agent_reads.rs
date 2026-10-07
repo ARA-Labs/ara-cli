@@ -54,9 +54,9 @@ fn nesting_filters_paths_and_relations_do_not_follow_cross_edges() {
         run(dir.path(), &["ls", "--under", "N03"])["entries"],
         json!([])
     );
-    let path = run(dir.path(), &["path", "N02"]);
+    let path = run(dir.path(), &["show", "N02", "--with", "path"]);
     assert_eq!(
-        path["steps"]
+        path["entries"][0]["relations"]["path"]
             .as_array()
             .unwrap()
             .iter()
@@ -182,7 +182,7 @@ fn missing_selector_argument_and_invalid_artifact_errors_are_separate() {
     let argument = ara()
         .arg("-C")
         .arg(dir.path())
-        .args(["path", "--json"])
+        .args(["show", "--identity", "--json"])
         .assert()
         .code(2)
         .stdout("")
@@ -191,7 +191,7 @@ fn missing_selector_argument_and_invalid_artifact_errors_are_separate() {
         .clone();
     assert_eq!(
         serde_json::from_slice::<Value>(&argument).unwrap()["format"],
-        "ara.path/v1"
+        "ara.show/v1"
     );
     std::fs::write(
         dir.path().join("trace/exploration_tree.yaml"),
@@ -355,7 +355,9 @@ fn structured_refs_have_exact_source_spans_without_duplicate_prose() {
         "# Concepts\n\n## 範囲\n- **Definition**: Native Unicode concept.\n- **Related**: C01\n",
     )
     .unwrap();
-    let refs = run(dir.path(), &["refs", "C01"]);
+    let refs =
+        run(dir.path(), &["show", "C01", "--with", "refs"])["entries"][0]["relations"]["refs"]
+            .clone();
     let certain = refs["structured"].as_array().unwrap();
     assert!(
         certain
@@ -389,7 +391,10 @@ fn structured_refs_have_exact_source_spans_without_duplicate_prose() {
         );
     }
     assert!(
-        run(dir.path(), &["refs", "logic/concepts.md:範囲"])["structured"]
+        run(
+            dir.path(),
+            &["show", "logic/concepts.md:範囲", "--with", "refs"]
+        )["entries"][0]["relations"]["refs"]["structured"]
             .as_array()
             .unwrap()
             .is_empty()
@@ -473,4 +478,403 @@ fn source_read_accepts_one_positional_document_path() {
         );
         assert!(text.contains(code), "{args:?}: {text}");
     }
+}
+
+#[test]
+fn combined_relations_preserve_order_documents_and_projection() {
+    let dir = TempDir::new().unwrap();
+    artifact(dir.path(), "Parent");
+    let value = run(
+        dir.path(),
+        &[
+            "show",
+            "N02",
+            "N01",
+            "--with",
+            "path,refs",
+            "--with",
+            "parents,path",
+        ],
+    );
+    assert_eq!(value["entries"][0]["id"], "N02");
+    assert_eq!(value["entries"][1]["id"], "N01");
+    assert_eq!(value["entries"][0]["relations"]["path"][0]["id"], "N01");
+    assert_eq!(value["entries"][0]["relations"]["path"][1]["id"], "N02");
+    assert_eq!(value["entries"][0]["relations"]["parents"], json!(["N01"]));
+    assert_eq!(
+        value["entries"][0]["relations"].as_object().unwrap().len(),
+        3
+    );
+    let positional = run(
+        dir.path(),
+        &["show", "trace/exploration_tree.yaml", "--with", "refs"],
+    );
+    let document = run(
+        dir.path(),
+        &[
+            "show",
+            "--document",
+            "trace/exploration_tree.yaml",
+            "--with",
+            "refs",
+        ],
+    );
+    assert_eq!(
+        positional["entries"][0]["relations"],
+        document["entries"][0]["relations"]
+    );
+    let projected = run(
+        dir.path(),
+        &["show", "C01", "--with", "refs", "--fields", "relations"],
+    );
+    assert!(
+        projected["entries"][0]["relations"]["refs"]["structured"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|row| row["id"] == "N02")
+    );
+}
+
+#[test]
+fn incompatible_relations_reject_the_entire_selection() {
+    let dir = TempDir::new().unwrap();
+    artifact(dir.path(), "Parent");
+    for args in [
+        vec!["show", "N02", "C01", "--with", "path"],
+        vec![
+            "show",
+            "--document",
+            "logic/claims.md",
+            "--heading",
+            "C01",
+            "--with",
+            "refs",
+        ],
+        vec!["show", "--document", "logic/claims.md", "--with", "parents"],
+        vec!["show", "logic/claims.md", "--source", "--with", "refs"],
+    ] {
+        let output = ara()
+            .arg("-C")
+            .arg(dir.path())
+            .args(args)
+            .arg("--json")
+            .assert()
+            .code(1)
+            .stdout("")
+            .get_output()
+            .clone();
+        assert_eq!(
+            serde_json::from_slice::<Value>(&output.stderr).unwrap()["error"]["code"],
+            "invalid_selector"
+        );
+    }
+}
+
+#[test]
+fn unfinished_filters_intersect_without_document_fallback() {
+    let dir = TempDir::new().unwrap();
+    artifact(dir.path(), "Parent");
+    let rows = run(
+        dir.path(),
+        &[
+            "ls",
+            "--unfinished",
+            "--type",
+            "question",
+            "--fields",
+            "reasons,source_refs",
+        ],
+    );
+    assert_eq!(rows["entries"].as_array().unwrap().len(), 1);
+    assert_eq!(rows["entries"][0]["id"], "N03");
+    assert_eq!(rows["entries"][0]["reasons"], json!(["childless_question"]));
+    assert_eq!(rows["entries"][0]["source_refs"], json!([]));
+    for args in [
+        vec!["ls", "--unfinished", "--under", "N01"],
+        vec![
+            "ls",
+            "logic/claims.md",
+            "--unfinished",
+            "--status",
+            "confirmed",
+            "--fields",
+            "reasons,history_status,evidence_sources",
+        ],
+        vec![
+            "ls",
+            "--unfinished",
+            "--since",
+            "2026-10-02",
+            "--type",
+            "question",
+            "--fields",
+            "reasons,source_refs",
+        ],
+    ] {
+        assert_eq!(run(dir.path(), &args)["entries"], json!([]));
+    }
+}
+
+#[test]
+fn unfinished_solution_survives_type_and_document_filters() {
+    let dir = TempDir::new().unwrap();
+    artifact(dir.path(), "Parent");
+    std::fs::create_dir_all(dir.path().join("logic/solution")).unwrap();
+    std::fs::write(
+        dir.path().join("logic/solution/method.md"),
+        "# Method\n\nImplementation: [pending]\n",
+    )
+    .unwrap();
+    let unfinished = run(dir.path(), &["ls", "--unfinished"]);
+    let recipe = unfinished["entries"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|row| row["kind"] == "solution")
+        .unwrap();
+    assert_eq!(recipe["key"], "logic/solution/method.md");
+    assert_eq!(recipe["source"], "logic/solution/method.md");
+    assert_eq!(recipe["reasons"], json!(["pending_binding"]));
+    let filtered = run(dir.path(), &["ls", "--unfinished", "--type", "solution"]);
+    assert_eq!(filtered["entries"], json!([recipe]));
+    let scoped = run(
+        dir.path(),
+        &[
+            "ls",
+            "logic/solution/method.md",
+            "--unfinished",
+            "--type",
+            "solution",
+        ],
+    );
+    assert_eq!(scoped["entries"], filtered["entries"]);
+}
+
+#[test]
+fn relation_budget_rejects_complete_metadata_and_never_drops_relations() {
+    let dir = TempDir::new().unwrap();
+    artifact(dir.path(), "Parent");
+    let expected =
+        run(dir.path(), &["show", "C01", "--with", "refs"])["entries"][0]["relations"].clone();
+    let bounded = run(
+        dir.path(),
+        &["show", "C01", "--with", "refs", "--max-bytes", "100000"],
+    );
+    assert_eq!(bounded["entries"][0]["relations"], expected);
+    let output = ara()
+        .arg("-C")
+        .arg(dir.path())
+        .args([
+            "show",
+            "C01",
+            "--with",
+            "refs",
+            "--max-bytes",
+            "1",
+            "--json",
+        ])
+        .assert()
+        .code(1)
+        .stdout("")
+        .get_output()
+        .clone();
+    let error: Value = serde_json::from_slice(&output.stderr).unwrap();
+    assert_eq!(error["error"]["code"], "output_limit_too_small");
+    assert!(
+        error["error"]["details"]["hint"]
+            .as_str()
+            .unwrap()
+            .contains("--max-bytes")
+    );
+}
+
+#[test]
+fn identity_address_count_rejects_before_artifact_discovery() {
+    let dir = TempDir::new().unwrap();
+    let empty = dir.path().join("empty");
+    std::fs::create_dir_all(&empty).unwrap();
+    let pending = dir.path().join("pending");
+    std::fs::create_dir_all(&pending).unwrap();
+    artifact(&pending, "Pending");
+    let marker = pending.join(".ara/transactions/active.json.prepared");
+    std::fs::create_dir_all(marker.parent().unwrap()).unwrap();
+    std::fs::write(&marker, r#"{"format":"ara.transaction/v1","entries":[]}"#).unwrap();
+    for root in [empty, dir.path().join("missing"), pending] {
+        for args in [
+            vec!["show", "--identity", "--json"],
+            vec!["show", "--identity", "trace:N01", "trace:N02", "--json"],
+        ] {
+            let output = ara()
+                .arg("-C")
+                .arg(&root)
+                .args(args)
+                .assert()
+                .code(2)
+                .stdout("")
+                .get_output()
+                .clone();
+            assert_eq!(
+                serde_json::from_slice::<Value>(&output.stderr).unwrap()["error"]["code"],
+                "argument_error",
+            );
+        }
+        assert!(!root.join(".ara/lock").exists());
+    }
+    assert_eq!(
+        std::fs::read_to_string(marker).unwrap(),
+        r#"{"format":"ara.transaction/v1","entries":[]}"#
+    );
+}
+
+#[test]
+fn identity_lookup_does_not_require_a_representable_current_body() {
+    let dir = TempDir::new().unwrap();
+    artifact(dir.path(), "Parent");
+    std::fs::write(
+        dir.path().join("trace/exploration_tree.yaml"),
+        "tree:\n  - id: N01\n    type: question\n    title: Retained identity\n    description: {opaque: invalid-shape}\n",
+    )
+    .unwrap();
+    let before = std::fs::read(dir.path().join("trace/exploration_tree.yaml")).unwrap();
+    ara()
+        .arg("-C")
+        .arg(dir.path())
+        .args(["show", "N01", "--json"])
+        .assert()
+        .code(1)
+        .stdout("");
+    let row = run(
+        dir.path(),
+        &[
+            "show",
+            "--identity",
+            "trace:N01",
+            "--fields",
+            "kind",
+            "--full",
+        ],
+    )["entries"][0]
+        .clone();
+    assert_eq!(
+        row,
+        json!({"kind":"identity","requested_address":"trace:N01","resolved_target":"N01"})
+    );
+    let unknown = ara()
+        .arg("-C")
+        .arg(dir.path())
+        .args(["show", "--identity", "trace:N99", "--json"])
+        .assert()
+        .code(1)
+        .stdout("")
+        .get_output()
+        .clone();
+    assert_eq!(
+        serde_json::from_slice::<Value>(&unknown.stderr).unwrap()["error"]["code"],
+        "merge.unknown_identity"
+    );
+    for args in [
+        vec!["show", "--identity"],
+        vec!["show", "--identity", "trace:N01", "trace:N02"],
+        vec![
+            "show",
+            "--identity",
+            "trace:N01",
+            "--document",
+            "logic/claims.md",
+        ],
+        vec!["show", "--identity", "trace:N01", "--with", "refs"],
+    ] {
+        ara()
+            .arg("-C")
+            .arg(dir.path())
+            .args(args)
+            .arg("--json")
+            .assert()
+            .code(2)
+            .stdout("");
+    }
+    let bounded = ara()
+        .arg("-C")
+        .arg(dir.path())
+        .args([
+            "show",
+            "--identity",
+            "trace:N01",
+            "--max-bytes",
+            "1",
+            "--json",
+        ])
+        .assert()
+        .code(1)
+        .stdout("")
+        .get_output()
+        .clone();
+    assert_eq!(
+        serde_json::from_slice::<Value>(&bounded.stderr).unwrap()["error"]["code"],
+        "output_limit_too_small"
+    );
+    assert_eq!(
+        std::fs::read(dir.path().join("trace/exploration_tree.yaml")).unwrap(),
+        before
+    );
+}
+
+#[test]
+fn unfinished_unknown_inactivity_survives_filters_and_reads_write_nothing() {
+    let dir = TempDir::new().unwrap();
+    artifact(dir.path(), "Parent");
+    std::fs::create_dir_all(dir.path().join("staging")).unwrap();
+    let staging = dir.path().join("staging/observations.yaml");
+    std::fs::write(&staging, "observations:\n  - id: O01\n    content: Missing timestamp and history\n    provenance: user\n    bound_to: [N02]\n    promoted: false\n    stale: true\n  - id: O02\n    content: Other work\n    provenance: ai-suggested\n    bound_to: [N03]\n    promoted: false\n").unwrap();
+    let paths = [
+        "trace/exploration_tree.yaml",
+        "logic/claims.md",
+        "staging/observations.yaml",
+    ];
+    let before: Vec<_> = paths
+        .iter()
+        .map(|path| std::fs::read(dir.path().join(path)).unwrap())
+        .collect();
+    let full = run(dir.path(), &["ls", "--unfinished", "--type", "observation"]);
+    let filtered = run(
+        dir.path(),
+        &[
+            "ls",
+            "staging/observations.yaml",
+            "--unfinished",
+            "--type",
+            "observation",
+            "--provenance",
+            "user",
+        ],
+    );
+    assert_eq!(filtered["entries"].as_array().unwrap().len(), 1);
+    assert_eq!(filtered["entries"][0], full["entries"][0]);
+    let row = &filtered["entries"][0];
+    assert_eq!(row["id"], "O01");
+    assert_eq!(row["turns_since_reference"], Value::Null);
+    assert_eq!(row["session_days_since_reference"], Value::Null);
+    assert_ne!(row["history_status"], "complete");
+    assert!(
+        row["history_diagnostics"]
+            .as_array()
+            .is_some_and(|rows| !rows.is_empty())
+    );
+    assert!(
+        row["reasons"]
+            .as_array()
+            .unwrap()
+            .contains(&json!("stale_observation"))
+    );
+    assert_eq!(
+        run(dir.path(), &["ls", "--unfinished", "--under", "N02"])["entries"],
+        json!([])
+    );
+    let after: Vec<_> = paths
+        .iter()
+        .map(|path| std::fs::read(dir.path().join(path)).unwrap())
+        .collect();
+    assert_eq!(before, after);
+    assert!(!dir.path().join(".ara").exists());
 }

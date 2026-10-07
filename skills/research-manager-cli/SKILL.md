@@ -31,9 +31,10 @@ but never authorize direct knowledge-file tools. Run one quoted `ara` command pe
 with no pipes, redirects, `&&`, `;` or globs, and read brief text: `ls`, `find`, then `show`
 the address the output prints, and cite that address. `cli-access.md` covers bounds, misses
 and the exact-source read before a guarded write;
-`ls`, `find`, `path`, `refs`, `open` and `status` are access aids, not semantic judgments.
+`ls`, `find`, `show --with path,refs`, `ls --unfinished` and `status` are access aids, not semantic judgments.
 Source/evidence bodies and skill pages remain direct only within the baseline scope.
 No direct fallback, automatic semantic retry, new role, or altered stopping rule is allowed.
+Use the shared [find/read/cite task](references/cli-access.md#reading-orient-search-read-cite), [initialization](references/cli-access.md#initialize-or-extend-an-artifact), [ancestry/citations/identity](references/cli-access.md#inspect-ancestry-citations-and-imported-identities), [unfinished work](references/cli-access.md#review-unfinished-work), [claim/heuristic creation](references/cli-access.md#create-claims-and-heuristics), and access tasks for [research turns](references/cli-access.md#record-a-research-turn), [staging and crystallization](references/cli-access.md#stage-or-crystallize-an-observation), [audited edits](references/cli-access.md#edit-current-knowledge), and [confirmed reactions](references/cli-access.md#record-annotations-and-confirmed-user-reactions).
 The entrypoint loads `references/cli-access.md` directly for executable wire details.
 Pending protocol review and binary proof remain visible in the variant lock.
 
@@ -134,7 +135,7 @@ A staged observation crystallizes when **at least one** of these signals is pres
 1. **Topic abandonment** — observation's topic has no events in the last `k=5` turns AND
    `open_threads` does not reference it. Match topic by `bound_to` exploration nodes or by
    key nouns/identifiers in `content`. Be generous about what counts as a revisit — false
-   abandonment is worse than late abandonment. Do not count turns by hand: `ara open --json`
+   abandonment is worse than late abandonment. Do not count turns by hand: `ara ls --unfinished --json`
    reports each observation's `turns_since_reference`, the logged turns since the last exact
    reference to its ID or a bound node (`evidence_sources` lists what was matched). That count
    only bounds the judgment: topic wording and current `open_threads` can still show a revisit,
@@ -246,7 +247,7 @@ writer, and a report is INPUT to it, not an edit.
 
 A staged observation that has neither been promoted nor referenced for **3+ session-days**
 gets `stale: true`. Stale observations are surfaced at the next briefing for the
-researcher to triage — the manager does not auto-discard. `ara open --json` reports the
+researcher to triage — the manager does not auto-discard. `ara ls --unfinished --json` reports the
 measured `session_days_since_reference`; when it is 3 or more, write `observation.mark_stale`
 with your reason and signal and **omit `session_days`**: the CLI derives the logged days after
 the last reference (excluding this turn) and records them, or refuses when the history cannot
@@ -332,6 +333,8 @@ For each crystallized entry in `logic/`, check this turn for:
 
 When a signal fires for entry `E` (claim, heuristic, or concept):
 
+Follow the shared [rename, merge and split access task](references/cli-access.md#rename-merge-or-split-knowledge-entries) for the structural actions below.
+
 1. Use `logic.revise` through `ara apply` for the affected fields in the logic file. **Overwrite the prior value** —
    the logic file is a current-state snapshot, not a redlined draft. The CLI sets
    `Last revised` to the owning turn; never write it yourself.
@@ -396,15 +399,17 @@ When a signal fires for entry `E` (claim, heuristic, or concept):
   ambiguous reference, result that touches a neighboring entry), record it in
   `pm_reasoning_log.yaml`.
 
+For authorized artifact integration, follow [Integrate another artifact](references/cli-access.md#integrate-another-artifact); this does not grant a local PM additional integration authority.
+
 ## Per-Turn Procedure
 
 ```
 1. Read existing ara/ knowledge with ara full source shows (current state); use CLI allocation/results for new IDs.
 2. Stage 1 — harvest this turn's candidate events.
 3. Stage 2 — classify/route each (per event-taxonomy.md): journey facts direct to trace/; interpretive events staged to staging/observations.yaml.
-4. Stage 3 — crystallize staged observations whose closure signal fired; flag contradictions; mark observations stale whose `open` row shows `session_days_since_reference` >= 3 (omit `session_days`).
+4. Stage 3 — crystallize staged observations whose closure signal fired; flag contradictions; mark observations stale whose `ls --unfinished` row shows `session_days_since_reference` >= 3 (omit `session_days`).
 5. Stage 4 — for each crystallized logic/ entry, apply status/content/structural edits when a signal fires; run the cross-ref consistency pass (logic.revise records each before/after in the session record); log near-misses.
-6. Use one ara apply batch anchored by one session.log with your one-line summary and no session/timestamp: the CLI selects today's open session or creates it, allocates the turn, and fills session/turn for revisions and reasoning that omit them. It also derives the turn's mechanical events_logged and claims_touched rows from the batch's node.add, observation.stage, claim/heuristic add, observation.promote and logic.revise operations (supply provenance on each). You supply what only you know: claim judgments, ai_actions, key_context, open_threads, ai_suggestions_pending, and event rows for entries not created in this batch or that need your own summary. record.append appends the complete PM reasoning notes. If the CLI reports write.session_ambiguous, name the session; report any open_sessions it lists.
+6. Use one ara apply batch anchored by one session.log with your one-line summary and no session/timestamp: the CLI selects today's open session or creates it, allocates the turn, and fills session/turn for revisions and reasoning that omit them. It also derives the turn's mechanical events_logged and claims_touched rows from the batch's node.add, observation.stage, claim.add/heuristic.add, observation.promote and logic.revise operations (supply provenance on each). You supply what only you know: claim judgments, ai_actions, key_context, open_threads, ai_suggestions_pending, and event rows for entries not created in this batch or that need your own summary. record.append appends the complete PM reasoning notes. If the CLI reports write.session_ambiguous, name the session; report any open_sessions it lists.
 7. Print one-line summary, e.g.:
      [PM] Turn captured: 1 decision (direct), 2 observations staged, 1 claim crystallized via affirmation, C03 testing→supported, C07 revised (scope narrowed).
    Or, for empty turns:

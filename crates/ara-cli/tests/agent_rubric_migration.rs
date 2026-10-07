@@ -159,11 +159,15 @@ fn rubric_aliases_stay_exact_history_and_scoped_reads_resolve() {
         let shown = run(dir.path(), &["show", address]);
         assert_eq!(shown["entries"].as_array().unwrap().len(), 1, "{shown}");
     }
-    assert_eq!(run(dir.path(), &["resolve", "peer:C02"])["id"], "C02");
+    assert_eq!(
+        run(dir.path(), &["show", "peer:C02", "--identity"])["entries"][0]["resolved_target"],
+        "C02"
+    );
     let output = ara(dir.path())
         .args([
-            "resolve",
+            "show",
             "peer:rubric/requirements.md#Requirements/R02: Added",
+            "--identity",
             "--json",
         ])
         .output()

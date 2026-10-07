@@ -21,6 +21,8 @@ metadata:
 
 # research-foresight — the ARA World Model
 
+Use only the shared [read and relation tasks](references/cli-access.md#inspect-ancestry-citations-and-imported-identities) and [unfinished-work read](references/cli-access.md#review-unfinished-work); this reader never submits writes.
+
 ## CLI-only access boundary
 
 Every knowledge-layer or root `PAPER.md` read/write in this page uses `ara -C <artifact>`; the
@@ -29,12 +31,13 @@ but never authorize direct knowledge-file tools. Run one quoted `ara` command pe
 with no pipes, redirects, `&&`, `;` or globs, and read brief text: `ls`, `find`, then `show`
 the address the output prints, and cite that address. `cli-access.md` covers bounds, misses
 and the exact-source read before a guarded write;
-`ls`, `find`, `path`, `refs`, `open` and `status` are access aids, not semantic judgments.
+`ls`, `find`, `show --with path,refs`, `ls --unfinished` and `status` are access aids, not semantic judgments.
 Native `ara` documents are `PAPER.md`, `logic/`, `trace/`, `staging/` and paths registered
 in `PAPER.md` `knowledge_paths`. `rubric/`, `evidence/` and `src/` are not: when the procedure
 or question directs you to them, read and search them directly with the Read/Grep/Glob/LS tools, never through a shell
 (`ara show --document rubric/...` returns `invalid_document`). Skill pages remain direct.
 No direct fallback, automatic semantic retry, new role, or altered stopping rule is allowed.
+Use the shared [read and relation tasks](references/cli-access.md#inspect-ancestry-citations-and-imported-identities) only within this skill's role.
 The entrypoint loads `references/cli-access.md` directly for executable wire details.
 Pending protocol review and binary proof remain visible in the variant lock.
 

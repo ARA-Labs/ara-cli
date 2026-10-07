@@ -348,6 +348,11 @@ fn lines_unavailable(row: &Value) -> AgentError {
 }
 
 fn projection_hint(row: &Value, size: usize) -> String {
+    if row.get("relations").is_some() || row["kind"] == "identity" {
+        return format!(
+            "The complete relations or identity mapping and required metadata need {size} bytes; rerun with --max-bytes {size} or more"
+        );
+    }
     format!(
         "`{}` is a projection with no native line range to page through; read the exact source with `{} --lines A:B`, or rerun with --max-bytes {size}",
         label(row),

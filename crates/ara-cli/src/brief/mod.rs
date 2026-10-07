@@ -25,13 +25,7 @@ const TEXT_CODES: usize = 12;
 pub(crate) fn handles(format: &str) -> bool {
     matches!(
         format,
-        "ara.status/v1"
-            | "ara.ls/v1"
-            | "ara.show/v1"
-            | "ara.path/v1"
-            | "ara.refs/v1"
-            | "ara.open/v1"
-            | "ara.find/v1"
+        "ara.status/v1" | "ara.ls/v1" | "ara.show/v1" | "ara.find/v1"
     )
 }
 
@@ -69,9 +63,6 @@ pub(crate) fn render(value: &Value, out: &mut impl Write) -> std::io::Result<()>
         "ara.find/v1" => lists::find(value, out),
         "ara.ls/v1" => lists::ls(value, out),
         "ara.status/v1" => lists::status(value, out),
-        "ara.path/v1" => lists::path(value, out),
-        "ara.refs/v1" => lists::refs(value, out),
-        "ara.open/v1" => lists::open(value, out),
         _ => writeln!(out, "{value:#}"),
     }
 }

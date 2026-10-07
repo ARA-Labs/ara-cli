@@ -134,14 +134,7 @@ pub fn project(value: &mut Value, fields: Option<&str>) -> Result<(), AgentError
         });
         return Ok(());
     }
-    let arrays = [
-        "entries",
-        "steps",
-        "items",
-        "results",
-        "structured",
-        "prose",
-    ];
+    let arrays = ["entries", "results"];
     if !arrays
         .iter()
         .any(|key| object.get(*key).is_some_and(Value::is_array))
@@ -170,8 +163,14 @@ pub fn project(value: &mut Value, fields: Option<&str>) -> Result<(), AgentError
             for row in rows {
                 if let Some(row) = row.as_object_mut() {
                     row.retain(|name, _| {
-                        matches!(name.as_str(), "id" | "key" | "kind" | "source")
-                            || names.contains(&name.as_str())
+                        matches!(
+                            name.as_str(),
+                            "id" | "key"
+                                | "kind"
+                                | "source"
+                                | "requested_address"
+                                | "resolved_target"
+                        ) || names.contains(&name.as_str())
                     });
                 }
             }
@@ -195,12 +194,6 @@ fn known_row_field(format: &str, name: &str) -> bool {
                 | "context"
         );
     }
-    if format == "ara.refs/v1" {
-        return matches!(
-            name,
-            "id" | "source" | "field" | "literal" | "certainty" | "range" | "context"
-        );
-    }
     let node = matches!(
         name,
         "id" | "key"
@@ -209,6 +202,7 @@ fn known_row_field(format: &str, name: &str) -> bool {
             | "label"
             | "title"
             | "support_level"
+            | "source_refs"
             | "description"
             | "thinking"
             | "provenance"
@@ -223,9 +217,6 @@ fn known_row_field(format: &str, name: &str) -> bool {
             | "source_fields"
             | "relations"
     );
-    if format == "ara.path/v1" {
-        return node;
-    }
     node || matches!(
         name,
         "statement"
@@ -302,6 +293,8 @@ fn known_row_field(format: &str, name: &str) -> bool {
             | "address"
             | "digest"
             | "reasons"
+            | "requested_address"
+            | "resolved_target"
     )
 }
 

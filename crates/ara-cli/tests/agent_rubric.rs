@@ -305,7 +305,7 @@ fn rubric_history_from_earlier_binaries_stays_exact_and_inspectable() {
     let status = run(dir.path(), &["status"]);
     assert_eq!(status["diagnostics"]["errors"], 0, "{status}");
     run(dir.path(), &["ls"]);
-    run(dir.path(), &["open"]);
+    run(dir.path(), &["ls", "--unfinished"]);
     let session = run(dir.path(), &["show", "2026-10-01_001", "--full"]);
     assert_eq!(
         session["entries"][0]["logic_revisions"][2]["entry"]["id"], "R03",

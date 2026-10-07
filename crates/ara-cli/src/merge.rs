@@ -9,8 +9,9 @@ use std::path::{Path, PathBuf};
 
 #[derive(Debug, clap::Args)]
 pub struct MergeArgs {
+    // Conflict-only payloads must not inflate every read or ordinary merge.
     #[command(subcommand)]
-    pub command: Option<MergeCommand>,
+    pub command: Option<Box<MergeCommand>>,
     #[arg(long, conflicts_with = "git", requires = "theirs")]
     pub base: Option<PathBuf>,
     #[arg(long, conflicts_with = "git", requires = "base")]
@@ -90,12 +91,6 @@ pub struct RepairArgs {
     #[command(flatten)]
     pub output: ReadOptions,
 }
-#[derive(Debug, clap::Args)]
-pub struct ResolveArgs {
-    pub address: String,
-    #[command(flatten)]
-    pub output: ReadOptions,
-}
 pub fn convert_error(error: merge::MergeError) -> AgentError {
     let exit = error.exit_code();
     let details = serde_json::to_value(&error).ok().map(Box::new);
@@ -130,7 +125,7 @@ fn disjoint_roots(roots: &[&Path]) -> Result<(), AgentError> {
     Ok(())
 }
 pub fn run(root: &Path, args: &MergeArgs) -> Result<Value, AgentError> {
-    if let Some(command) = &args.command {
+    if let Some(command) = args.command.as_deref() {
         return match command {
             MergeCommand::Resolve(resolution) => resolve_conflict(root, resolution),
             MergeCommand::Repair(repair) => repair_protected(root, repair),
@@ -336,12 +331,6 @@ pub fn run(root: &Path, args: &MergeArgs) -> Result<Value, AgentError> {
     }
     drop(lock);
     Ok(report)
-}
-pub fn resolve(root: &Path, args: &ResolveArgs) -> Result<Value, AgentError> {
-    let snapshot =
-        ArtifactSnapshot::load_with_identities(root).map_err(crate::write::convert_error)?;
-    let target = merge::resolve(&snapshot, &args.address).map_err(convert_error)?;
-    Ok(json!({"format":"ara.resolve/v1","address":args.address,"id":target}))
 }
 fn resolve_conflict(root: &Path, args: &ConflictArgs) -> Result<Value, AgentError> {
     let (lock, batch_time) =

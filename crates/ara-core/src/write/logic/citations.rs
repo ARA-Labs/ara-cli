@@ -63,6 +63,12 @@ struct Token {
     target: Target,
 }
 
+enum TokenClass {
+    Span(Vec<String>),
+    Covered,
+    Ambiguous,
+}
+
 /// The restructured entry at its pre-operation location.
 #[derive(Debug, Clone)]
 pub(super) struct Subject {
@@ -497,55 +503,68 @@ impl<'w> Resolver<'w> {
                 result.protected.push(token.range);
                 continue;
             }
-            match &token.target {
-                Target::Entry { document, index } => {
-                    let heading = self.heading(document, *index)?;
-                    let inside = *document == subject.document
-                        && subject.range.contains(&heading.range.start);
-                    let Some(suffix) = heading
-                        .path
-                        .strip_prefix(subject.path.as_slice())
-                        .filter(|_| inside)
-                    else {
-                        result.covered.push(token.range);
-                        continue;
-                    };
-                    let by_id =
-                        matches!(token.spelling, Spelling::Id | Spelling::QualifiedId { .. });
-                    let retained = if suffix.is_empty() {
-                        subject.root_id_retained
-                    } else {
-                        subject.descendant_ids_retained
-                    };
-                    if by_id && retained {
-                        result.covered.push(token.range);
-                    } else {
-                        result.spans.push(Span {
-                            range: token.range,
-                            spelling: token.spelling,
-                            suffix: suffix.to_vec(),
-                            source: 0..0,
-                        });
-                    }
-                }
-                Target::Ambiguous { document, indexes } => {
-                    let mut inside = false;
-                    if *document == subject.document {
-                        for index in indexes {
-                            inside |= subject
-                                .range
-                                .contains(&self.heading(document, *index)?.range.start);
-                        }
-                    }
-                    if inside {
-                        result.ambiguous.push(token.range);
-                    } else {
-                        result.covered.push(token.range);
-                    }
-                }
+            match self.classify_token(subject, &token)? {
+                TokenClass::Span(suffix) => result.spans.push(Span {
+                    range: token.range,
+                    spelling: token.spelling,
+                    suffix,
+                    source: 0..0,
+                }),
+                TokenClass::Covered => result.covered.push(token.range),
+                TokenClass::Ambiguous => result.ambiguous.push(token.range),
             }
         }
         Ok(result)
+    }
+    /// Subject matching shared by write inventories and multi-target read queries.
+    /// Token resolution and protected-source classification happen before this.
+    fn classify_token(&self, subject: &Subject, token: &Token) -> Result<TokenClass, WriteError> {
+        match &token.target {
+            Target::Entry { document, index } => {
+                let headings = self.headings(document)?.ok_or_else(|| {
+                    WriteError::semantic("write.reference", "citation heading vanished")
+                })?;
+                let heading = headings.get(*index).ok_or_else(|| {
+                    WriteError::semantic("write.reference", "citation heading vanished")
+                })?;
+                let inside =
+                    *document == subject.document && subject.range.contains(&heading.range.start);
+                let Some(suffix) = heading
+                    .path
+                    .strip_prefix(subject.path.as_slice())
+                    .filter(|_| inside)
+                else {
+                    return Ok(TokenClass::Covered);
+                };
+                let retained = if suffix.is_empty() {
+                    subject.root_id_retained
+                } else {
+                    subject.descendant_ids_retained
+                };
+                if retained && matches!(token.spelling, Spelling::Id | Spelling::QualifiedId { .. })
+                {
+                    Ok(TokenClass::Covered)
+                } else {
+                    Ok(TokenClass::Span(suffix.to_vec()))
+                }
+            }
+            Target::Ambiguous { document, indexes } => {
+                if *document == subject.document {
+                    let headings = self.headings(document)?.ok_or_else(|| {
+                        WriteError::semantic("write.reference", "citation heading vanished")
+                    })?;
+                    for index in indexes {
+                        let heading = headings.get(*index).ok_or_else(|| {
+                            WriteError::semantic("write.reference", "citation heading vanished")
+                        })?;
+                        if subject.range.contains(&heading.range.start) {
+                            return Ok(TokenClass::Ambiguous);
+                        }
+                    }
+                }
+                Ok(TokenClass::Covered)
+            }
+        }
     }
 
     /// Every typed citation of `subject` in accepted reference fields of the
@@ -636,12 +655,7 @@ impl<'w> Resolver<'w> {
             .and_then(|kind| fields::spelling(kind, field.name));
         // An inline value followed by unindented prose lines mixes the field
         // with free text (`entry.edit` refuses to replace it); never edit it.
-        let prose_tail = !field.raw_value.starts_with('\n')
-            && field
-                .raw_value
-                .split_inclusive('\n')
-                .skip(1)
-                .any(|line| !line.trim().is_empty() && !line.starts_with(char::is_whitespace));
+        let prose_tail = has_prose_tail(field);
         let reference = citation_rules::reference_field(field.name).is_some();
         let rewritable = citation_rules::rewritable(scan.document, field.name);
         let reason = if prose_tail {
@@ -820,34 +834,93 @@ pub struct MarkdownCitation {
     pub rewritable: bool,
 }
 
-/// Every typed citation of exactly the entry `target` selects, classified by
-/// the same rules C1 uses to repair citations.
-pub fn markdown_citations(
+fn has_prose_tail(field: &MarkdownField<'_>) -> bool {
+    !field.raw_value.starts_with('\n')
+        && field
+            .raw_value
+            .split_inclusive('\n')
+            .skip(1)
+            .any(|line| !line.trim().is_empty() && !line.starts_with(char::is_whitespace))
+}
+
+/// Read citations for several exact entries with one source/field/token inventory.
+/// Results retain selector order. An unresolvable selector fails only its own
+/// result; snapshot-wide classification errors fail the request.
+pub fn markdown_citations_many(
     working: &WorkingArtifact,
-    target: &EntrySelector,
-) -> Result<Vec<MarkdownCitation>, WriteError> {
-    let entry = super::resolve(working, target)?;
-    let subject = Subject {
-        document: entry.document,
-        path: entry.path,
-        range: entry.range,
-        root_id_retained: false,
-        descendant_ids_retained: false,
-    };
-    let inventory = Resolver::new(working)?.inventory(&subject, &[], None, &[])?;
-    let mut result = Vec::new();
-    for citation in inventory.citations {
-        let text = working.text(&citation.document)?;
-        for span in citation.spans.iter().filter(|span| span.suffix.is_empty()) {
-            result.push(MarkdownCitation {
-                document: citation.document.clone(),
-                owner: heading_id(&citation.heading).to_owned(),
-                field: citation.field.clone(),
-                literal: text.get(span.source.clone()).unwrap_or_default().to_owned(),
-                range: span.source.clone(),
-                rewritable: citation.rewritable,
-            });
+    targets: &[EntrySelector],
+) -> Result<Vec<Result<Vec<MarkdownCitation>, WriteError>>, WriteError> {
+    let mut subjects = Vec::with_capacity(targets.len());
+    let mut results = Vec::with_capacity(targets.len());
+    for target in targets {
+        match super::resolve(working, target) {
+            Ok(entry) => {
+                subjects.push(Some(Subject {
+                    document: entry.document,
+                    path: entry.path,
+                    range: entry.range,
+                    root_id_retained: false,
+                    descendant_ids_retained: false,
+                }));
+                results.push(Ok(Vec::new()));
+            }
+            Err(error) => {
+                subjects.push(None);
+                results.push(Err(error));
+            }
         }
     }
-    Ok(result)
+    if subjects.iter().all(Option::is_none) {
+        return Ok(results);
+    }
+    let resolver = Resolver::new(working)?;
+    for document in working.paths() {
+        if !document.ends_with(".md") || !working.is_allowed_document(&document)? {
+            continue;
+        }
+        let Ok(text) = working.text(&document) else {
+            continue;
+        };
+        let headings = working.headings(&document)?;
+        for (index, heading) in headings.iter().enumerate() {
+            let end = headings
+                .get(index + 1)
+                .map_or(heading.body_range.end, |next| {
+                    next.range.start.min(heading.body_range.end)
+                });
+            for field in markdown::fields(text, heading.body_range.start..end) {
+                if citation_rules::reference_field(field.name).is_none() || has_prose_tail(&field) {
+                    continue;
+                }
+                let value = markdown::decode_field(&field);
+                let mut tokens = resolver.tokens(&fields::canonical(field.name), &value)?;
+                let protected = protected_ranges(&value);
+                tokens.retain(|token| !is_protected(&protected, &token.range));
+                for (subject, result) in subjects.iter().zip(&mut results) {
+                    let Some(subject) = subject else { continue };
+                    let rows = result.as_mut().expect("resolved selector");
+                    for token in &tokens {
+                        let TokenClass::Span(suffix) = resolver.classify_token(subject, token)?
+                        else {
+                            continue;
+                        };
+                        if !suffix.is_empty() {
+                            continue;
+                        }
+                        let start = source_offset(&field, token.range.start);
+                        let range = start..start + token.range.len();
+                        rows.push(MarkdownCitation {
+                            document: document.clone(),
+                            owner: heading_id(&heading.heading).to_owned(),
+                            field: field.name.to_owned(),
+                            literal: text.get(range.clone()).unwrap_or_default().to_owned(),
+                            range,
+                            rewritable: citation_rules::rewritable(&document, field.name),
+                        });
+                    }
+                }
+            }
+        }
+    }
+    Ok(results)
 }

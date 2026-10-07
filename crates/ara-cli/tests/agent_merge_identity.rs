@@ -173,7 +173,7 @@ fn show_vectors(root: &Path) {
         "logic/solution/architecture.md#Architecture/Renamed parent/A/B",
     ] {
         let output = ara(root)
-            .args(["resolve", address, "--json"])
+            .args(["show", address, "--identity", "--json"])
             .assert()
             .failure()
             .get_output()

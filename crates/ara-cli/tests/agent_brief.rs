@@ -373,7 +373,7 @@ fn diagnostics_print_once_on_stderr_and_json_keeps_them_structured() {
         vec!["show", "C04"],
         vec!["find", "semaphore"],
         vec!["ls"],
-        vec!["open"],
+        vec!["ls", "--unfinished"],
     ] {
         let (_, stderr) = brief(&fixture, &args);
         assert_eq!(stderr.lines().count(), 1, "{stderr}");
@@ -487,20 +487,20 @@ fn status_reports_counts_only_when_complete_and_always_the_codes() {
 fn path_refs_and_open_lead_with_addresses() {
     let dir = artifact();
     let root = dir.path();
-    let (stdout, _) = brief(root, &["path", "N02"]);
-    let lines: Vec<&str> = stdout.lines().collect();
+    let (stdout, _) = brief(root, &["show", "N02", "--with", "path"]);
+    let lines: Vec<&str> = stdout.split("path:\n").nth(1).unwrap().lines().collect();
     assert!(
         lines[0].starts_with("N01\t") && lines[1].starts_with("  N02\t"),
         "{stdout}"
     );
-    let (stdout, _) = brief(root, &["refs", "C01"]);
+    let (stdout, _) = brief(root, &["show", "C01", "--with", "refs"]);
     let row = stdout.lines().find(|l| l.starts_with("N02\t")).unwrap();
     let fields: Vec<&str> = row.split('\t').collect();
     assert_eq!(fields[1], "evidence");
     let (path, line) = fields[2].split_once(':').unwrap();
     assert_eq!(path, "trace/exploration_tree.yaml");
     assert!(source_line(root, path, line.parse().unwrap()).contains("C01"));
-    let (stdout, _) = brief(root, &["open"]);
+    let (stdout, _) = brief(root, &["ls", "--unfinished"]);
     let ids: Vec<&str> = stdout
         .lines()
         .map(|l| l.split('\t').next().unwrap())
@@ -757,7 +757,7 @@ fn projected_text_reads_keep_the_error_summary() {
     for args in [
         vec!["ls", "--fields", "id"],
         vec!["show", "N01", "--fields", "id"],
-        vec!["path", "N01", "--fields", "id"],
+        vec!["show", "N01", "--with", "path", "--fields", "relations"],
         vec!["find", "root", "--fields", "id"],
     ] {
         let (stdout, stderr) = brief(root, &args);

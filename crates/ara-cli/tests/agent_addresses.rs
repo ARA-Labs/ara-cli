@@ -517,8 +517,7 @@ fn brief(root: &Path, args: &[&str]) -> String {
     let output = ara(root).args(args).assert().success().get_output().clone();
     String::from_utf8(output.stdout).unwrap()
 }
-/// The address that leads each item line of brief `ls`, `find`, `open`,
-/// `path` or `refs` output: the text before the first tab or ` [`.
+/// The address that leads a brief list or relation row.
 fn addresses(stdout: &str) -> Vec<String> {
     stdout
         .lines()
@@ -591,12 +590,7 @@ fn colliding_entry_namespaces_print_addresses_that_round_trip() {
     );
 
     // Every producer prints addresses that read back.
-    for args in [
-        &["find", "widget"][..],
-        &["open"],
-        &["path", "trace:N02"],
-        &["refs", "C02"],
-    ] {
+    for args in [&["find", "widget"][..], &["ls", "--unfinished"]] {
         let found = addresses(&brief(dir.path(), args));
         assert!(!found.is_empty(), "{args:?}");
         let unique: std::collections::BTreeSet<_> = found.iter().collect();
@@ -605,9 +599,28 @@ fn colliding_entry_namespaces_print_addresses_that_round_trip() {
             show_header(dir.path(), address);
         }
     }
-    let refs = brief(dir.path(), &["refs", "logic/claims.md#C01"]);
+    for (args, section) in [
+        (&["show", "trace:N02", "--with", "path"][..], "\npath:\n"),
+        (&["show", "C02", "--with", "refs"][..], "\nrefs:\n"),
+    ] {
+        let output = brief(dir.path(), args);
+        show_header(dir.path(), header_address(output.lines().next().unwrap()));
+        let rows = output.split_once(section).unwrap().1;
+        let rows = rows
+            .lines()
+            .map(str::trim_start)
+            .collect::<Vec<_>>()
+            .join("\n");
+        for address in addresses(&rows) {
+            show_header(dir.path(), &address);
+        }
+    }
+    let refs = brief(
+        dir.path(),
+        &["show", "logic/claims.md#C01", "--with", "refs"],
+    );
     assert!(refs.contains("target: logic/claims.md#C01\n"), "{refs}");
-    let refs = brief(dir.path(), &["refs", "C02"]);
+    let refs = brief(dir.path(), &["show", "C02", "--with", "refs"]);
     assert!(
         refs.lines()
             .any(|line| line.starts_with("trace/exploration_tree.yaml#N02\t")),
