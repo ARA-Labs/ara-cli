@@ -687,3 +687,55 @@ fn json_budgets_are_explicit_and_never_cut_an_envelope() {
     assert_eq!(row["display"]["truncated"], false);
     assert_eq!(row["display"]["lines"]["total"], lines(&source).len());
 }
+
+#[test]
+fn every_native_page_keeps_complete_relations_and_multi_selection_never_pages() {
+    let dir = artifact("# Problem\n");
+    let root = dir.path();
+    let body = (0..100)
+        .map(|index| format!("native source line {index:03} {}\n", "x".repeat(80)))
+        .collect::<String>();
+    put(
+        root,
+        "logic/claims.md",
+        &format!(
+            "# Claims\n\n## C01: Large native selection\n- **Statement**: A bounded source keeps its citations.\n{body}\n## C02: Citing selection\n- **Statement**: The source is cited.\n- **Dependencies**: [C01]\n",
+        ),
+    );
+    let selection = ["show", "C01", "--with", "refs", "--lines", "1:"];
+    let (_, complete) = json(root, &selection);
+    let relations = complete["entries"][0]["relations"].clone();
+    assert_eq!(relations["refs"]["structured"][0]["id"], "C02");
+    let error = rejected(root, &[&selection[..], &["--max-bytes", "1"]].concat(), 1);
+    assert_eq!(error["code"], "output_limit_too_small");
+    let budget = (error["details"]["required"].as_u64().unwrap() + 512).to_string();
+    let (bytes, first) = json(root, &[&selection[..], &["--max-bytes", &budget]].concat());
+    assert!(bytes <= budget.parse::<usize>().unwrap());
+    assert_eq!(first["entries"][0]["relations"], relations);
+    let next = first["entries"][0]["display"]["next"].as_str().unwrap();
+    let (_, second) = json(
+        root,
+        &[
+            "show",
+            "C01",
+            "--with",
+            "refs",
+            "--lines",
+            next,
+            "--max-bytes",
+            &budget,
+        ],
+    );
+    assert_eq!(second["entries"][0]["relations"], relations);
+    assert_ne!(
+        first["entries"][0]["content"],
+        second["entries"][0]["content"]
+    );
+    let multi = rejected(
+        root,
+        &["show", "C01", "C02", "--with", "refs", "--max-bytes", "1"],
+        1,
+    );
+    assert_eq!(multi["code"], "output_limit_too_small");
+    assert!(multi["details"]["required"].as_u64().unwrap() > 1);
+}

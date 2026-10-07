@@ -2,9 +2,9 @@
 
 The non-experiment implementation has permanent [design records](../../docs/agent-cli-interface/README.md)
 and an [actual frozen-binary verification report](../../docs/verification/agent-cli-2026-10-02/README.md).
-Workspace version is 0.1.26 after plan 18's pilot follow-ups. The non-experiment
-features are implemented; fixed performance measurement and final delivery are being
-recorded. Historical reproduction and human protocol approval remain distinct gates.
+Workspace version is 0.1.27 after the command-simplification cutover. Non-experiment
+features are implemented; [Plan 20's current engineering evidence](../../docs/verification/plan-20-command-simplification/README.md)
+is separate from historical reproduction, human protocol approval, and experiments.
 
 | Plans | Current state |
 |---|---|
@@ -19,10 +19,13 @@ recorded. Historical reproduction and human protocol approval remain distinct ga
 | [16](16-local-semantic-search.md), [17](17-cli-write-enforcement.md) | Closed conditionals for this delivery; evidence gates have not fired |
 | [18](18-failed-blocked-calls.md) | Approved 2026-10-04; CLI changes B1–B10 and skills S1–S5 implemented in 0.1.24; H1 landed in ara-eval; 120-session dev pilot recorded 2026-10-06, with skill and `show --source` follow-ups in 0.1.26; H2/C1 and viewer embed rebuild pending |
 | [19](19-deterministic-bookkeeping.md) | Approved 2026-10-04; revised and re-approved 2026-10-05 (bug reproduced, clock and day-count rules tightened, split into sub-PRs 19a–19e): 19a–19e implemented in 0.1.25 with [CLI smokes](../../docs/verification/plan-19-bookkeeping/README.md); repeated six-skill audit (acceptance item 6) and upstream protocol review of the event `target` field pending |
+| [20](../../docs/agent-cli-interface/20-command-simplification.md) | Approved 2026-10-06; implemented in 0.1.27 as one coordinated command, live-skill, and runner cutover; the completed design replaces the plan |
 
-Plan 18's CLI and skill changes are implemented; its external changes and pilot evidence are not, so it stays a plan. Plan 18 supersedes the parent plan's default-JSON agent workflow with brief text while retaining programmatic JSON access, and [the command reference](../../docs/agent-cli.md) documents the shipped behavior. Plan 19 is an approved design revision, not a completed feature; it moves deterministic recording work into the CLI without delegating research judgment to it.
+Plan 18's CLI and skill changes are implemented; its external changes and pilot follow-ups remain separate, so it stays a plan. Plan 18 supersedes the parent plan's default-JSON agent workflow with brief text while retaining programmatic JSON access, and [the command reference](../../docs/agent-cli.md) documents the shipped behavior. Plan 19's CLI sub-PRs are implemented; its repeated skill audit and upstream event-target review remain pending. Mechanical recording does not delegate research judgment to the CLI.
 
 Their functional sub-PRs target `feat/agent-cli-interface` and are squash-merged there under the [parent rollout policy](../agent-cli-interface.md#order-of-work). Harness and corpus changes stay in their owning repositories. These approvals do not alter frozen experiment conditions, approve upstream protocol changes, authorize a paid run, or create a commit or PR.
+
+Plan 20's cutover retains direct setters and merge, consolidates reads with explicit selector/output contracts, and teaches research workflows in shared task subsections. Existing format checking and visualization commands are unchanged. The user requested implementation and PR creation; merging, release, upstream protocol adoption, and model experiments remain outside this delivery. Command and Rust source-interface removals require an explicit major-version decision before the final integration release; the intermediate patch bump is not a compatibility claim.
 
 Actual browser and installed-agent smokes are recorded in the verification report.
 The final CLI PR targets main and must use a merge commit, preserving the integration
@@ -32,5 +35,5 @@ exact commit in the external harness submodule. Protocol merge and upstream F1�
 approval are not prerequisites for these experimental conditions. Original baseline
 archives, historical-source checks and scored-registration requirements still apply.
 No PR is merged, tagged, or released by this delivery task.
-Public Rust source changes and additive optional JSON compatibility are distinguished;
-the minor/major integration release decision stays pending.
+The intermediate 0.1.27 revision is unreleased. The final integration release's
+major-version rule must be resolved explicitly before publication.

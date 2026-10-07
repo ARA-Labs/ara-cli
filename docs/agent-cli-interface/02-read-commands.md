@@ -7,20 +7,24 @@ Observed proof and unresolved gates are recorded in the delivery verification
 
 ## Implemented behavior
 
-status, ls, show, path, refs and open share explicit-directory/environment/upward discovery, versioned JSON and 0/1/2 exits. Full source reads and exact heading vectors preserve native names, unknown fields, UTF-8 and digests. Structured references remain separate from possible prose mentions.
+status, ls and show share explicit-directory/environment/upward discovery, versioned JSON and 0/1/2 exits. Full source reads and exact heading vectors preserve native names, unknown fields, UTF-8 and digests. Structured references remain separate from possible prose mentions.
 
 Plan 19 (step 19d, workspace 0.1.25) adds measured observation inactivity to
-`open`. Each observation row gains `turns_since_reference`,
+`ls --unfinished`. Each observation row gains `turns_since_reference`,
 `session_days_since_reference`, `last_reference_turn`, `last_reference_date`,
 `reference_basis`, `evidence_sources`, `history_status` and
-`history_diagnostics`; the `ara.open/v1` envelope and existing fields are
+`history_diagnostics`; the `ara.ls/v1` envelope, with rows under `entries`, and existing fields are
 unchanged. Counts come from explicit references only (exact observation or
 bound-node IDs in typed turn fields or caller-written turn text) on a timeline
 of validated session records, per-turn stamps and authenticated merge aliases.
 Unknown chronology is `null` with a diagnostic; overlapping sessions leave the
 day count known. A stored `stale: true` stays visible. The shared extractor is
 `ara_core::write::history`, also used by `observation.mark_stale`. Contract:
-[Observation inactivity in `open`](../agent-cli.md#observation-inactivity-in-open).
+[Observation inactivity in `ls --unfinished`](../agent-cli.md#observation-inactivity-in-ls---unfinished).
+
+## Command simplification
+
+The live agent routes are `status`, `ls`, `show`, `find`, `edit`, `claim set`, `heuristic set`, `apply` and `merge`. Creation, staging, promotion and session setup/logging use existing typed JSONL operations. `show --with path,refs`, `ls --unfinished` and `show --identity` retain ancestry, citation, inactivity and exact imported-identity behavior. Tooling remains unchanged. See the [migration guide](../agent-cli.md#command-simplification-migration) for inputs and result mappings; old verification reports remain frozen historical evidence.
 
 ## Boundaries and remaining gates
 

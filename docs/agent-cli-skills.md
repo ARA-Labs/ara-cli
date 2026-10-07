@@ -95,6 +95,12 @@ recipe:
   (`N` = the body's line count), checks that it is the heading line plus the
   body it read, and hashes the window's JSON `content` itself.
 
+## Matching the simplified binary
+
+Install all six live skills from the same ara-cli revision as the binary. Frozen runs and upstream locks retain their historical bytes; a new condition must pin new skill digests rather than reuse historical registration. Read modes consume `entries[].relations.path`, `entries[].relations.refs`, `ls --unfinished` `entries`, and identity `requested_address`/`resolved_target`. Task-oriented shared subsections teach research turns, initialization, staging, audited revisions and integration without changing scientific procedures or role permissions. Writer requests use scratch JSONL with literal complete text, one quoted invocation per shell call, and `ara.apply/v1` operations/bindings.
+
+`skills.rs` includes actual subprocess coverage for a complete summarized research turn, ancestry, document citations, unfinished rows, PAPER readback and structural checking against the matching binary. The integration owner runs those checks; documentation does not claim a new model experiment or upstream approval.
+
 ## Changing a skill
 
 - Edit the skill here, in the same change as the binary behavior it describes.

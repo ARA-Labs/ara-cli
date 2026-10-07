@@ -1,0 +1,246 @@
+{
+  "schema": "ara.plan20-viewer/v1",
+  "binary": "target/release/ara",
+  "binary_sha256": "93bb9f76839bd51fccac6eaeb6b3d6b165036c167f61d7b02ec264fb6e1eecb3",
+  "command": "ara serve crates/ara-core/tests/fixtures/official/resnet-ara-example --port 18120",
+  "url": "http://127.0.0.1:18120/",
+  "title": "ARA Viewer",
+  "viewport": {
+    "width": 1365,
+    "height": 768,
+    "deviceScaleFactor": 1.25
+  },
+  "selected_node": "N01",
+  "detail_visible": true,
+  "horizontal_overflow": false,
+  "errors": {
+    "entries": [],
+    "nextSeq": 0,
+    "dropped": 0
+  },
+  "observed_elements": [
+    {
+      "id": 1,
+      "role": "button",
+      "name": "graph",
+      "states": [
+        "pressed=false"
+      ]
+    },
+    {
+      "id": 2,
+      "role": "button",
+      "name": "tree",
+      "states": [
+        "pressed=true"
+      ]
+    },
+    {
+      "id": 3,
+      "role": "button",
+      "name": "stack",
+      "states": [
+        "pressed=false"
+      ]
+    },
+    {
+      "id": 4,
+      "role": "button",
+      "name": "split",
+      "states": [
+        "pressed=true"
+      ]
+    },
+    {
+      "id": 5,
+      "role": "searchbox",
+      "name": "Search nodes",
+      "states": []
+    },
+    {
+      "id": 6,
+      "role": "combobox",
+      "name": "Filter by type",
+      "value": "all kinds",
+      "states": [
+        "expanded=false"
+      ]
+    },
+    {
+      "id": 7,
+      "role": "option",
+      "name": "all kinds",
+      "states": [
+        "selected=true"
+      ]
+    },
+    {
+      "id": 8,
+      "role": "option",
+      "name": "question",
+      "states": [
+        "selected=false"
+      ]
+    },
+    {
+      "id": 9,
+      "role": "option",
+      "name": "experiment",
+      "states": [
+        "selected=false"
+      ]
+    },
+    {
+      "id": 10,
+      "role": "option",
+      "name": "decision",
+      "states": [
+        "selected=false"
+      ]
+    },
+    {
+      "id": 11,
+      "role": "option",
+      "name": "dead end",
+      "states": [
+        "selected=false"
+      ]
+    },
+    {
+      "id": 12,
+      "role": "option",
+      "name": "insight",
+      "states": [
+        "selected=false"
+      ]
+    },
+    {
+      "id": 13,
+      "role": "checkbox",
+      "name": "dead ends only",
+      "states": [
+        "checked=false"
+      ]
+    },
+    {
+      "id": 14,
+      "role": "button",
+      "name": "Previous step",
+      "states": []
+    },
+    {
+      "id": 15,
+      "role": "button",
+      "name": "▶ Replay",
+      "states": []
+    },
+    {
+      "id": 16,
+      "role": "button",
+      "name": "Next step",
+      "states": []
+    },
+    {
+      "id": 17,
+      "role": "button",
+      "name": "Is learning better networks as easy as stacking more layers?, question",
+      "states": [
+        "focused"
+      ]
+    },
+    {
+      "id": 18,
+      "role": "button",
+      "name": "Plain-net depth scan on CIFAR-10 (depths 20–110), experiment",
+      "states": []
+    },
+    {
+      "id": 19,
+      "role": "button",
+      "name": "Plain-net depth scan on ImageNet (18 vs. 34), experiment",
+      "states": []
+    },
+    {
+      "id": 20,
+      "role": "button",
+      "name": "Vanishing-gradient hypothesis, dead_end",
+      "states": []
+    },
+    {
+      "id": 21,
+      "role": "button",
+      "name": "More training iterations alone (3×) on plain nets, dead_end",
+      "states": []
+    },
+    {
+      "id": 22,
+      "role": "button",
+      "name": "Reformulate layers to fit a residual mapping F(x) := H(x) - x, insight",
+      "states": []
+    },
+    {
+      "id": 23,
+      "role": "button",
+      "name": "Use parameter-free identity shortcuts (Eqn. 1), decision",
+      "states": []
+    },
+    {
+      "id": 24,
+      "role": "button",
+      "name": "Plain vs. ResNet at 18/34 layers on ImageNet, experiment",
+      "states": []
+    },
+    {
+      "id": 25,
+      "role": "button",
+      "name": "Shortcut option ablation on ResNet-34 (A vs. B vs. C), experiment",
+      "states": []
+    },
+    {
+      "id": 26,
+      "role": "button",
+      "name": "Single-layer residual function F, dead_end",
+      "states": []
+    },
+    {
+      "id": 27,
+      "role": "button",
+      "name": "Adopt 1×1 → 3×3 → 1×1 bottleneck blocks for ≥50 layers, decision",
+      "states": []
+    },
+    {
+      "id": 28,
+      "role": "button",
+      "name": "Depth scan with bottleneck blocks (50 / 101 / 152 layers), experiment",
+      "states": []
+    },
+    {
+      "id": 29,
+      "role": "button",
+      "name": "CIFAR-10 depth scan (20 → 1202 layers), experiment",
+      "states": []
+    },
+    {
+      "id": 30,
+      "role": "button",
+      "name": "Warm up LR for the 110-layer CIFAR ResNet, decision",
+      "states": []
+    },
+    {
+      "id": 31,
+      "role": "button",
+      "name": "Detection transfer with ResNet-101 (PASCAL VOC, COCO), experiment",
+      "states": []
+    },
+    {
+      "id": 32,
+      "role": "DisclosureTriangle",
+      "name": "SOURCES 2",
+      "states": [
+        "expanded=true"
+      ]
+    }
+  ],
+  "screenshot": "viewer.png",
+  "model_execution": false
+}

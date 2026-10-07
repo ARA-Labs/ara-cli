@@ -36,11 +36,44 @@ pub fn blocks(value: &Value) -> Vec<Block> {
         .into_iter()
         .flatten()
         .map(|row| {
-            if row["kind"] == "source_document" {
+            if row["kind"] == "identity" {
+                return Block {
+                    header: vec![],
+                    body: format!(
+                        "{} -> {}\n",
+                        row["requested_address"].as_str().unwrap_or(""),
+                        row["resolved_target"].as_str().unwrap_or("")
+                    ),
+                    trailer: vec![],
+                };
+            }
+            let mut block = if row["kind"] == "source_document" {
                 source(row)
             } else {
                 projection(row)
+            };
+            if let Some(relations) = row["relations"].as_object() {
+                for (name, relation) in relations {
+                    block.trailer.push(format!("{name}:"));
+                    let mut rendered = Vec::new();
+                    match name.as_str() {
+                        "path" => {
+                            super::lists::path(relation, &mut rendered).expect("memory writer")
+                        }
+                        "refs" => {
+                            super::lists::refs(relation, &mut rendered).expect("memory writer")
+                        }
+                        _ => block.trailer.push(format!("  {relation}")),
+                    }
+                    block.trailer.extend(
+                        String::from_utf8(rendered)
+                            .expect("text")
+                            .lines()
+                            .map(str::to_owned),
+                    );
+                }
             }
+            block
         })
         .collect()
 }
@@ -122,13 +155,6 @@ fn source(row: &Value) -> Block {
         ));
     }
     let mut trailer = Vec::new();
-    if let Some(relations) = row.get("relations") {
-        fields(
-            &serde_json::json!({ "relations": relations }),
-            0,
-            &mut trailer,
-        );
-    }
     trailer.extend(range(display));
     Block {
         header,
@@ -197,7 +223,12 @@ fn fields(value: &Value, depth: usize, lines: &mut Vec<String>) {
     };
     let indent = "  ".repeat(depth);
     for (key, value) in object {
-        if depth == 0 && matches!(key.as_str(), "id" | "key" | "kind" | "source" | "address") {
+        if depth == 0
+            && matches!(
+                key.as_str(),
+                "id" | "key" | "kind" | "source" | "address" | "relations"
+            )
+        {
             continue;
         }
         match value {

@@ -16,10 +16,10 @@ Plan 19 (step 19e, C1) adds citation repair to restructures; see
 merge (`Status: withdrawn` plus `Merged into`), or explicit `references` rows
 for a merge, and `action: "split"` with `split_into` and a complete
 `references` classification for a split. `write/citation_rules.rs` holds the rules
-`ara refs` shares with the writer (reference-field table with rewritable
+`ara show --with refs` shares with the writer (reference-field table with rewritable
 flags, protected spans, the historical-source walker, concept-name
 resolution); `write/logic/citations.rs` builds the typed inventory and the
-`markdown_citations` API that `refs` uses for logic entries;
+`markdown_citations` API that `show --with refs` uses for logic entries;
 `write/logic/row_mapping.rs` validates split and merge rows;
 `write/logic/history_refs.rs` scans and validates history. The inventory covers: accepted reference fields of native entries, tokens resolved
 through current headings and authenticated claim redirects, and located
@@ -34,6 +34,10 @@ self-citations, merge cycles and unclassified split citers fail closed with
 with generated repair commits in ≈28 ms against ≈22 ms with a hand-written
 row; the difference is one build of the read-side identity index that
 validates the four historical citations.
+
+## Command simplification
+
+The live agent routes are `status`, `ls`, `show`, `find`, `edit`, `claim set`, `heuristic set`, `apply` and `merge`. Creation, staging, promotion and session setup/logging use existing typed JSONL operations. `show --with path,refs`, `ls --unfinished` and `show --identity` retain ancestry, citation, inactivity and exact imported-identity behavior. Tooling remains unchanged. See the [migration guide](../agent-cli.md#command-simplification-migration) for inputs and result mappings; old verification reports remain frozen historical evidence.
 
 ## Boundaries and remaining gates
 

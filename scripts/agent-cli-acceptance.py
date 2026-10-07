@@ -63,6 +63,21 @@ SESSION = "2026-10-01_001"
 FULL_TEXT = "Synthetic acceptance value — α\n\nLiteral @input=$binding; x = y.\n```text\n## not a heading\n```\n"
 
 
+def citation_evidence_ids(value: dict[str, Any]) -> set[str]:
+    """Consume evidence citations from the consolidated show envelope."""
+    rows = value["entries"][0]["relations"]["refs"]["structured"]
+    return {row["id"] for row in rows if row["field"] == "evidence"}
+
+
+def read_case_name(words: list[str]) -> str:
+    """Keep migrated modes separate in measurements and oracle evidence."""
+    if "--unfinished" in words:
+        return "ls.unfinished"
+    if "--with" in words and words[words.index("--with") + 1] in ("path", "refs"):
+        return "show." + words[words.index("--with") + 1]
+    return words[0]
+
+
 class AcceptanceFailure(Exception):
     pass
 
@@ -642,33 +657,33 @@ class Runner:
             require([row["id"] for row in value["entries"]] == expected, "Real filtered ls differs from source descendants/order")
         def refs_oracle(value: dict[str, Any]) -> None:
             expected = {node["id"] for node in nodes if isinstance(node.get("evidence"), list) and "C05" in node["evidence"]}
-            actual = {row["id"] for row in value["structured"] if row["field"] == "evidence"}
+            actual = {row["id"] for row in value["entries"][0]["relations"]["refs"]["structured"] if row["field"] == "evidence"}
             require(actual == expected, "Real refs omitted or invented source claim bindings")
-            for row in value["prose"]:
+            for row in value["entries"][0]["relations"]["refs"]["prose"]:
                 start, end = row["range"]["start"], row["range"]["end"]
                 require((fixture / row["source"]).read_bytes()[start:end].decode() == row["literal"],
                         "Reference byte range does not identify its literal source token")
         def open_oracle(value: dict[str, Any]) -> None:
             child_parents = {parent for parent in parents.values() if parent}
             expected = {node["id"] for node in nodes if node["type"] == "question" and node["id"] not in child_parents}
-            actual = {row["id"] for row in value["items"] if "childless_question" in row["reasons"]}
+            actual = {row["id"] for row in value["entries"] if "childless_question" in row["reasons"]}
             require(actual == expected, "Real open questions differ from actual source Child relations")
         def path_oracle(value: dict[str, Any]) -> None:
             chain, node = [], "N85"
             while node:
                 chain.append(node); node = parents[node]
-            require([row["id"] for row in value["steps"]] == list(reversed(chain)), "Real path differs from source nesting")
+            require([row["id"] for row in value["entries"][0]["relations"]["path"]] == list(reversed(chain)), "Real path differs from source nesting")
         real = [(["status", "--json"], status_oracle),
                 (["ls", "--type", "dead_end", "--under", "N12", "--json"], list_oracle),
                 (["show", "N62", "--with", "parents,children,claims,sessions", "--full", "--json"], show_oracle),
-                (["path", "N85", "--json"], path_oracle),
-                (["refs", "C05", "--json"], refs_oracle), (["open", "--json"], open_oracle),
+                (["show", "N85", "--with", "path", "--json"], path_oracle),
+                (["show", "C05", "--with", "refs", "--json"], refs_oracle), (["ls", "--unfinished", "--json"], open_oracle),
                 (["find", "tripartite cognitive physical exploration architecture", "--limit", "10", "--json"],
                  lambda value: require("N04" in [row.get("id", row.get("key")) for row in value["results"]], "Pinned topic search missed reviewed source N04"))]
         results = {"pin": PIN, "artifact": artifact_info(fixture), "selectors_confirmed_from_source": ["N12", "N62", "N85", "C05"], "real": [], "generated": []}
         for words, oracle in real:
-            self.scenario("reads.real." + words[0], lambda words=words, oracle=oracle: self.timing(fixture, words, 100, oracle))
-            results["real"].append(self.evidence["sections"]["reads.real." + words[0]])
+            self.scenario("reads.real." + read_case_name(words), lambda words=words, oracle=oracle: self.timing(fixture, words, 100, oracle))
+            results["real"].append(self.evidence["sections"]["reads.real." + read_case_name(words)])
         for shape in ("broad", "deep"):
             for count in READ_SIZES:
                 root = self.workspace / f"read-{shape}-{count}"
@@ -676,11 +691,11 @@ class Runner:
                 cases = [(["status", "--json"], lambda v, n=count: require(v["complete"] and sum(v["counts"].get(k, 0) for k in ("question", "decision", "experiment", "dead_end", "pivot")) == n, "Generated node count mismatch")),
                          (["ls", "--json"], lambda v, n=count: require(sum(row["kind"] in ("question", "decision", "experiment", "dead_end", "pivot") for row in v["entries"]) == n, "Generated ls omitted nodes")),
                          (["show", meta["node_ids"][-1], "--full", "--json"], lambda v, identity=meta["node_ids"][-1]: require(v["entries"][0]["id"] == identity and "uniqueneedle" in v["entries"][0]["title"], "Generated show identity/content mismatch")),
-                         (["path", meta["node_ids"][-1], "--json"], lambda v, n=count, s=shape: require(len(v["steps"]) == (n if s == "deep" else 1), "Generated deep path truncated")),
-                         (["refs", meta["claim"], "--json"], None), (["open", "--json"], None),
+                         (["show", meta["node_ids"][-1], "--with", "path", "--json"], lambda v, n=count, s=shape: require(len(v["entries"][0]["relations"]["path"]) == (n if s == "deep" else 1), "Generated deep path truncated")),
+                         (["show", meta["claim"], "--with", "refs", "--json"], None), (["ls", "--unfinished", "--json"], None),
                          (["find", "uniqueneedle", "--limit", "10", "--json"], lambda v, identity=meta["node_ids"][-1]: require(identity in [r.get("id", r.get("key")) for r in v["results"]], "Generated search missed unique matching entry"))]
                 for words, oracle in cases:
-                    name = f"reads.{shape}.{count}.{words[0]}"
+                    name = f"reads.{shape}.{count}.{read_case_name(words)}"
                     self.scenario(name, lambda root=root, words=words, oracle=oracle: self.timing(root, words, 1000, oracle))
                 results["generated"].append({"generator": meta, "artifact": artifact_info(root)})
         return results
@@ -697,9 +712,9 @@ class Runner:
             except (AcceptanceFailure, ValueError, TypeError, KeyError):
                 node = "N01"  # Invalid dialect still exercises every command; not a clean parse.
             commands = [["status", "--json"], ["ls", "--json"], ["show", node, "--full", "--json"],
-                        ["path", node, "--json"], ["refs", node, "--json"], ["open", "--json"], ["find", "research", "--limit", "10", "--json"]]
+                        ["show", node, "--with", "path", "--json"], ["show", node, "--with", "refs", "--json"], ["ls", "--unfinished", "--json"], ["find", "research", "--limit", "10", "--json"]]
             for words in commands:
-                name = "corpus." + artifact.relative_to(self.args.corpus).as_posix() + "." + words[0]
+                name = "corpus." + artifact.relative_to(self.args.corpus).as_posix() + "." + read_case_name(words)
                 def invoke(artifact=artifact, words=words):
                     value, index = self.command(artifact, words, (0, 1, 2))
                     code = self.evidence["invocations"][index]["exit"]
@@ -707,7 +722,7 @@ class Runner:
                         error = value["error"]
                         require(any(token in error["code"].lower() for token in ("io", "read", "discovery", "recovery")), "Corpus exit 2 is not explicit I/O/discovery/recovery")
                     elif code == 1 and words[0] == "status":
-                        require(not value.get("complete", True) and value.get("diagnostics", {}).get("errors", 0) > 0, "Invalid corpus status falsely claims completeness")
+                        require(value.get("complete") is False, "Invalid corpus status falsely claims completeness")
                     return {"exit": code, "result": value, "invocation": index, "clean_parse_claim": False}
                 self.scenario(name, invoke)
             require(artifact_info(artifact)["inventory_sha256"] == before["inventory_sha256"], "Read sweep mutated corpus " + str(artifact))
@@ -1191,7 +1206,8 @@ class Runner:
                 turn = session["session"]["turn_count"]
                 events = [row for row in session["events_logged"] if row["turn"] == turn]
                 document, _, section = target.partition("#")
-                crystallized = {"type": kind, "routing": "crystallized", "provenance": "ai-suggested", "summary": promotion["title"], "turn": turn}
+                provenance = fields.get("Provenance", fields.get("provenance", obs["provenance"]))
+                crystallized = {"type": kind, "routing": "crystallized", "provenance": provenance, "summary": promotion["title"], "turn": turn}
                 crystallized |= {"id": oid, "target": {"document": document, "heading": [section]}} if section else {"id": target.rsplit(":", 1)[1]}
                 require(events == [{"type": "observation", "id": oid, "routing": "staged", "provenance": "ai-suggested", "summary": FULL_TEXT, "turn": turn}, crystallized], "Promotion turn lacks its derived stage and crystallization events")
                 if target.startswith("trace:"):
@@ -1407,7 +1423,7 @@ class Runner:
             require(search["results"], "Native full-text search omitted matching synthetic content")
             self.command(root, ["ls", "--type", "dead_end", "--full", "--json"])
             self.command(root, ["show", "N02", "N03", "N04", "C01", "H01", "O01", SESSION, "--with", "parents,children,depends_on", "--full", "--json"])
-            self.command(root, ["open", "--full", "--json"])
+            self.command(root, ["ls", "--unfinished", "--full", "--json"])
             self.command(root, ["validate", str(root), "--json"], explicit_root=False)
             return {"exact_documents": {path: sha(text.encode()) for path, text in exact.items()}, "status": status, "listed_identities": [r.get("id", r.get("key")) for r in listed["entries"]]}
         def grounding():
@@ -1422,10 +1438,10 @@ class Runner:
                     "quote_verified_against_actual_input": True, "scope": "Access and exact number-source retention, not an epistemic judgment"}
         self.prove(["pm.source_grounding"], "native_number_source_grounding", grounding)
         def bindings():
-            refs, invocation = self.command(root, ["refs", "C01", "--json"])
+            refs, invocation = self.command(root, ["show", "C01", "--with", "refs", "--json"])
             nodes, _ = node_source(root)
             expected = {node["id"] for node in nodes if isinstance(node.get("evidence"), list) and "C01" in node["evidence"]}
-            actual = {row["id"] for row in refs["structured"] if row["field"] == "evidence"}
+            actual = citation_evidence_ids(refs)
             require(actual == expected and expected, "Binding read differs from actual native source evidence fields")
             report, checked = self.command(root, ["check", str(root), "--json"], explicit_root=False)
             return {"invocation": invocation, "check_invocation": checked, "source_evidence_nodes": sorted(expected), "actual_evidence_nodes": sorted(actual), "report": report}

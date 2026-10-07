@@ -1,6 +1,6 @@
 //! Which validation results still allow structural reads.
 //!
-//! Structural reads (`find`, `ls`, `show`, `open`, `refs`, `path`) need a
+//! Structural reads (`find`, `ls`, `show`) need a
 //! complete representation, not a valid artifact. An error is read through
 //! only when its code is in [`READ_THROUGH`]: a dangling reference whose
 //! source value is kept while no edge or binding is invented for it. Every

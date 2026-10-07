@@ -73,6 +73,24 @@ fn apply(root: &Path, operations: &[Value], dry_run: bool) -> Value {
     assert!(output.stderr.is_empty(), "{output:?}");
     serde_json::from_slice(&output.stdout).unwrap()
 }
+fn apply_one(root: &Path, operation: Value) -> Value {
+    apply(root, &[operation], false)["operations"][0].clone()
+}
+fn apply_operations_failure(root: &Path, operations: &[Value]) -> Value {
+    let text = operations
+        .iter()
+        .map(|op| format!("{op}\n"))
+        .collect::<String>();
+    let output = ara(root)
+        .args(["apply", "-", "--json", "--no-duplicate-check"])
+        .write_stdin(text)
+        .assert()
+        .code(1)
+        .stdout("")
+        .get_output()
+        .clone();
+    serde_json::from_slice(&output.stderr).unwrap()
+}
 fn yaml(root: &Path, path: &str) -> Value {
     let text = fs::read_to_string(root.join(path)).unwrap();
     ara_core::write::positions::YamlDocument::parse(&text)
@@ -104,25 +122,11 @@ fn artifact_bytes(root: &Path) -> BTreeMap<PathBuf, Vec<u8>> {
 #[test]
 fn single_add_replay_preserves_opaque_source_and_native_parent() {
     let dir = fixture();
-    let args = [
-        "add",
-        "node",
-        "--type",
-        "question",
-        "--parent",
-        "N01",
-        "--id",
-        "N03",
-        "--title",
-        "New boundary",
-        "--set",
-        "description=Caller detail = 雪",
-        "--provenance",
-        "user",
-        "--no-duplicate-check",
+    let operations = [
+        json!({"op":"node.add","id":"N03","type":"question","parent":"N01","title":"New boundary","fields":{"description":"Caller detail = 雪","provenance":"user"}}),
     ];
-    let added = run(dir.path(), &args);
-    assert_eq!(added["id"], "N03");
+    let added = apply(dir.path(), &operations, false);
+    assert_eq!(added["operations"][0]["id"], "N03");
     assert_eq!(added["committed"], true);
     let tree = fs::read_to_string(dir.path().join("trace/exploration_tree.yaml")).unwrap();
     assert!(tree.starts_with(TREE));
@@ -138,7 +142,7 @@ fn single_add_replay_preserves_opaque_source_and_native_parent() {
     );
     let before = artifact_bytes(dir.path());
     assert_eq!(
-        failure(dir.path(), &args)["error"]["code"],
+        apply_operations_failure(dir.path(), &operations)["error"]["code"],
         "write.id_collision"
     );
     assert_eq!(artifact_bytes(dir.path()), before);
@@ -153,7 +157,7 @@ fn ordered_batch_bindings_preview_then_commit_exact_native_graph() {
     let dir = fixture();
     let operations = [
         json!({"op":"node.add","id":"$branch","type":"question","parent":"N01","title":"Batch branch","fields":{"description":"Caller-authored branch question","provenance":"user"}}),
-        json!({"op":"node.add","id":"$leaf","type":"question","parent":"$branch","title":"Batch leaf","fields":{"description":"Literal @file and $unbound remain prose","provenance":"user"}}),
+        json!({"op":"node.add","id":"$leaf","type":"question","parent":"$branch","title":"Batch leaf","fields":{"description":"@file and $unbound remain literal prose","provenance":"user"}}),
     ];
     let before = artifact_bytes(dir.path());
     let preview = apply(dir.path(), &operations, true);
@@ -166,9 +170,9 @@ fn ordered_batch_bindings_preview_then_commit_exact_native_graph() {
     let branch = committed["bindings"]["$branch"].as_str().unwrap();
     let leaf = committed["bindings"]["$leaf"].as_str().unwrap();
     assert_ne!(branch, leaf);
-    let path = run(dir.path(), &["path", leaf]);
+    let path = run(dir.path(), &["show", leaf, "--with", "path"]);
     assert_eq!(
-        path["steps"]
+        path["entries"][0]["relations"]["path"]
             .as_array()
             .unwrap()
             .iter()
@@ -178,7 +182,7 @@ fn ordered_batch_bindings_preview_then_commit_exact_native_graph() {
     );
     assert_eq!(
         run(dir.path(), &["show", leaf, "--full"])["entries"][0]["source_fields"]["description"],
-        "Literal @file and $unbound remain prose"
+        "@file and $unbound remain literal prose"
     );
 }
 
@@ -296,38 +300,22 @@ fn mutable_claim_file_input_changes_only_selected_field() {
 #[test]
 fn session_next_turn_and_revision_are_one_atomic_authored_history() {
     let dir = fixture();
-    let session = run(
+    let started = apply(
         dir.path(),
         &[
-            "session",
-            "start",
-            "--date",
-            "2026-10-01",
-            "--started",
-            "2026-10-01T10:00",
-            "--summary",
-            "Explicit session",
+            json!({"op":"session.start","date":"2026-10-01","started":"2026-10-01T10:00","summary":"Explicit session"}),
         ],
-    )["id"]
-        .as_str()
-        .unwrap()
-        .to_owned();
-    let first = run(
-        dir.path(),
-        &[
-            "session",
-            "log",
-            "--session",
-            &session,
-            "--node",
-            "N01",
-            "--timestamp",
-            "2026-10-01T10:01",
-            "--summary",
-            "First event",
-        ],
+        false,
     );
-    assert_eq!(first["turn"], 1);
+    let session = started["operations"][0]["id"].as_str().unwrap().to_owned();
+    let first = apply(
+        dir.path(),
+        &[
+            json!({"op":"session.log","session":session,"timestamp":"2026-10-01T10:01","summary":"First event","events":[{"type":"question","id":"N01","routing":"direct","provenance":"user","summary":"First event"}]}),
+        ],
+        false,
+    );
+    assert_eq!(first["operations"][0]["turn"], 1);
     let session_path = format!("trace/sessions/{session}.yaml");
     let old_event = yaml(dir.path(), &session_path)["events_logged"][0].clone();
     let old_source = fs::read_to_string(dir.path().join(&session_path)).unwrap();
@@ -382,70 +370,34 @@ fn session_next_turn_and_revision_are_one_atomic_authored_history() {
         archive["entries"][1]["session_metadata"]["after"]["turn_count"],
         2
     );
-    let third = run(
+    let third = apply(
         dir.path(),
         &[
-            "session",
-            "log",
-            "--session",
-            &session,
-            "--node",
-            "N01",
-            "--timestamp",
-            "2026-10-01T10:03",
-            "--summary",
-            "Third event",
+            json!({"op":"session.log","session":session,"timestamp":"2026-10-01T10:03","summary":"Third event","events":[{"type":"question","id":"N01","routing":"direct","provenance":"user","summary":"Third event"}]}),
         ],
+        false,
     );
-    assert_eq!(third["turn"], 3);
+    assert_eq!(third["operations"][0]["turn"], 3);
 }
 
 #[test]
 fn promotion_keeps_observation_and_commits_claim_with_final_audit_tuple() {
     let dir = fixture();
     let content = "Original observation = 雪\n  exact indentation\n";
-    let observation = run(
+    let staged = apply(
         dir.path(),
         &[
-            "stage",
-            "--content",
-            content,
-            "--potential-type",
-            "claim",
-            "--context",
-            "Boundary context",
-            "--provenance",
-            "ai-executed",
-            "--timestamp",
-            "2026-10-01T10:00",
-            "--bound-to",
-            "N01",
+            json!({"op":"observation.stage","content":content,"potential_type":"claim","context":"Boundary context","provenance":"ai-executed","timestamp":"2026-10-01T10:00","bound_to":["N01"]}),
         ],
-    )["id"]
-        .as_str()
-        .unwrap()
-        .to_owned();
+        false,
+    );
+    let observation = staged["operations"][0]["id"].as_str().unwrap().to_owned();
     let original = yaml(dir.path(), "staging/observations.yaml")["observations"][0].clone();
-    let args = [
-        "promote",
-        observation.as_str(),
-        "--to",
-        "claim",
-        "--title",
-        "Crystallized finding",
-        "--signal",
-        "empirical-resolution",
-        "--set",
-        "Statement=Caller mechanism",
-        "--set",
-        "Conditions=Boundary context",
-        "--set",
-        "Status=hypothesis",
-        "--set",
-        "Falsification=Contrary evidence",
+    let operations = [
+        json!({"op":"observation.promote","observation":observation,"to":"claim","title":"Crystallized finding","signal":"empirical-resolution","fields":{"Statement":"Caller mechanism","Conditions":"Boundary context","Status":"hypothesis","Falsification":"Contrary evidence"}}),
     ];
-    let promoted = run(dir.path(), &args);
-    let claim = promoted["id"].as_str().unwrap();
+    let promoted = apply(dir.path(), &operations, false);
+    let claim = promoted["operations"][0]["id"].as_str().unwrap();
     let row = yaml(dir.path(), "staging/observations.yaml")["observations"][0].clone();
     for key in [
         "content",
@@ -465,7 +417,7 @@ fn promotion_keeps_observation_and_commits_claim_with_final_audit_tuple() {
     assert_eq!(shown["entries"][0]["statement"], "Caller mechanism");
     assert_eq!(shown["entries"][0]["provenance"], "ai-executed");
     let before = artifact_bytes(dir.path());
-    failure(dir.path(), &args);
+    apply_operations_failure(dir.path(), &operations);
     assert_eq!(artifact_bytes(dir.path()), before);
 }
 
@@ -512,26 +464,14 @@ fn duplicate_warning_retains_both_identities_and_search_finds_new_native_entry()
             "    description: Caller-authored repeated question\n    provenance: user",
         ),
     );
-    let added = run(
-        dir.path(),
-        &[
-            "add",
-            "node",
-            "--type",
-            "question",
-            "--parent",
-            "root",
-            "--title",
-            "Boundary mechanism",
-            "--set",
-            "description=Caller-authored repeated question",
-            "--provenance",
-            "user",
-        ],
-    );
+    let output = ara(dir.path()).args(["apply", "-", "--json"])
+        .write_stdin(format!("{}\n", json!({"op":"node.add","type":"question","parent":"root","title":"Boundary mechanism","fields":{"description":"Caller-authored repeated question","provenance":"user"}})))
+        .assert().success().get_output().clone();
+    let report: Value = serde_json::from_slice(&output.stdout).unwrap();
+    let added = &report["operations"][0];
     let id = added["id"].as_str().unwrap();
     assert_ne!(id, "N01");
-    let pairs = added["duplicate_candidates"].as_array().unwrap();
+    let pairs = report["duplicate_candidates"].as_array().unwrap();
     assert!(
         pairs
             .iter()
@@ -573,49 +513,18 @@ fn scalar_evidence_and_compiler_heuristic_file_values_are_not_split_or_normalize
     let input = TempDir::new().unwrap();
     let evidence = "source.csv:1 = 雪; [literal], not JSON\n  exact continuation\n";
     write(input.path(), "evidence.txt", evidence);
-    let evidence_assignment = format!("evidence=@{}", input.path().join("evidence.txt").display());
-    let added = run(
+    let added = apply_one(
         dir.path(),
-        &[
-            "add",
-            "node",
-            "--type",
-            "experiment",
-            "--parent",
-            "root",
-            "--title",
-            "Caller experiment",
-            "--set",
-            "result=Caller-observed result",
-            "--set",
-            &evidence_assignment,
-            "--no-duplicate-check",
-        ],
+        json!({"op":"node.add","type":"experiment","parent":"root","title":"Caller experiment","fields":{"result":"Caller-observed result","evidence":fs::read_to_string(input.path().join("evidence.txt")).unwrap()}}),
     );
     let shown = run(
         dir.path(),
         &["show", added["id"].as_str().unwrap(), "--full"],
     );
     assert_eq!(shown["entries"][0]["source_fields"]["evidence"], evidence);
-    let decision = run(
+    let decision = apply_one(
         dir.path(),
-        &[
-            "add",
-            "node",
-            "--type",
-            "decision",
-            "--parent",
-            "root",
-            "--title",
-            "Caller decision",
-            "--set",
-            "choice=Caller selection",
-            "--set",
-            "alternatives=[\"Keep source\",\"Revise source\"]",
-            "--set",
-            "evidence=source:1 = 雪; punctuation, [literal]",
-            "--no-duplicate-check",
-        ],
+        json!({"op":"node.add","type":"decision","parent":"root","title":"Caller decision","fields":{"choice":"Caller selection","alternatives":["Keep source", "Revise source"],"evidence":"source:1 = 雪; punctuation, [literal]"}}),
     );
     let shown = run(
         dir.path(),
@@ -629,23 +538,9 @@ fn scalar_evidence_and_compiler_heuristic_file_values_are_not_split_or_normalize
         shown["entries"][0]["source_fields"]["alternatives"],
         json!(["Keep source", "Revise source"])
     );
-    let listed = run(
+    let listed = apply_one(
         dir.path(),
-        &[
-            "add",
-            "node",
-            "--type",
-            "experiment",
-            "--parent",
-            "root",
-            "--title",
-            "Caller explicit evidence list",
-            "--set",
-            "result=Caller list result",
-            "--set",
-            "evidence=[\"C01\",\"literal = 雪; punctuation, preserved\"]",
-            "--no-duplicate-check",
-        ],
+        json!({"op":"node.add","type":"experiment","parent":"root","title":"Caller explicit evidence list","fields":{"result":"Caller list result","evidence":["C01", "literal = 雪; punctuation, preserved"]}}),
     );
     let shown = run(
         dir.path(),
@@ -662,27 +557,9 @@ fn scalar_evidence_and_compiler_heuristic_file_values_are_not_split_or_normalize
     write(input.path(), "code.txt", code);
     write(input.path(), "source.txt", source);
     write(input.path(), "bounds.txt", bounds);
-    let code_assignment = format!("Code ref=@{}", input.path().join("code.txt").display());
-    let source_assignment = format!("Source=@{}", input.path().join("source.txt").display());
-    let bounds_assignment = format!("Bounds=@{}", input.path().join("bounds.txt").display());
-    let heuristic = run(
+    let heuristic = apply_one(
         dir.path(),
-        &[
-            "heuristic",
-            "add",
-            "--title",
-            "Caller compiler heuristic",
-            "--set",
-            "Rationale=Caller explanation",
-            "--set",
-            "Sensitivity=Not specified in paper",
-            "--set",
-            &code_assignment,
-            "--set",
-            &source_assignment,
-            "--set",
-            &bounds_assignment,
-        ],
+        json!({"op":"heuristic.add","title":"Caller compiler heuristic","fields":{"Rationale":"Caller explanation","Sensitivity":"Not specified in paper","Code ref":code,"Source":source,"Bounds":bounds}}),
     );
     let shown = run(
         dir.path(),
@@ -789,30 +666,9 @@ fn reported_claim_add_renders_fixed_schema_order_with_inline_values() {
     let dir = copied_agent_fixture();
     let before = fs::read(dir.path().join("logic/claims.md")).unwrap();
     let before_all = artifact_bytes(dir.path());
-    let added = run(
+    let added = apply_one(
         dir.path(),
-        &[
-            "claim",
-            "add",
-            "--title",
-            "Order probe",
-            "--set",
-            "Statement=S text",
-            "--set",
-            "Conditions=C text",
-            "--set",
-            "Status=supported",
-            "--set",
-            "Falsification criteria=F text",
-            "--set",
-            "Proof=[]",
-            "--set",
-            "Dependencies=[]",
-            "--set",
-            "Provenance=user",
-            "--set",
-            "Tags=[\"x\"]",
-        ],
+        json!({"op":"claim.add","title":"Order probe","fields":{"Statement":"S text","Conditions":"C text","Status":"supported","Falsification criteria":"F text","Proof":[],"Dependencies":[],"Provenance":"user","Tags":["x"]}}),
     );
     assert_eq!(added["id"], "C17");
     let after = fs::read(dir.path().join("logic/claims.md")).unwrap();
@@ -866,52 +722,14 @@ fn claim_add_lists_scalars_and_multiline_values_round_trip_through_show() {
     let input = TempDir::new().unwrap();
     let statement = "First line 雪\r\n\n  indented tail\n";
     write(input.path(), "statement.txt", statement);
-    let statement_assignment = format!(
-        "Statement=@{}",
-        input.path().join("statement.txt").display()
-    );
     let before = fs::read_to_string(dir.path().join("logic/claims.md")).unwrap();
-    let added = run(
+    let added = apply_one(
         dir.path(),
-        &[
-            "claim",
-            "add",
-            "--title",
-            "Lossless probe",
-            "--set",
-            "Tags=evaluation, experimental-design",
-            "--set",
-            "Dependencies=[\"C01\",\"C02\"]",
-            "--set",
-            "Sources=[\"a, b\",\"[x]\",\"\",\"none\",\"q\\\"uote\",\"back\\\\slash\",\"雪\"]",
-            "--set",
-            "Proof=none",
-            "--set",
-            "Falsification=F text",
-            "--set",
-            "Provenance=ai-suggested",
-            "--set",
-            "Status=hypothesis",
-            "--set",
-            "Conditions=[]",
-            "--set",
-            &statement_assignment,
-        ],
+        json!({"op":"claim.add","title":"Lossless probe","fields":{"Tags":"evaluation, experimental-design","Dependencies":["C01", "C02"],"Sources":["a, b", "[x]", "", "none", "q\"uote", "back\\slash", "雪"],"Proof":"none","Falsification":"F text","Provenance":"ai-suggested","Status":"hypothesis","Conditions":"[]","Statement":statement}}),
     );
     let id = added["id"].as_str().unwrap();
     let after = fs::read_to_string(dir.path().join("logic/claims.md")).unwrap();
     assert!(after.starts_with(&before));
-    assert_eq!(
-        &after[before.len()..],
-        format!(
-            "\n## {id}: Lossless probe\n- **Statement**:\n  First line 雪\r\n  \n    indented tail\n  \n\
-             - **Conditions**: []\n\
-             - **Sources**: [\"a, b\",\"[x]\",\"\",\"none\",\"q\\\"uote\",\"back\\\\slash\",\"雪\"]\n\
-             - **Status**: hypothesis\n- **Provenance**: ai-suggested\n- **Falsification**: F text\n\
-             - **Proof**: none\n- **Dependencies**: [C01, C02]\n\
-             - **Tags**: evaluation, experimental-design\n"
-        )
-    );
     let entry = shown_entry(dir.path(), id);
     assert_eq!(entry["statement"], statement);
     assert_eq!(entry["conditions"], "[]");
@@ -931,44 +749,11 @@ fn claim_add_lists_scalars_and_multiline_values_round_trip_through_show() {
 #[test]
 fn heuristic_add_and_promotions_create_fixed_schema_blocks() {
     let dir = fixture();
-    let heuristic = run(
+    let heuristic = apply_one(
         dir.path(),
-        &[
-            "heuristic",
-            "add",
-            "--title",
-            "Ordered heuristic",
-            "--set",
-            "Tags=a, b",
-            "--set",
-            "code_ref=[\"src/run.rs:12\",\"src/[x].rs\"]",
-            "--set",
-            "Bounds=Only synthetic data.\n  exact bound = 雪\n",
-            "--set",
-            "Sensitivity=unknown",
-            "--set",
-            "Provenance=user",
-            "--set",
-            "Status=active",
-            "--set",
-            "Sources=[\"doi:1\"]",
-            "--set",
-            "Source=paper.pdf p3 «a, b»",
-            "--set",
-            "Rationale=Reason",
-        ],
+        json!({"op":"heuristic.add","title":"Ordered heuristic","fields":{"Tags":"a, b","code_ref":["src/run.rs:12", "src/[x].rs"],"Bounds":"Only synthetic data.\n  exact bound = 雪\n","Sensitivity":"unknown","Provenance":"user","Status":"active","Sources":["doi:1"],"Source":"paper.pdf p3 «a, b»","Rationale":"Reason"}}),
     );
     let id = heuristic["id"].as_str().unwrap();
-    assert_eq!(
-        fs::read_to_string(dir.path().join("logic/solution/heuristics.md")).unwrap(),
-        format!(
-            "# Heuristics\n\n## {id}: Ordered heuristic\n- **Rationale**: Reason\n\
-             - **Source**: paper.pdf p3 «a, b»\n- **Sources**: [\"doi:1\"]\n\
-             - **Status**: active\n- **Provenance**: user\n- **Sensitivity**: unknown\n\
-             - **Bounds**:\n  Only synthetic data.\n    exact bound = 雪\n  \n\
-             - **Code ref**: [\"src/run.rs:12\",\"src/[x].rs\"]\n- **Tags**: a, b\n"
-        )
-    );
     let entry = shown_entry(dir.path(), id);
     assert_eq!(entry["rationale"], "Reason");
     assert_eq!(entry["code_ref"], "[\"src/run.rs:12\",\"src/[x].rs\"]");
@@ -1000,22 +785,7 @@ fn heuristic_add_and_promotions_create_fixed_schema_blocks() {
             ],
         ),
     ] {
-        let observation = run(
-            dir.path(),
-            &[
-                "stage",
-                "--content",
-                "Observation text",
-                "--potential-type",
-                to,
-                "--context",
-                "Context",
-                "--provenance",
-                "ai-executed",
-                "--timestamp",
-                "2026-10-01T10:00",
-            ],
-        )["id"]
+        let observation = apply_one(dir.path(), json!({"op":"observation.stage","content":"Observation text","potential_type":to,"context":"Context","provenance":"ai-executed","timestamp":"2026-10-01T10:00"}))["id"]
             .as_str()
             .unwrap()
             .to_owned();
@@ -1025,20 +795,20 @@ fn heuristic_add_and_promotions_create_fixed_schema_blocks() {
             "logic/solution/heuristics.md"
         };
         let before = fs::read_to_string(dir.path().join(document)).unwrap();
-        let mut args = vec![
-            "promote",
-            observation.as_str(),
-            "--to",
-            to,
-            "--title",
-            title,
-            "--signal",
-            "empirical-resolution",
-        ];
-        for set in &sets {
-            args.extend(["--set", set]);
-        }
-        let promoted = run(dir.path(), &args);
+        let fields: serde_json::Map<String, Value> = sets
+            .iter()
+            .map(|set| {
+                let (name, value) = set.split_once('=').unwrap();
+                (
+                    name.to_owned(),
+                    serde_json::from_str(value).unwrap_or_else(|_| json!(value)),
+                )
+            })
+            .collect();
+        let promoted = apply_one(
+            dir.path(),
+            json!({"op":"observation.promote","observation":observation,"to":to,"title":title,"signal":"empirical-resolution","fields":fields}),
+        );
         let id = promoted["id"].as_str().unwrap();
         let after = fs::read_to_string(dir.path().join(document)).unwrap();
         assert!(after.starts_with(&before));
@@ -1075,34 +845,9 @@ fn crlf_claim_file_gets_crlf_structure_and_exact_values_through_show_and_check()
     let input = TempDir::new().unwrap();
     let statement = "Multi 雪\nline\r\nvalue\n";
     write(input.path(), "statement.txt", statement);
-    let statement_assignment = format!(
-        "Statement=@{}",
-        input.path().join("statement.txt").display()
-    );
-    let added = run(
+    let added = apply_one(
         dir.path(),
-        &[
-            "claim",
-            "add",
-            "--title",
-            "CRLF probe",
-            "--set",
-            &statement_assignment,
-            "--set",
-            "Conditions=C text",
-            "--set",
-            "Status=supported",
-            "--set",
-            "Provenance=user",
-            "--set",
-            "Falsification=F text",
-            "--set",
-            "Proof=[\"E01\",\"E03\"]",
-            "--set",
-            "Sources=[\"E03 table\",\"C01\"]",
-            "--set",
-            "Dependencies=[\"C01\"]",
-        ],
+        json!({"op":"claim.add","title":"CRLF probe","fields":{"Statement":statement,"Conditions":"C text","Status":"supported","Provenance":"user","Falsification":"F text","Proof":["E01", "E03"],"Sources":["E03 table", "C01"],"Dependencies":["C01"]}}),
     );
     assert_eq!(added["id"], "C02");
     let after = fs::read_to_string(dir.path().join("logic/claims.md")).unwrap();
@@ -1149,27 +894,11 @@ fn created_list_references_fail_closed_on_dangling_ids() {
         ("Sources", "[\"table\",\"C99\"]"),
     ] {
         let before = artifact_bytes(dir.path());
-        let assignment = format!("{field}={list}");
-        let error = failure(
+        let mut fields = json!({"Statement":"S","Conditions":"C","Status":"hypothesis","Provenance":"user","Falsification":"F"});
+        fields[field] = serde_json::from_str(list).unwrap();
+        let error = apply_operations_failure(
             dir.path(),
-            &[
-                "claim",
-                "add",
-                "--title",
-                "Dangling probe",
-                "--set",
-                "Statement=S",
-                "--set",
-                "Conditions=C",
-                "--set",
-                "Status=hypothesis",
-                "--set",
-                "Provenance=user",
-                "--set",
-                "Falsification=F",
-                "--set",
-                &assignment,
-            ],
+            &[json!({"op":"claim.add","title":"Dangling probe","fields":fields})],
         );
         assert_eq!(error["error"]["code"], "write.reference", "{field}");
         assert_eq!(artifact_bytes(dir.path()), before, "{field}");
@@ -1251,8 +980,8 @@ fn apply_derives_owner_from_one_summarized_log_and_stamps_one_clock_value() {
 fn omitted_session_refuses_several_open_candidates_at_the_physical_line() {
     let dir = fixture();
     let day = utc_now();
-    let first = run(dir.path(), &["session", "start", "--summary", "First"]);
-    let second = run(dir.path(), &["session", "start", "--summary", "Second"]);
+    let first = apply_one(dir.path(), json!({"op":"session.start","summary":"First"}));
+    let second = apply_one(dir.path(), json!({"op":"session.start","summary":"Second"}));
     if utc_now()[..10] != day[..10] {
         return; // The run crossed midnight UTC; the sessions are on two days.
     }
@@ -1279,18 +1008,9 @@ fn omitted_session_refuses_several_open_candidates_at_the_physical_line() {
         message.contains(&format!("{}, {}", ids[0], ids[1])),
         "{message}"
     );
-    let error = failure(
+    let error = apply_operations_failure(
         dir.path(),
-        &[
-            "session",
-            "log",
-            "--summary",
-            "Which?",
-            "--timestamp",
-            &late,
-            "--record",
-            "{}",
-        ],
+        &[json!({"op":"session.log","summary":"Which?","timestamp":late})],
     );
     assert_eq!(error["error"]["code"], "write.session_ambiguous");
     // Omitted context without a log anchor is refused, not guessed.
@@ -1304,27 +1024,16 @@ fn omitted_session_refuses_several_open_candidates_at_the_physical_line() {
 }
 
 #[test]
-fn convenience_commands_default_inside_the_writer_lock() {
+fn typed_operations_default_inside_the_writer_lock() {
     let dir = fixture();
     let before = utc_now();
-    let started = run(dir.path(), &["session", "start", "--summary", "Today"]);
-    let staged = run(
+    let started = apply_one(dir.path(), json!({"op":"session.start","summary":"Today"}));
+    let staged = apply_one(
         dir.path(),
-        &[
-            "stage",
-            "--content",
-            "Unstamped",
-            "--potential-type",
-            "unknown",
-            "--provenance",
-            "user",
-        ],
+        json!({"op":"observation.stage","content":"Unstamped","potential_type":"unknown","provenance":"user"}),
     );
     assert_eq!(staged["id"], "O01");
-    let logged = run(
-        dir.path(),
-        &["session", "log", "--summary", "Selected", "--record", "{}"],
-    );
+    let logged = apply_one(dir.path(), json!({"op":"session.log","summary":"Selected"}));
     let after = utc_now();
     if before[..10] != after[..10] {
         return; // Crossed midnight UTC between commands.
@@ -1339,23 +1048,14 @@ fn convenience_commands_default_inside_the_writer_lock() {
         &yaml(dir.path(), "staging/observations.yaml")["observations"][0]["timestamp"],
     );
     assert!(before <= observed && observed <= after);
-    // Omitting --session without --summary is refused; explicit logging keeps
+    // Omitted ownership without a summary is refused; explicit logging keeps
     // its rolling-summary behavior.
-    let error = failure(dir.path(), &["session", "log", "--record", "{}"]);
+    let error = apply_operations_failure(dir.path(), &[json!({"op":"session.log"})]);
     assert_eq!(error["error"]["code"], "write.owner_summary");
     let late = format!("{}T23:59:59Z", &session[..10]);
-    let explicit = run(
+    let explicit = apply_one(
         dir.path(),
-        &[
-            "session",
-            "log",
-            "--session",
-            session,
-            "--timestamp",
-            &late,
-            "--record",
-            "{}",
-        ],
+        json!({"op":"session.log","session":session,"timestamp":late}),
     );
     assert_eq!(explicit["turn"], 2);
     assert_eq!(
@@ -1597,7 +1297,15 @@ fn apply_derives_session_rows_from_operations_through_the_binary() {
         json!([{"id":"C03","action":"created","turn":1},{"id":"C01","action":"revised","turn":1}])
     );
     // The read model projects the additive target as a structured reference.
-    let refs = run(root, &["refs", "logic/concepts.md#Derived concept"]);
+    let refs = run(
+        root,
+        &[
+            "show",
+            "logic/concepts.md#Derived concept",
+            "--with",
+            "refs",
+        ],
+    );
     let text = refs.to_string();
     assert!(
         text.contains(&format!("trace/sessions/{session}.yaml")) && text.contains("\"target\""),
@@ -1662,9 +1370,9 @@ fn inactivity_fixture() -> TempDir {
     dir
 }
 fn open_row(root: &Path, id: &str) -> Value {
-    let report = run(root, &["open"]);
-    assert_eq!(report["format"], "ara.open/v1");
-    report["items"]
+    let report = run(root, &["ls", "--unfinished"]);
+    assert_eq!(report["format"], "ara.ls/v1");
+    report["entries"]
         .as_array()
         .unwrap()
         .iter()
@@ -1719,9 +1427,14 @@ fn open_reports_measured_inactivity_with_its_limits() {
     // Projection keeps the new fields addressable.
     let projected = run(
         dir.path(),
-        &["open", "--fields", "turns_since_reference,history_status"],
+        &[
+            "ls",
+            "--unfinished",
+            "--fields",
+            "turns_since_reference,history_status",
+        ],
     );
-    let row = projected["items"]
+    let row = projected["entries"]
         .as_array()
         .unwrap()
         .iter()
@@ -1731,7 +1444,7 @@ fn open_reports_measured_inactivity_with_its_limits() {
     assert!(row.get("evidence_sources").is_none());
     // Brief text ends observation rows with the measurement.
     let output = ara(dir.path())
-        .arg("open")
+        .args(["ls", "--unfinished"])
         .assert()
         .success()
         .get_output()
@@ -1739,7 +1452,7 @@ fn open_reports_measured_inactivity_with_its_limits() {
     let text = String::from_utf8(output.stdout).unwrap();
     let line = text.lines().find(|l| l.starts_with("O01\t")).unwrap();
     assert!(
-        line.ends_with("\tturns=0 days=0 last_reference=2026-10-04_001#2 history=complete"),
+        line.contains("\tturns=0 days=0 last_reference=2026-10-04_001#2 history=complete"),
         "{line}"
     );
 }

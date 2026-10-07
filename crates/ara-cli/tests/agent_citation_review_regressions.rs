@@ -20,7 +20,9 @@ fn json_list_fixture() -> TempDir {
 #[test]
 fn refs_protects_inner_quotes_and_code_in_native_json_lists() {
     let dir = json_list_fixture();
-    let report = read(dir.path(), &["refs", "C09"]);
+    let report =
+        read(dir.path(), &["show", "C09", "--with", "refs"])["entries"][0]["relations"]["refs"]
+            .clone();
     let rows: Vec<_> = report["structured"]
         .as_array()
         .unwrap()
@@ -52,7 +54,8 @@ fn automatic_merge_repairs_only_unprotected_native_json_list_items() {
     );
     let after = field(root, json!({"id":"C04"}), "Sources");
     assert_eq!(after, before.replacen("\"C09\"", "\"C01\"", 1));
-    let report = read(root, &["refs", "C01"]);
+    let report =
+        read(root, &["show", "C01", "--with", "refs"])["entries"][0]["relations"]["refs"].clone();
     let rows: Vec<_> = report["structured"]
         .as_array()
         .unwrap()
@@ -74,7 +77,8 @@ fn native_json_backtick_delimiter_runs_protect_code_during_refs_and_repair() {
         "logic/claims.md",
         claims.replace(r#"["`C09`", "'C09'", "C09", "escaped \"C09\""]"#, before),
     );
-    let report = read(root, &["refs", "C09"]);
+    let report =
+        read(root, &["show", "C09", "--with", "refs"])["entries"][0]["relations"]["refs"].clone();
     let rows: Vec<_> = report["structured"]
         .as_array()
         .unwrap()

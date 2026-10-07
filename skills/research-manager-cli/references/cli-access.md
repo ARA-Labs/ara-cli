@@ -29,9 +29,9 @@ ara -C <artifact> show --document logic/claims.md --source --lines 26:40
 ara -C <artifact> show logic/solution/method.md --lines 40:120
 ara -C <artifact> show trace/exploration_tree.yaml --lines 300: --max-bytes 8192
 ara -C <artifact> show C01 trace:N01
-ara -C <artifact> path N01
-ara -C <artifact> refs C01
-ara -C <artifact> open
+ara -C <artifact> show N01 --with path
+ara -C <artifact> show C01 --with refs
+ara -C <artifact> ls --unfinished
 ```
 
 1. **Orient.** `ls` prints one line per knowledge document with its entry counts by kind (or heading count) and line count, then the direct-file roots. `ls <path>` lists that document's entries, or its heading addresses when it has none. `status` gives layer counts, next IDs and diagnostic codes.
@@ -47,7 +47,7 @@ A miss returns `unknown_id`; a selector that matches several sections or entries
 
 For grounding read the source document or its unique section with `show`: brief text prints the exact source bytes and the `source_digest` of the whole selection. A node, observation or session address prints a projection with no digest; read the exact source it names (such as `ara show --document trace/exploration_tree.yaml --source`) when you need the bytes or the digest. Use the original native anchor in the answer (`trace:N01`, `logic/claims.md#C01`, concept names and path/heading addresses); never cite a generated display ID. For YAML entries obtain the complete document as well as typed fields when source spelling, unknown fields, comments, raw observation context or full history matters. For Markdown obtain the whole document/unique section rather than treating a typed projection as exhaustive.
 
-`path` and `refs` recover graph/native relations; distinguish structured references from possible prose mentions. `open` is local unresolved context, not proof of freshness or remote community progress. Its observation rows add `turns_since_reference` and `session_days_since_reference` (logged turns and dates since the last exact ID or bound-node reference), `last_reference_turn`, `reference_basis` (`structured`, `literal` or `staging_timestamp`), `evidence_sources` and `history_status` (`complete`, `missing`, `ambiguous`); a `null` count is unknown (`history_diagnostics` says why), never zero, and no count is a semantic or closure judgment. Verify every body you cite. Directly read only allowed actual evidence/source bodies, preserve all original source quotes and screenshots, and stay within reader isolation.
+`show --with path` recovers root-to-node nesting; `depends_on` remains a separate cross-edge relation. `show --with refs` separates structured references from possible prose mentions. `ls --unfinished` is local unresolved context, not proof of freshness or remote community progress. Its observation rows retain `turns_since_reference`, `session_days_since_reference`, `last_reference_turn`, `reference_basis`, `evidence_sources`, `history_status` and `history_diagnostics`. A `null` count is unknown, never zero. Filters select rows without filtering the history used to calculate inactivity. No count decides closure or maturity. Verify every body you cite and preserve the original evidence standards.
 
 ## Structured output and exact source before writes
 
@@ -88,6 +88,77 @@ ara -C <artifact> apply <request.jsonl> --json
 ```
 
 `apply - --json` consumes JSONL on stdin, which needs a pipe or redirect; under the shell-call rule pass the request file path instead. Dry run is optional access inspection, not a maturity judgment. Use one committed batch for related present-state/history/session/index changes. Operation results and `bindings` identify assigned IDs; do not scan files to allocate them. Omit `id` for allocation; only use documented provisional batch names when binding several operations in one transaction. The agent still decides every research signal, provenance, fact and relationship.
+
+JSONL strings contain literal text. Read external payloads with the permitted file tool and encode the intended complete text into JSON; `@file`, `@-` and `@@text` do not expand in `apply`. Consume `ara.apply/v1` operation results and `bindings`, not a removed wrapper envelope. Dry-run identities, timestamps and turns are tentative.
+
+### Inspect ancestry, citations and imported identities
+
+```sh
+ara -C <artifact> show N01 --with path,parents,depends_on --json
+ara -C <artifact> show C01 --with refs --fields relations --json
+ara -C <artifact> show trace/exploration_tree.yaml --with refs --json
+ara -C <artifact> show --identity 'peer:N01' --json
+```
+
+Read `entries[].relations.path` as ordered ancestry and `entries[].relations.refs` as `{target,structured,prose}`. Whole-document reference targets retain document-wide matching. `--fields relations` keeps the complete relation object, not a nested field projection. Multiple selectors keep request order and all must support each relation; non-node paths, heading/source relations and incompatible identity options reject. Identity mode takes exactly one positional address and returns `kind: "identity"`, `requested_address` and exact `resolved_target`, without requiring a readable current body. Every requested relation remains complete under a byte budget; `output_limit_too_small` requires raising `--max-bytes`, never accepting partial citations.
+
+### Initialize or extend an artifact
+
+Prepare scratch JSONL with `artifact.init` and the role's profile. The research-manager profile takes complete `paper` text; the compiler profile requires all seven native documents in `documents`, including PAPER. Register additional knowledge paths in PAPER before `document.create`. Existing root repairs use `paper.edit` with actual audit signal/provenance and an owning summarized `session.log` in the same batch.
+
+This miniature caller fixture supplies a conditional setup but no measurements or external papers; the corresponding documents record those omissions explicitly. Initialization does not imply scientific success or a completed Seal compilation. Submit the scratch request through `apply`, then follow the complete original compiler validation procedure:
+
+```jsonl
+{"op":"artifact.init","profile":"compiler","documents":{"PAPER.md":"---\ntitle: Skill compiler example\n---\n# Skill compiler example\n\nThe caller supplies a setup question, not a measured result.\n","logic/problem.md":"# Problem\n\nCaller input asks how the declared setup bounds the result.\n","logic/claims.md":"# Claims\n\n## C01: Declared setup bounds a result\n- **Statement**: A source-grounded result is conditional on its declared setup.\n- **Conditions**: Caller-supplied source and setup only.\n- **Proof**: No measured result is supplied.\n- **Falsification**: Source evidence supporting an unconditional result.\n- **Status**: hypothesis\n- **Dependencies**: []\n- **Provenance**: ai-suggested\n","logic/concepts.md":"# Concepts\n\n## Declared setup\nThe caller-supplied conditions, not a newly executed measurement.\n","logic/experiments.md":"# Experiments\n\nNo experiment or measurement was supplied by the caller; none is claimed.\n","logic/related_work.md":"# Related Work\n\nNo external paper was supplied; related-work coverage is not claimed.\n","logic/solution/constraints.md":"# Constraints\n\n## Declared setup\nA conclusion is limited to source-grounded conditions. This example supplies no measurement.\n"}}
+```
+
+### Review unfinished work
+
+Use `ls --unfinished --json` and consume `entries`, including `reasons` and all measured/unknown inactivity fields. An empty intersection stays `entries: []`. Ordinary brief `ls` lists documents; ordinary unfiltered JSON `ls` lists entries. Reading changes no stale or promoted state. Only after the unchanged source rule warrants it, submit `observation.mark_stale` with caller reason and audit in the owning summarized `session.log` batch. Unknown history refuses; never convert it to zero or invent dates.
+
+### Record a research turn
+
+Save this request outside the artifact and submit it with one `ara -C <artifact> apply <scratch>/turn.jsonl --json` shell call:
+
+```jsonl
+{"op":"session.log","summary":"Recorded a measurement-boundary question"}
+{"op":"node.add","id":"$question","type":"question","parent":"root","title":"Does the claim depend on this setup?","fields":{"description":"Check the declared measurement setup.","provenance":"ai-suggested"}}
+{"op":"record.append","document":"trace/pm_reasoning_log.yaml","record":{"notes":["Recorded the question without changing claim status."]}}
+```
+
+The owning log allocates session/turn and derived mechanical event rows. The researcher supplies scientific events, signal, provenance and reasoning. Consume `$question` from returned bindings; never allocate IDs by scanning files.
+
+### Stage or crystallize an observation
+
+Use `observation.stage` with complete `content`, `context`, `potential_type`, `provenance` and `bound_to`. Use `observation.promote` only after the existing closure signal, with complete destination `title`/`fields` or native `target`/`content` and `signal`. Original content and promotion pointers commit together. Unknown interpretation stays staged; never edit pointers manually. After the preceding question example on a new artifact, the following caller-authored fixture assumes its returned question is N01. The caller explicitly affirms the staged boundary and supplies unknown sensitivity and an empty code list because this fixture is prose-only. Real work must substitute actual source-grounded payloads and the returned question ID. Save this separate request outside the artifact:
+
+```jsonl
+{"op":"session.log","summary":"Recorded the caller-affirmed setup boundary and source knowledge"}
+{"op":"observation.stage","id":"$observation","content":"Literal @file is caller text.","context":"Complete source context","potential_type":"claim","provenance":"ai-suggested","bound_to":["N01"]}
+{"op":"observation.promote","observation":"$observation","to":"claim","id":"$promoted","title":"Declared measurement boundary","fields":{"Statement":"Boundary is caller affirmed","Conditions":"Declared setup","Status":"hypothesis","Provenance":"user-revised","Falsification":"A contrary measurement"},"signal":"verbal-affirmation"}
+{"op":"claim.add","id":"$claim","title":"Complete source claim","fields":{"Statement":"Caller source statement","Conditions":"Declared setup","Status":"hypothesis","Provenance":"ai-suggested","Falsification":"A contrary measurement"}}
+{"op":"heuristic.add","id":"$heuristic","title":"Check the declared setup","fields":{"Rationale":"Caller source rationale","Source":"Caller input","Bounds":"Only the declared setup","Sensitivity":"unknown","Code ref":[],"Provenance":"ai-suggested"}}
+```
+
+### Create claims and heuristics
+
+Use `claim.add` or `heuristic.add` with full title and source-dialect fields, preserving arrays, multiline text, scalar Source and complete Bounds. Explicit replay IDs remain optional; provisional IDs bind later structured references. Consume assigned identities from operation results/bindings. Do not invent provenance, proof, status or maturity to satisfy a schema.
+
+### Edit current knowledge
+
+Retained `edit`, `claim set` and `heuristic set` perform permitted `EntryEdit` changes without an implicit audit session. They do not confirm a claim. A coupled PM revision uses `logic.revise` plus the owning summarized `session.log` in one atomic request, preserving exact before/after and `Last revised`; separate setter/log calls are not equivalent. Read complete guarded source before supplying `expected`.
+
+### Rename, merge or split knowledge entries
+
+Use audited `entry.rename`, retained-claim merge through `logic.revise`, or explicit `action: "split"` with caller-classified citing fields. Create spin-offs earlier in the batch. Preserve old identities/history and repair only supported current typed citations; the CLI never chooses which proposition a citer meant. See the operation table and PM structural rules below for complete guards.
+
+### Record annotations and confirmed user reactions
+
+Use `entry.annotate` for conflict annotations without rewriting the original record. Confirm the taste target first, then use `entry.taste_append` for claim/heuristic taste or `record.append` for complete trace taste/reasoning. Preserve prior history and the independent attitude/object axes; never attach taste to a question or infer confirmation.
+
+### Integrate another artifact
+
+Use `merge` and inspect full candidates, identity mappings and unresolved conflicts. Only permitted mutable decisions use `merge resolve`; protected history uses captured-candidate `merge repair` with exact fingerprint, reason and audit. Neither command grants new scientific authority or permission to erase history.
 
 The following is the supported writer union; `?` means an optional key, not literal JSON syntax. Keys and value kinds are native wire names. Text payloads retain full prose/equations/unknown fields; JSON arrays/mappings must not be flattened into comma-separated strings.
 

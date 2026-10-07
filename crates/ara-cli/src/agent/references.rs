@@ -7,6 +7,89 @@ use serde_json::{Value, json};
 use std::collections::{BTreeMap, BTreeSet};
 use std::ops::Range;
 
+/// Parsed sources and the writer snapshot shared by all refs targets of one show.
+pub(super) struct Inventory<'a> {
+    yaml: BTreeMap<String, YamlDocument>,
+    markdown: Vec<(
+        Entry<'a>,
+        Option<Vec<ara_core::write::logic::MarkdownCitation>>,
+    )>,
+    pub(super) tokens: BTreeMap<&'a str, Vec<ara_core::query::TokenMatch<'a>>>,
+}
+impl<'a> Inventory<'a> {
+    pub(super) fn new(artifact: &'a Artifact, targets: &[Entry<'a>]) -> Result<Self, AgentError> {
+        let needs_writer = targets
+            .iter()
+            .any(|target| logic_selector(*target).is_some())
+            || artifact.root.join("trace/aliases.yaml").is_file();
+        let working = needs_writer
+            .then(|| {
+                artifact
+                    .snapshot()
+                    .map(|snapshot| WorkingArtifact::new(snapshot.clone()))
+            })
+            .transpose()?;
+        let mut yaml = BTreeMap::new();
+        for (source, text) in &artifact.sources {
+            if artifact.is_knowledge(source)
+                && citation_rules::is_history_source(source)
+                && (source.ends_with(".yaml") || source.ends_with(".yml"))
+            {
+                yaml.insert(
+                    source.clone(),
+                    YamlDocument::parse(text).map_err(crate::write::convert_error)?,
+                );
+            }
+        }
+        if !yaml.contains_key("trace/aliases.yaml")
+            && let Some(working) = &working
+            && let Some(file) = working
+                .base
+                .files
+                .get("trace/aliases.yaml")
+                .filter(|file| file.existed)
+            && let Ok(text) = std::str::from_utf8(&file.bytes)
+        {
+            yaml.insert(
+                "trace/aliases.yaml".into(),
+                YamlDocument::parse(text).map_err(crate::write::convert_error)?,
+            );
+        }
+        let mut selected = Vec::new();
+        let mut selectors = Vec::new();
+        for target in targets {
+            if let Some(selector) = logic_selector(*target) {
+                selected.push(*target);
+                selectors.push(selector);
+            }
+        }
+        let markdown = if selectors.is_empty() {
+            Vec::new()
+        } else {
+            let working = working.as_ref().expect("logic target snapshot");
+            // Per-selector failures preserve the read-only fallback for recovered
+            // headings; a shared classification failure falls back for all targets.
+            match ara_core::write::logic::markdown_citations_many(working, &selectors) {
+                Ok(results) => selected
+                    .into_iter()
+                    .zip(results.into_iter().map(Result::ok))
+                    .collect(),
+                Err(_) => selected.into_iter().map(|entry| (entry, None)).collect(),
+            }
+        };
+        let tokens = artifact
+            .sources
+            .iter()
+            .filter(|(source, _)| artifact.is_knowledge(source))
+            .map(|(source, text)| (source.as_str(), ara_core::query::scan_tokens(text)))
+            .collect();
+        Ok(Self {
+            yaml,
+            markdown,
+            tokens,
+        })
+    }
+}
 pub struct References {
     pub rows: Vec<Value>,
     pub ranges: BTreeMap<String, BTreeSet<(usize, usize)>>,
@@ -145,10 +228,9 @@ fn values(
 fn yaml(
     result: &mut References,
     source: &str,
-    text: &str,
+    parsed: &YamlDocument,
     target: Target<'_>,
 ) -> Result<(), AgentError> {
-    let parsed = YamlDocument::parse(text).map_err(crate::write::convert_error)?;
     let concepts = concept_paths(target);
     citation_rules::walk_history(source, &parsed.root, &mut |value| {
         if value.role == HistoryRole::ConceptName {
@@ -239,7 +321,11 @@ fn logic_selector(entry: Entry<'_>) -> Option<EntrySelector> {
         _ => None,
     }
 }
-pub fn structured(artifact: &Artifact, target: Entry<'_>) -> Result<References, AgentError> {
+pub(super) fn structured(
+    artifact: &Artifact,
+    target: Entry<'_>,
+    inventory: &Inventory<'_>,
+) -> Result<References, AgentError> {
     let mut result = References {
         rows: Vec::new(),
         ranges: BTreeMap::new(),
@@ -256,18 +342,16 @@ pub fn structured(artifact: &Artifact, target: Entry<'_>) -> Result<References, 
     };
     // Native logic entries share the writer's typed citation inventory, the
     // same classifier C1 repairs with.
-    let shared = match logic_selector(target.entry) {
-        Some(selector) => {
-            let working = WorkingArtifact::new(artifact.snapshot()?.clone());
-            // A selector the writer cannot resolve (a duplicate or recovered
-            // heading the read model still lists) falls back to the
-            // read-only token scan below, which uses the same field table
-            // and protected spans; `refs` stays a read, never a refusal.
-            ara_core::write::logic::markdown_citations(&working, &selector).ok()
-        }
-        None => None,
-    };
-    if let Some(citations) = &shared {
+    let shared = inventory
+        .markdown
+        .iter()
+        .find(|(entry, _)| {
+            entry.key() == target.key()
+                && entry.kind() == target.entry.kind()
+                && entry.source_matches(target.entry.source_path().as_ref())
+        })
+        .and_then(|(_, citations)| citations.as_ref());
+    if let Some(citations) = shared {
         for citation in citations {
             result.add(
                 &citation.document,
@@ -280,21 +364,10 @@ pub fn structured(artifact: &Artifact, target: Entry<'_>) -> Result<References, 
     }
     // History layers the read model does not load (the portable alias
     // ledger) still carry citations; walk them from the exact snapshot.
-    if artifact
-        .sources
-        .keys()
-        .all(|path| path != "trace/aliases.yaml")
-        && artifact.root.join("trace/aliases.yaml").is_file()
+    if !artifact.sources.contains_key("trace/aliases.yaml")
+        && let Some(parsed) = inventory.yaml.get("trace/aliases.yaml")
     {
-        let snapshot = artifact.snapshot()?;
-        if let Some(text) = snapshot
-            .files
-            .get("trace/aliases.yaml")
-            .filter(|file| file.existed)
-            .and_then(|file| std::str::from_utf8(&file.bytes).ok())
-        {
-            yaml(&mut result, "trace/aliases.yaml", text, target)?;
-        }
+        yaml(&mut result, "trace/aliases.yaml", parsed, target)?;
     }
     for (source, text) in &artifact.sources {
         if !artifact.is_knowledge(source) {
@@ -302,7 +375,12 @@ pub fn structured(artifact: &Artifact, target: Entry<'_>) -> Result<References, 
         }
         if source.ends_with(".yaml") || source.ends_with(".yml") {
             if citation_rules::is_history_source(source) {
-                yaml(&mut result, source, text, target)?;
+                yaml(
+                    &mut result,
+                    source,
+                    inventory.yaml.get(source).expect("parsed history"),
+                    target,
+                )?;
             }
             continue;
         }

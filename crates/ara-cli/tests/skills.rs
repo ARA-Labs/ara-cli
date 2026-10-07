@@ -401,8 +401,7 @@ fn stdout(output: &std::process::Output) -> String {
     String::from_utf8(output.stdout.clone()).unwrap()
 }
 
-/// The `error.code` of a failed `--json` command (`apply` reports on stdout,
-/// reads on stderr).
+/// The `error.code` of a failed `--json` command; errors are normally on stderr.
 fn error_code(output: &std::process::Output) -> String {
     assert_eq!(output.status.code(), Some(1), "{output:?}");
     let text = if output.stdout.is_empty() {
@@ -485,26 +484,24 @@ fn cli_access_digest_recipes_match_each_guard_scope() {
     let span_digest = ara_core::write::source::digest(content.as_bytes());
     assert_ne!(span_digest, body_digest);
 
+    let scratch = tempfile::TempDir::new().unwrap();
+    let request = scratch.path().join("session.jsonl");
+    std::fs::write(&request, format!("{}\n", json!({"op":"session.start","id":"$session","date":"2026-10-01","started":"2026-10-01T10:00","summary":"Guard scopes"}))).unwrap();
+    let scratch = tempfile::TempDir::new().unwrap();
+    let request = scratch.path().join("session.jsonl");
+    std::fs::write(&request, format!("{}\n", json!({"op":"session.start","id":"$session","date":"2026-10-01","started":"2026-10-01T10:00","summary":"Guard scopes"}))).unwrap();
     let session: serde_json::Value = serde_json::from_slice(
         &ara_in(root)
-            .args([
-                "session",
-                "start",
-                "--date",
-                "2026-10-01",
-                "--started",
-                "2026-10-01T10:00",
-                "--summary",
-                "Guard scopes",
-                "--json",
-            ])
+            .arg("apply")
+            .arg(&request)
+            .arg("--json")
             .assert()
             .success()
             .get_output()
             .stdout,
     )
     .unwrap();
-    let session = session["id"].as_str().unwrap();
+    let session = session["bindings"]["$session"].as_str().unwrap();
     let log = json!({"op":"session.log","session":session,"timestamp":"2026-10-01T10:01"});
     let target = json!({"document":"logic/concepts.md","heading":["Old term"]});
     let audit = |mut op: serde_json::Value| {
@@ -621,5 +618,278 @@ fn shell_words_honours_single_quotes() {
             "--heading",
             "Old term"
         ]
+    );
+}
+
+fn published_jsonl(section: &str) -> Vec<serde_json::Value> {
+    let access = cli_access();
+    let start = access.find(section).expect("published task exists");
+    let text = &access[start..];
+    let block = text
+        .split_once("```jsonl\n")
+        .expect("published JSONL example")
+        .1;
+    block
+        .split_once("\n```")
+        .unwrap()
+        .0
+        .lines()
+        .map(|line| serde_json::from_str(line).unwrap())
+        .collect()
+}
+
+fn commit_example(
+    root: &Path,
+    request: &Path,
+    operations: &[serde_json::Value],
+) -> serde_json::Value {
+    std::fs::write(
+        request,
+        operations
+            .iter()
+            .map(|op| format!("{op}\n"))
+            .collect::<String>(),
+    )
+    .unwrap();
+    serde_json::from_slice(
+        &ara_in(root)
+            .arg("apply")
+            .arg(request)
+            .arg("--json")
+            .assert()
+            .success()
+            .get_output()
+            .stdout,
+    )
+    .unwrap()
+}
+
+fn source_yaml(root: &Path, path: &str) -> serde_json::Value {
+    let output = stdout(
+        &ara_in(root)
+            .args(["show", path, "--source", "--full", "--json"])
+            .output()
+            .unwrap(),
+    );
+    let response: serde_json::Value = serde_json::from_str(&output).unwrap();
+    ara_core::write::positions::YamlDocument::parse(
+        response["entries"][0]["content"].as_str().unwrap(),
+    )
+    .unwrap()
+    .root
+    .to_json()
+    .unwrap()
+}
+
+#[test]
+fn skill_task_links_cover_every_shared_subsection() {
+    let sections = [
+        "reading-orient-search-read-cite",
+        "initialize-or-extend-an-artifact",
+        "inspect-ancestry-citations-and-imported-identities",
+        "review-unfinished-work",
+        "record-a-research-turn",
+        "stage-or-crystallize-an-observation",
+        "create-claims-and-heuristics",
+        "edit-current-knowledge",
+        "rename-merge-or-split-knowledge-entries",
+        "record-annotations-and-confirmed-user-reactions",
+        "integrate-another-artifact",
+    ];
+    let access = cli_access();
+    let pages: String = [
+        "research-manager-cli/SKILL.md",
+        "compiler-cli/SKILL.md",
+        "research-foresight-cli/SKILL.md",
+        "research-foresight-cli/references/RETRIEVE.md",
+    ]
+    .iter()
+    .map(|path| std::fs::read_to_string(skills_root().join(path)).unwrap())
+    .collect();
+    for section in sections {
+        assert!(
+            pages.contains(&format!("cli-access.md#{section}")),
+            "unlinked task {section}"
+        );
+        let heading = access
+            .lines()
+            .filter_map(|line| {
+                line.strip_prefix("## ")
+                    .or_else(|| line.strip_prefix("### "))
+            })
+            .any(|heading| {
+                heading
+                    .to_lowercase()
+                    .replace([',', ':'], "")
+                    .split_whitespace()
+                    .collect::<Vec<_>>()
+                    .join("-")
+                    == section
+            });
+        assert!(heading, "missing task anchor {section}");
+    }
+}
+
+#[test]
+fn skill_research_turn_and_consolidated_reads_run_on_matching_binary() {
+    use serde_json::json;
+    let dir = tempfile::TempDir::new().unwrap();
+    let root = dir.path().join("artifact");
+    let request = dir.path().join("turn.jsonl");
+    commit_example(
+        &root,
+        &request,
+        &[
+            json!({"op":"artifact.init","profile":"research-manager","paper":"---\ntitle: Skill runtime\n---\n# Skill runtime\n"}),
+        ],
+    );
+    let turn = published_jsonl("### Record a research turn");
+    let report = commit_example(&root, &request, &turn);
+    assert_eq!(report["format"], "ara.apply/v1");
+    assert_eq!(report["bindings"]["$question"], "N01");
+    let session = report["operations"][0]["id"].as_str().unwrap();
+    let turn_number = report["operations"][0]["turn"].as_u64().unwrap();
+    assert_eq!(turn_number, 1);
+    let session_path = format!("trace/sessions/{session}.yaml");
+    let record = source_yaml(&root, &session_path);
+    assert_eq!(record["session"]["turn_count"], turn_number);
+    assert_eq!(record["session"]["summary"], turn[0]["summary"]);
+    assert_eq!(
+        record["events_logged"][0]["id"],
+        report["bindings"]["$question"]
+    );
+    assert_eq!(record["events_logged"][0]["turn"], turn_number);
+    assert_eq!(record["events_logged"][0]["type"], "question");
+    assert_eq!(record["events_logged"][0]["routing"], "direct");
+    let reasoning = source_yaml(&root, "trace/pm_reasoning_log.yaml");
+    let authored_reasoning = reasoning["entries"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|entry| entry.get("notes").is_some())
+        .unwrap();
+    assert_eq!(
+        authored_reasoning["turn"],
+        format!("{session}#{turn_number}")
+    );
+    assert_eq!(authored_reasoning["notes"], turn[2]["record"]["notes"]);
+    let index = source_yaml(&root, "trace/sessions/session_index.yaml");
+    assert_eq!(index["sessions"][0]["id"], session);
+    assert_eq!(index["sessions"][0]["turn_count"], turn_number);
+    assert_eq!(index["sessions"][0]["events_count"], 1);
+
+    let authored = published_jsonl("### Stage or crystallize an observation");
+    let created = commit_example(&root, &request, &authored);
+    for name in ["$observation", "$promoted", "$claim", "$heuristic"] {
+        assert!(created["bindings"][name].is_string(), "{created}");
+    }
+    let observations = source_yaml(&root, "staging/observations.yaml");
+    let observation = &observations["observations"][0];
+    assert_eq!(observation["id"], created["bindings"]["$observation"]);
+    assert_eq!(observation["content"], authored[1]["content"]);
+    assert_eq!(observation["context"], authored[1]["context"]);
+    assert_eq!(observation["provenance"], authored[1]["provenance"]);
+    assert_eq!(observation["potential_type"], authored[1]["potential_type"]);
+    assert_eq!(observation["bound_to"], authored[1]["bound_to"]);
+    assert_eq!(observation["promoted"], true);
+    assert_eq!(
+        observation["promoted_to"],
+        created["operations"][2]["target"]
+    );
+    assert_eq!(observation["crystallized_via"], authored[2]["signal"]);
+    let record = source_yaml(&root, &session_path);
+    assert_eq!(record["session"]["turn_count"], 2);
+    for (event, binding, routing, provenance) in [
+        (1, "$observation", "staged", &authored[1]["provenance"]),
+        (
+            2,
+            "$promoted",
+            "crystallized",
+            &authored[2]["fields"]["Provenance"],
+        ),
+        (3, "$claim", "direct", &authored[3]["fields"]["Provenance"]),
+        (
+            4,
+            "$heuristic",
+            "direct",
+            &authored[4]["fields"]["Provenance"],
+        ),
+    ] {
+        assert_eq!(
+            record["events_logged"][event]["id"],
+            created["bindings"][binding]
+        );
+        assert_eq!(record["events_logged"][event]["turn"], 2);
+        assert_eq!(record["events_logged"][event]["routing"], routing);
+        assert_eq!(&record["events_logged"][event]["provenance"], provenance);
+    }
+    let index = source_yaml(&root, "trace/sessions/session_index.yaml");
+    assert_eq!(index["sessions"][0]["turn_count"], 2);
+    assert_eq!(index["sessions"][0]["events_count"], 5);
+    for (path, expected) in [
+        ("logic/claims.md", "Caller source statement"),
+        ("logic/solution/heuristics.md", "Only the declared setup"),
+    ] {
+        assert!(
+            stdout(
+                &ara_in(&root)
+                    .args(["show", path, "--source", "--full"])
+                    .output()
+                    .unwrap()
+            )
+            .contains(expected)
+        );
+    }
+    let path: serde_json::Value = serde_json::from_str(&stdout(&documented(
+        &root,
+        "ara -C <artifact> show N01 --with path,parents,depends_on --json",
+    )))
+    .unwrap();
+    assert_eq!(path["entries"][0]["relations"]["path"][0]["id"], "N01");
+    let unfinished: serde_json::Value = serde_json::from_slice(
+        &ara_in(&root)
+            .args(["ls", "--unfinished", "--json"])
+            .assert()
+            .success()
+            .get_output()
+            .stdout,
+    )
+    .unwrap();
+    assert!(
+        unfinished["entries"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|row| row["id"] == "N01")
+    );
+    let refs: serde_json::Value = serde_json::from_str(&stdout(&documented(
+        &root,
+        "ara -C <artifact> show trace/exploration_tree.yaml --with refs --json",
+    )))
+    .unwrap();
+    assert!(refs["entries"][0]["relations"]["refs"]["structured"].is_array());
+
+    let compiler = dir.path().join("compiler");
+    let initialization = published_jsonl("### Initialize or extend an artifact");
+    commit_example(&compiler, &request, &initialization);
+    let paper = stdout(
+        &ara_in(&compiler)
+            .args(["show", "PAPER.md", "--source", "--full"])
+            .output()
+            .unwrap(),
+    );
+    assert!(paper.contains("Skill compiler example"));
+    let problem: serde_json::Value = serde_json::from_slice(
+        &ara_in(&compiler)
+            .args(["show", "logic/problem.md", "--source", "--full", "--json"])
+            .assert()
+            .success()
+            .get_output()
+            .stdout,
+    )
+    .unwrap();
+    assert_eq!(
+        problem["entries"][0]["content"],
+        initialization[0]["documents"]["logic/problem.md"]
     );
 }

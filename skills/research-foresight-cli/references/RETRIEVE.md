@@ -24,7 +24,7 @@ but never authorize direct knowledge-file tools. Run one quoted `ara` command pe
 with no pipes, redirects, `&&`, `;` or globs, and read brief text: `ls`, `find`, then `show`
 the address the output prints, and cite that address. `cli-access.md` covers bounds, misses
 and the exact-source read before a guarded write;
-`ls`, `find`, `path`, `refs`, `open` and `status` are access aids, not semantic judgments.
+`ls`, `find`, `show --with path,refs`, `ls --unfinished` and `status` are access aids, not semantic judgments.
 Source/evidence bodies and skill pages remain direct only within the baseline scope.
 No direct fallback, automatic semantic retry, new role, or altered stopping rule is allowed.
 The entrypoint loads `references/cli-access.md` directly for executable wire details.
@@ -115,7 +115,7 @@ address `--lines` for numbers counted inside that selection (a `next:` value). N
 and session addresses are projections and take no `--lines`; window the source document they
 name instead. On `unknown_id` or
 `ambiguous_heading`, choose from the printed candidates instead of guessing again. Use
-`path`/`refs` for structured relations and possible prose mentions. Permitted
+[find/read/cite](cli-access.md#reading-orient-search-read-cite) and `show --with path,refs` for structured relations and possible prose mentions. Permitted
 source/evidence bodies (`evidence/`, `src/`) remain direct file reads.
 Find every location whose prose bears on the frame. Cast
 across **all** the native files, because the highest-value context is frequently outside the

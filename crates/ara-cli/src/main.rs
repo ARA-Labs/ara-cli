@@ -42,36 +42,18 @@ enum Command {
     Ls(agent::ListArgs),
     /// Retrieve complete entries or bounded source documents.
     Show(agent::ShowArgs),
-    /// Follow nesting from the root through a node.
-    Path(agent::IdArgs),
-    /// Report structured references and possible prose mentions.
-    Refs(agent::IdArgs),
-    /// List unfinished work without changing its state.
-    Open(agent::ReadOptions),
     /// Rank knowledge entries with offline BM25 keyword search.
     Find(agent::FindArgs),
-    /// Append nodes or validated dependency edges.
-    Add(write::AddArgs),
     /// Edit mutable logic or permitted metadata fields.
     Edit(write::EditArgs),
-    /// Create and update claims.
+    /// Update claims.
     Claim(write::LogicArgs),
-    /// Create and update heuristics.
+    /// Update heuristics.
     Heuristic(write::LogicArgs),
-    /// Append an observation without promoting it.
-    Stage(write::StageArgs),
-    /// Atomically create a target and record promotion pointers.
-    Promote(write::PromoteArgs),
-    /// Start sessions and append complete turns.
-    Session(write::SessionArgs),
-    /// Annotate a finding without collapsing either node.
-    Link(write::LinkArgs),
     /// Apply an all-or-none typed JSONL batch.
     Apply(write::ApplyArgs),
     /// Merge complete knowledge layers from directories or local Git objects.
     Merge(merge::MergeArgs),
-    /// Resolve a source-qualified imported identity.
-    Resolve(merge::ResolveArgs),
 }
 
 #[derive(clap::Args)]
@@ -176,6 +158,17 @@ fn main() -> ExitCode {
             agent::list(root, &args)
         }),
         Command::Show(args) => {
+            if args.identity && args.ids.len() != 1 {
+                return output::emit(
+                    "ara.show/v1",
+                    Err(output::AgentError::setup(
+                        "argument_error",
+                        "--identity requires exactly one positional address",
+                    )),
+                    args.output.json,
+                    args.output.fields.as_deref(),
+                );
+            }
             if args.source {
                 let result =
                     context::discover_source(directory).and_then(|root| agent::show(&root, &args));
@@ -191,31 +184,9 @@ fn main() -> ExitCode {
                 })
             }
         }
-        Command::Path(args) => {
-            agent_command(directory, "ara.path/v1", &args.output, false, |root| {
-                agent::path(root, &args)
-            })
-        }
-        Command::Refs(args) => {
-            agent_command(directory, "ara.refs/v1", &args.output, false, |root| {
-                agent::refs(root, &args)
-            })
-        }
-        Command::Open(args) => agent_command(directory, "ara.open/v1", &args, false, |root| {
-            agent::open(root, &args)
-        }),
         Command::Find(args) => {
             agent_command(directory, "ara.find/v1", &args.output, false, |root| {
                 agent::find(root, &args)
-            })
-        }
-        Command::Add(args) => {
-            let options = match &args.command {
-                write::AddCommand::Node(node) => &node.output,
-                write::AddCommand::Edge(edge) => &edge.output,
-            };
-            agent_command(directory, "ara.add/v1", options, true, |root| {
-                write::add(root, &args)
             })
         }
         Command::Edit(args) => {
@@ -225,7 +196,6 @@ fn main() -> ExitCode {
         }
         Command::Claim(args) | Command::Heuristic(args) => {
             let options = match &args.command {
-                write::LogicCommand::Add(add) => &add.output,
                 write::LogicCommand::Set(set) => &set.output,
             };
             agent_command(
@@ -240,30 +210,6 @@ fn main() -> ExitCode {
                 |root| write::logic(root, &args, heuristic),
             )
         }
-        Command::Stage(args) => {
-            agent_command(directory, "ara.stage/v1", &args.output, true, |root| {
-                write::stage(root, &args)
-            })
-        }
-        Command::Promote(args) => {
-            agent_command(directory, "ara.promote/v1", &args.output, true, |root| {
-                write::promote(root, &args)
-            })
-        }
-        Command::Session(args) => {
-            let options = match &args.command {
-                write::SessionCommand::Start(start) => &start.output,
-                write::SessionCommand::Log(log) => &log.output,
-            };
-            agent_command(directory, "ara.session/v1", options, true, |root| {
-                write::session(root, &args)
-            })
-        }
-        Command::Link(args) => {
-            agent_command(directory, "ara.link/v1", &args.output, true, |root| {
-                write::link(root, &args)
-            })
-        }
         Command::Apply(args) => output::emit(
             "ara.apply/v1",
             write::apply_discover(directory, &args),
@@ -271,7 +217,7 @@ fn main() -> ExitCode {
             args.output.fields.as_deref(),
         ),
         Command::Merge(args) => {
-            let options = match &args.command {
+            let options = match args.command.as_deref() {
                 Some(merge::MergeCommand::Resolve(resolution)) => &resolution.output,
                 Some(merge::MergeCommand::Repair(repair)) => &repair.output,
                 None => &args.output,
@@ -279,21 +225,6 @@ fn main() -> ExitCode {
             agent_command(directory, "ara.merge/v1", options, !args.dry_run, |root| {
                 merge::run(root, &args)
             })
-        }
-        Command::Resolve(args) => {
-            if args.output.json {
-                agent_command(directory, "ara.resolve/v1", &args.output, false, |root| {
-                    merge::resolve(root, &args)
-                })
-            } else {
-                match context::discover(directory).and_then(|root| merge::resolve(&root, &args)) {
-                    Ok(value) => {
-                        println!("{}", value["id"].as_str().unwrap());
-                        ExitCode::SUCCESS
-                    }
-                    Err(error) => output::emit("ara.resolve/v1", Err(error), false, None),
-                }
-            }
         }
     }
 }

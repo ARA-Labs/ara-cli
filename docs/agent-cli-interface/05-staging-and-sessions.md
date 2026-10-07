@@ -34,7 +34,7 @@ multi-log batches fail with `write.owner_ambiguous`. The full contract is in
 [Operation-derived session rows](../agent-cli.md#operation-derived-session-rows).
 
 Step 19d makes `observation.mark_stale` `session_days` optional. The writer
-builds the same explicit-reference history as `open`
+builds the same explicit-reference history as `ls --unfinished`
 (`write/history/`), excludes the stale operation's own turn, cuts days off at
 the owning audit date, and records the full canonical list when the list is
 omitted. A supplied list stays an exact verified subset: duplicates, invalid
@@ -44,6 +44,10 @@ without another logged turn and fewer than three days reject at
 `write.stale_history_unknown`. The evidence record shape is unchanged and is
 recomputed at validation. Contract: [Session history and
 transactions](../agent-cli.md#session-history-and-transactions).
+
+## Command simplification
+
+The live agent routes are `status`, `ls`, `show`, `find`, `edit`, `claim set`, `heuristic set`, `apply` and `merge`. Creation, staging, promotion and session setup/logging use existing typed JSONL operations. `show --with path,refs`, `ls --unfinished` and `show --identity` retain ancestry, citation, inactivity and exact imported-identity behavior. Tooling remains unchanged. See the [migration guide](../agent-cli.md#command-simplification-migration) for inputs and result mappings; old verification reports remain frozen historical evidence.
 
 ## Boundaries and remaining gates
 

@@ -1,5 +1,4 @@
-//! Address-led line output for `find`, `ls`, `status`, `path`, `refs` and
-//! `open`.
+//! Address-led list output and complete relation sections.
 use crate::agent::address;
 use serde_json::Value;
 use std::collections::BTreeSet;
@@ -134,6 +133,10 @@ pub fn ls(value: &Value, out: &mut impl Write) -> Result<()> {
         return Ok(());
     }
     for row in rows(value, "entries") {
+        if row.get("reasons").is_some() {
+            unfinished_row(row, out)?;
+            continue;
+        }
         writeln!(
             out,
             "{}\t{}\t{}",
@@ -145,46 +148,44 @@ pub fn ls(value: &Value, out: &mut impl Write) -> Result<()> {
     Ok(())
 }
 
-pub fn open(value: &Value, out: &mut impl Write) -> Result<()> {
-    if none(value, "items", "no open items", out)? {
-        return Ok(());
-    }
-    for row in rows(value, "items") {
-        let reasons: Vec<&str> = rows(row, "reasons").map(text).collect();
+fn unfinished_row(row: &Value, out: &mut impl Write) -> Result<()> {
+    let reasons: Vec<&str> = rows(row, "reasons").map(text).collect();
+    write!(
+        out,
+        "{}\t{}\t{}\t{}",
+        row_address(row),
+        text(&row["kind"]),
+        reasons.join(","),
+        title(row)
+    )?;
+    // Observation rows end with their measured inactivity; an unknown
+    // count prints `unknown`, never zero.
+    if let Some(status) = row["history_status"].as_str() {
+        let count = |key: &str| {
+            row[key]
+                .as_u64()
+                .map_or_else(|| "unknown".to_owned(), |n| n.to_string())
+        };
         write!(
             out,
-            "{}\t{}\t{}\t{}",
-            row_address(row),
-            text(&row["kind"]),
-            reasons.join(","),
-            title(row)
+            "\tturns={} days={} last_reference={} history={status}",
+            count("turns_since_reference"),
+            count("session_days_since_reference"),
+            row["last_reference_turn"]
+                .as_str()
+                .or_else(|| row["last_reference_date"].as_str())
+                .unwrap_or("unknown"),
         )?;
-        // Observation rows end with their measured inactivity; an unknown
-        // count prints `unknown`, never zero.
-        if let Some(status) = row["history_status"].as_str() {
-            let count = |key: &str| {
-                row[key]
-                    .as_u64()
-                    .map_or_else(|| "unknown".to_owned(), |n| n.to_string())
-            };
-            write!(
-                out,
-                "\tturns={} days={} last_reference={} history={status}",
-                count("turns_since_reference"),
-                count("session_days_since_reference"),
-                row["last_reference_turn"]
-                    .as_str()
-                    .or_else(|| row["last_reference_date"].as_str())
-                    .unwrap_or("unknown"),
-            )?;
-        }
-        writeln!(out)?;
     }
+    if let Some(evidence) = row.get("evidence_sources") {
+        write!(out, "\tevidence={evidence}")?;
+    }
+    writeln!(out)?;
     Ok(())
 }
 
-pub fn path(value: &Value, out: &mut impl Write) -> Result<()> {
-    for (depth, step) in rows(value, "steps").enumerate() {
+pub(super) fn path(value: &Value, out: &mut impl Write) -> Result<()> {
+    for (depth, step) in value.as_array().into_iter().flatten().enumerate() {
         writeln!(
             out,
             "{}{}\t{}\t{}",
@@ -197,7 +198,7 @@ pub fn path(value: &Value, out: &mut impl Write) -> Result<()> {
     Ok(())
 }
 
-pub fn refs(value: &Value, out: &mut impl Write) -> Result<()> {
+pub(super) fn refs(value: &Value, out: &mut impl Write) -> Result<()> {
     let location = |row: &Value| match row["line"].as_u64() {
         Some(line) => format!("{}:{line}", text(&row["source"])),
         None => text(&row["source"]).to_owned(),

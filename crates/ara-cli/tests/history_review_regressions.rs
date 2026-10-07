@@ -73,15 +73,15 @@ fn log(root: &Path, timestamp: &str, summary: &str) {
 
 fn open_row(root: &Path, id: &str) -> Value {
     let output = ara(root)
-        .args(["open", "--json"])
+        .args(["ls", "--unfinished", "--json"])
         .assert()
         .success()
         .get_output()
         .clone();
     assert!(output.stderr.is_empty(), "{output:?}");
     let report: Value = serde_json::from_slice(&output.stdout).unwrap();
-    assert_eq!(report["format"], "ara.open/v1");
-    report["items"]
+    assert_eq!(report["format"], "ara.ls/v1");
+    report["entries"]
         .as_array()
         .unwrap()
         .iter()
@@ -309,14 +309,17 @@ fn imported_fixture() -> ImportedFixture {
         .clone();
     assert!(output.stderr.is_empty(), "{output:?}");
     let resolved = ara(&ours)
-        .args(["resolve", "peer:N01", "--json"])
+        .args(["show", "peer:N01", "--identity", "--json"])
         .assert()
         .success()
         .get_output()
         .clone();
     let resolved: Value = serde_json::from_slice(&resolved.stdout).unwrap();
-    assert_eq!(resolved["format"], "ara.resolve/v1");
-    assert_eq!(resolved["id"], "N02", "{resolved}");
+    assert_eq!(resolved["format"], "ara.show/v1");
+    assert_eq!(
+        resolved["entries"][0]["resolved_target"], "N02",
+        "{resolved}"
+    );
     let imported = yaml(&ours, RECENT_SESSION);
     assert_eq!(imported["key_context"][0]["excerpt"], "Revisited N02");
     let reasoning = yaml(&ours, REASONING);
@@ -348,13 +351,16 @@ fn yaml(root: &Path, path: &str) -> Value {
 
 fn peer_observation(root: &Path) -> String {
     let output = ara(root)
-        .args(["resolve", "peer:O94", "--json"])
+        .args(["show", "peer:O94", "--identity", "--json"])
         .assert()
         .success()
         .get_output()
         .clone();
     let resolved: Value = serde_json::from_slice(&output.stdout).unwrap();
-    resolved["id"].as_str().unwrap().to_owned()
+    resolved["entries"][0]["resolved_target"]
+        .as_str()
+        .unwrap()
+        .to_owned()
 }
 
 #[test]
@@ -586,13 +592,13 @@ fn imported_literal_with_colliding_session_reference_keeps_complete_history() {
         .assert()
         .success();
     let output = ara(&ours)
-        .args(["resolve", "peer:2026-10-04_001", "--json"])
+        .args(["show", "peer:2026-10-04_001", "--identity", "--json"])
         .assert()
         .success()
         .get_output()
         .clone();
     let resolved: Value = serde_json::from_slice(&output.stdout).unwrap();
-    let imported_session = resolved["id"].as_str().unwrap();
+    let imported_session = resolved["entries"][0]["resolved_target"].as_str().unwrap();
     assert_ne!(imported_session, "2026-10-04_001");
     let imported = yaml(&ours, &format!("trace/sessions/{imported_session}.yaml"));
     assert_eq!(

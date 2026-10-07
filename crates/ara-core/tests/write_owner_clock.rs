@@ -800,7 +800,7 @@ fn clock_is_read_after_lock_and_recovery() {
             .unwrap();
         let mut observer = DurableJournal::new(&working).unwrap();
         // Same staging layout the durable journal expects for candidate 0.
-        let temporary = root.join("logic/.ara-write-900001-0");
+        let temporary = working.base.root.join("logic/.ara-write-900001-0");
         fs::write(&temporary, &working.files["logic/claims.md"]).unwrap();
         fs::File::open(&temporary).unwrap().sync_all().unwrap();
         observer

@@ -8,45 +8,6 @@ use std::io::Read;
 use std::path::{Path, PathBuf};
 
 #[derive(Debug, clap::Args)]
-pub struct AddArgs {
-    #[command(subcommand)]
-    pub command: AddCommand,
-}
-#[derive(Debug, clap::Subcommand)]
-pub enum AddCommand {
-    Node(NodeArgs),
-    Edge(EdgeArgs),
-}
-#[derive(Debug, clap::Args)]
-pub struct NodeArgs {
-    #[arg(long = "type")]
-    pub kind: String,
-    #[arg(long)]
-    pub parent: String,
-    #[arg(long)]
-    pub title: String,
-    #[arg(long)]
-    pub id: Option<String>,
-    #[arg(long = "set")]
-    pub set: Vec<String>,
-    #[arg(long = "depends-on")]
-    pub depends_on: Vec<String>,
-    #[arg(long)]
-    pub provenance: Option<String>,
-    #[arg(long)]
-    pub no_duplicate_check: bool,
-    #[command(flatten)]
-    pub output: ReadOptions,
-}
-#[derive(Debug, clap::Args)]
-pub struct EdgeArgs {
-    pub node: String,
-    #[arg(long = "depends-on")]
-    pub depends_on: String,
-    #[command(flatten)]
-    pub output: ReadOptions,
-}
-#[derive(Debug, clap::Args)]
 pub struct EditArgs {
     pub id: Option<String>,
     #[arg(long)]
@@ -67,114 +28,13 @@ pub struct LogicArgs {
 }
 #[derive(Debug, clap::Subcommand)]
 pub enum LogicCommand {
-    Add(LogicAddArgs),
     Set(LogicSetArgs),
-}
-#[derive(Debug, clap::Args)]
-pub struct LogicAddArgs {
-    #[arg(long)]
-    pub title: String,
-    #[arg(long)]
-    pub id: Option<String>,
-    #[arg(long = "set", required = true)]
-    pub set: Vec<String>,
-    #[command(flatten)]
-    pub output: ReadOptions,
 }
 #[derive(Debug, clap::Args)]
 pub struct LogicSetArgs {
     pub id: String,
     #[arg(long = "set", required = true)]
     pub set: Vec<String>,
-    #[command(flatten)]
-    pub output: ReadOptions,
-}
-#[derive(Debug, clap::Args)]
-pub struct StageArgs {
-    #[arg(long)]
-    pub content: String,
-    #[arg(long = "potential-type")]
-    pub potential_type: String,
-    #[arg(long)]
-    pub context: Option<String>,
-    #[arg(long)]
-    pub provenance: String,
-    #[arg(long)]
-    pub timestamp: Option<String>,
-    #[arg(long = "bound-to")]
-    pub bound_to: Vec<String>,
-    #[arg(long)]
-    pub id: Option<String>,
-    #[command(flatten)]
-    pub output: ReadOptions,
-}
-#[derive(Debug, clap::Args)]
-pub struct PromoteArgs {
-    pub observation: String,
-    #[arg(long)]
-    pub to: String,
-    #[arg(long)]
-    pub title: String,
-    #[arg(long)]
-    pub signal: String,
-    #[arg(long)]
-    pub id: Option<String>,
-    #[arg(long = "set")]
-    pub set: Vec<String>,
-    #[arg(long)]
-    pub document: Option<String>,
-    #[arg(long)]
-    pub heading: Vec<String>,
-    #[arg(long)]
-    pub content: Option<String>,
-    #[command(flatten)]
-    pub output: ReadOptions,
-}
-#[derive(Debug, clap::Args)]
-pub struct SessionArgs {
-    #[command(subcommand)]
-    pub command: SessionCommand,
-}
-#[derive(Debug, clap::Subcommand)]
-pub enum SessionCommand {
-    Start(SessionStartArgs),
-    Log(SessionLogArgs),
-}
-#[derive(Debug, clap::Args)]
-pub struct SessionStartArgs {
-    #[arg(long)]
-    pub date: Option<String>,
-    #[arg(long)]
-    pub started: Option<String>,
-    #[arg(long)]
-    pub summary: String,
-    #[command(flatten)]
-    pub output: ReadOptions,
-}
-#[derive(Debug, clap::Args)]
-pub struct SessionLogArgs {
-    #[arg(long)]
-    pub session: Option<String>,
-    #[arg(long)]
-    pub record: Option<String>,
-    #[arg(long)]
-    pub node: Vec<String>,
-    #[arg(long)]
-    pub timestamp: Option<String>,
-    #[arg(long)]
-    pub summary: Option<String>,
-    #[arg(long = "type")]
-    pub kind: Option<String>,
-    #[arg(long)]
-    pub provenance: Option<String>,
-    #[command(flatten)]
-    pub output: ReadOptions,
-}
-#[derive(Debug, clap::Args)]
-pub struct LinkArgs {
-    pub node: String,
-    #[arg(long = "same-as")]
-    pub same_as: String,
     #[command(flatten)]
     pub output: ReadOptions,
 }
@@ -439,50 +299,6 @@ pub(crate) fn duplicate_candidates_from_manifests(
     )
     .map_err(|error| AgentError::semantic("duplicate_advisory_unavailable", format!("{error:?}")))
 }
-pub fn add(root: &Path, args: &AddArgs) -> Result<Value, AgentError> {
-    let (operation, no_check) = match &args.command {
-        AddCommand::Node(args) => {
-            let mut fields = resolve_fields(&args.set)?;
-            if let Some(provenance) = &args.provenance {
-                if fields
-                    .keys()
-                    .any(|key| key.eq_ignore_ascii_case("provenance"))
-                {
-                    return Err(AgentError::semantic(
-                        "duplicate_field",
-                        "provenance supplied twice",
-                    ));
-                }
-                fields.insert("provenance".into(), json!(provenance));
-            }
-            (
-                WriteOperation::NodeAdd {
-                    id: args.id.clone(),
-                    kind: args.kind.clone(),
-                    parent: args.parent.clone(),
-                    title: args.title.clone(),
-                    fields,
-                    depends_on: args.depends_on.clone(),
-                },
-                args.no_duplicate_check,
-            )
-        }
-        AddCommand::Edge(args) => (
-            WriteOperation::EdgeAdd {
-                node: args.node.clone(),
-                depends_on: args.depends_on.clone(),
-            },
-            true,
-        ),
-    };
-    execute(
-        root,
-        &[operation],
-        ApplyMode::Commit,
-        "ara.add/v1",
-        no_check,
-    )
-}
 pub fn edit(root: &Path, args: &EditArgs) -> Result<Value, AgentError> {
     let target = match (&args.id, &args.document) {
         (Some(id), None) if args.heading.is_empty() && args.entry.is_none() => {
@@ -513,22 +329,6 @@ pub fn edit(root: &Path, args: &EditArgs) -> Result<Value, AgentError> {
 }
 pub fn logic(root: &Path, args: &LogicArgs, heuristic: bool) -> Result<Value, AgentError> {
     let operation = match &args.command {
-        LogicCommand::Add(args) => {
-            let fields = resolve_fields(&args.set)?;
-            if heuristic {
-                WriteOperation::HeuristicAdd {
-                    id: args.id.clone(),
-                    title: args.title.clone(),
-                    fields,
-                }
-            } else {
-                WriteOperation::ClaimAdd {
-                    id: args.id.clone(),
-                    title: args.title.clone(),
-                    fields,
-                }
-            }
-        }
         LogicCommand::Set(args) => WriteOperation::EntryEdit {
             target: EntrySelector::Id {
                 id: args.id.clone(),
@@ -545,160 +345,6 @@ pub fn logic(root: &Path, args: &LogicArgs, heuristic: bool) -> Result<Value, Ag
         } else {
             "ara.claim/v1"
         },
-        true,
-    )
-}
-pub fn stage(root: &Path, args: &StageArgs) -> Result<Value, AgentError> {
-    let mut stdin = false;
-    let operation = WriteOperation::ObservationStage {
-        id: args.id.clone(),
-        content: read_input(&args.content, &mut stdin)?,
-        potential_type: args.potential_type.clone(),
-        context: args
-            .context
-            .as_deref()
-            .map(|s| read_input(s, &mut stdin))
-            .transpose()?,
-        provenance: args.provenance.clone(),
-        timestamp: args.timestamp.clone(),
-        bound_to: args.bound_to.clone(),
-    };
-    execute(root, &[operation], ApplyMode::Commit, "ara.stage/v1", true)
-}
-pub fn promote(root: &Path, args: &PromoteArgs) -> Result<Value, AgentError> {
-    let mut stdin = false;
-    let operation = WriteOperation::ObservationPromote {
-        observation: args.observation.clone(),
-        to: args.to.clone(),
-        id: args.id.clone(),
-        title: args.title.clone(),
-        fields: resolve_fields_with_stdin(&args.set, &mut stdin)?,
-        signal: args.signal.clone(),
-        target: args
-            .document
-            .as_ref()
-            .map(|document| EntrySelector::Document {
-                document: document.clone(),
-                heading: args.heading.clone(),
-                entry: None,
-            }),
-        content: args
-            .content
-            .as_deref()
-            .map(|s| read_input(s, &mut stdin))
-            .transpose()?,
-    };
-    execute(
-        root,
-        &[operation],
-        ApplyMode::Commit,
-        "ara.promote/v1",
-        true,
-    )
-}
-pub fn session(root: &Path, args: &SessionArgs) -> Result<Value, AgentError> {
-    let operation = match &args.command {
-        // Omitted dates, timestamps and sessions are resolved by the writer
-        // under its lock from one captured clock value, never from a pre-read.
-        SessionCommand::Start(args) => WriteOperation::SessionStart {
-            id: None,
-            date: args.date.clone(),
-            started: args.started.clone(),
-            summary: args.summary.clone(),
-        },
-        SessionCommand::Log(args) => {
-            // The node lookup below reads event text only; it never chooses
-            // the session, turn or timestamp.
-            let artifact = crate::agent::Artifact::load_valid(root)?;
-            let mut record = if let Some(input) = &args.record {
-                if !args.node.is_empty() {
-                    return Err(AgentError::semantic(
-                        "conflicting_inputs",
-                        "--record and --node are mutually exclusive",
-                    ));
-                }
-                let mut stdin = false;
-                let text = read_input(input, &mut stdin)?;
-                let record: Value = serde_json::from_str(&text)
-                    .map_err(|e| AgentError::semantic("invalid_record", e.to_string()))?;
-                if !record.is_object() {
-                    return Err(AgentError::semantic(
-                        "invalid_record",
-                        "Turn record must be a JSON object",
-                    ));
-                }
-                record
-            } else {
-                if args.node.is_empty() {
-                    return Err(AgentError::semantic(
-                        "missing_record",
-                        "Supply --record or --node",
-                    ));
-                }
-                let mut events = Vec::new();
-                for id in &args.node {
-                    let node = artifact
-                        .manifest
-                        .nodes
-                        .iter()
-                        .find(|n| n.id.as_str() == id)
-                        .ok_or_else(|| AgentError::unknown(id))?;
-                    let summary = args
-                        .summary
-                        .as_deref()
-                        .or(node.label.as_deref())
-                        .ok_or_else(|| {
-                            AgentError::semantic(
-                                "missing_summary",
-                                "Node event requires --summary or an existing title",
-                            )
-                        })?;
-                    let provenance = args
-                        .provenance
-                        .as_deref()
-                        .or(node.provenance.as_deref())
-                        .ok_or_else(|| {
-                            AgentError::semantic(
-                                "missing_provenance",
-                                "Node event requires provenance",
-                            )
-                        })?;
-                    events.push(json!({"type":args.kind.as_deref().unwrap_or(crate::agent::node_kind(&node.kind)),"id":id,"routing":"direct","provenance":provenance,"summary":summary}));
-                }
-                json!({"events":events})
-            };
-            let object = record.as_object_mut().unwrap();
-            object.insert("op".into(), json!("session.log"));
-            if let Some(session) = &args.session {
-                object.insert("session".into(), json!(session));
-            }
-            if let Some(timestamp) = &args.timestamp {
-                object.insert("timestamp".into(), json!(timestamp));
-            }
-            if let Some(summary) = &args.summary {
-                object.insert("summary".into(), json!(summary));
-            }
-            serde_json::from_value(record)
-                .map_err(|e| AgentError::semantic("invalid_record", e.to_string()))?
-        }
-    };
-    execute(
-        root,
-        &[operation],
-        ApplyMode::Commit,
-        "ara.session/v1",
-        true,
-    )
-}
-pub fn link(root: &Path, args: &LinkArgs) -> Result<Value, AgentError> {
-    execute(
-        root,
-        &[WriteOperation::NodeLinkSameAs {
-            node: args.node.clone(),
-            same_as: args.same_as.clone(),
-        }],
-        ApplyMode::Commit,
-        "ara.link/v1",
         true,
     )
 }

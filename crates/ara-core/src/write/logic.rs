@@ -15,7 +15,7 @@ mod history_refs;
 mod restructure;
 mod row_mapping;
 mod tokens;
-pub use citations::{MarkdownCitation, markdown_citations};
+pub use citations::{MarkdownCitation, markdown_citations_many};
 pub use history_refs::HistoricalCitation;
 
 #[derive(Debug, Clone)]

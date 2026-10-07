@@ -38,6 +38,10 @@ Citers repaired by a restructure derive `revised`. `logic.revise`
 `references[].target` and `split_into` selectors take earlier creation
 bindings; `references[].after` stays literal text.
 
+## Command simplification
+
+The live agent routes are `status`, `ls`, `show`, `find`, `edit`, `claim set`, `heuristic set`, `apply` and `merge`. Creation, staging, promotion and session setup/logging use existing typed JSONL operations. `show --with path,refs`, `ls --unfinished` and `show --identity` retain ancestry, citation, inactivity and exact imported-identity behavior. Tooling remains unchanged. See the [migration guide](../agent-cli.md#command-simplification-migration) for inputs and result mappings; old verification reports remain frozen historical evidence.
+
 ## Boundaries and remaining gates
 
 Native operation proof covers the 107-row inventory: 88 required CLI operations plus 19 explicit permitted access/output cases. Unchanged historical replay is blocked by recorded dialect/ancestor/leaf incompatibilities and missing session-index files; no historical-import API is invented.

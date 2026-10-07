@@ -1,0 +1,91 @@
+{
+  "format": "ara.plan20-acceptance-summary/v1",
+  "binary_sha256": "93bb9f76839bd51fccac6eaeb6b3d6b165036c167f61d7b02ec264fb6e1eecb3",
+  "acceptance_complete": true,
+  "overall_passed": false,
+  "sections": 361,
+  "invocations": 729,
+  "operation_coverage": {
+    "passed": 88,
+    "exempt-direct-access-allowed": 17,
+    "exempt-output-only": 1,
+    "exempt-skill-reference-access": 1
+  },
+  "performance": {
+    "real reads": {
+      "cases": 7,
+      "fresh_samples": 35,
+      "worst_ms": 26.038875,
+      "budget_ms": 100,
+      "all_samples_passed": true
+    },
+    "generated reads": {
+      "cases": 42,
+      "fresh_samples": 210,
+      "worst_ms": 298.00675,
+      "budget_ms": 1000,
+      "all_samples_passed": true
+    },
+    "10k directory merge": {
+      "cases": 1,
+      "fresh_samples": 5,
+      "worst_ms": 881.4575,
+      "budget_ms": 1000,
+      "all_samples_passed": true
+    },
+    "10k Git merge": {
+      "cases": 2,
+      "fresh_samples": 10,
+      "worst_ms": 1113.812541,
+      "budget_ms": null,
+      "report_only_timing": true
+    }
+  },
+  "retained_failures": [
+    {
+      "scenario": "merge.100000.dry_run",
+      "message": "Timeout after 30s: ['/Users/yfhe/repos/ara/ara-cli/target/release/ara', '-C', '/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-z54yp1v8/merge-100000/ours', 'merge', '--base', '/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-z54yp1v8/merge-100000/base', '--theirs', '/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-z54yp1v8/merge-100000/theirs', '--as', 'acceptance-fork', '--source-key', 'generated_fixture_bob', '--dry-run', '--json']"
+    },
+    {
+      "scenario": "merge.100000.timing",
+      "message": "Expected exit (0,), observed 1: ['/Users/yfhe/repos/ara/ara-cli/target/release/ara', '-C', '/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-z54yp1v8/merge-100000/sample-1', 'merge', '--base', '/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-z54yp1v8/merge-100000/base', '--theirs', '/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-z54yp1v8/merge-100000/theirs', '--as', 'acceptance-fork', '--source-key', 'generated_fixture_bob', '--json']; \u2026 115,101,114,32,100,105,114,101,99,116,105,118,101,34,44,34,97,108,115,111,95,100,101,112,101,110,100,115,95,111,110,34,58,91,34,78,48,49,34,93,125,93,125,10],\"fingerprint\":\"1e4cedfac91036ed665ce168b0ee098a4064058d519cd65c18b8255b373e36e6\",\"present\":true}}],\"message\":\"fatal candidate syntax: error: document: YAML resource budget exceeded: Nodes { nodes: 250001 }\"},\"message\":\"fatal candidate syntax: error: document: YAML resource budget exceeded: Nodes { nodes: 250001 }\"},\"format\":\"ara.merge/v1\"}\n"
+    },
+    {
+      "scenario": "merge.100000.preservation_replay",
+      "message": "Timeout after 30s: ['/Users/yfhe/repos/ara/ara-cli/target/release/ara', '-C', '/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-z54yp1v8/merge-100000/ours', 'merge', '--base', '/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-z54yp1v8/merge-100000/base', '--theirs', '/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-z54yp1v8/merge-100000/theirs', '--as', 'acceptance-fork', '--source-key', 'generated_fixture_bob', '--json']"
+    },
+    {
+      "scenario": "git.100000.small.dry_run",
+      "message": "Timeout after 30s: ['/Users/yfhe/repos/ara/ara-cli/target/release/ara', '-C', '/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-z54yp1v8/git-100000-small/repository/ara', 'merge', '--git', 'theirs', '--source-key', 'generated_fixture_bob', '--as', 'acceptance-fork', '--no-duplicate-check', '--dry-run', '--json']"
+    },
+    {
+      "scenario": "git.100000.small.timing",
+      "message": "Expected exit (0,), observed 1: ['/Users/yfhe/repos/ara/ara-cli/target/release/ara', '-C', '/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-z54yp1v8/git-100000-small/sample-1/ara', 'merge', '--git', 'theirs', '--source-key', 'generated_fixture_bob', '--as', 'acceptance-fork', '--no-duplicate-check', '--json']; {\"error\":{\"code\":\"write.syntax\",\"details\":{\"code\":\"write.syntax\",\"evidence\":[{\"allowed\":[\"ours\",\"theirs\",\"base\"],\"base\":{\"bytes\":[123,34,116,114,101,101,34,58,91,123,34 \u2026 115,101,114,32,100,105,114,101,99,116,105,118,101,34,44,34,97,108,115,111,95,100,101,112,101,110,100,115,95,111,110,34,58,91,34,78,48,49,34,93,125,93,125,10],\"fingerprint\":\"1e4cedfac91036ed665ce168b0ee098a4064058d519cd65c18b8255b373e36e6\",\"present\":true}}],\"message\":\"fatal candidate syntax: error: document: YAML resource budget exceeded: Nodes { nodes: 250001 }\"},\"message\":\"fatal candidate syntax: error: document: YAML resource budget exceeded: Nodes { nodes: 250001 }\"},\"format\":\"ara.merge/v1\"}\n"
+    },
+    {
+      "scenario": "git.100000.small.equivalence_replay",
+      "message": "Timeout after 30s: ['/Users/yfhe/repos/ara/ara-cli/target/release/ara', '-C', '/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-z54yp1v8/git-100000-small/directory-result', 'merge', '--base', '/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-z54yp1v8/git-100000-small/base', '--theirs', '/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-z54yp1v8/git-100000-small/theirs', '--source-key', 'generated_fixture_bob', '--as', 'acceptance-fork', '--no-duplicate-check', '--json']"
+    },
+    {
+      "scenario": "git.100000.unrelated-tree.dry_run",
+      "message": "Timeout after 30s: ['/Users/yfhe/repos/ara/ara-cli/target/release/ara', '-C', '/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-z54yp1v8/git-100000-unrelated-tree/repository/ara', 'merge', '--git', 'theirs', '--source-key', 'generated_fixture_bob', '--as', 'acceptance-fork', '--no-duplicate-check', '--dry-run', '--json']"
+    },
+    {
+      "scenario": "git.100000.unrelated-tree.timing",
+      "message": "Expected exit (0,), observed 1: ['/Users/yfhe/repos/ara/ara-cli/target/release/ara', '-C', '/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-z54yp1v8/git-100000-unrelated-tree/sample-1/ara', 'merge', '--git', 'theirs', '--source-key', 'generated_fixture_bob', '--as', 'acceptance-fork', '--no-duplicate-check', '--json']; {\"error\":{\"code\":\"write.syntax\",\"details\":{\"code\":\"write.syntax\",\"evidence\":[{\"allowed\":[\"ours\",\"theirs\",\"base\"],\"base\":{\"bytes\":[123,34,116,114,101,101,34,58, \u2026 115,101,114,32,100,105,114,101,99,116,105,118,101,34,44,34,97,108,115,111,95,100,101,112,101,110,100,115,95,111,110,34,58,91,34,78,48,49,34,93,125,93,125,10],\"fingerprint\":\"1e4cedfac91036ed665ce168b0ee098a4064058d519cd65c18b8255b373e36e6\",\"present\":true}}],\"message\":\"fatal candidate syntax: error: document: YAML resource budget exceeded: Nodes { nodes: 250001 }\"},\"message\":\"fatal candidate syntax: error: document: YAML resource budget exceeded: Nodes { nodes: 250001 }\"},\"format\":\"ara.merge/v1\"}\n"
+    },
+    {
+      "scenario": "git.100000.unrelated-tree.equivalence_replay",
+      "message": "Timeout after 30s: ['/Users/yfhe/repos/ara/ara-cli/target/release/ara', '-C', '/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-z54yp1v8/git-100000-unrelated-tree/directory-result', 'merge', '--base', '/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-z54yp1v8/git-100000-unrelated-tree/base', '--theirs', '/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-z54yp1v8/git-100000-unrelated-tree/theirs', '--source-key', 'generated_fixture_bob', '--as', 'acceptance-fork', '--no-duplicate-check', '--json']"
+    },
+    {
+      "scenario": "replay",
+      "message": "Expected exit (0,), observed 1: ['/Users/yfhe/repos/ara/ara-cli/target/release/ara', '-C', '/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-cli-acceptance-z54yp1v8/pinned-node-replay', 'apply', '-', '--json']; {\"error\":{\"code\":\"write.node\",\"details\":{\"code\":\"write.node\",\"field\":\"depends_on\",\"line\":55,\"message\":\"dependency on ancestor `N65` is redundant\"},\"line\":55,\"message\":\"dependency on ancestor `N65` is redundant\"},\"format\":\"ara.apply/v1\"}\n"
+    }
+  ],
+  "blockers": [
+    "Pinned protocol/skill contracts are pending upstream review; behavior measurements do not fabricate approval",
+    "Search not measured: Independent frozen search criteria are missing; proposed labels/thresholds are not approval"
+  ],
+  "full_evidence": "final-acceptance.json.xz"
+}

@@ -89,6 +89,10 @@ locator against live sections, then authenticated mutation rows; `show` uses
 it for retired spellings and `merge::check_citations` lets the writer check
 historical literals against one identity view.
 
+## Command simplification
+
+The live agent routes are `status`, `ls`, `show`, `find`, `edit`, `claim set`, `heuristic set`, `apply` and `merge`. Creation, staging, promotion and session setup/logging use existing typed JSONL operations. `show --with path,refs`, `ls --unfinished` and `show --identity` retain ancestry, citation, inactivity and exact imported-identity behavior. Tooling remains unchanged. See the [migration guide](../agent-cli.md#command-simplification-migration) for inputs and result mappings; old verification reports remain frozen historical evidence.
+
 ## Boundaries and remaining gates
 
 The final frozen binary passes all five 10k process samples at 868.62–894.49 ms
