@@ -643,6 +643,44 @@ fn cli_access_reads_find_hits_by_document_lines() {
     }
 }
 
+/// The batched read the access page teaches prints every requested address in one call,
+/// in request order.
+#[test]
+fn cli_access_batched_show_reads_every_address() {
+    let dir = tempfile::TempDir::new().unwrap();
+    let root = dir.path();
+    write_file(root, "PAPER.md", "---\ntitle: Batch\n---\n# Batch\n");
+    write_file(
+        root,
+        "logic/claims.md",
+        "# Claims\n\n## C03: Third claim\n- **Statement**: Batched\n",
+    );
+    write_file(
+        root,
+        "logic/experiments.md",
+        "# Experiments\n\n## E01: First plan\n- **Verifies**: C03\n",
+    );
+    write_file(
+        root,
+        "trace/exploration_tree.yaml",
+        "tree:\n  - id: N04\n    type: question\n    title: Q\n    provenance: user\n",
+    );
+    let output = stdout(&documented(
+        cli_access,
+        root,
+        "ara -C <artifact> show 'logic/claims.md#C03' E01 trace:N04",
+    ));
+    let blocks: Vec<&str> = output
+        .lines()
+        .filter_map(|line| line.strip_prefix("== "))
+        .filter_map(|line| line.split_whitespace().next())
+        .collect();
+    assert_eq!(
+        blocks,
+        ["logic/claims.md#C03", "logic/experiments.md#E01", "N04"]
+    );
+}
+
 #[test]
 fn shell_words_honours_single_quotes() {
     assert_eq!(

@@ -10,7 +10,7 @@ Exit 1 means rejected/unknown/invalid operation; exit 2 means setup/IO failure. 
 
 ## Shell calls
 
-Run each `ara` command as its own shell tool call: one invocation with quoted arguments and nothing else on the line. Shell calls are for `ara` only: list, search and read `rubric/`, `src/` and `evidence/` with the file tools (Read, Grep, Glob, LS), not with shell `ls`, `find`, `grep` or `cat`. Do not pipe (`|`), redirect (`>`, `2>&1`), chain (`&&`, `;`), `cd` first, or glob (`*`, `?`, `[...]`). Quote every argument that contains spaces, `#`, `$` or other shell characters, such as `'logic/claims.md#C04'` and `'failure boundary'`. Some harnesses reject an unquoted `#`, and in a POSIX shell a `#` after a space starts a comment that silently drops the rest of the line. Some harnesses enforce this rule and reject a composed command before it runs. Other shells may allow composition, but the single-call form works in all of them, so use it everywhere.
+Run each `ara` command as its own shell tool call: one invocation with quoted arguments and nothing else on the line. Shell calls are for `ara` only: list, search and read `rubric/`, `src/` and `evidence/` with the file tools (Read, Grep, Glob, LS), not with shell `ls`, `find`, `grep` or `cat`. Do not pipe (`|`), redirect (`>`, `2>&1`), chain (`&&`, `;`), `cd` first, or glob (`*`, `?`, `[...]`). Quote every argument that contains spaces, `#`, `$` or other shell characters, such as `'logic/claims.md#C04'` and `'failure boundary'`. Some harnesses reject an unquoted `#`, and in a POSIX shell a `#` after a space starts a comment that silently drops the rest of the line. Some harnesses enforce this rule and reject a composed command before it runs. Other shells may allow composition, but the single-call form works in all of them, so use it everywhere. The rule limits the shell line, not the response: issue independent `ara` commands as separate shell tool calls in the same response.
 
 Bound output with `ara`'s own options instead of `head`, `tail`, `grep` or `jq`: `ls <path>` lists one document instead of the whole artifact; `find --limit N` caps results and `find --context N` adds surrounding lines (long form only, because `-C` selects the artifact); `show --lines A:B` selects a line window and `show --max-bytes N` sets the response budget. A paged `show` block ends with `lines: S-E of N; truncated; next: --lines X:`. Rerun the same selection with that `--lines` value (and the same `--max-bytes`, if you set one). Do not read harness logs or temporary files to recover cut-off output.
 
@@ -26,7 +26,7 @@ ara -C <artifact> show 'logic/claims.md#C04'
 ara -C <artifact> show --document logic/claims.md --source --lines 26:40
 ara -C <artifact> show logic/solution/method.md --lines 40:120
 ara -C <artifact> show trace/exploration_tree.yaml --lines 300: --max-bytes 8192
-ara -C <artifact> show C01 trace:N01
+ara -C <artifact> show 'logic/claims.md#C03' E01 trace:N04
 ara -C <artifact> show N01 --with path
 ara -C <artifact> show C01 --with refs
 ara -C <artifact> ls --unfinished
@@ -38,6 +38,8 @@ ara -C <artifact> ls --unfinished
 
    `--lines A:B` counts lines of the selection you `show`, and `find` and `show` count differently. `find` prints line numbers of the whole source document (`N:` under `<source>`). On a claim, entry or heading address, `--lines 1:` starts at the first body line under that heading. So read around a `find` hit with `show --document <source> --source --lines A:B`, using the hit's numbers (the example above windows `logic/claims.md` around a hit on line 30). Do not pass a hit's numbers to `show <address> --lines`: they select other text, or fail with `line_out_of_range` when the body is shorter. Use `--lines` on an address only with numbers counted inside that selection, such as a `next:` value or its `lines: S-E of N` trailer. A node, observation or session address is a projection and rejects every `--lines` with `lines_unavailable`. Window the source document it names instead (`show --document trace/exploration_tree.yaml --source --lines A:B`).
 4. **Cite** the address the output printed: `logic/claims.md#C04`, `trace:N01`, a canonical heading address such as `logic/problem.md#h/Problem/Observations`, or a document path. Never cite a generated display ID or a heading spelling you guessed.
+
+**Fewer requests.** Put every keyword for one information need in one `find` query: `find` scores all its terms together (BM25), so `find '<term A> <term B> <term C>'` replaces three searches. `show` takes several addresses in one call, as in the example above (`show 'logic/claims.md#C03' E01 trace:N04`). Issue independent `ara` commands as separate shell tool calls in the same response. Skip `ls` when the question already names what to search for.
 
 A miss returns `unknown_id`; a selector that matches several sections or entries returns `ambiguous_heading`. Both print `candidates:` that `show` accepts. Choose the candidate whose address or heading path is the one you need, or run `ls <path>` to see the document's headings, instead of guessing another spelling. An ambiguous selector is an error, not permission to take the first candidate. `invalid_document` on a `rubric/`, `evidence/` or `src/` path means a file tool reads it.
 

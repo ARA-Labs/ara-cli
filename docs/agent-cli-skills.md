@@ -79,6 +79,15 @@ recipe:
   --context 2`; `show` an address the output printed; cite that address
   (`logic/claims.md#C04`, `trace:N01`, a canonical `#h/` heading address). On
   `unknown_id` or `ambiguous_heading`, choose from the printed candidates.
+- **Fewer requests.** One `find` query carries every keyword for one
+  information need (BM25 scores all its terms together); `show` takes several
+  addresses (`show 'logic/claims.md#C03' E01 trace:N04`); independent `ara`
+  commands go out as separate shell tool calls in the same response; and `ls`
+  is skipped when the question already names what to search for.
+- **Reading grounds like Files.** When a `find` hit is too terse to judge, the
+  reader shows the surrounding section or windows the source document around
+  the hit, then cites the printed address. Whole-section reads stay a writer
+  rule, before a guarded write and in the PM and compiler procedures.
 - **Two line systems.** `find` prints line numbers of the whole source
   document; `show <address> --lines` counts from the first body line of that
   entry or heading. The pages read around a hit with `show --document <source>
@@ -128,11 +137,12 @@ and checks that every long flag in such a command line appears in that
 subcommand's `--help`, so renaming or removing a flag the skills use, such as
 `--lines`, `--max-bytes`, `--context`, `--limit` or `--heading`, fails the test.
 An inline command that wraps onto the next line is checked as one command.
-Two more tests run command lines the access pages print verbatim. One runs
-both digest recipes on a scratch artifact and dry-runs every guarded write:
+Three more tests run command lines the access pages print verbatim. One
+checks that the batched `show` prints every requested address in order.
+Another runs both digest recipes on a scratch artifact and dry-runs every guarded write:
 the printed heading-body digest must pass `document.replace` and `logic.revise`
 Body and fail `entry.rename`/`entry.remove`, and the computed entry-span digest
-must do the reverse. The other checks on the `agent-cli` fixture that a `find`
+must do the reverse. The third checks on the `agent-cli` fixture that a `find`
 hit line selects the hit through `show --document … --source --lines`, while
 the same number on the entry address fails with `line_out_of_range` and a node
 address rejects `--lines` with `lines_unavailable`.

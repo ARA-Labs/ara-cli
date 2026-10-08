@@ -116,6 +116,14 @@ name instead. On `unknown_id` or
 `ambiguous_heading`, choose from the printed candidates instead of guessing again. Use
 [find/read/cite](cli-access.md#reading-orient-search-read-cite) and `show --with path,refs` for structured relations and possible prose mentions. Permitted
 source/evidence bodies (`evidence/`, `src/`) remain direct file reads.
+
+**Fewer requests.** Put every keyword for one information need in a single `find` query
+(`find '<term A> <term B> <term C>'`); `find` scores all its terms together. `show` several
+addresses in one call (`ara -C <ara_dir> show 'logic/claims.md#C03' E01 trace:N04`). Issue
+independent `ara` commands as separate shell tool calls in the same response: one command per
+shell call limits the shell line, not the response. Skip `ls` when the query already names what
+to search for.
+
 Find every location whose prose bears on the frame. Cast
 across **all** the native files, because the highest-value context is frequently outside the
 experiment logs:
