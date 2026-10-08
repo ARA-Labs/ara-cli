@@ -41,7 +41,7 @@ You bind to **`CONTRACT.md`** (the engine contract). Everything below is stated 
 native structure — the files of CONTRACT.md §1 and the **native refs** of §2 — and **never** against
 any domain, metric, or parameter name. This contract is **field-agnostic**: the ARA's prose is the
 floor; there is no projected number or distance, and no keyword index to lean on for semantic judgment (CONTRACT.md §0.3). You
-reach the ARA only through RETRIEVE and your own targeted ara full source reads of the knowledge refs RETRIEVE returns (permitted source/evidence bodies remain direct); you
+reach the ARA only through RETRIEVE and your own targeted `ara show` reads of the knowledge refs RETRIEVE returns (permitted source/evidence bodies remain direct); you
 write **nothing**, anywhere (CONTRACT.md §3, §4b).
 
 ---

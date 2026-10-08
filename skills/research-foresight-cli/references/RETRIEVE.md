@@ -58,7 +58,7 @@ the ARA in scope (ara_dir) ─┤
         Predictor (PREDICT.md)     (your caller)
 ```
 
-- **The ARA is the substrate.** You read the ARA's real knowledge files through ara full source shows. There is no projection, no
+- **The ARA is the substrate.** You read the ARA's real knowledge files through ara `find` and `show`. There is no projection, no
   distilled candidate list; ara find assists keywords only — you do the semantic searching (CONTRACT.md §0.1).
 - **You are read-only.** Your output is advisory metadata over native refs; you write nothing,
   anywhere (CONTRACT.md §4b) — not `<ara>/logic/`, not `<ara>/staging/`, nowhere. Your read path is
@@ -70,7 +70,7 @@ the ARA in scope (ara_dir) ─┤
 - **Everything is in scope, not just experiments.** You are **not** limited to `experiment`/`dead_end`
   nodes. `question`/`decision`/`pivot` trace nodes, `problem.md` framing, the `solution/` method, and
   evidence figures are all in scope and are **often the highest-value context** — surfacing them is the
-  whole point of reading the ARA's full native bodies through ara instead of a lossy projection (CONTRACT.md §3).
+  whole point of reading the ARA's native bodies through ara instead of a lossy projection (CONTRACT.md §3).
 
 ---
 
@@ -106,8 +106,8 @@ Orient, search, read and cite in brief text, one quoted `ara` command per shell 
 (`references/cli-access.md`). Orient with `ara -C <ara_dir> ls`, then `ls <path>` for one
 document's entries or heading addresses. Search with `find '<terms>' --context 2`; it is
 case-insensitive and prints addresses with their matching lines. Read with `show <address>`
-using an address the output printed, a whole document or section, and follow `next:` when a
-block is truncated. `find` prints line numbers of the whole source document, while
+using an address the output printed, and follow `next:` when a truncated block holds lines you
+need. `find` prints line numbers of the whole source document, while
 `show <address> --lines A:B` counts from the first body line of that entry or heading. Read
 around a hit with `show --document <source> --source --lines A:B` and the hit's numbers; keep
 address `--lines` for numbers counted inside that selection (a `next:` value). Node, observation
@@ -137,12 +137,10 @@ experiment logs:
 - **`related_work.md`, `PAPER.md`, `src/`** — context and the literal code/configs when the frame
   turns on a specific mechanism.
 
-A find hit line or excerpt is never grounding proof. Retrieve and verify the complete knowledge
-source/section with `show <address>` (exact source bytes and `source_digest`), and cite the
-address it printed. A trace node (`trace:N01`) prints a projection with no digest; when you need
-its exact bytes, read the source document the projection names (`ara show --document
-trace/exploration_tree.yaml --source`). Read permitted source/evidence bodies directly. Rank on the real prose, not a
-keyword coincidence, and verify every cited body even when an excerpt seems sufficient.
+When a `find` hit is too terse to judge, `show` the surrounding section, or window the source
+document around the hit (`show --document <source> --source --lines A:B` with the hit's line
+numbers), so your rank is based on the real prose, not a keyword coincidence. Cite the address
+`ara` printed. Read permitted source/evidence bodies directly.
 
 ### Step 3 — Rank hits by semantic match to the frame
 For each location you found, decide whether its *setup* matches the query's frame — not just its

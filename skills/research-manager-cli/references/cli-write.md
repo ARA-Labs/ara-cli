@@ -14,6 +14,8 @@ Brief text is the reading format. Add `--json` where a step consumes structured 
 
 A full source show means the whole selection: a brief `show` without `--lines` that prints no `truncated` line, pages that together cover lines 1 to N of the selection (`lines: S-E of N`), or `--source --full`, which is unbounded. A window you chose with `--lines` is not a full read even when it prints no `truncated` line. Before a guarded write, read in full the exact bytes its `expected` digest covers. Operations guard two different spans, and a digest of one never matches the other.
 
+Writer procedures that read current knowledge (the PM turn, compiler coverage and repair) read the whole document or unique section, not a `find` excerpt, a window or a typed projection. For YAML entries obtain the complete document as well as typed fields when source spelling, unknown fields, comments, raw observation context or full history matters.
+
 **Heading body or whole document** (`document.replace`, `logic.revise` with `Body`, `paper.edit` with `expected`). The digest covers the text below the heading, with the heading line and its ancestors excluded, or the whole document. `show` prints it as `source_digest=… scope=heading_body` or `scope=whole_document`:
 
 ```sh
