@@ -30,7 +30,11 @@ Command contracts are in [agent-cli.md](agent-cli.md).
 
 Each skill has `SKILL.md`, `references/` and an MIT `LICENSE` (the skills keep the
 protocol repository's license; the rest of this repository is MPL-2.0). The three
-variants carry the same `references/cli-access.md` command reference.
+variants carry the same `references/cli-access.md` reading reference. The two
+writers, `research-manager-cli` and `compiler-cli`, also carry the same
+`references/cli-write.md` write reference; the reader does not, so a read-only
+session never loads JSONL transactions, guarded digests or role write
+procedures.
 
 ## Provenance
 
@@ -84,8 +88,8 @@ recipe:
 - **Brief text for reading, JSON for structured use.** `--json` stays on write,
   `apply` and `merge` commands and where a step consumes fields (`status --json`
   counts, `ls --json` typed counts, frontier records).
-- **Two digest scopes before a guarded write.** `document.replace`,
-  `logic.revise` Body and `paper.edit` guard the heading body (heading line
+- **Two digest scopes before a guarded write** (`references/cli-write.md`).
+  `document.replace`, `logic.revise` Body and `paper.edit` guard the heading body (heading line
   excluded) or the whole document: the skill reads the selection with
   `show --document … --heading … --source --full` and uses its printed
   `source_digest` as `expected`; a page's digest never authorizes replacing
@@ -104,9 +108,10 @@ Install all six live skills from the same ara-cli revision as the binary. Frozen
 ## Changing a skill
 
 - Edit the skill here, in the same change as the binary behavior it describes.
-- Keep the `cli-access.md` copies identical until they are split into shared
-  read and write references. The two `frontier.md` copies and the common
-  collective pages (`roles.md`, `failure-policy.md`, `intentions.md`) are also
+- Keep the `cli-access.md` copies identical, and the `cli-write.md` copies in
+  the two writer skills identical. Reading guidance goes in `cli-access.md`;
+  anything only a writer needs goes in `cli-write.md`. The two `frontier.md`
+  copies and the common collective pages (`roles.md`, `failure-policy.md`, `intentions.md`) are also
   identical across the collective skills.
 - A changed skill gets a new digest. Registered runs keep the digest they
   recorded, so pin the new commit in the harness for any new condition.
@@ -114,14 +119,16 @@ Install all six live skills from the same ara-cli revision as the binary. Frozen
   version; a change that ships with binary behavior follows that change's bump.
 
 `crates/ara-cli/tests/skills.rs` checks that every skill's `name:` matches its
-directory, that each has a `LICENSE`, that the `cli-access.md` copies are
-identical, and that every `ara <subcommand>` command line in a skill names a
+directory, that each has a `LICENSE`, that the `cli-access.md` copies and the
+writer `cli-write.md` copies are identical, that the reader has no
+`cli-write.md`, that every shared task subsection is linked from a skill
+page, and that every `ara <subcommand>` command line in a skill names a
 subcommand the binary has. It also walks nested subcommands (`merge resolve`)
 and checks that every long flag in such a command line appears in that
 subcommand's `--help`, so renaming or removing a flag the skills use, such as
 `--lines`, `--max-bytes`, `--context`, `--limit` or `--heading`, fails the test.
 An inline command that wraps onto the next line is checked as one command.
-Two more tests run command lines the access page prints verbatim. One runs
+Two more tests run command lines the access pages print verbatim. One runs
 both digest recipes on a scratch artifact and dry-runs every guarded write:
 the printed heading-body digest must pass `document.replace` and `logic.revise`
 Body and fail `entry.rename`/`entry.remove`, and the computed entry-span digest

@@ -212,26 +212,54 @@ fn every_skill_is_named_after_its_directory_and_licensed() {
     }
 }
 
-#[test]
-fn cli_access_copies_are_identical() {
-    let copies: Vec<(PathBuf, Vec<u8>)> = skill_dirs()
+/// Names of the skills that carry `references/<page>`.
+fn skills_with_reference(page: &str) -> Vec<String> {
+    skill_dirs()
         .into_iter()
-        .map(|dir| dir.join("references/cli-access.md"))
-        .filter(|path| path.is_file())
-        .map(|path| {
-            let bytes = std::fs::read(&path).unwrap();
-            (path, bytes)
+        .filter(|dir| dir.join("references").join(page).is_file())
+        .map(|dir| dir.file_name().unwrap().to_str().unwrap().to_owned())
+        .collect()
+}
+
+/// Every copy of `references/<page>` has the same bytes.
+fn assert_identical_copies(page: &str) {
+    let copies: Vec<(String, Vec<u8>)> = skills_with_reference(page)
+        .into_iter()
+        .map(|skill| {
+            let bytes = std::fs::read(skills_root().join(&skill).join("references").join(page));
+            (skill, bytes.unwrap())
         })
         .collect();
-    assert!(copies.len() > 1, "expected several cli-access.md copies");
-    for (path, bytes) in &copies[1..] {
+    for (skill, bytes) in &copies[1..] {
         assert!(
             *bytes == copies[0].1,
-            "{} differs from {}",
-            path.display(),
-            copies[0].0.display()
+            "{skill}/references/{page} differs from {}",
+            copies[0].0
         );
     }
+}
+
+#[test]
+fn cli_access_copies_are_identical() {
+    assert_eq!(
+        skills_with_reference("cli-access.md"),
+        [
+            "compiler-cli",
+            "research-foresight-cli",
+            "research-manager-cli"
+        ]
+    );
+    assert_identical_copies("cli-access.md");
+}
+
+/// Only the writers carry the write page, so the reader never loads write procedures.
+#[test]
+fn cli_write_copies_are_identical_and_writer_only() {
+    assert_eq!(
+        skills_with_reference("cli-write.md"),
+        ["compiler-cli", "research-manager-cli"]
+    );
+    assert_identical_copies("cli-write.md");
 }
 
 #[test]
@@ -353,9 +381,15 @@ fn subcommand_extraction_reads_only_command_lines() {
     assert!(code_snippets("ends `open").is_err());
 }
 
-/// The shared access page every CLI skill carries (all copies are identical).
+/// The shared reading page every CLI skill carries (all copies are identical).
 fn cli_access() -> String {
     std::fs::read_to_string(skills_root().join("research-manager-cli/references/cli-access.md"))
+        .unwrap()
+}
+
+/// The shared write page the writer skills carry (all copies are identical).
+fn cli_write() -> String {
+    std::fs::read_to_string(skills_root().join("research-manager-cli/references/cli-write.md"))
         .unwrap()
 }
 
@@ -385,11 +419,11 @@ fn ara_in(root: &Path) -> Command {
     command
 }
 
-/// Run a command line that `cli-access.md` documents verbatim against `root`.
-fn documented(root: &Path, line: &str) -> std::process::Output {
+/// Run a command line that `page` documents verbatim against `root`.
+fn documented(page: fn() -> String, root: &Path, line: &str) -> std::process::Output {
     assert!(
-        cli_access().lines().any(|doc| doc == line),
-        "cli-access.md no longer documents `{line}`"
+        page().lines().any(|doc| doc == line),
+        "the access page no longer documents `{line}`"
     );
     let words = shell_words(line);
     assert_eq!(words[..3], ["ara", "-C", "<artifact>"], "{line}");
@@ -429,11 +463,11 @@ fn dry_run(root: &Path, operations: &[serde_json::Value]) -> std::process::Outpu
         .unwrap()
 }
 
-/// Runs the access page's two digest recipes and checks that each one guards
+/// Runs the write page's two digest recipes and checks that each one guards
 /// exactly its own operations: the printed heading-body digest for body and
 /// document replacement, the computed entry-span digest for rename/remove.
 #[test]
-fn cli_access_digest_recipes_match_each_guard_scope() {
+fn cli_write_digest_recipes_match_each_guard_scope() {
     use serde_json::json;
     let dir = tempfile::TempDir::new().unwrap();
     let root = dir.path();
@@ -455,12 +489,14 @@ fn cli_access_digest_recipes_match_each_guard_scope() {
 
     // Step 1: the heading's document line from its own find hit.
     let hits = stdout(&documented(
+        cli_write,
         root,
         "ara -C <artifact> find 'Old term' --type concept",
     ));
     assert!(hits.contains("\n  3: ## Old term\n"), "{hits}");
     // Step 2: the heading body, its printed digest and its line count.
     let body_read = stdout(&documented(
+        cli_write,
         root,
         "ara -C <artifact> show --document logic/concepts.md --heading 'Old term' --source --lines 1:",
     ));
@@ -473,6 +509,7 @@ fn cli_access_digest_recipes_match_each_guard_scope() {
     assert!(body_read.contains("\nlines: 1-2 of 2\n"), "{body_read}");
     // Step 3: the window H:H+N is the heading line plus that body.
     let window: serde_json::Value = serde_json::from_str(&stdout(&documented(
+        cli_write,
         root,
         "ara -C <artifact> show --document logic/concepts.md --source --lines 3:5 --full --json",
     )))
@@ -569,6 +606,7 @@ fn cli_access_reads_find_hits_by_document_lines() {
     );
     // The documented document window around that hit holds the hit line.
     let window = stdout(&documented(
+        cli_access,
         &root,
         "ara -C <artifact> show --document logic/claims.md --source --lines 26:40",
     ));
@@ -622,9 +660,9 @@ fn shell_words_honours_single_quotes() {
 }
 
 fn published_jsonl(section: &str) -> Vec<serde_json::Value> {
-    let access = cli_access();
-    let start = access.find(section).expect("published task exists");
-    let text = &access[start..];
+    let write = cli_write();
+    let start = write.find(section).expect("published task exists");
+    let text = &write[start..];
     let block = text
         .split_once("```jsonl\n")
         .expect("published JSONL example")
@@ -683,11 +721,14 @@ fn source_yaml(root: &Path, path: &str) -> serde_json::Value {
 
 #[test]
 fn skill_task_links_cover_every_shared_subsection() {
-    let sections = [
+    let reading = [
         "reading-orient-search-read-cite",
-        "initialize-or-extend-an-artifact",
         "inspect-ancestry-citations-and-imported-identities",
         "review-unfinished-work",
+    ];
+    let writing = [
+        "initialize-or-extend-an-artifact",
+        "mark-an-observation-stale",
         "record-a-research-turn",
         "stage-or-crystallize-an-observation",
         "create-claims-and-heuristics",
@@ -696,7 +737,6 @@ fn skill_task_links_cover_every_shared_subsection() {
         "record-annotations-and-confirmed-user-reactions",
         "integrate-another-artifact",
     ];
-    let access = cli_access();
     let pages: String = [
         "research-manager-cli/SKILL.md",
         "compiler-cli/SKILL.md",
@@ -706,27 +746,49 @@ fn skill_task_links_cover_every_shared_subsection() {
     .iter()
     .map(|path| std::fs::read_to_string(skills_root().join(path)).unwrap())
     .collect();
-    for section in sections {
-        assert!(
-            pages.contains(&format!("cli-access.md#{section}")),
-            "unlinked task {section}"
-        );
-        let heading = access
+    for (page, text, sections) in [
+        ("cli-access.md", cli_access(), &reading[..]),
+        ("cli-write.md", cli_write(), &writing[..]),
+    ] {
+        let anchors: BTreeSet<String> = text
             .lines()
             .filter_map(|line| {
                 line.strip_prefix("## ")
                     .or_else(|| line.strip_prefix("### "))
             })
-            .any(|heading| {
+            .map(|heading| {
                 heading
                     .to_lowercase()
                     .replace([',', ':'], "")
                     .split_whitespace()
                     .collect::<Vec<_>>()
                     .join("-")
-                    == section
-            });
-        assert!(heading, "missing task anchor {section}");
+            })
+            .collect();
+        for section in sections {
+            assert!(
+                pages.contains(&format!("{page}#{section}")),
+                "unlinked task {page}#{section}"
+            );
+            assert!(
+                anchors.contains(*section),
+                "missing task anchor {page}#{section}"
+            );
+        }
+    }
+}
+
+/// The reader links only reading tasks, so it never needs the writer page it lacks.
+#[test]
+fn reader_pages_never_reference_the_write_page() {
+    let reader = skills_root().join("research-foresight-cli");
+    for file in markdown_files(&reader) {
+        let text = std::fs::read_to_string(&file).unwrap();
+        assert!(
+            !text.contains("cli-write.md"),
+            "{} names cli-write.md, which the reader does not ship",
+            file.display()
+        );
     }
 }
 
@@ -841,6 +903,7 @@ fn skill_research_turn_and_consolidated_reads_run_on_matching_binary() {
         );
     }
     let path: serde_json::Value = serde_json::from_str(&stdout(&documented(
+        cli_access,
         &root,
         "ara -C <artifact> show N01 --with path,parents,depends_on --json",
     )))
@@ -863,6 +926,7 @@ fn skill_research_turn_and_consolidated_reads_run_on_matching_binary() {
             .any(|row| row["id"] == "N01")
     );
     let refs: serde_json::Value = serde_json::from_str(&stdout(&documented(
+        cli_access,
         &root,
         "ara -C <artifact> show trace/exploration_tree.yaml --with refs --json",
     )))

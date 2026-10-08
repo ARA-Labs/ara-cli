@@ -201,8 +201,8 @@ ancestors excluded). For a document, it is the whole file (`scope=whole_document
 Use it as `expected` for that selection with `document.replace`, `logic.revise`
 Body or `paper.edit`. `entry.rename` and `entry.remove` guard a different span,
 the entry's heading line plus its body up to the next heading of the same or a
-higher level, and no `show` line prints that digest; the skills' access page
-(`references/cli-access.md`) reads the span as a `--source --lines` window and
+higher level, and no `show` line prints that digest; the writer skills' write page
+(`references/cli-write.md`) reads the span as a `--source --lines` window and
 hashes its JSON `content`. The line says `selector: none` when
 the full heading vector also matches another section, or when the document is
 read-only for `document.replace` (`PAPER.md`, `trace/`, `staging/` and any

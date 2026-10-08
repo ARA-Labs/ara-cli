@@ -23,8 +23,7 @@ Every knowledge-layer or root `PAPER.md` read/write in this page uses `ara -C <a
 words read, open, search, write, append and edit retain their original procedural meaning,
 but never authorize direct knowledge-file tools. Run one quoted `ara` command per shell call,
 with no pipes, redirects, `&&`, `;` or globs, and read brief text: `ls`, `find`, then `show`
-the address the output prints, and cite that address. `cli-access.md` covers bounds, misses
-and the exact-source read before a guarded write;
+the address the output prints, and cite that address. `cli-access.md` covers bounds and misses;
 `ls`, `find`, `show --with path,refs`, `ls --unfinished` and `status` are access aids, not semantic judgments.
 Source/evidence bodies and skill pages remain direct only within the baseline scope.
 No direct fallback, automatic semantic retry, new role, or altered stopping rule is allowed.
