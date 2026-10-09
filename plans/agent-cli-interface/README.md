@@ -2,7 +2,7 @@
 
 The non-experiment implementation has permanent [design records](../../docs/agent-cli-interface/README.md)
 and an [actual frozen-binary verification report](../../docs/verification/agent-cli-2026-10-02/README.md).
-Workspace version is 0.1.27 after the command-simplification cutover. Non-experiment
+Workspace version is 0.1.28 after the reader round-trip skill changes. Non-experiment
 features are implemented; [Plan 20's current engineering evidence](../../docs/verification/plan-20-command-simplification/README.md)
 is separate from historical reproduction, human protocol approval, and experiments.
 
@@ -20,6 +20,7 @@ is separate from historical reproduction, human protocol approval, and experimen
 | [18](18-failed-blocked-calls.md) | Approved 2026-10-04; CLI changes B1–B10 and skills S1–S5 implemented in 0.1.24; H1 landed in ara-eval; 120-session dev pilot recorded 2026-10-06, with skill and `show --source` follow-ups in 0.1.26; H2/C1 and viewer embed rebuild pending |
 | [19](19-deterministic-bookkeeping.md) | Approved 2026-10-04; revised and re-approved 2026-10-05 (bug reproduced, clock and day-count rules tightened, split into sub-PRs 19a–19e): 19a–19e implemented in 0.1.25 with [CLI smokes](../../docs/verification/plan-19-bookkeeping/README.md); repeated six-skill audit (acceptance item 6) and upstream protocol review of the event `target` field pending |
 | [20](../../docs/agent-cli-interface/20-command-simplification.md) | Approved 2026-10-06; implemented in 0.1.27 as one coordinated command, live-skill, and runner cutover; the completed design replaces the plan |
+| [21](../../docs/agent-cli-interface/21-reader-round-trips.md) | Approved 2026-10-08; reader-only access guide, Files grounding rule and fewer-requests guidance shipped in 0.1.28 as skill-only changes; conditional `find --show` not implemented; the completed design replaces the plan |
 
 Plan 18's CLI and skill changes are implemented; its external changes and pilot follow-ups remain separate, so it stays a plan. Plan 18 supersedes the parent plan's default-JSON agent workflow with brief text while retaining programmatic JSON access, and [the command reference](../../docs/agent-cli.md) documents the shipped behavior. Plan 19's CLI sub-PRs are implemented; its repeated skill audit and upstream event-target review remain pending. Mechanical recording does not delegate research judgment to the CLI.
 
@@ -35,5 +36,5 @@ exact commit in the external harness submodule. Protocol merge and upstream F1�
 approval are not prerequisites for these experimental conditions. Original baseline
 archives, historical-source checks and scored-registration requirements still apply.
 No PR is merged, tagged, or released by this delivery task.
-The intermediate 0.1.27 revision is unreleased. The final integration release's
+The intermediate 0.1.28 revision is unreleased. The final integration release's
 major-version rule must be resolved explicitly before publication.

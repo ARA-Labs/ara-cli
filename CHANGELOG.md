@@ -114,6 +114,16 @@ All notable changes to this project are documented here. The format follows
   read side's identity index.
 
 ### Changed
+- CLI reader skill: fewer model round trips. `references/cli-access.md` keeps
+  only boundary, shell-call, reading and read-only task guidance (44.3k → 10.4k
+  characters); writer guidance moves to `references/cli-write.md`, shipped only
+  with `research-manager-cli` and `compiler-cli`. `research-foresight-cli`
+  adopts the Files grounding rule (`show` the surrounding section when a hit is
+  too terse to judge) and teaches one multi-term `find`, multi-address `show`
+  and parallel `ara` shell calls in one response. On 60 development questions
+  this lowered requests per question from 13.73 to 10.67 and list-price agent
+  cost by 29% against unchanged 0.1.27 skills; see
+  `docs/agent-cli-interface/21-reader-round-trips.md`.
 - Agent CLI: consolidate ancestry and citation reads into `show --with path,refs`,
   unfinished work into `ls --unfinished`, and exact imported/retained identity
   lookup into `show --identity`. Relation arrays stay complete under output
