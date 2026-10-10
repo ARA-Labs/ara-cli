@@ -178,7 +178,7 @@ retired rule keeps its number). The code space is split by layer:
 | `ARA214` | exhibit-missing-index-row | an `evidence/` body file has no row in `evidence/README.md` | warning | no |
 | `ARA215` | index-row-missing-exhibit | an `evidence/README.md` row references a body file that does not exist | warning | no |
 | `ARA216` | invalid-figure-image | a figure image declaration is missing, unsafe, unsupported, or ambiguous | warning | no |
-| `ARA228` | recovered-stray-fence | an unclosed leading `---` in `logic/claims.md` is a stray line before `# Claims` (claims after it are read) | warning | no |
+| `ARA228` | recovered-stray-fence | an unclosed leading `---` in a typed logic document is a stray line before its title (entries after it are read) | warning | no |
 | `ARA229` | unclosed-frontmatter | an unclosed leading `---` fence hides the rest of a Markdown document as frontmatter | warning | no |
 
 Some drift fires one rule in each layer: `reason:` on a `dead_end` is both

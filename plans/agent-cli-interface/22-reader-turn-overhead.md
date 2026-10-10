@@ -1,7 +1,7 @@
 # PR 22: remove the CLI reader's per-session turn overhead
 **Date:** 2026-10-10
 
-Status: **draft, awaiting review**. Nothing is implemented except one ignored test that reproduces the hidden-document problem (part A). Repository: `ARA-Labs/ara-cli`, branch `feat/reader-turn-overhead`, from `feat/reader-round-trips` at `de92588` (0.1.28). The measurement design lives in `ara-eval` at `plans/cli-reader-turn-overhead.md`. Approving this plan does not authorize a paid run, a release or upstream protocol adoption.
+Status: **draft, partly decided**. P1 was decided 2026-10-10 (R1), and part A is implemented in 0.1.29 (22a). Parts B–D await decisions P2–P4. Repository: `ARA-Labs/ara-cli`, branch `feat/reader-turn-overhead`, from `feat/reader-round-trips` at `de92588` (0.1.28). The measurement design lives in `ara-eval` at `plans/cli-reader-turn-overhead.md`. Approving this plan does not authorize a paid run, a release or upstream protocol adoption.
 
 ## TL;DR
 
@@ -39,7 +39,7 @@ The `ara-eval` trace analysis compared the V3 screen (the skills released as 0.1
 
 ### A. Hidden typed documents (bug)
 
-Reproduction: `crates/ara-core/src/stray_fence.rs` `plan_22_stray_opener_before_typed_entries_is_recovered` (ignored until the fix lands). It uses the corpus shape of all three documents.
+Reproduction: `crates/ara-core/src/stray_fence.rs` `stray_opener_before_typed_entries_is_recovered` (it was added ignored, then enabled by the fix). It uses the corpus shape of all three documents.
 
 Options (decision P1):
 
@@ -103,9 +103,20 @@ Tests: hit order is unchanged by D1 and D2; the cap and budget are respected; `-
 | `ara find` over `rubric/`, `evidence/`, `src/` | Crosses the access boundary (those roots are file-tool territory); B4 covers it in the skill |
 | Next-step hints in `find` output | Files' Grep output carries no such hint, so this would favour the CLI arm |
 
+**Implemented (22a, 0.1.29).** R1 as described. `markdown_entries` reads the document's own sections, so recovered experiment plans and heuristics load as typed entries. In all 7 corpus artifacts, `ls` now lists `experiment_plan=N`, `heuristic=N` and the problem headings, and `show 'logic/experiments.md#E01'` resolves.
+
+**Still hidden.** The same 7 artifacts also open `logic/concepts.md`, `logic/related_work.md`, `logic/solution/algorithm.md`, `architecture.md` and `constraints.md` with a stray `---` (`ARA229`×5).
+- Concepts and related-work entries still load, because their parsers do not use the fence rule.
+- The three untyped solution documents have no addressable sections (`ls logic/solution/algorithm.md` prints `no entries`).
+- Their bodies are free prose under `## Section` headings, which a typed rule cannot tell apart from metadata.
+- Agents in other artifacts do address such sections (for example `algorithm.md#h/Algorithm/Mathematical%20Formulation/…`).
+
+Recovering them needs either a looser rule (decision P5) or the corpus fix R2.
+
 ## Decisions needed
 
-- **P1:** the bug fix route: R1 (recommended), R2 or R3.
+- **P1:** decided 2026-10-10: R1.
+- **P5:** the three untyped solution documents in the same 7 artifacts. Options are to leave them for an upstream corpus fix (R2) or to recover a document whose opener is followed by a level-one title and level-two sections only.
 - **P2:** B1's startup rule: whether the reader drops the `cli-access.md` preload as proposed, or keeps it and is told to load all four pages in one response.
 - **P3:** C1's exit status: 1 when any address failed (recommended), or 0 with error blocks.
 - **P4:** the scope for this round: A + B only (cheapest, largest estimated effect), or A–D.

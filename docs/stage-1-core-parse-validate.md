@@ -132,7 +132,14 @@ even error ordering is hash-seed independent. Nothing is sorted by id.
   content is a known claim field with a value; every later level-two section
   must be a distinct claim, no other level-one title may follow, and no code
   fence left open at EOF may hide a claim-like heading. That stray
-  line is skipped and its claims are read (`ARA228`). Metadata-like content,
+  line is skipped and its claims are read (`ARA228`). `logic/experiments.md`,
+  `logic/solution/heuristics.md` and `logic/problem.md` recover the same way
+  when the opener is followed only by blank lines, one level-one title, then
+  blank lines and headings down to the first typed entry (`## E01: …`,
+  `## H01: …`, `### O1: …`/`### G1: …`) whose first content is a known field
+  of that document with a value; every heading at the entry level must be a
+  distinct entry, no other level-one title may follow, and no code fence may
+  be left open at EOF. Metadata-like content,
   comments or heading-only blocks never qualify
   ([`stray_fence.rs`](../crates/ara-core/src/stray_fence.rs)).
 - **IGNORED (stored raw):** `Proof:[E##]` — no evidence registry exists yet

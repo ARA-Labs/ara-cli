@@ -470,8 +470,11 @@ frontmatter, and loads warn `ARA229` at `path:line` (for `PAPER.md`, the
 knowledge-registry warning `ARA217` reports it instead). A `logic/claims.md`
 whose opener is followed only by blank lines, the exact title `# Claims`, a
 claim heading and a known claim field, with no code fence left open at EOF
-hiding a claim-like heading, is the one recovered case: reads skip
-that line and warn `ARA228` (rules in
+hiding a claim-like heading, is recovered: reads skip that line and warn
+`ARA228`. `logic/experiments.md`, `logic/solution/heuristics.md` and
+`logic/problem.md` recover the same way when a level-one title and typed
+entries (`## E01: …`, `## H01: …`, `### O1: …`) whose first content is a known
+field follow the opener, so their entries and headings stay addressable (rules in
 [stage-1](stage-1-core-parse-validate.md#validation-severity)). Writes never
 recover it. A write, including a dry run, fails with `write.frontmatter` and
 the opener's line when it would leave a changed document behind an unclosed
