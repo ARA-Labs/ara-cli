@@ -183,6 +183,34 @@ mod tests {
         assert_eq!(unclosed_fence(CLAIMS, &md).unwrap().0, 3);
     }
 
+    /// Plan 22 reproduction: corpus experiment, heuristic and problem documents
+    /// open with a stray `---`, so their entries have no address.
+    #[test]
+    #[ignore = "plan 22 part A: typed stray-fence recovery is not implemented"]
+    fn plan_22_stray_opener_before_typed_entries_is_recovered() {
+        for (path, md) in [
+            (
+                "logic/experiments.md",
+                "---\n# Experiments\n\n## E01: Benchmark posterior approximation\n- **Verifies**: C01, C02\n",
+            ),
+            (
+                "logic/solution/heuristics.md",
+                "---\n# Heuristics\n\n## H01: Random condition mask sampling\n- **Rationale**: Mixed masks.\n",
+            ),
+            (
+                "logic/problem.md",
+                "---\n# Problem Specification\n\n## Observations\n\n### O1: Tabular data only\n- **Statement**: Fixed-size pairs.\n",
+            ),
+        ] {
+            assert_eq!(
+                unclosed_fence(path, md).map(|(_, handling)| handling),
+                Some(UnclosedFence::Recovered),
+                "{path}"
+            );
+            assert!(!markdown::document_headings(path, md).is_empty(), "{path}");
+        }
+    }
+
     #[test]
     fn only_claims_md_can_recover() {
         let md = format!("---\n# Claims\n\n{CLAIM}");
