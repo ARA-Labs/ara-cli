@@ -223,9 +223,12 @@ All notable changes to this project are documented here. The format follows
   level-one title and typed entries (`## E01: …`, `## H01: …`, `### O1: …`)
   are recovered like `logic/claims.md`: their experiment plans, heuristics and
   headings load and stay addressable, with warning `ARA228` instead of
-  `ARA229`. Metadata-like content still stays hidden, and writes still refuse
-  the unclosed fence. Seven paperbench artifacts had these three documents
-  hidden from `ls`, `find` addresses and `show`.
+  `ARA229`. Other `logic/` documents (concepts, related work, untyped solution
+  documents) recover under a looser rule: a level-one title and a level-two
+  section after the opener, and text that does not load as a YAML mapping or
+  null. Metadata-like content still stays hidden, and writes still refuse the
+  unclosed fence. Seven paperbench artifacts had eight or nine documents each
+  hidden from `ls`, `find` addresses and `show`; none remain hidden.
 - Agent CLI: projected non-JSON whole-document reads retain requested refs for
   positional and `--document` selectors; reads without selected relations keep
   exact raw content (#117).

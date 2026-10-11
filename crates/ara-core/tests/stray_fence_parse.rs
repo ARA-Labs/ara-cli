@@ -141,7 +141,7 @@ fn vendored_em_dash_claims_resolve_every_evidence_reference() {
 }
 
 #[test]
-fn stray_opener_before_typed_entries_loads_them_with_one_warning_each() {
+fn stray_opener_before_logic_documents_loads_them_with_one_warning_each() {
     let dir = artifact(&[
         ("trace/exploration_tree.yaml", TREE),
         (
@@ -159,6 +159,10 @@ fn stray_opener_before_typed_entries_loads_them_with_one_warning_each() {
         (
             "logic/problem.md",
             "---\n# Problem Specification\n\n## Observations\n\n### O1: Tabular only\n- **Statement**: fixed pairs\n",
+        ),
+        (
+            "logic/solution/algorithm.md",
+            "---\n# Algorithm\n\n## Mathematical Formulation\n\nThe loss is a sum.\n",
         ),
     ]);
     let (manifest, report) = parse_dir(dir.path()).expect("typed documents resolve");
@@ -178,6 +182,7 @@ fn stray_opener_before_typed_entries_loads_them_with_one_warning_each() {
         [
             recovered("logic/experiments.md"),
             recovered("logic/problem.md"),
+            recovered("logic/solution/algorithm.md"),
             recovered("logic/solution/heuristics.md"),
         ]
     );

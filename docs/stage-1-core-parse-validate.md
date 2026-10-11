@@ -139,7 +139,11 @@ even error ordering is hash-seed independent. Nothing is sorted by id.
   `## H01: …`, `### O1: …`/`### G1: …`) whose first content is a known field
   of that document with a value; every heading at the entry level must be a
   distinct entry, no other level-one title may follow, and no code fence may
-  be left open at EOF. Metadata-like content,
+  be left open at EOF. Every other `logic/` Markdown document recovers when
+  the opener is followed only by blank lines, one level-one title, blank lines
+  and a level-two section, with no other level-one title, no code fence left
+  open at EOF, and text that does not load as a YAML mapping (frontmatter
+  metadata) or null (a heading-only block). Metadata-like content,
   comments or heading-only blocks never qualify
   ([`stray_fence.rs`](../crates/ara-core/src/stray_fence.rs)).
 - **IGNORED (stored raw):** `Proof:[E##]` — no evidence registry exists yet

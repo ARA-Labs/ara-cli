@@ -18,12 +18,19 @@
 //!   document with a value. Every heading at the entry level must be a
 //!   distinct typed entry, no other level-one title may appear, and no code
 //!   fence may be left open at EOF.
+//! - Every other `logic/` Markdown document (`concepts.md`,
+//!   `related_work.md`, untyped `solution/` documents): optional blank lines,
+//!   one level-one title, blank lines, a level-two section, no other
+//!   level-one title and no code fence left open at EOF, and the text after
+//!   the opener must not load as a YAML mapping (metadata) or null (a
+//!   heading-only block is all YAML comments).
 //!
 //! Anything else, including YAML-looking content, comments or a heading-only
 //! block, stays hidden. Source bytes are never rewritten.
 
 use std::collections::BTreeSet;
 
+use crate::manifest::SourceValue;
 use crate::markdown;
 use crate::report::ParseReport;
 use crate::rules::RuleCode;
@@ -169,7 +176,7 @@ pub(crate) fn report(path: &str, md: &str, report: &mut ParseReport) {
         UnclosedFence::Recovered => report.warn(
             RuleCode::RecoveredStrayFence,
             location,
-            "unclosed leading `---` is a stray line before the document title; the entries after it are read",
+            "unclosed leading `---` is a stray line before the document title; the content after it is read",
         ),
         UnclosedFence::Protected => report.warn(
             RuleCode::UnclosedFrontmatter,
@@ -203,15 +210,46 @@ fn unclosed_opener(md: &str) -> Option<(usize, usize)> {
     opener
 }
 
-/// Whether the text after the opener is the typed document `path`.
+/// Whether the text after the opener is the logic document `path`.
 fn recovered(path: &str, md: &str, start: usize) -> bool {
     if path == CLAIMS {
         return claims_recovered(md, start);
     }
-    TYPED
-        .iter()
-        .find(|typed| typed.path == path)
-        .is_some_and(|typed| typed_recovered(typed, md, start))
+    if let Some(typed) = TYPED.iter().find(|typed| typed.path == path) {
+        return typed_recovered(typed, md, start);
+    }
+    path.starts_with("logic/") && path.ends_with(".md") && prose_recovered(md, start)
+}
+
+/// Whether the text after the opener is a titled Markdown document of prose
+/// sections rather than YAML metadata.
+fn prose_recovered(md: &str, start: usize) -> bool {
+    let headings = markdown::headings_from(md, start);
+    let [title, first, rest @ ..] = headings.as_slice() else {
+        return false;
+    };
+    let line = |heading: &markdown::MarkdownHeading<'_>| {
+        md[heading.range.start..heading.body_range.start].trim_end_matches(['\r', '\n'])
+    };
+    let blank = |from: usize, to: usize| md[from..to].trim().is_empty();
+    if title.level != 1
+        || !line(title).starts_with("# ")
+        || title.heading.trim().is_empty()
+        || !blank(start, title.range.start)
+        || first.level != 2
+        || !blank(title.body_range.start, first.range.start)
+        || rest.iter().any(|heading| heading.level == 1)
+        || !markdown::unclosed_code_fence_lines(md, start).is_empty()
+    {
+        return false;
+    }
+    // Headings are YAML comments. Frontmatter metadata is a mapping (as
+    // `PAPER.md`'s must be) and a heading-only block loads as null; Markdown
+    // bullet lists load as YAML lists, and prose fails to load.
+    !matches!(
+        serde_saphyr::from_str::<SourceValue>(&md[start..]),
+        Ok(SourceValue::Mapping(_) | SourceValue::Null)
+    )
 }
 
 /// Whether the text after the opener is the typed document `typed`.
@@ -418,9 +456,8 @@ mod tests {
             (HEURISTICS, "---\n# Heuristics\n\n## H01: A\n- **Rationale**:\n".to_string()),
             (HEURISTICS, "---\n# Heuristics\n\n## H01: A\nprose\n- **Rationale**: x\n".to_string()),
             (EXPERIMENTS, "---\n# Experiments\n".to_string()),
-            // An unclosed code fence; another document's typed body.
+            // An unclosed code fence.
             (EXPERIMENTS, format!("---\n# Experiments\n\n{EXPERIMENT}```\n## E02: B\n")),
-            ("logic/concepts.md", format!("---\n# Experiments\n\n{EXPERIMENT}")),
         ];
         for (path, md) in cases {
             assert_eq!(
@@ -433,6 +470,87 @@ mod tests {
                 markdown::document_headings(path, &md).is_empty(),
                 "{path}: {md:?}"
             );
+        }
+    }
+
+    const ALGORITHM: &str = "logic/solution/algorithm.md";
+
+    /// Untyped logic documents in the corpus shape recover under the prose rule.
+    #[test]
+    fn stray_opener_before_prose_sections_is_recovered() {
+        for (path, md) in [
+            (
+                ALGORITHM,
+                "---\n# Algorithm\n\n## Mathematical Formulation\n\nThe loss is $L = a + b$: a sum.\n\n### Objective\n- term one\n",
+            ),
+            (
+                "logic/solution/constraints.md",
+                "---\n# Constraints and Limitations\n\n## Boundary Conditions\n\n- **BC1**: Needs a simulator.\n",
+            ),
+            (
+                "logic/solution/constraints.md",
+                "---\n# Constraints\n\n## Known Limitations\n\n### Computational\n- Slow sampling\n- C1: Needs a good initialization.\n",
+            ),
+            (
+                "logic/concepts.md",
+                "---\n# Concepts\n\n## Simformer\n- **Definition**: A diffusion model.\n",
+            ),
+            (
+                "logic/related_work.md",
+                "\n---\n\n# Related Work\n\n## RW01: Weilbach et al., 2023\n- **Type**: baseline\n",
+            ),
+        ] {
+            assert_eq!(
+                typed_handling(path, md),
+                Some(UnclosedFence::Recovered),
+                "{md:?}"
+            );
+            assert!(
+                md[body_start(path, md)..].trim_start().starts_with("# "),
+                "{md:?}"
+            );
+            assert!(!markdown::document_headings(path, md).is_empty(), "{md:?}");
+        }
+    }
+
+    #[test]
+    fn metadata_like_prose_documents_stay_protected() {
+        let cases = [
+            // YAML mappings behind headings (YAML comments).
+            (
+                ALGORITHM,
+                "---\n# Algorithm\n\n## Overview\ntitle: Paper\nyear: 2024\n",
+            ),
+            (
+                ALGORITHM,
+                "---\n# Algorithm\n\n## Overview\nauthors:\n  - A\n",
+            ),
+            // A heading-only block, a missing title or section, a second title.
+            (ALGORITHM, "---\n# Algorithm\n\n## Overview\n"),
+            (ALGORITHM, "---\n## Overview\n\nprose\n"),
+            (ALGORITHM, "---\n# Algorithm\n\nprose\n"),
+            (
+                ALGORITHM,
+                "---\n# Algorithm\n\n## Overview\nprose\n# Appendix\nmore\n",
+            ),
+            // Content before the title or between the title and the first section.
+            (ALGORITHM, "---\nnote\n# Algorithm\n\n## Overview\nprose\n"),
+            (ALGORITHM, "---\n# Algorithm\nintro\n## Overview\nprose\n"),
+            // An unclosed code fence; documents outside `logic/`.
+            (
+                ALGORITHM,
+                "---\n# Algorithm\n\n## Overview\nprose\n```\n## Hidden\n",
+            ),
+            ("PAPER.md", "---\n# Paper\n\n## Overview\nprose\n"),
+            ("staging/notes.md", "---\n# Notes\n\n## Overview\nprose\n"),
+        ];
+        for (path, md) in cases {
+            assert_eq!(
+                typed_handling(path, md),
+                Some(UnclosedFence::Protected),
+                "{path}: {md:?}"
+            );
+            assert_eq!(body_start(path, md), md.len(), "{path}: {md:?}");
         }
     }
 

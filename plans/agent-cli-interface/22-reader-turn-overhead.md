@@ -105,18 +105,17 @@ Tests: hit order is unchanged by D1 and D2; the cap and budget are respected; `-
 
 **Implemented (22a, 0.1.29).** R1 as described. `markdown_entries` reads the document's own sections, so recovered experiment plans and heuristics load as typed entries. In all 7 corpus artifacts, `ls` now lists `experiment_plan=N`, `heuristic=N` and the problem headings, and `show 'logic/experiments.md#E01'` resolves.
 
-**Still hidden.** The same 7 artifacts also open `logic/concepts.md`, `logic/related_work.md`, `logic/solution/algorithm.md`, `architecture.md` and `constraints.md` with a stray `---` (`ARA229`×5).
-- Concepts and related-work entries still load, because their parsers do not use the fence rule.
-- The three untyped solution documents have no addressable sections (`ls logic/solution/algorithm.md` prints `no entries`).
-- Their bodies are free prose under `## Section` headings, which a typed rule cannot tell apart from metadata.
-- Agents in other artifacts do address such sections (for example `algorithm.md#h/Algorithm/Mathematical%20Formulation/…`).
+**Looser rule (P5, decided 2026-10-11).** The same 7 artifacts also opened `logic/concepts.md`, `logic/related_work.md` and the untyped `logic/solution/` documents with a stray `---`. Every other `logic/` Markdown document now recovers when:
+- a level-one title and a level-two section follow the opener;
+- no other level-one title follows and no code fence is left open at EOF;
+- the text does not load as a YAML mapping (frontmatter metadata, which `PAPER.md` also requires to be a mapping) or null (a heading-only block of YAML comments).
 
-Recovering them needs either a looser rule (decision P5) or the corpus fix R2.
+Markdown bullet lists load as YAML lists, so they do not count as metadata. Across all 32 corpus artifacts, only the 7 affected ones changed, and none has an `ARA229` left.
 
 ## Decisions needed
 
 - **P1:** decided 2026-10-10: R1.
-- **P5:** the three untyped solution documents in the same 7 artifacts. Options are to leave them for an upstream corpus fix (R2) or to recover a document whose opener is followed by a level-one title and level-two sections only.
+- **P5:** decided 2026-10-11: the looser rule for the other `logic/` documents.
 - **P2:** B1's startup rule: whether the reader drops the `cli-access.md` preload as proposed, or keeps it and is told to load all four pages in one response.
 - **P3:** C1's exit status: 1 when any address failed (recommended), or 0 with error blocks.
 - **P4:** the scope for this round: A + B only (cheapest, largest estimated effect), or A–D.
