@@ -23,6 +23,10 @@ impl LineIndex {
     pub fn line(&self, offset: usize) -> usize {
         self.0.partition_point(|start| *start <= offset) - 1
     }
+    /// Byte offset where zero-based `line` starts.
+    pub fn start(&self, line: usize) -> usize {
+        self.0[line]
+    }
     /// A line's text without its line ending.
     fn text<'a>(&self, text: &'a str, line: usize) -> &'a str {
         let end = self.0.get(line + 1).copied().unwrap_or(text.len());

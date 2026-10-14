@@ -1,4 +1,5 @@
 //! `ara find`: BM25 ranking with source-mapped hit lines.
+use super::headings::Sections;
 use super::hits::{self, LineIndex};
 use super::spans::SpanCache;
 use super::{Artifact, Entry, ReadOptions, ShowArgs, show_loaded};
@@ -52,6 +53,10 @@ pub fn find(root: &Path, args: &FindArgs) -> Result<Value, AgentError> {
                 .entry(span.path.to_string())
                 .or_insert_with(|| LineIndex::new(span.text));
             object.extend(hits::fields(&span, index, &hit.terms, args.context));
+            if let Some(Entry::Document { path, content }) = entry {
+                let sections = artifact.sections(path, content);
+                containing_sections(object, &sections, index);
+            }
         } else {
             object.insert("match_count".into(), json!(0));
         }
@@ -82,6 +87,32 @@ pub fn find(root: &Path, args: &FindArgs) -> Result<Value, AgentError> {
         results.push(result);
     }
     Ok(json!({"format":"ara.find/v1","results":results,"diagnostics":artifact.diagnostics()}))
+}
+
+/// Give each matched line of a whole-document hit the address of the
+/// innermost section holding it, as `in`; a line before the first heading
+/// gets none.
+fn containing_sections(
+    object: &mut serde_json::Map<String, Value>,
+    sections: &Sections<'_>,
+    lines: &LineIndex,
+) {
+    for hit in object
+        .get_mut("matches")
+        .and_then(Value::as_array_mut)
+        .into_iter()
+        .flatten()
+    {
+        let Some(line) = hit["line"]
+            .as_u64()
+            .and_then(|line| usize::try_from(line).ok())
+        else {
+            continue;
+        };
+        if let Some(section) = sections.innermost(lines.start(line - 1)) {
+            hit["in"] = json!(sections.cited(section));
+        }
+    }
 }
 
 /// The loaded entry a search result was indexed from.

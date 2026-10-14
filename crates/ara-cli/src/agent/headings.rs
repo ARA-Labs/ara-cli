@@ -157,6 +157,17 @@ impl<'a> Sections<'a> {
     pub fn entry(&self, key: &str) -> Lookup {
         self.select(|section| section.heading == key || heading_id(section.heading) == Some(key))
     }
+    /// A section's own heading text.
+    pub fn heading(&self, index: usize) -> &'a str {
+        self.items[index].heading
+    }
+    /// The innermost section holding byte `offset`: the last in source
+    /// order whose heading line and body contain it.
+    pub fn innermost(&self, offset: usize) -> Option<usize> {
+        (0..self.items.len())
+            .rev()
+            .find(|index| self.items[*index].range.contains(&offset))
+    }
     pub fn len(&self) -> usize {
         self.items.len()
     }

@@ -118,6 +118,9 @@ impl Bounds {
             return Ok(());
         }
         let count = sources.len();
+        // Addresses that failed print their errors among the blocks; they
+        // count toward the response but have nothing to page.
+        let requested = count + value["errors"].as_array().map_or(0, Vec::len);
         let (source, window) = match sources.pop() {
             Some(Some(single)) if count == 1 => single,
             Some(None) if count == 1 => {
@@ -127,7 +130,7 @@ impl Bounds {
             }
             _ => {
                 let hint = format!(
-                    "The {count} selections need {size} bytes together; read each address separately to page through it, or rerun with --max-bytes {size}"
+                    "The {requested} selections need {size} bytes together; read each address separately to page through it, or rerun with --max-bytes {size}"
                 );
                 return Err(too_small(None, budget, size, None, hint));
             }

@@ -114,6 +114,20 @@ All notable changes to this project are documented here. The format follows
   read side's identity index.
 
 ### Changed
+- Agent reads: fewer failed and guessed addresses (0.1.31, plan 22 part C).
+  A multi-address `show` whose addresses partly fail prints every resolved
+  block and, in request order, an `== <address> [error]` block with the same
+  error text and `candidates:` that address prints alone; it exits 1.
+  `--json` adds an `errors` array (`position`, `address`, `error`) beside
+  `entries`. Read budgets count the error blocks. A single failing address,
+  and failures other than `unknown_id`, `ambiguous_heading`,
+  `invalid_address` or `invalid_document`, still reject the whole read. Each
+  matched line of a whole-document `find` hit under a heading gains the
+  address of its innermost section, printed as `in: <address>` when it
+  changes (`matches[].in` in JSON). A bare entry ID such as `O3`, `G1` or
+  `E01` that names no loaded entry selects the one knowledge-document
+  heading starting with `<ID>:` or `<ID> —`; several such headings return
+  `ambiguous_heading` with their addresses.
 - CLI reader skill: one-step startup (0.1.30, plan 22 part B).
   `research-foresight-cli` replaces the boundary paragraphs of SKILL, RETRIEVE,
   PREDICT and CONTRACT with one Access block in `SKILL.md` and a six-line

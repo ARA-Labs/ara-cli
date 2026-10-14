@@ -397,6 +397,12 @@ fn print_human(value: &Value, warnings: bool) {
                     );
                 }
             }
+            for failure in value["errors"].as_array().into_iter().flatten() {
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(failure).expect("error serialization")
+                );
+            }
             return;
         }
         for row in rows {

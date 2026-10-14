@@ -748,11 +748,19 @@ fn show_rows(artifact: &Artifact, args: &ShowArgs, brief: bool) -> Result<Value,
             ));
         }
     }
-    let selected = args
-        .ids
-        .iter()
-        .map(|id| documents::select(artifact, id, source_full))
-        .collect::<Result<Vec<_>, _>>()?;
+    // With several addresses, a selection miss is reported for that address
+    // alone and the others still read; one address keeps the plain error.
+    let mut selected = Vec::with_capacity(args.ids.len());
+    let mut failed = Vec::new();
+    for (position, id) in args.ids.iter().enumerate() {
+        match documents::select(artifact, id, source_full) {
+            Ok(selection) => selected.push(selection),
+            Err(error) if args.ids.len() > 1 && address_failure(&error) => {
+                failed.push(json!({"position": position, "address": id, "error": error}));
+            }
+            Err(error) => return Err(error),
+        }
+    }
     let mut targets = Vec::new();
     if !args.relations.is_empty() {
         for selection in &selected {
@@ -938,7 +946,21 @@ fn show_rows(artifact: &Artifact, args: &ShowArgs, brief: bool) -> Result<Value,
         }
         rows.push(value);
     }
-    Ok(json!({"format":"ara.show/v1","entries":rows,"diagnostics":diagnostics(&artifact.report)}))
+    let mut value =
+        json!({"format":"ara.show/v1","entries":rows,"diagnostics":diagnostics(&artifact.report)});
+    if !failed.is_empty() {
+        value["errors"] = json!(failed);
+    }
+    Ok(value)
+}
+/// A failure that belongs to one requested address: it does not resolve,
+/// is ambiguous, is malformed or lies outside the knowledge boundary. Other
+/// failures (I/O, identity records, a changed source) stop the whole read.
+fn address_failure(error: &AgentError) -> bool {
+    matches!(
+        error.code.as_str(),
+        "unknown_id" | "ambiguous_heading" | "invalid_address" | "invalid_document"
+    )
 }
 fn same_as_relation(artifact: &Artifact, id: &str) -> Value {
     let outgoing = artifact

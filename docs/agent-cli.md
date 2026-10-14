@@ -53,7 +53,9 @@ Success goes to stdout; a JSON error goes to stderr with `code`, `message`,
 and applicable ID, line or details. Exit 0 means completion, exit 1 means a
 semantic rejection or unresolved merge, and exit 2 means setup, argument, I/O
 or lock failure. `--fields` projects supported fields while retaining
-transaction/result identity. JSON excerpts are bounded to 160 Unicode
+transaction/result identity. A multi-address `show` in which some
+addresses fail is the one partial result: it prints on stdout and exits 1
+([partial reads](#partial-multi-address-reads)). JSON excerpts are bounded to 160 Unicode
 characters; `--full` retains source content. Incomplete source representation
 must not be reported as success.
 
@@ -224,7 +226,22 @@ and a list whose items contain `,`, `[` or `]` prints one `- item` per line.
 result's native span (its section, YAML entry without nested entries, session
 file, or a document's indexed text) that contain one of the result's matched
 query terms, compared case-insensitively. A result with no such line prints
-its excerpt as `excerpt:`. At most 20 lines print per result; a final line
+its excerpt as `excerpt:`. In a whole-document (`source_document`) result,
+a matched line under a heading belongs to the innermost section holding it,
+and `in: <address>` prints before the first matched line of each section
+(again when the section changes). The address is the section's cited form
+(`path#ID` when the section alone heads a loaded entry, otherwise its
+canonical heading address), which `show` reads. Lines before the first
+heading print no `in:` line. JSON adds the same address as `in` on each such
+`matches` row:
+
+```text
+logic/problem.md [source_document] logic/problem.md
+  1: Intro mentions drift.
+  in: logic/problem.md#h/Problem%20Specification/Observations/O1%3A%20Drift%20appears
+  10: We saw drift here.
+```
+ At most 20 lines print per result; a final line
 counts the rest. `--context N` (long form only; `-C` selects the artifact)
 adds up to N lines on each side within the span. Overlapping or touching
 ranges merge, `--` separates the others, and hit lines use `N:` while context
@@ -333,6 +350,46 @@ When a response does not fit:
   request order is kept, and overlapping selections stay separate items.
 - A single entry projection has no line mapping, so it fails with
   `output_limit_too_small` and a hint naming the exact source read.
+- In a [partial read](#partial-multi-address-reads), error blocks count
+  toward the budget but never page. When exactly one address resolves, that
+  selection pages as a single selection; otherwise the rule for several
+  selections applies.
+
+### Partial multi-address reads
+
+When `show` names several addresses and some of them fail, the read still
+returns the others. Brief text prints the blocks in request order; each
+failed address prints as a block headed `== <address> [error]`, followed by
+the same `error [code]: message`, `hint` and `candidates:` text that address
+prints when read alone:
+
+```text
+== logic/claims.md#C01 [claim C01]
+heading: Claims > C01: Mechanism
+source_digest=sha256:560e87d7… scope=heading_body selector: --document logic/claims.md --heading Claims --heading 'C01: Mechanism'
+- **Statement**: Known.
+- **Status**: hypothesis
+== E99 [error]
+error [unknown_id]: Unknown or ambiguous selector `E99`
+  candidates:
+    E01
+    …
+== N01 [question] projection of trace/exploration_tree.yaml; no source digest
+…
+```
+
+The command exits 1, so a failed address stays visible to the caller. With
+`--json`, stdout holds the usual `ara.show/v1` value with the resolved rows
+in `entries` and an `errors` array: one object per failed address with
+`position` (zero-based index in the request), `address` (as typed) and
+`error`, the object that address alone would print as the JSON `error`
+(`code`, `message`, `id`, `details.candidates`, `details.capped`). Only
+per-address failures are partial: `unknown_id`, `ambiguous_heading`,
+`invalid_address` and `invalid_document`. Any other failure (an I/O error,
+unreadable identity records, a changed source, `--lines` on a projection,
+an exhausted budget) still rejects the whole read, and a single address that
+fails keeps its plain error on stderr. A read in which every address
+resolves prints exactly as before and has no `errors` key.
 
 A brief block prints its range line (`lines: S-E of N`, or `lines: none of 0`)
 only when `--lines` is given or the page is truncated, so a read that fits
@@ -385,7 +442,16 @@ is a read locator for one source snapshot, not a durable identity after
 edits, and no write selector accepts it.
 
 `ara show <address>` accepts canonical addresses alongside entry IDs, bare
-native IDs (`C04`), `trace:N09` and `logic/claims.md#C04`. Canonical addresses
+native IDs (`C04`), `trace:N09` and `logic/claims.md#C04`. A bare entry ID
+(ASCII uppercase letters, then digits: `E01`, `H01`, `O3`, `G1`) that names
+no loaded entry and no recorded identity selects the one heading, in any
+native Markdown knowledge document, whose text starts with the ID followed
+by `:` or by a spaced `-`, `–` or `—` (`### O3: Title`, `## E05 — Title`).
+`O3` does not select `O31: …`. Several such headings return
+`ambiguous_heading` with their cited addresses as candidates in document and
+source order. Existing resolution always comes first: a node, claim or other
+entry with that key keeps its meaning even when a heading elsewhere starts
+with the same ID. Canonical addresses
 resolve exactly, with no redirect or tolerant tier. The input is decoded once
 and then passes the normal document boundary: malformed escapes, invalid
 UTF-8, absolute paths and traversal reject (`invalid_address` or
