@@ -1,9 +1,31 @@
-# PR 22: remove the CLI reader's per-session turn overhead
-**Date:** 2026-10-10
+# 22: remove the CLI reader's per-session turn overhead
 
-Status: **approved 2026-10-14**. All decisions are made. Part A is implemented in 0.1.29 (22a). Part B is next; C and D follow only if the A + B paired pilot calls for them (P4). Repository: `ARA-Labs/ara-cli`, branch `feat/reader-turn-overhead`, from `feat/reader-round-trips` at `de92588` (0.1.28). The motivation, measurement design and approval live in `ara-eval` at `plans/cli-reader-turn-overhead.md`, revised with the 0.1.29 paired pilot results. In 0.1.29 the CLI matched Files' accuracy (56/60 each) at 1.16 times the cost and 1.20 times the session time. Requests that only list, search or check status were 131 against Files' 19, and their extra cost exceeded the whole gap. That makes part B the first target. Approving this plan does not authorize a paid run, a release or upstream protocol adoption.
+Shipped in workspace 0.1.29 (part A), 0.1.30 (B, skill only), 0.1.31 (C) and 0.1.32 (D) on branch `feat/reader-turn-overhead`. Planned 2026-10-10 and approved 2026-10-14. The measurement design and run records live in `ara-eval` (`docs/cli-reader-turn-overhead.md`, study family `cli-reading-round-trips`, runs `local-cli029-pilot`, `local-cli030-pilot` and `local-cli032-pilot`). This record keeps the plan's evidence and design, plus what each part implemented and what the paired pilots measured.
 
-## TL;DR
+## Measured outcome
+
+Each revision was measured as a paired Files-and-CLI pilot on the 60 development questions (`glm-5.3-flash` agent, `glm-5.3` judge, both arms on the same day).
+
+| CLI ÷ Files | 0.1.29 (A) | 0.1.30 (A + B) | 0.1.32 (A–D) |
+|---|---:|---:|---:|
+| List-price cost per question | 1.16 | 0.98 (one session's usage incomplete) | 0.94 |
+| Session time | 1.20 | 1.14 | 1.07 |
+| Model requests per question, CLI − Files | +1.6 | −2.0 | −2.0 |
+| Listing-and-searching-only requests (Files: 19, 12+7, 13+4) | 131 | 38 | 35 |
+| Mean `find` output, characters | | 9,514 | 6,208 |
+| Failed `ara` calls | 19 | 23 | 22 |
+| Guard blocks | 30 | 26 | 22 |
+| Correct, CLI vs Files | 56 vs 56 | 54 vs 53 | 55 vs 55 |
+
+- Part B removed the startup and orientation requests. The reader now makes fewer requests than the Files reader.
+- Part D cut `find` output by a third and halved its largest response.
+- Part C kept good addresses when one address failed, but it did not lower the failure count. Most remaining `unknown_id` failures come from the agent pasting a whole `find` result line, such as `H01 [heuristic] logic/solution/heuristics.md`, into `show`.
+- The time gap that remains comes from longer responses: about 12–17% more output tokens per CLI session. No part of this plan targeted output length.
+- The `ara-eval` decision rule needs both cost and time below 1, so each pilot stopped. No larger comparison follows from this round.
+
+The sections below are the approved plan, with an implementation note after each part.
+
+## Plan summary (2026-10-10)
 
 0.1.28's reader still makes 10.67 model requests per question against 9.50 for Files. The 70 extra requests over the 60 development questions all come from fixed per-session overhead. Search and read work is already at parity (355 vs 363 requests), and so is batching (2.12 vs 2.20 tool calls per request).
 
