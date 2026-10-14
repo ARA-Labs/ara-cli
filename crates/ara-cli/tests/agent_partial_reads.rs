@@ -214,7 +214,15 @@ fn whole_document_hits_name_the_innermost_section_of_each_line() {
     let dir = artifact();
     let root = dir.path();
     for context in [None, Some("1")] {
-        let mut args = vec!["find", "drift", "--type", "source_document"];
+        // Every matched line, past the brief per-hit cap.
+        let mut args = vec![
+            "find",
+            "drift",
+            "--type",
+            "source_document",
+            "--lines-per-hit",
+            "0",
+        ];
         args.extend(context.map(|n| ["--context", n]).into_iter().flatten());
         let text = ok(root, &args);
         let found = sections_of(&text);

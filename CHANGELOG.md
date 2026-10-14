@@ -114,6 +114,22 @@ All notable changes to this project are documented here. The format follows
   read side's identity index.
 
 ### Changed
+- Agent reads: bounded `find` (0.1.32, plan 22 part D). Brief `find` keeps
+  the first 3 matched lines of each hit and ends the hit with
+  `+K more matching lines`; `--lines-per-hit N` changes the cap and `0`
+  keeps every line (JSON keeps its 20-line cap unless the flag is given).
+  `--context` lines and `in:` lines go with their kept line. `--max-bytes`
+  bounds `find` as it bounds `show`, defaulting to 16 KiB for brief text:
+  whole hits are dropped from the end, and a closing line says
+  `N more hits; narrow with --type, --document or more specific terms`
+  (`truncation.omitted_hits` in JSON). A first hit that alone overflows
+  keeps fewer matched lines and the line starts
+  `first hit cut to fit the byte budget`; when one line does not fit, the
+  read fails with `output_limit_too_small`. `--document <path>`
+  (repeatable) keeps hits from those documents and refuses the paths
+  `show --document` refuses; `--all` keeps hits containing every query
+  term. Filters keep the unfiltered ranking order. The 0.1.31 marker
+  `… K more matching lines` becomes `+K more matching lines`.
 - Agent reads: fewer failed and guessed addresses (0.1.31, plan 22 part C).
   A multi-address `show` whose addresses partly fail prints every resolved
   block and, in request order, an `== <address> [error]` block with the same

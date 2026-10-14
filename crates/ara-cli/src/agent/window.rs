@@ -191,15 +191,20 @@ impl Bounds {
 
     /// Bytes this value prints on stdout.
     fn measure(&self, value: &Value) -> usize {
-        let mut count = Count(0);
-        if self.brief {
-            crate::brief::render(value, &mut count).expect("counting cannot fail");
-        } else {
-            serde_json::to_writer(&mut count, value).expect("counting cannot fail");
-            count.0 += 1;
-        }
-        count.0
+        measure(value, self.brief)
     }
+}
+
+/// Bytes a read value prints on stdout: its brief text, or its JSON line.
+pub fn measure(value: &Value, brief: bool) -> usize {
+    let mut count = Count(0);
+    if brief {
+        crate::brief::render(value, &mut count).expect("counting cannot fail");
+    } else {
+        serde_json::to_writer(&mut count, value).expect("counting cannot fail");
+        count.0 += 1;
+    }
+    count.0
 }
 
 fn rows(value: &mut Value) -> &mut Vec<Value> {
@@ -365,7 +370,7 @@ fn projection_hint(row: &Value, size: usize) -> String {
 
 /// `id` names the one selection that did not fit; a multi-address
 /// overflow has none.
-fn too_small(
+pub fn too_small(
     id: Option<&str>,
     budget: usize,
     required: usize,

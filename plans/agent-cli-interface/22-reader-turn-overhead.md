@@ -98,6 +98,8 @@ The skill tests keep checking that every documented command line parses. Add a t
 
 Tests: hit order is unchanged by D1 and D2; the cap and budget are respected; `--document` returns a subset of the unfiltered hits; `--all` returns hits containing every term.
 
+**Implemented (22d, 0.1.32).** D1–D4 as described. The cap keeps the first N matched lines in source order and builds `--context` around them only, so an `in:` line prints only before a kept line; the old 20-line marker `… K more matching lines` becomes `+K more matching lines`. JSON keeps its 20-line cap unless `--lines-per-hit` is given (`0` lifts it), and is budgeted only with an explicit `--max-bytes`. The budget measures the response as written, like `show`, and keeps the largest prefix of whole hits that fits with the closing line `N more hits; narrow with --type, --document or more specific terms` (`truncation: {omitted_hits, truncated_hit}` in JSON). There is no `next:` continuation: a hit list has no line range to resume, and a narrower query is the intended next step. When the first hit alone overflows, it keeps as many matched lines as fit and the closing line starts `first hit cut to fit the byte budget`; the line omits the budget number so the `details.required` of an `output_limit_too_small` error (one line does not fit) is exact on rerun. `--document` resolves each path as `ls <path>` does (`invalid_document` for `rubric/`, `evidence/`, `src/`; `unknown_id` with candidates otherwise), and both filters act inside the ranking before `--limit`, with unfiltered BM25 statistics, so filtered hits keep their unfiltered order. Tests: `crates/ara-cli/tests/agent_bounded_find.rs`.
+
 ### Not proposed now
 
 | Idea | Why not now |

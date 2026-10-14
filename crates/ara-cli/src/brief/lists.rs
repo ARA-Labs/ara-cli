@@ -105,12 +105,29 @@ pub fn find(value: &Value, out: &mut impl Write) -> Result<()> {
         if total > matched.len() as u64 {
             writeln!(
                 out,
-                "  … {} more matching lines",
+                "  +{} more matching lines",
                 total - matched.len() as u64
             )?;
         }
     }
-    Ok(())
+    truncation(&value["truncation"], out)
+}
+
+/// The line a byte budget adds when it cut a `find` response.
+fn truncation(truncation: &Value, out: &mut impl Write) -> Result<()> {
+    let Some(omitted) = truncation["omitted_hits"].as_u64() else {
+        return Ok(());
+    };
+    let mut parts = Vec::new();
+    if truncation["truncated_hit"] == true {
+        parts.push("first hit cut to fit the byte budget".into());
+    }
+    if omitted > 0 {
+        let plural = if omitted == 1 { "" } else { "s" };
+        parts.push(format!("{omitted} more hit{plural}"));
+    }
+    parts.push("narrow with --type, --document or more specific terms".into());
+    writeln!(out, "{}", parts.join("; "))
 }
 
 pub fn ls(value: &Value, out: &mut impl Write) -> Result<()> {

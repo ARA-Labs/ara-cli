@@ -200,6 +200,18 @@ impl<'a> Corpus<'a> {
         kind: Option<&str>,
         limit: usize,
     ) -> Vec<Ranked<'_>> {
+        self.ranked_filtered(query, kind, limit, Filter::default())
+    }
+    /// [`Corpus::ranked`] over the documents `filter` admits. Scores keep
+    /// the whole corpus's statistics, so admitted documents keep their
+    /// unfiltered order.
+    fn ranked_filtered(
+        &self,
+        query: &BTreeSet<String>,
+        kind: Option<&str>,
+        limit: usize,
+        filter: Filter<'_>,
+    ) -> Vec<Ranked<'_>> {
         let mut heap = BinaryHeap::with_capacity(limit.min(self.documents.len()));
         let normalizations = self.normalizations.get_or_init(|| {
             self.documents
@@ -223,7 +235,7 @@ impl<'a> Corpus<'a> {
             if kind.is_some_and(|kind| kind != document.kind) {
                 continue;
             }
-            if score <= 0.0 || !score.is_finite() {
+            if score <= 0.0 || !score.is_finite() || !filter.admits(document, query) {
                 continue;
             }
             let candidate = Ranked { score, document };
@@ -236,6 +248,21 @@ impl<'a> Corpus<'a> {
         let mut ranked = heap.into_vec();
         ranked.sort();
         ranked
+    }
+}
+/// Restrictions on which indexed documents a search may return.
+#[derive(Debug, Default, Clone, Copy)]
+pub struct Filter<'f> {
+    /// Only documents whose source path is one of these.
+    pub sources: Option<&'f BTreeSet<String>>,
+    /// Only documents containing every query term.
+    pub all_terms: bool,
+}
+impl Filter<'_> {
+    fn admits(&self, document: &Document<'_>, query: &BTreeSet<String>) -> bool {
+        self.sources
+            .is_none_or(|sources| sources.contains(&document.source))
+            && (!self.all_terms || query.iter().all(|term| document.terms.contains_key(term)))
     }
 }
 struct Ranked<'a> {
@@ -315,7 +342,7 @@ pub fn run_search(
     kind: Option<&str>,
     limit: usize,
 ) -> Result<Vec<SearchHit>, String> {
-    rank(documents(manifest)?, query, kind, limit)
+    rank(documents(manifest)?, query, kind, limit, Filter::default())
 }
 pub fn run_search_with_documents<'a>(
     manifest: &'a Manifest,
@@ -323,6 +350,7 @@ pub fn run_search_with_documents<'a>(
     query: &str,
     kind: Option<&str>,
     limit: usize,
+    filter: Filter<'_>,
 ) -> Result<Vec<SearchHit>, String> {
     let mut corpus: Vec<Document<'a>> = documents(manifest)?;
     for (source, text) in source_documents {
@@ -348,13 +376,14 @@ pub fn run_search_with_documents<'a>(
             corpus.push(document);
         }
     }
-    rank(corpus, query, kind, limit)
+    rank(corpus, query, kind, limit, filter)
 }
 fn rank(
     documents: Vec<Document<'_>>,
     query: &str,
     kind: Option<&str>,
     limit: usize,
+    filter: Filter<'_>,
 ) -> Result<Vec<SearchHit>, String> {
     validate_limit(limit).map_err(|error| error.message)?;
     let query: BTreeSet<_> = tokens(query).map(|(term, _, _)| term).collect();
@@ -372,7 +401,7 @@ fn rank(
         return Err(format!("unknown search kind: {kind}"));
     }
     Ok(corpus
-        .ranked(&query, kind, limit)
+        .ranked_filtered(&query, kind, limit, filter)
         .into_iter()
         .map(|ranked| SearchHit {
             id: ranked.document.id.clone(),
