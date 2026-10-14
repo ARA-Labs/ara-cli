@@ -1333,4 +1333,5 @@ Final observed checks and remaining gates: [delivery verification](verification/
 
 The skills that teach agents these commands live in [`skills/`](../skills); see
 [agent-cli-skills.md](agent-cli-skills.md) for their layout, provenance and
-change rules.
+change rules. [agent-cli-reader.md](agent-cli-reader.md) describes the reader interface
+and how it was measured.
