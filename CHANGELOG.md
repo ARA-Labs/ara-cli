@@ -114,6 +114,56 @@ All notable changes to this project are documented here. The format follows
   read side's identity index.
 
 ### Changed
+- Agent reads: bounded `find` (0.1.32, plan 22 part D). Brief `find` keeps
+  the first 3 matched lines of each hit and ends the hit with
+  `+K more matching lines`; `--lines-per-hit N` changes the cap and `0`
+  keeps every line (JSON keeps its 20-line cap unless the flag is given).
+  `--context` lines and `in:` lines go with their kept line. `--max-bytes`
+  bounds `find` as it bounds `show`, defaulting to 16 KiB for brief text:
+  whole hits are dropped from the end, and a closing line says
+  `N more hits; narrow with --type, --document or more specific terms`
+  (`truncation.omitted_hits` in JSON). A first hit that alone overflows
+  keeps fewer matched lines and the line starts
+  `first hit cut to fit the byte budget`; when one line does not fit, the
+  read fails with `output_limit_too_small`. `--document <path>`
+  (repeatable) keeps hits from those documents and refuses the paths
+  `show --document` refuses; `--all` keeps hits containing every query
+  term. Filters keep the unfiltered ranking order. The 0.1.31 marker
+  `… K more matching lines` becomes `+K more matching lines`.
+- Agent reads: fewer failed and guessed addresses (0.1.31, plan 22 part C).
+  A multi-address `show` whose addresses partly fail prints every resolved
+  block and, in request order, an `== <address> [error]` block with the same
+  error text and `candidates:` that address prints alone; it exits 1.
+  `--json` adds an `errors` array (`position`, `address`, `error`) beside
+  `entries`. Read budgets count the error blocks. A single failing address,
+  and failures other than `unknown_id`, `ambiguous_heading`,
+  `invalid_address` or `invalid_document`, still reject the whole read. Each
+  matched line of a whole-document `find` hit under a heading gains the
+  address of its innermost section, printed as `in: <address>` when it
+  changes (`matches[].in` in JSON). A bare entry ID such as `O3`, `G1` or
+  `E01` that names no loaded entry selects the one knowledge-document
+  heading starting with `<ID>:` or `<ID> —`; several such headings return
+  `ambiguous_heading` with their addresses.
+- CLI reader skill: one-step startup (0.1.30, plan 22 part B).
+  `research-foresight-cli` replaces the boundary paragraphs of SKILL, RETRIEVE,
+  PREDICT and CONTRACT with one Access block in `SKILL.md` and a six-line
+  command card, reads RETRIEVE and PREDICT together, and opens
+  `references/cli-access.md` only when an `ara` error does not explain the fix.
+  RETRIEVE Step 2 sends `ara ls` with the first searches, sends one `find` per
+  need in one response and then one multi-address `show`, and pairs `ara find`
+  with a Grep of `rubric/`, `evidence/` and `src/` for whole-artifact searches.
+  Writer links, `status`, the `E01` batching example, provenance and pin notes
+  leave the reader pages. A test runs every command-card line on the binary.
+- CLI reader skill: fewer model round trips. `references/cli-access.md` keeps
+  only boundary, shell-call, reading and read-only task guidance (44.3k → 10.4k
+  characters); writer guidance moves to `references/cli-write.md`, shipped only
+  with `research-manager-cli` and `compiler-cli`. `research-foresight-cli`
+  adopts the Files grounding rule (`show` the surrounding section when a hit is
+  too terse to judge) and teaches one multi-term `find`, multi-address `show`
+  and parallel `ara` shell calls in one response. On 60 development questions
+  this lowered requests per question from 13.73 to 10.67 and list-price agent
+  cost by 29% against unchanged 0.1.27 skills; see
+  `docs/agent-cli-interface/21-reader-round-trips.md`.
 - Agent CLI: consolidate ancestry and citation reads into `show --with path,refs`,
   unfinished work into `ls --unfinished`, and exact imported/retained identity
   lookup into `show --identity`. Relation arrays stay complete under output
@@ -208,6 +258,17 @@ All notable changes to this project are documented here. The format follows
   `invalid_document` errors name these roots. Old rubric history stays readable.
 
 ### Fixed
+- Core reads: `logic/experiments.md`, `logic/solution/heuristics.md` and
+  `logic/problem.md` that open with a stray, unclosed `---` line before a
+  level-one title and typed entries (`## E01: …`, `## H01: …`, `### O1: …`)
+  are recovered like `logic/claims.md`: their experiment plans, heuristics and
+  headings load and stay addressable, with warning `ARA228` instead of
+  `ARA229`. Other `logic/` documents (concepts, related work, untyped solution
+  documents) recover under a looser rule: a level-one title and a level-two
+  section after the opener, and text that does not load as a YAML mapping or
+  null. Metadata-like content still stays hidden, and writes still refuse the
+  unclosed fence. Seven paperbench artifacts had eight or nine documents each
+  hidden from `ls`, `find` addresses and `show`; none remain hidden.
 - Agent CLI: projected non-JSON whole-document reads retain requested refs for
   positional and `--document` selectors; reads without selected relations keep
   exact raw content (#117).

@@ -22,7 +22,7 @@ metadata:
 
 # Universal ARA Compiler
 
-Use shared [initialization](references/cli-access.md#initialize-or-extend-an-artifact), [typed creation](references/cli-access.md#create-claims-and-heuristics), and [audited edit](references/cli-access.md#edit-current-knowledge) tasks within compiler authority; retain the check and complete Seal procedure.
+Use shared [initialization](references/cli-write.md#initialize-or-extend-an-artifact), [typed creation](references/cli-write.md#create-claims-and-heuristics), and [audited edit](references/cli-write.md#edit-current-knowledge) tasks within compiler authority; retain the check and complete Seal procedure.
 
 ## CLI-only access boundary
 
@@ -30,14 +30,14 @@ Every knowledge-layer or root `PAPER.md` read/write in this page uses `ara -C <a
 words read, open, search, write, append and edit retain their original procedural meaning,
 but never authorize direct knowledge-file tools. Run one quoted `ara` command per shell call,
 with no pipes, redirects, `&&`, `;` or globs, and read brief text: `ls`, `find`, then `show`
-the address the output prints, and cite that address. `cli-access.md` covers bounds, misses
-and the exact-source read before a guarded write;
+the address the output prints, and cite that address. `cli-access.md` covers bounds and misses,
+and `cli-write.md` the exact-source read before a guarded write;
 `ls`, `find`, `show --with path,refs`, `ls --unfinished` and `status` are access aids, not semantic judgments.
 Source/evidence bodies and skill pages remain direct only within the baseline scope.
 `rubric/`, `evidence/` and `src/` are files, not `ara` documents.
 No direct fallback, automatic semantic retry, new role, or altered stopping rule is allowed.
-Use the shared [read and relation tasks](references/cli-access.md#inspect-ancestry-citations-and-imported-identities) only within this skill's role. For generation use [initialization](references/cli-access.md#initialize-or-extend-an-artifact) and [typed creation](references/cli-access.md#create-claims-and-heuristics); keep the compiler check and complete Seal procedure.
-The entrypoint loads `references/cli-access.md` directly for executable wire details.
+Use the shared [read and relation tasks](references/cli-access.md#inspect-ancestry-citations-and-imported-identities) only within this skill's role. For generation use [initialization](references/cli-write.md#initialize-or-extend-an-artifact) and [typed creation](references/cli-write.md#create-claims-and-heuristics); keep the compiler check and complete Seal procedure.
+The entrypoint loads `references/cli-access.md`, and `references/cli-write.md` before any write, directly for executable wire details.
 Pending protocol review and binary proof remain visible in the variant lock.
 
 
@@ -341,7 +341,7 @@ key stats (claims, experiments, concepts, tree nodes, evidence tables/figures).
 
 ## Reference Files
 
-Load `references/cli-access.md` directly before knowledge access. Load on demand:
+Load `references/cli-access.md` directly before knowledge access and `references/cli-write.md` directly before any knowledge write. Load on demand:
 - `${CLAUDE_SKILL_DIR}/references/ara-schema.md` — field-level format for every file
 - `${CLAUDE_SKILL_DIR}/references/exploration-tree-spec.md` — exploration tree YAML spec
 - `${CLAUDE_SKILL_DIR}/references/validation-checklist.md` — all Seal Level 1 checks

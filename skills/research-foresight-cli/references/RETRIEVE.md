@@ -16,20 +16,7 @@ metadata:
 
 # Retriever — Agentic Retrieval over One ARA (RETRIEVE.md)
 
-## CLI-only access boundary
-
-Every knowledge-layer or root `PAPER.md` read/write in this page uses `ara -C <artifact>`; the
-words read, open, search, write, append and edit retain their original procedural meaning,
-but never authorize direct knowledge-file tools. Run one quoted `ara` command per shell call,
-with no pipes, redirects, `&&`, `;` or globs, and read brief text: `ls`, `find`, then `show`
-the address the output prints, and cite that address. `cli-access.md` covers bounds, misses
-and the exact-source read before a guarded write;
-`ls`, `find`, `show --with path,refs`, `ls --unfinished` and `status` are access aids, not semantic judgments.
-Source/evidence bodies and skill pages remain direct only within the baseline scope.
-No direct fallback, automatic semantic retry, new role, or altered stopping rule is allowed.
-The entrypoint loads `references/cli-access.md` directly for executable wire details.
-Pending protocol review and binary proof remain visible in the variant lock.
-
+Use `ara` and the file tools as the Access block in `SKILL.md` describes.
 
 **Purpose.** Given a query and the path to **the ARA in scope**, search that ARA's native
 knowledge through ara and permitted source/evidence bodies directly and return the relevant precedent as **native refs** (CONTRACT.md §2): a ranked set
@@ -59,7 +46,7 @@ the ARA in scope (ara_dir) ─┤
         Predictor (PREDICT.md)     (your caller)
 ```
 
-- **The ARA is the substrate.** You read the ARA's real knowledge files through ara full source shows. There is no projection, no
+- **The ARA is the substrate.** You read the ARA's real knowledge files through ara `find` and `show`. There is no projection, no
   distilled candidate list; ara find assists keywords only — you do the semantic searching (CONTRACT.md §0.1).
 - **You are read-only.** Your output is advisory metadata over native refs; you write nothing,
   anywhere (CONTRACT.md §4b) — not `<ara>/logic/`, not `<ara>/staging/`, nowhere. Your read path is
@@ -71,7 +58,7 @@ the ARA in scope (ara_dir) ─┤
 - **Everything is in scope, not just experiments.** You are **not** limited to `experiment`/`dead_end`
   nodes. `question`/`decision`/`pivot` trace nodes, `problem.md` framing, the `solution/` method, and
   evidence figures are all in scope and are **often the highest-value context** — surfacing them is the
-  whole point of reading the ARA's full native bodies through ara instead of a lossy projection (CONTRACT.md §3).
+  whole point of reading the ARA's native bodies through ara instead of a lossy projection (CONTRACT.md §3).
 
 ---
 
@@ -103,20 +90,23 @@ yardstick every hit is measured against. Keep it semantic — do not reduce it t
 single field name.
 
 ### Step 2 — Search the ARA's native files through ara
-Orient, search, read and cite in brief text, one quoted `ara` command per shell call
-(`references/cli-access.md`). Orient with `ara -C <ara_dir> ls`, then `ls <path>` for one
-document's entries or heading addresses. Search with `find '<terms>' --context 2`; it is
-case-insensitive and prints addresses with their matching lines. Read with `show <address>`
-using an address the output printed, a whole document or section, and follow `next:` when a
-block is truncated. `find` prints line numbers of the whole source document, while
-`show <address> --lines A:B` counts from the first body line of that entry or heading. Read
-around a hit with `show --document <source> --source --lines A:B` and the hit's numbers; keep
-address `--lines` for numbers counted inside that selection (a `next:` value). Node, observation
-and session addresses are projections and take no `--lines`; window the source document they
-name instead. On `unknown_id` or
-`ambiguous_heading`, choose from the printed candidates instead of guessing again. Use
-[find/read/cite](cli-access.md#reading-orient-search-read-cite) and `show --with path,refs` for structured relations and possible prose mentions. Permitted
-source/evidence bodies (`evidence/`, `src/`) remain direct file reads.
+Use the commands in the Access block of `SKILL.md`. Before your first search, list the separate
+things the frame needs (usually two to five). In one response, send `ara -C <ara_dir> ls` and one
+`find '<terms>' --context 2` per need, each as its own shell call, with every keyword for that need
+in its single query. After the hits return, `show` every address you will read in one call:
+
+```sh
+ara -C <ara_dir> ls
+ara -C <ara_dir> find '<terms for the first need>' --context 2
+ara -C <ara_dir> find '<terms for the second need>' --context 2
+ara -C <ara_dir> show '<address from find>' '<address from find>' '<address from ls>'
+```
+
+Use `ls <path>` only to choose between candidate sections of one document. Grep cannot search
+knowledge paths, so when a search must cover the whole artifact, send `ara find` and a Grep of
+`rubric/`, `evidence/` and `src/` in the same response. Send every call that does not depend on
+another call's result in the same response; later `find` and `show` calls batch the same way.
+
 Find every location whose prose bears on the frame. Cast
 across **all** the native files, because the highest-value context is frequently outside the
 experiment logs:
@@ -138,12 +128,9 @@ experiment logs:
 - **`related_work.md`, `PAPER.md`, `src/`** — context and the literal code/configs when the frame
   turns on a specific mechanism.
 
-A find hit line or excerpt is never grounding proof. Retrieve and verify the complete knowledge
-source/section with `show <address>` (exact source bytes and `source_digest`), and cite the
-address it printed. A trace node (`trace:N01`) prints a projection with no digest; when you need
-its exact bytes, read the source document the projection names (`ara show --document
-trace/exploration_tree.yaml --source`). Read permitted source/evidence bodies directly. Rank on the real prose, not a
-keyword coincidence, and verify every cited body even when an excerpt seems sufficient.
+When a `find` hit is too terse to judge, `show` the surrounding section, or window the source
+document around the hit, so your rank is based on the real prose, not a keyword coincidence. Cite
+the address `ara` printed.
 
 ### Step 3 — Rank hits by semantic match to the frame
 For each location you found, decide whether its *setup* matches the query's frame — not just its

@@ -240,7 +240,7 @@ fn markdown_entries(
     report: &mut ParseReport,
 ) -> Vec<(String, String, String, Vec<SourceField>)> {
     let mut seen = BTreeSet::new();
-    crate::markdown::sections(source)
+    crate::markdown::document_sections(file, source)
         .into_iter()
         .filter_map(|section| {
             let Some((id, title)) = section.heading.split_once(':') else {

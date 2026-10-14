@@ -131,8 +131,22 @@ pub(crate) fn diagnostics(diagnostics: &Value) -> Option<String> {
 /// caller would read (hint, candidates, blocking codes, file-access roots).
 pub(crate) fn error(error: &AgentError) -> String {
     let message = error.summary.as_deref().unwrap_or(&error.message);
-    let mut text = format!("error [{}]: {message}", error.code);
-    let Some(details) = error.details.as_deref() else {
+    error_text(&error.code, message, error.details.as_deref())
+}
+
+/// [`error`] for the JSON form of an error, as a partial `show` reports
+/// each address that failed.
+pub(crate) fn error_value(error: &Value) -> String {
+    error_text(
+        error["code"].as_str().unwrap_or(""),
+        error["message"].as_str().unwrap_or(""),
+        error.get("details"),
+    )
+}
+
+fn error_text(code: &str, message: &str, details: Option<&Value>) -> String {
+    let mut text = format!("error [{code}]: {message}");
+    let Some(details) = details else {
         return text;
     };
     let list = |key: &str| {

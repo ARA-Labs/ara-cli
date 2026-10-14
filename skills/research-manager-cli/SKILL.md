@@ -29,13 +29,13 @@ Every knowledge-layer or root `PAPER.md` read/write in this page uses `ara -C <a
 words read, open, search, write, append and edit retain their original procedural meaning,
 but never authorize direct knowledge-file tools. Run one quoted `ara` command per shell call,
 with no pipes, redirects, `&&`, `;` or globs, and read brief text: `ls`, `find`, then `show`
-the address the output prints, and cite that address. `cli-access.md` covers bounds, misses
-and the exact-source read before a guarded write;
+the address the output prints, and cite that address. `cli-access.md` covers bounds and misses,
+and `cli-write.md` the exact-source read before a guarded write;
 `ls`, `find`, `show --with path,refs`, `ls --unfinished` and `status` are access aids, not semantic judgments.
 Source/evidence bodies and skill pages remain direct only within the baseline scope.
 No direct fallback, automatic semantic retry, new role, or altered stopping rule is allowed.
-Use the shared [find/read/cite task](references/cli-access.md#reading-orient-search-read-cite), [initialization](references/cli-access.md#initialize-or-extend-an-artifact), [ancestry/citations/identity](references/cli-access.md#inspect-ancestry-citations-and-imported-identities), [unfinished work](references/cli-access.md#review-unfinished-work), [claim/heuristic creation](references/cli-access.md#create-claims-and-heuristics), and access tasks for [research turns](references/cli-access.md#record-a-research-turn), [staging and crystallization](references/cli-access.md#stage-or-crystallize-an-observation), [audited edits](references/cli-access.md#edit-current-knowledge), and [confirmed reactions](references/cli-access.md#record-annotations-and-confirmed-user-reactions).
-The entrypoint loads `references/cli-access.md` directly for executable wire details.
+Use the shared [find/read/cite task](references/cli-access.md#reading-orient-search-read-cite), [initialization](references/cli-write.md#initialize-or-extend-an-artifact), [ancestry/citations/identity](references/cli-access.md#inspect-ancestry-citations-and-imported-identities), [unfinished work](references/cli-access.md#review-unfinished-work), [stale marking](references/cli-write.md#mark-an-observation-stale), [claim/heuristic creation](references/cli-write.md#create-claims-and-heuristics), and access tasks for [research turns](references/cli-write.md#record-a-research-turn), [staging and crystallization](references/cli-write.md#stage-or-crystallize-an-observation), [audited edits](references/cli-write.md#edit-current-knowledge), and [confirmed reactions](references/cli-write.md#record-annotations-and-confirmed-user-reactions).
+The entrypoint loads `references/cli-access.md`, and `references/cli-write.md` before any write, directly for executable wire details.
 Pending protocol review and binary proof remain visible in the variant lock.
 
 
@@ -45,7 +45,8 @@ premature structure distorts the record. Most observations are staged and only m
 formal entries when externally observable closure signals indicate the researcher has
 treated them as settled.
 
-Load `references/cli-access.md` directly before knowledge access; and load every
+Load `references/cli-access.md` directly before knowledge access and
+`references/cli-write.md` directly before any knowledge write; and load every
 supplied reference directly from this entrypoint when applicable:
 - `references/schema-and-initialization.md` — full directory/schema/initialization source.
 - `references/event-taxonomy.md` — original classification, provenance and forensic binding.
@@ -333,7 +334,7 @@ For each crystallized entry in `logic/`, check this turn for:
 
 When a signal fires for entry `E` (claim, heuristic, or concept):
 
-Follow the shared [rename, merge and split access task](references/cli-access.md#rename-merge-or-split-knowledge-entries) for the structural actions below.
+Follow the shared [rename, merge and split access task](references/cli-write.md#rename-merge-or-split-knowledge-entries) for the structural actions below.
 
 1. Use `logic.revise` through `ara apply` for the affected fields in the logic file. **Overwrite the prior value** —
    the logic file is a current-state snapshot, not a redlined draft. The CLI sets
@@ -399,7 +400,7 @@ Follow the shared [rename, merge and split access task](references/cli-access.md
   ambiguous reference, result that touches a neighboring entry), record it in
   `pm_reasoning_log.yaml`.
 
-For authorized artifact integration, follow [Integrate another artifact](references/cli-access.md#integrate-another-artifact); this does not grant a local PM additional integration authority.
+For authorized artifact integration, follow [Integrate another artifact](references/cli-write.md#integrate-another-artifact); this does not grant a local PM additional integration authority.
 
 ## Per-Turn Procedure
 

@@ -5,7 +5,8 @@ use super::spans::Span;
 use serde_json::{Value, json};
 use std::collections::BTreeSet;
 
-/// Matching lines reported per result; `match_count` keeps the total.
+/// Matching lines JSON reports per result unless `--lines-per-hit` is
+/// given; `match_count` keeps the total.
 pub const MAX_MATCHES: usize = 20;
 
 /// Byte offsets where each line of one document starts.
@@ -22,6 +23,10 @@ impl LineIndex {
     /// Zero-based line holding `offset`.
     pub fn line(&self, offset: usize) -> usize {
         self.0.partition_point(|start| *start <= offset) - 1
+    }
+    /// Byte offset where zero-based `line` starts.
+    pub fn start(&self, line: usize) -> usize {
+        self.0[line]
     }
     /// A line's text without its line ending.
     fn text<'a>(&self, text: &'a str, line: usize) -> &'a str {
@@ -42,11 +47,14 @@ impl LineIndex {
 /// The additive `line`, `matches`, `match_count` and (when requested)
 /// `context` fields of one search result. A result with no literal hit gets
 /// `match_count: 0` and no `line`; its excerpt stays the only display.
+/// `cap` keeps the first matched lines (all when `None`); context surrounds
+/// only the kept ones.
 pub fn fields(
     span: &Span<'_>,
     lines: &LineIndex,
     terms: &[String],
     context: Option<usize>,
+    cap: Option<usize>,
 ) -> serde_json::Map<String, Value> {
     let terms: BTreeSet<&str> = terms.iter().map(String::as_str).collect();
     let mut matched = BTreeSet::new();
@@ -59,7 +67,10 @@ pub fn fields(
     }
     let mut fields = serde_json::Map::new();
     fields.insert("match_count".into(), json!(matched.len()));
-    let shown: Vec<usize> = matched.into_iter().take(MAX_MATCHES).collect();
+    let shown: Vec<usize> = matched
+        .into_iter()
+        .take(cap.unwrap_or(usize::MAX))
+        .collect();
     let Some(first) = shown.first() else {
         return fields;
     };
@@ -154,7 +165,13 @@ mod tests {
     #[test]
     fn lines_are_one_based_and_case_insensitive() {
         let text = "alpha\r\nBeta gamma\nnone\nbeta\n";
-        let fields = fields(&span(text), &LineIndex::new(text), &["beta".into()], None);
+        let fields = fields(
+            &span(text),
+            &LineIndex::new(text),
+            &["beta".into()],
+            None,
+            None,
+        );
         assert_eq!(fields["line"], 2);
         assert_eq!(
             fields["matches"],
@@ -182,7 +199,13 @@ mod tests {
             text,
             ranges: vec![start..child, child_end..text.len() - 1],
         };
-        let fields = fields(&span, &LineIndex::new(text), &["alpha".into()], Some(5));
+        let fields = fields(
+            &span,
+            &LineIndex::new(text),
+            &["alpha".into()],
+            Some(5),
+            None,
+        );
         let shown: Vec<u64> = fields["context"]
             .as_array()
             .unwrap()
@@ -201,6 +224,7 @@ mod tests {
             &LineIndex::new(text),
             &["absent".into()],
             Some(2),
+            None,
         );
         assert_eq!(fields["match_count"], 0);
         assert!(!fields.contains_key("line") && !fields.contains_key("matches"));

@@ -95,6 +95,11 @@ fn agent_command(
     .and_then(|root| command(&root));
     let incomplete = result.as_ref().is_ok_and(|value| {
         value.get("complete") == Some(&serde_json::Value::Bool(false))
+            || format == "ara.show/v1"
+                && value
+                    .get("errors")
+                    .and_then(serde_json::Value::as_array)
+                    .is_some_and(|errors| !errors.is_empty())
             || value
                 .get("unresolved_count")
                 .and_then(serde_json::Value::as_u64)

@@ -1,7 +1,7 @@
 //! Address-led list output and complete relation sections.
 use crate::agent::address;
 use serde_json::Value;
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::io::{Result, Write};
 
 fn text(value: &Value) -> &str {
@@ -67,6 +67,21 @@ pub fn find(value: &Value, out: &mut impl Write) -> Result<()> {
             writeln!(out, "  excerpt: {}", text(&result["excerpt"]))?;
             continue;
         }
+        // A whole-document hit names the section of each matched line as
+        // `in: <address>` when it changes.
+        let sections: BTreeMap<u64, &str> = rows(result, "matches")
+            .filter_map(|hit| Some((hit["line"].as_u64()?, hit["in"].as_str()?)))
+            .collect();
+        let mut current = None;
+        let mut section = |number: u64, out: &mut dyn Write| -> Result<()> {
+            if let Some(&address) = sections.get(&number)
+                && current != Some(address)
+            {
+                current = Some(address);
+                writeln!(out, "  in: {address}")?;
+            }
+            Ok(())
+        };
         if let Some(blocks) = result["context"].as_array() {
             for (index, block) in blocks.iter().enumerate() {
                 if index > 0 {
@@ -76,11 +91,13 @@ pub fn find(value: &Value, out: &mut impl Write) -> Result<()> {
                 for (offset, line) in rows(block, "lines").enumerate() {
                     let number = start + offset as u64;
                     let mark = if matched.contains(&number) { ':' } else { '-' };
+                    section(number, out)?;
                     writeln!(out, "  {number}{mark} {}", text(line))?;
                 }
             }
         } else {
             for hit in rows(result, "matches") {
+                section(hit["line"].as_u64().unwrap_or(0), out)?;
                 writeln!(out, "  {}: {}", hit["line"], text(&hit["text"]))?;
             }
         }
@@ -88,12 +105,29 @@ pub fn find(value: &Value, out: &mut impl Write) -> Result<()> {
         if total > matched.len() as u64 {
             writeln!(
                 out,
-                "  … {} more matching lines",
+                "  +{} more matching lines",
                 total - matched.len() as u64
             )?;
         }
     }
-    Ok(())
+    truncation(&value["truncation"], out)
+}
+
+/// The line a byte budget adds when it cut a `find` response.
+fn truncation(truncation: &Value, out: &mut impl Write) -> Result<()> {
+    let Some(omitted) = truncation["omitted_hits"].as_u64() else {
+        return Ok(());
+    };
+    let mut parts = Vec::new();
+    if truncation["truncated_hit"] == true {
+        parts.push("first hit cut to fit the byte budget".into());
+    }
+    if omitted > 0 {
+        let plural = if omitted == 1 { "" } else { "s" };
+        parts.push(format!("{omitted} more hit{plural}"));
+    }
+    parts.push("narrow with --type, --document or more specific terms".into());
+    writeln!(out, "{}", parts.join("; "))
 }
 
 pub fn ls(value: &Value, out: &mut impl Write) -> Result<()> {

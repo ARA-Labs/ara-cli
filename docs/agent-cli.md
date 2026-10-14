@@ -22,6 +22,7 @@ ara -C ./ara ls
 ara -C ./ara ls logic/claims.md
 ara -C ./ara ls --type question --under N01 --status open
 ara -C ./ara find 'failure boundary' --context 2
+ara -C ./ara find 'failure boundary drift' --all --document logic/problem.md
 ara -C ./ara show C01 'logic/solution/architecture.md#h/Architecture/A%2FB'
 ara -C ./ara show --document logic/problem.md --source
 ara -C ./ara show logic/problem.md --lines 120:200 --max-bytes 32768
@@ -45,7 +46,7 @@ ara -C ./ara find 'failure boundary' --limit 10 --full --json
 | `show --with path` | Root-to-node nesting, with cross-edges kept distinct | Root-to-node IDs, indented by depth |
 | `show --with refs` | Typed references with source spans, separately reported possible prose mentions; classified by the writer's citation rules ([Citation repair](#citation-repair-for-restructures)) | Referencing ID, field, `source:line`, literal; prose mentions labeled as possible |
 | `ls --unfinished` | Unfinished questions/experiments, unpromoted observations and active continuity; observation rows add measured inactivity ([below](#observation-inactivity-in-ls---unfinished)) | Address, kind, reasons, title; observation rows end with `turns=… days=… last_reference=… history=…` |
-| `find` | Stateless keyword ranking over loaded knowledge | Ranked addresses with one-based source lines; `--context N` adds merged context |
+| `find` | Stateless keyword ranking over loaded knowledge; `--document` and `--all` filters | Ranked addresses with up to 3 one-based source lines per hit (`--lines-per-hit`); `--context N` adds merged context; 16 KiB budget, cut at whole hits |
 | `show --identity` | Resolve a qualified imported identity through the portable identity records | The resolved ID |
 
 With `--json`, results use command-specific `ara.<command>/v1` JSON formats.
@@ -53,7 +54,9 @@ Success goes to stdout; a JSON error goes to stderr with `code`, `message`,
 and applicable ID, line or details. Exit 0 means completion, exit 1 means a
 semantic rejection or unresolved merge, and exit 2 means setup, argument, I/O
 or lock failure. `--fields` projects supported fields while retaining
-transaction/result identity. JSON excerpts are bounded to 160 Unicode
+transaction/result identity. A multi-address `show` in which some
+addresses fail is the one partial result: it prints on stdout and exits 1
+([partial reads](#partial-multi-address-reads)). JSON excerpts are bounded to 160 Unicode
 characters; `--full` retains source content. Incomplete source representation
 must not be reported as success.
 
@@ -201,8 +204,8 @@ ancestors excluded). For a document, it is the whole file (`scope=whole_document
 Use it as `expected` for that selection with `document.replace`, `logic.revise`
 Body or `paper.edit`. `entry.rename` and `entry.remove` guard a different span,
 the entry's heading line plus its body up to the next heading of the same or a
-higher level, and no `show` line prints that digest; the skills' access page
-(`references/cli-access.md`) reads the span as a `--source --lines` window and
+higher level, and no `show` line prints that digest; the writer skills' write page
+(`references/cli-write.md`) reads the span as a `--source --lines` window and
 hashes its JSON `content`. The line says `selector: none` when
 the full heading vector also matches another section, or when the document is
 read-only for `document.replace` (`PAPER.md`, `trace/`, `staging/` and any
@@ -224,11 +227,79 @@ and a list whose items contain `,`, `[` or `]` prints one `- item` per line.
 result's native span (its section, YAML entry without nested entries, session
 file, or a document's indexed text) that contain one of the result's matched
 query terms, compared case-insensitively. A result with no such line prints
-its excerpt as `excerpt:`. At most 20 lines print per result; a final line
-counts the rest. `--context N` (long form only; `-C` selects the artifact)
+its excerpt as `excerpt:`. In a whole-document (`source_document`) result,
+a matched line under a heading belongs to the innermost section holding it,
+and `in: <address>` prints before the first matched line of each section
+(again when the section changes). The address is the section's cited form
+(`path#ID` when the section alone heads a loaded entry, otherwise its
+canonical heading address), which `show` reads. Lines before the first
+heading print no `in:` line. JSON adds the same address as `in` on each such
+`matches` row:
+
+```text
+logic/problem.md [source_document] logic/problem.md
+  1: Intro mentions drift.
+  in: logic/problem.md#h/Problem%20Specification/Observations/O1%3A%20Drift%20appears
+  10: We saw drift here.
+```
+`--context N` (long form only; `-C` selects the artifact)
 adds up to N lines on each side within the span. Overlapping or touching
 ranges merge, `--` separates the others, and hit lines use `N:` while context
 lines use `N-`. `--context 0` adds nothing.
+
+#### Bounded `find`
+
+Brief `find` bounds its output in two ways, and neither changes the hit
+order:
+
+- **Per-hit line cap.** Each hit prints its first 3 matched lines, in
+  source order, then `+K more matching lines` when it has more.
+  `--lines-per-hit N` sets the cap; `0` prints every matched line. Context
+  lines belong to the matched line they surround and are not counted; context
+  is taken around kept lines only. An `in:` line prints only before a kept
+  line, so a section whose lines were all cut prints no `in:`. JSON keeps
+  its cap of 20 `matches` per result unless `--lines-per-hit` is given;
+  `match_count` always counts every matched line.
+- **Byte budget.** `--max-bytes N` bounds the response as written, as it
+  does for `show`; brief text defaults to 16 KiB (stderr diagnostics are not
+  counted). When the hits do not fit, whole hits are dropped from the end
+  and a closing line counts them. When the first hit alone does not fit, it
+  keeps as many of its matched lines as fit (at least one) and the closing
+  line says so. When even one matched line does not fit, the read fails
+  with `output_limit_too_small` and `details.required`. Unlike `show`,
+  `find` prints no `next:` continuation: narrow the query or raise
+  `--max-bytes`. JSON is budgeted only with an explicit `--max-bytes`; a cut
+  response gains `truncation: {omitted_hits, truncated_hit}`, and an
+  uncut one has no `truncation` key.
+
+```text
+logic/problem.md [source_document] logic/problem.md
+  1: Intro mentions drift.
+  in: logic/problem.md#h/Problem%20Specification
+  5: Top drift text.
+  in: logic/problem.md#h/Problem%20Specification/Observations/O1%3A%20Drift%20appears
+  10: We saw drift here.
+  +1 more matching lines
+…
+4 more hits; narrow with --type, --document or more specific terms
+```
+
+A cut first hit closes with
+`first hit cut to fit the byte budget; N more hits; narrow with …` (the hit
+count is left out when no other hit was dropped).
+
+Two filters narrow which hits rank, before `--limit` applies; both keep
+the unfiltered BM25 scores and order, so a filtered result lists the
+unfiltered hits that pass, in the same order:
+
+- `--document <path>` (repeatable) keeps hits whose `source` is one of
+  the named documents: a claim in `logic/claims.md`, a node in
+  `trace/exploration_tree.yaml`, or the whole-document hit of that path. The
+  path resolves as `ls <path>` does, so `rubric/`, `evidence/` and `src/`
+  paths fail with `invalid_document` and an unknown path with `unknown_id`
+  and candidates, as with `show --document`.
+- `--all` keeps hits whose indexed text contains every query term (AND);
+  without it a hit needs any one term.
 
 Load diagnostics print once on stderr, after the output, as one line. It gives
 the error and warning counts with each rule code once (`ARA219×3`) and suggests
@@ -267,7 +338,9 @@ both bounded; see [deep-tree-parsing.md](deep-tree-parsing.md).
 
 ### Bounded and resumable reads
 
-`show` accepts two read bounds ([`agent/window.rs`](../crates/ara-cli/src/agent/window.rs)):
+`show` accepts two read bounds ([`agent/window.rs`](../crates/ara-cli/src/agent/window.rs)).
+`find` takes the same `--max-bytes` budget but drops whole hits instead of
+paging ([bounded `find`](#bounded-find)):
 
 - `--lines A:B` keeps one-based inclusive lines of each selected native
   source: a document, a heading body, or an entry's native section. `A:` and
@@ -333,6 +406,46 @@ When a response does not fit:
   request order is kept, and overlapping selections stay separate items.
 - A single entry projection has no line mapping, so it fails with
   `output_limit_too_small` and a hint naming the exact source read.
+- In a [partial read](#partial-multi-address-reads), error blocks count
+  toward the budget but never page. When exactly one address resolves, that
+  selection pages as a single selection; otherwise the rule for several
+  selections applies.
+
+### Partial multi-address reads
+
+When `show` names several addresses and some of them fail, the read still
+returns the others. Brief text prints the blocks in request order; each
+failed address prints as a block headed `== <address> [error]`, followed by
+the same `error [code]: message`, `hint` and `candidates:` text that address
+prints when read alone:
+
+```text
+== logic/claims.md#C01 [claim C01]
+heading: Claims > C01: Mechanism
+source_digest=sha256:560e87d7… scope=heading_body selector: --document logic/claims.md --heading Claims --heading 'C01: Mechanism'
+- **Statement**: Known.
+- **Status**: hypothesis
+== E99 [error]
+error [unknown_id]: Unknown or ambiguous selector `E99`
+  candidates:
+    E01
+    …
+== N01 [question] projection of trace/exploration_tree.yaml; no source digest
+…
+```
+
+The command exits 1, so a failed address stays visible to the caller. With
+`--json`, stdout holds the usual `ara.show/v1` value with the resolved rows
+in `entries` and an `errors` array: one object per failed address with
+`position` (zero-based index in the request), `address` (as typed) and
+`error`, the object that address alone would print as the JSON `error`
+(`code`, `message`, `id`, `details.candidates`, `details.capped`). Only
+per-address failures are partial: `unknown_id`, `ambiguous_heading`,
+`invalid_address` and `invalid_document`. Any other failure (an I/O error,
+unreadable identity records, a changed source, `--lines` on a projection,
+an exhausted budget) still rejects the whole read, and a single address that
+fails keeps its plain error on stderr. A read in which every address
+resolves prints exactly as before and has no `errors` key.
 
 A brief block prints its range line (`lines: S-E of N`, or `lines: none of 0`)
 only when `--lines` is given or the page is truncated, so a read that fits
@@ -351,8 +464,8 @@ envelope, diagnostics included, fits the budget or the read rejects.
 
 An empty brief result prints `no results` (`find`), `no entries` (`ls`) or
 `no entries` (`ls --unfinished`) on stdout; JSON keeps the empty array.
-Other brief commands are compact but not byte-bounded. Use `find --limit`,
-filters and `ls <path>` to narrow them.
+`ls` and `status` are compact but not byte-bounded. Use filters and
+`ls <path>` to narrow them.
 
 ### Headings and canonical addresses
 
@@ -385,7 +498,16 @@ is a read locator for one source snapshot, not a durable identity after
 edits, and no write selector accepts it.
 
 `ara show <address>` accepts canonical addresses alongside entry IDs, bare
-native IDs (`C04`), `trace:N09` and `logic/claims.md#C04`. Canonical addresses
+native IDs (`C04`), `trace:N09` and `logic/claims.md#C04`. A bare entry ID
+(ASCII uppercase letters, then digits: `E01`, `H01`, `O3`, `G1`) that names
+no loaded entry and no recorded identity selects the one heading, in any
+native Markdown knowledge document, whose text starts with the ID followed
+by `:` or by a spaced `-`, `–` or `—` (`### O3: Title`, `## E05 — Title`).
+`O3` does not select `O31: …`. Several such headings return
+`ambiguous_heading` with their cited addresses as candidates in document and
+source order. Existing resolution always comes first: a node, claim or other
+entry with that key keeps its meaning even when a heading elsewhere starts
+with the same ID. Canonical addresses
 resolve exactly, with no redirect or tolerant tier. The input is decoded once
 and then passes the normal document boundary: malformed escapes, invalid
 UTF-8, absolute paths and traversal reject (`invalid_address` or
@@ -470,8 +592,13 @@ frontmatter, and loads warn `ARA229` at `path:line` (for `PAPER.md`, the
 knowledge-registry warning `ARA217` reports it instead). A `logic/claims.md`
 whose opener is followed only by blank lines, the exact title `# Claims`, a
 claim heading and a known claim field, with no code fence left open at EOF
-hiding a claim-like heading, is the one recovered case: reads skip
-that line and warn `ARA228` (rules in
+hiding a claim-like heading, is recovered: reads skip that line and warn
+`ARA228`. `logic/experiments.md`, `logic/solution/heuristics.md` and
+`logic/problem.md` recover the same way when a level-one title and typed
+entries (`## E01: …`, `## H01: …`, `### O1: …`) whose first content is a known
+field follow the opener. Other `logic/` documents recover when a level-one
+title and a level-two section follow the opener and the text does not load as
+a YAML mapping or null, so their entries and headings stay addressable (rules in
 [stage-1](stage-1-core-parse-validate.md#validation-severity)). Writes never
 recover it. A write, including a dry run, fails with `write.frontmatter` and
 the opener's line when it would leave a changed document behind an unclosed
@@ -1149,7 +1276,7 @@ are listed below. Some outcomes change:
 
 Additive fields: `find` results
 gain `match_count` and, when a source line matches, `line` (the first hit) and
-`matches` (`[{line, text}]`, at most 20). With `--context N` they also gain
+`matches` (`[{line, text}]`, at most 20 unless `--lines-per-hit` is given). With `--context N` they also gain
 `context` (`[{start, end, lines}]`). `ls <path>` is a new positional filter.
 For a Markdown document without typed entries, it returns rows with
 `kind: "heading"`, `address`, `heading_path`, `title` and `source`.
@@ -1206,4 +1333,5 @@ Final observed checks and remaining gates: [delivery verification](verification/
 
 The skills that teach agents these commands live in [`skills/`](../skills); see
 [agent-cli-skills.md](agent-cli-skills.md) for their layout, provenance and
-change rules.
+change rules. [agent-cli-reader.md](agent-cli-reader.md) describes the reader interface
+and how it was measured.

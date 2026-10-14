@@ -187,6 +187,14 @@ pub(super) fn select<'a>(
         Ok(entry) => return Ok(Selected::Entry(entry)),
         Err(miss) => miss,
     };
+    // A bare entry ID that names no loaded entry may still head a section
+    // (`### O3: …` in `logic/problem.md`).
+    if let Miss::Unknown = miss
+        && entry_id_shaped(id)
+        && let Some(selected) = id_heading(artifact, id, full)
+    {
+        return selected;
+    }
     // Only a plain miss falls back to a legacy locator; an ambiguity the
     // identity records reported is never overridden by a current match.
     if let Miss::Unknown = miss
@@ -221,6 +229,63 @@ pub(super) fn select<'a>(
         }
     }
     Err(artifact.miss(id, miss))
+}
+
+/// An entry-ID shape: ASCII uppercase letters, then ASCII digits (`E01`,
+/// `O3`, `RW2`).
+fn entry_id_shaped(id: &str) -> bool {
+    let digits = id.trim_start_matches(|c: char| c.is_ascii_uppercase());
+    digits.len() < id.len() && !digits.is_empty() && digits.bytes().all(|b| b.is_ascii_digit())
+}
+
+/// Whether a heading starts with entry ID `id` and a native separator: `:`,
+/// or a spaced `-`, en dash or em dash (`O3: Title`, `E01 — Title`).
+fn heads_with_id(heading: &str, id: &str) -> bool {
+    let Some(rest) = heading.strip_prefix(id) else {
+        return false;
+    };
+    if rest.starts_with(':') {
+        return true;
+    }
+    let spaced = rest.trim_start();
+    spaced.len() < rest.len()
+        && ['-', '\u{2013}', '\u{2014}'].into_iter().any(|dash| {
+            spaced
+                .strip_prefix(dash)
+                .is_some_and(|tail| tail.is_empty() || tail.starts_with(char::is_whitespace))
+        })
+}
+
+/// The one section of a knowledge Markdown document headed by `id`
+/// ([`heads_with_id`]), or `ambiguous_heading` listing every such section in
+/// document and source order. `None` when no heading starts with it.
+fn id_heading<'a>(
+    artifact: &'a Artifact,
+    id: &str,
+    full: bool,
+) -> Option<Result<Selected<'a>, AgentError>> {
+    let mut found = Vec::new();
+    for path in artifact.sources.keys() {
+        let Some(sections) = artifact.markdown_sections(path) else {
+            continue;
+        };
+        for index in 0..sections.len() {
+            if heads_with_id(sections.heading(index), id) {
+                found.push((
+                    sections.cited(index),
+                    sections.section_row(index, &sections.path(index), full),
+                ));
+            }
+        }
+    }
+    match found.len() {
+        0 => None,
+        1 => found.pop().map(|(_, row)| Ok(Selected::Source(row))),
+        _ => Some(Err(candidates::ambiguous(
+            id,
+            Candidates::ordered(found.into_iter().map(|(address, _)| address)),
+        ))),
+    }
 }
 
 pub(super) fn show_source(
@@ -385,4 +450,43 @@ fn redirected_row(
             full,
         )
         .map(Some)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn entry_ids_are_uppercase_letters_then_digits() {
+        for id in ["E01", "O3", "G1", "RW12"] {
+            assert!(entry_id_shaped(id), "{id}");
+        }
+        for id in ["", "E", "01", "e01", "E01a", "E 01", "E-01", "logic/x.md"] {
+            assert!(!entry_id_shaped(id), "{id}");
+        }
+    }
+
+    #[test]
+    fn a_heading_starts_with_an_id_only_before_a_native_separator() {
+        for heading in [
+            "O3: Title",
+            "O3:",
+            "O3 — Title",
+            "O3 – Title",
+            "O3 - Title",
+            "O3  —",
+        ] {
+            assert!(heads_with_id(heading, "O3"), "{heading}");
+        }
+        for heading in [
+            "O31: Title",
+            "O3 Title",
+            "O3—Title",
+            "O3 -x",
+            "O3",
+            "XO3: Title",
+        ] {
+            assert!(!heads_with_id(heading, "O3"), "{heading}");
+        }
+    }
 }

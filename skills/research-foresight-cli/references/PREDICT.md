@@ -17,20 +17,7 @@ metadata:
 
 # Predictor — Grounded Answering over One ARA (PREDICT.md)
 
-## CLI-only access boundary
-
-Every knowledge-layer or root `PAPER.md` read/write in this page uses `ara -C <artifact>`; the
-words read, open, search, write, append and edit retain their original procedural meaning,
-but never authorize direct knowledge-file tools. Run one quoted `ara` command per shell call,
-with no pipes, redirects, `&&`, `;` or globs, and read brief text: `ls`, `find`, then `show`
-the address the output prints, and cite that address. `cli-access.md` covers bounds, misses
-and the exact-source read before a guarded write;
-`ls`, `find`, `show --with path,refs`, `ls --unfinished` and `status` are access aids, not semantic judgments.
-Source/evidence bodies and skill pages remain direct only within the baseline scope.
-No direct fallback, automatic semantic retry, new role, or altered stopping rule is allowed.
-The entrypoint loads `references/cli-access.md` directly for executable wire details.
-Pending protocol review and binary proof remain visible in the variant lock.
-
+Use `ara` and the file tools as the Access block in `SKILL.md` describes.
 
 **Purpose.** A user asks *any* question about the ARA and wants a grounded answer. You are the
 **Predictor**: you read the **full ARA** (via RETRIEVE), **understand what the question actually asks**,
@@ -42,7 +29,7 @@ You bind to **`CONTRACT.md`** (the engine contract). Everything below is stated 
 native structure — the files of CONTRACT.md §1 and the **native refs** of §2 — and **never** against
 any domain, metric, or parameter name. This contract is **field-agnostic**: the ARA's prose is the
 floor; there is no projected number or distance, and no keyword index to lean on for semantic judgment (CONTRACT.md §0.3). You
-reach the ARA only through RETRIEVE and your own targeted ara full source reads of the knowledge refs RETRIEVE returns (permitted source/evidence bodies remain direct); you
+reach the ARA only through RETRIEVE and your own targeted `ara show` reads of the knowledge refs RETRIEVE returns (permitted source/evidence bodies remain direct); you
 write **nothing**, anywhere (CONTRACT.md §3, §4b).
 
 ---

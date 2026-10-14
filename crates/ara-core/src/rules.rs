@@ -245,9 +245,9 @@ rules! {
         "node artifacts or concepts have malformed content"),
     UnknownNodeConcept => ("ARA227", "unknown-node-concept", Validate, Warning, false,
         "a node concept link references an absent concept term"),
-    /// `logic/claims.md` opens with a recognized stray `---` line; its claims are read.
+    /// A logic document opens with a recognized stray `---` line; its content is read.
     RecoveredStrayFence => ("ARA228", "recovered-stray-fence", Validate, Warning, false,
-        "an unclosed leading `---` in `logic/claims.md` is a stray line before `# Claims` (claims after it are read)"),
+        "an unclosed leading `---` in a logic document is a stray line before its title (content after it is read)"),
     /// A Markdown document's unclosed leading `---` hides the rest of it.
     UnclosedFrontmatter => ("ARA229", "unclosed-frontmatter", Validate, Warning, false,
         "an unclosed leading `---` fence hides the rest of a Markdown document as frontmatter"),

@@ -139,3 +139,51 @@ fn vendored_em_dash_claims_resolve_every_evidence_reference() {
         "16× Training Speedup Through Incremental Optimization"
     );
 }
+
+#[test]
+fn stray_opener_before_logic_documents_loads_them_with_one_warning_each() {
+    let dir = artifact(&[
+        ("trace/exploration_tree.yaml", TREE),
+        (
+            "logic/claims.md",
+            "# Claims\n\n## C01: First\n- **Statement**: a\n\n## C02: Second\n- **Statement**: b\n",
+        ),
+        (
+            "logic/experiments.md",
+            "---\n# Experiments\n\n## E01: Main\n- **Verifies**: C01\n\n## E02: Ablation\n- **Verifies**: C02\n",
+        ),
+        (
+            "logic/solution/heuristics.md",
+            "---\n# Heuristics\n\n## H01: Zero init\n- **Rationale**: stable start\n",
+        ),
+        (
+            "logic/problem.md",
+            "---\n# Problem Specification\n\n## Observations\n\n### O1: Tabular only\n- **Statement**: fixed pairs\n",
+        ),
+        (
+            "logic/solution/algorithm.md",
+            "---\n# Algorithm\n\n## Mathematical Formulation\n\nThe loss is a sum.\n",
+        ),
+    ]);
+    let (manifest, report) = parse_dir(dir.path()).expect("typed documents resolve");
+    assert_eq!(manifest.experiment_plans.len(), 2);
+    assert_eq!(manifest.heuristics.len(), 1);
+    let mut diagnostics = fence_diagnostics(&report);
+    diagnostics.sort_by(|a, b| a.2.cmp(&b.2));
+    let recovered = |path: &str| {
+        (
+            RuleCode::RecoveredStrayFence,
+            Severity::Warning,
+            format!("{path}:1"),
+        )
+    };
+    assert_eq!(
+        diagnostics,
+        [
+            recovered("logic/experiments.md"),
+            recovered("logic/problem.md"),
+            recovered("logic/solution/algorithm.md"),
+            recovered("logic/solution/heuristics.md"),
+        ]
+    );
+}

@@ -30,7 +30,33 @@ impl Block {
     }
 }
 
+/// The blocks of a `show` value in request order: each selection, and an
+/// `error` block for each address that failed in a partial read.
 pub fn blocks(value: &Value) -> Vec<Block> {
+    let mut blocks = selections(value);
+    for failure in value["errors"].as_array().into_iter().flatten() {
+        // Failures are in request order, so every earlier address is
+        // already placed when this one is inserted.
+        let position = failure["position"].as_u64().unwrap_or(u64::MAX);
+        let at = usize::try_from(position).map_or(blocks.len(), |at| at.min(blocks.len()));
+        blocks.insert(at, failed(failure));
+    }
+    blocks
+}
+
+/// `== <address> [error]`, then the text the same error prints alone.
+fn failed(failure: &Value) -> Block {
+    Block {
+        header: vec![format!(
+            "== {} [error]",
+            failure["address"].as_str().unwrap_or("")
+        )],
+        body: format!("{}\n", super::error_value(&failure["error"])),
+        trailer: vec![],
+    }
+}
+
+fn selections(value: &Value) -> Vec<Block> {
     value["entries"]
         .as_array()
         .into_iter()

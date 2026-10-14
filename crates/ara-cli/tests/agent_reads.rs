@@ -169,7 +169,7 @@ fn missing_selector_argument_and_invalid_artifact_errors_are_separate() {
     let unknown = ara()
         .arg("-C")
         .arg(dir.path())
-        .args(["show", "N01", "N999", "--json"])
+        .args(["show", "N999", "--json"])
         .assert()
         .code(1)
         .stdout("")

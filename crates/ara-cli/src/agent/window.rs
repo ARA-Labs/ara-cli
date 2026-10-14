@@ -118,6 +118,9 @@ impl Bounds {
             return Ok(());
         }
         let count = sources.len();
+        // Addresses that failed print their errors among the blocks; they
+        // count toward the response but have nothing to page.
+        let requested = count + value["errors"].as_array().map_or(0, Vec::len);
         let (source, window) = match sources.pop() {
             Some(Some(single)) if count == 1 => single,
             Some(None) if count == 1 => {
@@ -127,7 +130,7 @@ impl Bounds {
             }
             _ => {
                 let hint = format!(
-                    "The {count} selections need {size} bytes together; read each address separately to page through it, or rerun with --max-bytes {size}"
+                    "The {requested} selections need {size} bytes together; read each address separately to page through it, or rerun with --max-bytes {size}"
                 );
                 return Err(too_small(None, budget, size, None, hint));
             }
@@ -188,15 +191,20 @@ impl Bounds {
 
     /// Bytes this value prints on stdout.
     fn measure(&self, value: &Value) -> usize {
-        let mut count = Count(0);
-        if self.brief {
-            crate::brief::render(value, &mut count).expect("counting cannot fail");
-        } else {
-            serde_json::to_writer(&mut count, value).expect("counting cannot fail");
-            count.0 += 1;
-        }
-        count.0
+        measure(value, self.brief)
     }
+}
+
+/// Bytes a read value prints on stdout: its brief text, or its JSON line.
+pub fn measure(value: &Value, brief: bool) -> usize {
+    let mut count = Count(0);
+    if brief {
+        crate::brief::render(value, &mut count).expect("counting cannot fail");
+    } else {
+        serde_json::to_writer(&mut count, value).expect("counting cannot fail");
+        count.0 += 1;
+    }
+    count.0
 }
 
 fn rows(value: &mut Value) -> &mut Vec<Value> {
@@ -362,7 +370,7 @@ fn projection_hint(row: &Value, size: usize) -> String {
 
 /// `id` names the one selection that did not fit; a multi-address
 /// overflow has none.
-fn too_small(
+pub fn too_small(
     id: Option<&str>,
     budget: usize,
     required: usize,
