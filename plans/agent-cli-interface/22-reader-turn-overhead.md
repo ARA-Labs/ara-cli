@@ -1,7 +1,7 @@
 # PR 22: remove the CLI reader's per-session turn overhead
 **Date:** 2026-10-10
 
-Status: **draft, partly decided**. P1 was decided 2026-10-10 (R1), and part A is implemented in 0.1.29 (22a). Parts B–D await decisions P2–P4. Repository: `ARA-Labs/ara-cli`, branch `feat/reader-turn-overhead`, from `feat/reader-round-trips` at `de92588` (0.1.28). The measurement design lives in `ara-eval` at `plans/cli-reader-turn-overhead.md`. Approving this plan does not authorize a paid run, a release or upstream protocol adoption.
+Status: **approved 2026-10-14**. All decisions are made. Part A is implemented in 0.1.29 (22a). Part B is next; C and D follow only if the A + B paired pilot calls for them (P4). Repository: `ARA-Labs/ara-cli`, branch `feat/reader-turn-overhead`, from `feat/reader-round-trips` at `de92588` (0.1.28). The motivation, measurement design and approval live in `ara-eval` at `plans/cli-reader-turn-overhead.md`, revised with the 0.1.29 paired pilot results. In 0.1.29 the CLI matched Files' accuracy (56/60 each) at 1.16 times the cost and 1.20 times the session time. Requests that only list, search or check status were 131 against Files' 19, and their extra cost exceeded the whole gap. That makes part B the first target. Approving this plan does not authorize a paid run, a release or upstream protocol adoption.
 
 ## TL;DR
 
@@ -76,6 +76,8 @@ These change how the reader calls `ara`, not its method. RETRIEVE Steps 1 and 3�
 
 The skill tests keep checking that every documented command line parses. Add a test that the reader's SKILL.md command card matches commands the binary accepts.
 
+**Implemented (22b, 0.1.30).** B1–B5 as described. A fairness review against the Files skill asked for four wording changes, all applied: no LS tool in the reader's tool list, "Follow it exactly" instead of a second "Read it now", a mechanics-only batching sentence instead of a per-response planning step, and the `ls` call in the Step 2 example. Two items stay as approved: B4 names `rubric/` (Category B questions point there), and `cli-access.md` keeps its orientation text because the three copies stay identical; the reader opens it only after an unexplained error.
+
 ### C. Fewer failed and guessed addresses (binary)
 
 - **C1 Partial-success multi-address `show`.** Print every resolved block in order. Print each unresolved address as an `error:` block with its `candidates:`. Exit 1 when any address failed, so failures stay visible to the harness. `--json` adds a per-address `errors` array. Tests:
@@ -112,22 +114,23 @@ Tests: hit order is unchanged by D1 and D2; the cap and budget are respected; `-
 
 Markdown bullet lists load as YAML lists, so they do not count as metadata. Across all 32 corpus artifacts, only the 7 affected ones changed, and none has an `ARA229` left.
 
-## Decisions needed
+## Decisions
 
 - **P1:** decided 2026-10-10: R1.
 - **P5:** decided 2026-10-11: the looser rule for the other `logic/` documents.
-- **P2:** B1's startup rule: whether the reader drops the `cli-access.md` preload as proposed, or keeps it and is told to load all four pages in one response.
-- **P3:** C1's exit status: 1 when any address failed (recommended), or 0 with error blocks.
-- **P4:** the scope for this round: A + B only (cheapest, largest estimated effect), or A–D.
+- **P2:** decided 2026-10-14: the reader drops the `cli-access.md` preload and reads it only when an `ara` error does not explain the fix.
+- **P3:** decided 2026-10-14: exit 1 when any address failed.
+- **P4:** decided 2026-10-14: A + B first. C and D are built only if the A + B paired pilot does not meet the decision rule.
+- **Evaluation:** decided 2026-10-14: each revision is measured with a paired Files-and-CLI pilot in `ara-eval`, not a CLI-only screen.
 
 ## Implementation steps
 
 Each functional sub-PR gets a patch bump and a CHANGELOG entry and targets `feat/reader-round-trips`. Each revision is recorded for an `ara-eval` screen.
 
 1. 22a: part A with tests and docs (0.1.29).
-2. 22b: part B (0.1.30). Screen A + B in `ara-eval`.
+2. 22b: part B (0.1.30). Run the A + B paired pilot in `ara-eval`.
 3. 22c: part C (0.1.31).
-4. 22d: part D (0.1.32). Screen A–D.
+4. 22d: part D (0.1.32). Run the A–D paired pilot in `ara-eval`. Steps 3 and 4 happen only if step 2's pilot calls for them.
 5. Rewrite this plan as `docs/agent-cli-interface/22-reader-turn-overhead.md` with the measured outcome, and update both indexes.
 
 ## Risks

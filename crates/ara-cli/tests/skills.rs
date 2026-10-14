@@ -995,3 +995,40 @@ fn skill_research_turn_and_consolidated_reads_run_on_matching_binary() {
         initialization[0]["documents"]["logic/problem.md"]
     );
 }
+
+/// The reader's command card: every line runs on the shipped binary once its placeholders name a
+/// real fixture artifact, address, source document and line window.
+#[test]
+fn reader_command_card_runs_on_matching_binary() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../ara-core/tests/fixtures/agent-cli");
+    let skill =
+        std::fs::read_to_string(skills_root().join("research-foresight-cli/SKILL.md")).unwrap();
+    let access = skill
+        .split_once("\n## Access\n")
+        .expect("the reader keeps its Access block")
+        .1;
+    let card: Vec<&str> = access
+        .split("```")
+        .nth(1)
+        .expect("the Access block holds a fenced command card")
+        .lines()
+        .skip(1)
+        .filter(|line| !line.trim().is_empty())
+        .collect();
+    assert_eq!(card.len(), 6, "{card:?}");
+    for line in card {
+        let words: Vec<String> = shell_words(line)
+            .into_iter()
+            .map(|word| match word.as_str() {
+                "<terms>" => "lossless".to_owned(),
+                "<address>" => "logic/claims.md#C04".to_owned(),
+                "<source>" => "logic/claims.md".to_owned(),
+                "A:B" => "26:40".to_owned(),
+                _ => word,
+            })
+            .collect();
+        assert_eq!(words[..3], ["ara", "-C", "<ara_dir>"], "{line}");
+        let output = ara_in(&root).args(&words[3..]).output().unwrap();
+        assert!(output.status.success(), "`{line}` failed: {output:?}");
+    }
+}

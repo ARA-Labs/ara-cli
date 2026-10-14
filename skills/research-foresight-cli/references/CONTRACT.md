@@ -1,18 +1,6 @@
 # ARA World Model — Engine Contract (the shared interface)
 
-## CLI-only access boundary
-
-Every knowledge-layer or root `PAPER.md` read/write in this page uses `ara -C <artifact>`; the
-words read, open, search, write, append and edit retain their original procedural meaning,
-but never authorize direct knowledge-file tools. Run one quoted `ara` command per shell call,
-with no pipes, redirects, `&&`, `;` or globs, and read brief text: `ls`, `find`, then `show`
-the address the output prints, and cite that address. `cli-access.md` covers bounds and misses;
-`ls`, `find`, `show --with path,refs`, `ls --unfinished` and `status` are access aids, not semantic judgments.
-Source/evidence bodies and skill pages remain direct only within the baseline scope.
-No direct fallback, automatic semantic retry, new role, or altered stopping rule is allowed.
-The entrypoint loads `references/cli-access.md` directly for executable wire details.
-Pending protocol review and binary proof remain visible in the variant lock.
-
+Use `ara` and the file tools as the Access block in `SKILL.md` describes.
 
 > This file is the **single source of truth** the engine binds to. The two agent contracts
 > (`RETRIEVE.md`, `PREDICT.md`) conform to the grounding references, read-only isolation, and

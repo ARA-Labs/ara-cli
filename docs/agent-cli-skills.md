@@ -94,6 +94,19 @@ recipe:
   --source --lines A:B`, keep address windows for numbers counted inside the
   selection (`next:`), and window a projection's named source document,
   because node, observation and session addresses reject `--lines`.
+- **The reader starts in one step (0.1.30).** `research-foresight-cli` replaces
+  the boundary paragraphs of its four pages with one Access block in
+  `SKILL.md`: which paths go through `ara`, one quoted command per shell call,
+  a six-line command card and "report `ara` errors; never fall back". It reads
+  `RETRIEVE.md` and `PREDICT.md` together, as the Files reader does, and opens
+  `cli-access.md` only when an `ara` error does not explain the fix. Its
+  RETRIEVE Step 2 sends `ara ls` with the first searches instead of a separate
+  orientation turn, lists the two to five things the question needs, sends one
+  `find` per need in one response and then `show`s every address in one call.
+  When a search must cover the whole artifact, it sends `ara find` together
+  with a Grep of `rubric/`, `evidence/` and `src/`. Writer links, `status`,
+  provenance and pin notes are gone from the reader; `cli-access.md` still
+  documents them.
 - **Brief text for reading, JSON for structured use.** `--json` stays on write,
   `apply` and `merge` commands and where a step consumes fields (`status --json`
   counts, `ls --json` typed counts, frontier records).
@@ -137,7 +150,10 @@ and checks that every long flag in such a command line appears in that
 subcommand's `--help`, so renaming or removing a flag the skills use, such as
 `--lines`, `--max-bytes`, `--context`, `--limit` or `--heading`, fails the test.
 An inline command that wraps onto the next line is checked as one command.
-Three more tests run command lines the access pages print verbatim. One
+Four more tests run command lines the skills print. The first fills the
+placeholders of the reader's command card with a fixture artifact, address,
+source document and line window, and runs every line. The others run command
+lines the access pages print verbatim. One
 checks that the batched `show` prints every requested address in order.
 Another runs both digest recipes on a scratch artifact and dry-runs every guarded write:
 the printed heading-body digest must pass `document.replace` and `logic.revise`

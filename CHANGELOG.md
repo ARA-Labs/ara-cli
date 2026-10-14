@@ -114,6 +114,16 @@ All notable changes to this project are documented here. The format follows
   read side's identity index.
 
 ### Changed
+- CLI reader skill: one-step startup (0.1.30, plan 22 part B).
+  `research-foresight-cli` replaces the boundary paragraphs of SKILL, RETRIEVE,
+  PREDICT and CONTRACT with one Access block in `SKILL.md` and a six-line
+  command card, reads RETRIEVE and PREDICT together, and opens
+  `references/cli-access.md` only when an `ara` error does not explain the fix.
+  RETRIEVE Step 2 sends `ara ls` with the first searches, sends one `find` per
+  need in one response and then one multi-address `show`, and pairs `ara find`
+  with a Grep of `rubric/`, `evidence/` and `src/` for whole-artifact searches.
+  Writer links, `status`, the `E01` batching example, provenance and pin notes
+  leave the reader pages. A test runs every command-card line on the binary.
 - CLI reader skill: fewer model round trips. `references/cli-access.md` keeps
   only boundary, shell-call, reading and read-only task guidance (44.3k → 10.4k
   characters); writer guidance moves to `references/cli-write.md`, shipped only
