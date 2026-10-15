@@ -258,6 +258,12 @@ All notable changes to this project are documented here. The format follows
   `invalid_document` errors name these roots. Old rubric history stays readable.
 
 ### Fixed
+- Core validation: the dependency-cycle check (`ARA110`, 0.1.33) orients
+  `also_depends_on` edges from dependency to dependent, the same direction as
+  `children:` nesting. A cross-branch diamond, such as a node depending on a
+  node elsewhere that itself depends on an ancestor, is no longer reported as
+  a cycle and no longer makes `ls`, `find` and `status` refuse the artifact.
+  A node that depends on its own descendant is now reported as a cycle.
 - Core reads: `logic/experiments.md`, `logic/solution/heuristics.md` and
   `logic/problem.md` that open with a stray, unclosed `---` line before a
   level-one title and typed entries (`## E01: …`, `## H01: …`, `### O1: …`)
