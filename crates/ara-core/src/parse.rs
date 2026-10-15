@@ -229,12 +229,10 @@ pub(crate) fn parse_sources_detailed_with_claim_redirects(
     // dedupe links.
     //
     // A dependency whose target is an *ancestor* of the source (reachable by
-    // walking `children:` nesting upward) merely restates the nesting: it is
-    // redundant, and combined with the parent→child edge it would close a cycle
-    // and fail the whole artifact. Real traces do this (a child re-declaring a
-    // dependency on its parent), so drop the redundant edge with a warning
-    // instead. Genuine cross-cycles — a dependency on a sibling or descendant
-    // that closes a loop — are not ancestors and stay fatal in `detect_cycles`.
+    // walking `children:` nesting upward) merely restates the nesting. Real
+    // traces do this (a child re-declaring a dependency on its parent), so drop
+    // the redundant edge with a warning. Genuine cycles — a dependency loop, or
+    // a dependency on one's own descendant — stay fatal in `detect_cycles`.
     let parent_of: BTreeMap<NodeId, NodeId> = norm
         .child_links
         .iter()
@@ -1200,12 +1198,21 @@ fn dedupe_links(links: Vec<Link>, report: &mut ParseReport) -> Vec<Link> {
 
 /// Reports a cycle error for every back-edge in the combined
 /// `Child` + `DependsOn` graph (DFS three-color).
+///
+/// A `Child` link points downstream (parent to child) while a `DependsOn` link
+/// points upstream (dependent to dependency), so dependency edges are reversed
+/// here. Mixing the two directions would report a cross-branch diamond as a
+/// cycle and miss a node that depends on its own descendant.
 fn detect_cycles(nodes: &[Node], links: &[Link], report: &mut ParseReport) {
     // BTreeMap (not HashMap) keeps traversal — and thus error ordering — free of
     // any hash-seed influence, matching the crate's determinism guarantee.
     let mut adj: BTreeMap<&NodeId, Vec<&NodeId>> = BTreeMap::new();
     for link in links {
-        adj.entry(&link.from).or_default().push(&link.to);
+        let (upstream, downstream) = match link.kind {
+            LinkKind::DependsOn => (&link.to, &link.from),
+            _ => (&link.from, &link.to),
+        };
+        adj.entry(upstream).or_default().push(downstream);
     }
     let mut color: BTreeMap<&NodeId, u8> = BTreeMap::new(); // 0=white, 1=gray, 2=black
     let mut stack = Vec::new();
@@ -1604,6 +1611,48 @@ tree:
       - id: N03
         type: insight
         also_depends_on: [N02]
+";
+        let err = parse_sources(yaml, None).unwrap_err();
+        assert!(err.errors().iter().any(|d| d.message.contains("cycle")));
+    }
+
+    #[test]
+    fn dependency_diamond_across_branches_is_not_a_cycle() {
+        // N01 -> N02 -> N03 by nesting, and N01 -> N04 -> N03 by dependencies:
+        // N04 depends on N01 and N03 depends on N04. Every edge points
+        // downstream, so this is a diamond, not a loop.
+        let yaml = "\
+tree:
+  - id: N01
+    type: question
+    children:
+      - id: N02
+        type: experiment
+        children:
+          - id: N03
+            type: decision
+            also_depends_on: [N04]
+  - id: N04
+    type: experiment
+    also_depends_on: [N01]
+";
+        let (m, report) = parse_sources(yaml, None).expect("a diamond is not a cycle");
+        assert!(report.is_ok(), "must not error: {report}");
+        assert_eq!(m.nodes.len(), 4);
+    }
+
+    #[test]
+    fn dependency_on_own_descendant_is_a_cycle() {
+        // N01 nests N02 and also depends on it: N01 is upstream and downstream
+        // of N02 at once.
+        let yaml = "\
+tree:
+  - id: N01
+    type: question
+    also_depends_on: [N02]
+    children:
+      - id: N02
+        type: experiment
 ";
         let err = parse_sources(yaml, None).unwrap_err();
         assert!(err.errors().iter().any(|d| d.message.contains("cycle")));
