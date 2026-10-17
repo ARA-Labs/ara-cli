@@ -1,0 +1,47 @@
+mutations: 
+  - action: "rename"
+    after: |2
+      ## R04: Second
+      - **Rubric ID**: uuid-2
+      - **Requirement**: second text
+      
+      - **Last revised**:
+        2026-10-01 (2026-10-01_001#3)
+    before: |2+
+      ## R02: Second
+      - **Rubric ID**: uuid-2
+      - **Requirement**: second text
+      
+    from: "rubric/requirements.md:R02"
+    from_selector: 
+      document: "rubric/requirements.md"
+      entry: null
+      heading: ["Requirements","R02: Second"]
+    historical_references: []
+    provenance: "user"
+    session: "2026-10-01_001"
+    signal: "user-directive"
+    to: "rubric/requirements.md:R04"
+    to_selector: 
+      document: "rubric/requirements.md"
+      entry: null
+      heading: ["Requirements","R04: Second"]
+    turn: 3
+  - action: "remove"
+    after: ""
+    before: |2
+      ## R03: Third
+      - **Rubric ID**: uuid-3
+      - **Requirement**: third text
+    from: "rubric/requirements.md:R03"
+    from_selector: 
+      document: "rubric/requirements.md"
+      entry: null
+      heading: ["Requirements","R03: Third"]
+    historical_references: []
+    provenance: "user"
+    session: "2026-10-01_001"
+    signal: "user-directive"
+    to: null
+    to_selector: null
+    turn: 4

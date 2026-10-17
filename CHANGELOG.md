@@ -7,6 +7,14 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Agent CLI: native discovery, source/full reads, structural queries, keyword
+  search, guarded writes, typed JSONL batches, staging/promotion and complete
+  session/audit history.
+- Merge: complete directory and local Git captures, namespace-aware identity
+  relocation, exact heading selectors, portable replay/conflict records,
+  audited resolution/repair and nonblocking duplicate advice.
+- Core: bounded 10,000-deep trees, complete optional agent layers, native node
+  annotations and exact UTF-8 source spans for lossless edits and grounding.
 - Core and viewer: preserve claim falsification criteria and show claim IDs,
   experiment proof references, and claim dependencies (#61).
 - Core and viewer: explicit per-node `artifacts` lists carry names, display-only
@@ -41,8 +49,168 @@ All notable changes to this project are documented here. The format follows
   Original source and visible errors remain on malformed equations or local
   renderer, stylesheet, or font failures. Protected code and non-math text stay
   unchanged; untrusted commands and macros are isolated and bounded (#31).
+- Agent reads: canonical addresses (`path#h/<segment>/…[;occurrence=N]`, plus
+  cited `logic/claims.md#C04`, `C04`, `trace:N09`) are accepted by `show` and
+  printed by every brief read. Misses report `unknown_id` and ambiguities
+  `ambiguous_heading`, each with up to 40 ranked candidates.
+- Agent reads: `show --lines A:B` and `--max-bytes N` page native source on whole
+  lines; each page carries the full selection's digest and the next `--lines`
+  window. `find --context N` and `ls <path>` are new.
+- Core: claim headings accept a spaced hyphen, en dash or em dash separator; a
+  stray leading `---` before `# Claims` in `logic/claims.md` is recovered with
+  `ARA228`, and other unclosed front matter stays hidden with `ARA229`.
+- Agent CLI: a batch's one `session.log` with a summary can own omitted audit
+  context. `logic.revise`, audited `entry.rename`/`entry.remove`,
+  `paper.edit.audit`, `observation.mark_stale.audit` and reasoning
+  `record.append` may leave out `session`/`turn` (or `record.turn`) when they
+  follow that log. A log that omits `session` selects the one open session on
+  its date, or creates one with its summary; several open candidates are an
+  error that lists them, and other open sessions are reported in
+  `open_sessions`.
+- Agent CLI: omitted node, observation, session-log, session-start and taste
+  timestamps (and the inline taste date) use one UTC clock value that the
+  writer reads once, after it takes the lock and recovers. Explicit values stay
+  exact.
+- Merge: `merge resolve` and `merge repair` take an optional `--turn` (it must
+  equal the session's next turn), plus `--timestamp` and `--summary`, and report
+  the resolved `session` and `turn`.
+- Agent CLI: a batch with a `session.log` derives its turn's mechanical
+  `events_logged` rows (from `node.add`, `observation.stage`, `claim.add`,
+  `heuristic.add` and `observation.promote`) and `claims_touched` rows
+  (`created`, `crystallized`, `revised`). Caller rows keep their summaries and
+  judgments; a judgment replaces the generic `revised` row. No-op operations
+  derive nothing.
+- Agent CLI: event rows take an optional `target` selector naming the exact
+  destination of a concept, constraint or architecture promotion; `refs`
+  reports it.
+- Agent CLI: write errors that involve two inputs report the other one as
+  `related_line` and `related_field`.
+- Agent reads: `open` observation rows add `turns_since_reference`,
+  `session_days_since_reference`, `last_reference_turn`,
+  `last_reference_date`, `reference_basis`, `evidence_sources`,
+  `history_status` and `history_diagnostics`, counted from exact ID and
+  bound-node references on a validated session timeline. Unknown chronology is
+  `null` with a diagnostic; overlapping sessions keep the day count. Brief text
+  ends observation rows with the counts.
+- Agent CLI: `observation.mark_stale` `session_days` is optional; the writer
+  derives and records the eligible logged days after the last reference, up to
+  the audit date, and refuses unknown day evidence with
+  `write.stale_history_unknown`.
+- Agent CLI: `entry.rename`, `entry.remove` (with `redirect`) and a claim-merge
+  `logic.revise` (`Status: withdrawn` plus `Merged into`) accept
+  `rewrite_references: true`, which repairs typed citations in accepted
+  reference fields through exact audited edits and reports
+  `rewritten_references` and located `skipped_references`. A claim split is
+  `logic.revise` with `action: "split"`, `split_into` and a `references` row for
+  every current citing field. Remaining mentions, ambiguous history,
+  self-citations, merge cycles and unclassified citers refuse with
+  `details.locations`; historical records are never rewritten and must resolve
+  through the retained entry or the authenticated mutation ledger.
+- Agent CLI: the source of an explicit merge derives `claims_touched`
+  `merged`, and a split's primary derives `split`; the primary's
+  `logic_revisions` rows may carry `action: split` and `split_into`.
+- Agent CLI: restructure results list the historical citations they verified
+  as `historical_citations`; final validation also resolves them through the
+  read side's identity index.
 
 ### Changed
+- Agent reads: bounded `find` (0.1.32, plan 22 part D). Brief `find` keeps
+  the first 3 matched lines of each hit and ends the hit with
+  `+K more matching lines`; `--lines-per-hit N` changes the cap and `0`
+  keeps every line (JSON keeps its 20-line cap unless the flag is given).
+  `--context` lines and `in:` lines go with their kept line. `--max-bytes`
+  bounds `find` as it bounds `show`, defaulting to 16 KiB for brief text:
+  whole hits are dropped from the end, and a closing line says
+  `N more hits; narrow with --type, --document or more specific terms`
+  (`truncation.omitted_hits` in JSON). A first hit that alone overflows
+  keeps fewer matched lines and the line starts
+  `first hit cut to fit the byte budget`; when one line does not fit, the
+  read fails with `output_limit_too_small`. `--document <path>`
+  (repeatable) keeps hits from those documents and refuses the paths
+  `show --document` refuses; `--all` keeps hits containing every query
+  term. Filters keep the unfiltered ranking order. The 0.1.31 marker
+  `… K more matching lines` becomes `+K more matching lines`.
+- Agent reads: fewer failed and guessed addresses (0.1.31, plan 22 part C).
+  A multi-address `show` whose addresses partly fail prints every resolved
+  block and, in request order, an `== <address> [error]` block with the same
+  error text and `candidates:` that address prints alone; it exits 1.
+  `--json` adds an `errors` array (`position`, `address`, `error`) beside
+  `entries`. Read budgets count the error blocks. A single failing address,
+  and failures other than `unknown_id`, `ambiguous_heading`,
+  `invalid_address` or `invalid_document`, still reject the whole read. Each
+  matched line of a whole-document `find` hit under a heading gains the
+  address of its innermost section, printed as `in: <address>` when it
+  changes (`matches[].in` in JSON). A bare entry ID such as `O3`, `G1` or
+  `E01` that names no loaded entry selects the one knowledge-document
+  heading starting with `<ID>:` or `<ID> —`; several such headings return
+  `ambiguous_heading` with their addresses.
+- CLI reader skill: one-step startup (0.1.30, plan 22 part B).
+  `research-foresight-cli` replaces the boundary paragraphs of SKILL, RETRIEVE,
+  PREDICT and CONTRACT with one Access block in `SKILL.md` and a six-line
+  command card, reads RETRIEVE and PREDICT together, and opens
+  `references/cli-access.md` only when an `ara` error does not explain the fix.
+  RETRIEVE Step 2 sends `ara ls` with the first searches, sends one `find` per
+  need in one response and then one multi-address `show`, and pairs `ara find`
+  with a Grep of `rubric/`, `evidence/` and `src/` for whole-artifact searches.
+  Writer links, `status`, the `E01` batching example, provenance and pin notes
+  leave the reader pages. A test runs every command-card line on the binary.
+- CLI reader skill: fewer model round trips. `references/cli-access.md` keeps
+  only boundary, shell-call, reading and read-only task guidance (44.3k → 10.4k
+  characters); writer guidance moves to `references/cli-write.md`, shipped only
+  with `research-manager-cli` and `compiler-cli`. `research-foresight-cli`
+  adopts the Files grounding rule (`show` the surrounding section when a hit is
+  too terse to judge) and teaches one multi-term `find`, multi-address `show`
+  and parallel `ara` shell calls in one response. On 60 development questions
+  this lowered requests per question from 13.73 to 10.67 and list-price agent
+  cost by 29% against unchanged 0.1.27 skills; see
+  `docs/agent-cli-interface/21-reader-round-trips.md`.
+- Agent CLI: consolidate ancestry and citation reads into `show --with path,refs`,
+  unfinished work into `ls --unfinished`, and exact imported/retained identity
+  lookup into `show --identity`. Relation arrays stay complete under output
+  bounds; unsupported selector combinations reject explicitly.
+- Live CLI skills and the offline acceptance runner use the simplified command
+  surface. Task-oriented skill sections teach typed `apply` workflows while
+  retaining direct setters, research judgment, and atomic audit protections.
+- Core: replace the native single-target citation query with
+  `markdown_citations_many`, sharing the writer's token classification once per
+  multi-target request. The CLI dependency minimum is now `ara-core` 0.1.27.
+- Command removal is a breaking public-interface change. Workspace 0.1.27 is an
+  unreleased engineering revision; the integration release must settle the
+  repository's major-version rule before publication.
+- Agent reads: `refs` uses the writer's citation rules. For claims,
+  heuristics, experiment plans and concepts it lists the same Markdown
+  citations a restructure repairs (including qualified heading spellings);
+  tokens inside quotes, backticks or HTML comments are no longer listed;
+  `trace/aliases.yaml` alias targets are listed; a tree `concepts` name is
+  listed only when it resolves to exactly one concept heading.
+- Agent reads default to brief address-led text; `--json` output keeps its
+  fields, with additive `find` hit lines and opt-in bounded `display` metadata.
+  Text diagnostics print once on stderr as counts and codes.
+- Heading lookup is exact-first, then case-insensitive equality, unique prefix
+  and a trailing literal `...`. Read errors no longer expose `merge.*` codes;
+  broken identity records report `identity_lookup_failed`.
+- Structural reads succeed on fully represented artifacts whose only errors are
+  dangling references (`ARA107`–`ARA109`); other errors still refuse, now with
+  `details.blocking` and `details.hint`. Writes reject unclosed front matter.
+- CLI skills teach one quoted `ara` call per shell call, native bounds, and
+  orient/search/read/cite with printed addresses.
+- `ara check --fix` shares the guarded writer's lock and durable recovery journal.
+- Public Rust node constructors and typed bodies include the native agent fields;
+  JSON additions remain optional. The integration minor/major release decision
+  is pending; version 0.1.25 is the unreleased engineering revision.
+- Native parsing and merge planning avoid repeated YAML work and unchanged-field
+  copies while preserving strict duplicate-key/resource guards, opaque historical
+  data, exact source bytes, and deterministic duplicate-candidate ordering.
+- Native merge ledger captures use canonical padded RFC 4648 base64 strings for
+  revision files, transport bytes and imported-resolution evidence, retaining
+  exact decoded bytes and fingerprints. Native core adds the optional `base64`
+  dependency; public conflict/report byte arrays are unchanged.
+- Native hashing enables RustCrypto's CPU-dispatched SHA-256 backend, retaining
+  the software fallback and identical fingerprints; `sha2-asm` is a native-only
+  transitive dependency. Flow-map child insertion preserves the JSON subset.
+- Large native CLI merges overlap immutable duplicate advice with durable commit;
+  commit errors retain precedence and no advice changes knowledge bytes. Phase
+  elapsed times may overlap; every required final process budget passes.
 - CLI: update toml to 1.1.6+spec-1.1.0, including its parser and writer dependencies (#119).
 - CLI: update tokio to 1.53.2 for the local server runtime (#120).
 - Core: bump serde-saphyr to 1.3.0 (#90).
@@ -50,6 +218,107 @@ All notable changes to this project are documented here. The format follows
   (`ARA105 error: nodes[N01]: duplicate node id`), and each `--json`
   `validate.errors`/`validate.warnings` entry gains a `rule` field. `ara
   validate` output is unchanged (#43).
+- Agent CLI: `session log` without `--session` now requires `--summary`. The
+  writer picks or creates the session under its lock instead of the CLI
+  choosing a same-date session from an unlocked read.
+- Merge: an omitted `--timestamp` on `merge resolve`/`merge repair` uses the
+  locked clock rather than the session's last turn time, so a session from an
+  earlier date needs an explicit timestamp on that date.
+- Agent CLI (compatibility): in a batch with a `session.log`, a creation
+  without provenance needs its event row (`write.event_provenance`). An event
+  row for a concept, constraint or architecture promotion without `target`, or
+  a `crystallized` row naming the promotion's source observation, now rejects
+  (`write.event_conflict`), as does any caller row that disagrees with the
+  operation it names or two different rows for one event. A claim judgment
+  that contradicts the same turn's explicit Status change (`confirmed`,
+  `refuted`, `withdrawn`/`merged`), or `confirmed` with `refuted` without two
+  distinct Status changes, rejects (`write.claim_touch_conflict`). With several
+  logs, each new entry must be named in exactly one of them
+  (`write.owner_ambiguous`). Repeated identical rows are written once.
+- Skills: `research-manager-cli` and the shared `cli-access.md` copies drop the
+  manual `Last revised`, `logic_revisions` copy, observation pointer and
+  `Crystallized via`/`From staging` steps, use the owner-anchor `session.log`,
+  and show which session rows the CLI derives.
+- Agent CLI (compatibility): stale evidence no longer counts the stale
+  decision's own turn, so an audit that owned the third proving day now needs
+  another logged turn on that day or a later owner. A supplied `session_days`
+  entry that is not eligible reports `session_days[i]`.
+- Skills: `research-manager-cli` reads turn and day counts from `ara open`
+  instead of counting by hand, and marks stale without `session_days`.
+
+### Removed
+- Agent CLI: remove `add`, `stage`, `promote`, `session`, `link`, standalone
+  `path`, `refs`, `open`, and `resolve`, plus `claim add` and `heuristic add`.
+  Their typed writer operations remain available through `apply`; the
+  [migration guide](docs/agent-cli.md#command-simplification-migration) records
+  argument and result mappings. No compatibility aliases remain.
+- Native PaperBench rubric handling: `rubric/requirements.md` is no longer
+  parsed, read, written or merged as native knowledge, and the public
+  `EntryKind::Requirement` variant and `R` IDs are gone. `rubric/` joins
+  `evidence/` and `src/` as a direct-file, external read-only merge root
+  (matched in any letter case);
+  `invalid_document` errors name these roots. Old rubric history stays readable.
+
+### Fixed
+- Core validation: the dependency-cycle check (`ARA110`, 0.1.33) orients
+  `also_depends_on` edges from dependency to dependent, the same direction as
+  `children:` nesting. A cross-branch diamond, such as a node depending on a
+  node elsewhere that itself depends on an ancestor, is no longer reported as
+  a cycle and no longer makes `ls`, `find` and `status` refuse the artifact.
+  A node that depends on its own descendant is now reported as a cycle.
+- Core reads: `logic/experiments.md`, `logic/solution/heuristics.md` and
+  `logic/problem.md` that open with a stray, unclosed `---` line before a
+  level-one title and typed entries (`## E01: …`, `## H01: …`, `### O1: …`)
+  are recovered like `logic/claims.md`: their experiment plans, heuristics and
+  headings load and stay addressable, with warning `ARA228` instead of
+  `ARA229`. Other `logic/` documents (concepts, related work, untyped solution
+  documents) recover under a looser rule: a level-one title and a level-two
+  section after the opener, and text that does not load as a YAML mapping or
+  null. Metadata-like content still stays hidden, and writes still refuse the
+  unclosed fence. Seven paperbench artifacts had eight or nine documents each
+  hidden from `ls`, `find` addresses and `show`; none remain hidden.
+- Agent CLI: projected non-JSON whole-document reads retain requested refs for
+  positional and `--document` selectors; reads without selected relations keep
+  exact raw content (#117).
+- Agent CLI: `show <document> --source` accepts one positional document
+  path in place of `--document`; file-access roots still return
+  `invalid_document`. CLI skills tell agents to list, search and read
+  `rubric/`, `src/` and `evidence/` with file tools rather than shell commands.
+- Agent CLI: observation history no longer ignores reference-bearing YAML
+  aliases, redirects native continuation text through an imported session, or
+  treats scoped IDs/filenames as local references. Imported literal origins
+  use captured occurrence evidence; missing proof refuses stale writes (#115).
+- Agent CLI: repeated imports use the latest same-source mutable session
+  capture, so superseded summaries no longer invalidate authenticated history
+  or block otherwise-valid stale decisions. Append-only and competing-source
+  origin checks remain strict (#115).
+- Agent CLI: retained imported rolling fields remain unknown when a newer
+  source snapshot omits their value; committed mutable conflicts no longer
+  reclassify protected peer literals as local references (#115).
+- Agent CLI: citation repair preserves inner quotations/backticks in native
+  JSON lists, keeps historical heading-array segments literal, resolves earlier
+  bindings in split/repair selectors, and refuses explicit repair rows that
+  introduce self-citations (#115).
+- Agent CLI: selected-claim Body Status changes participate in same-turn
+  judgment checks; distinct merge/split actions each receive their derived
+  claim touch in operation order (#115).
+- Agent reads: renaming one of two concept leaves that share a display key
+  (`Group A/Term`, `Group B/Term`) no longer makes `show`/`refs` fail with
+  "retired native identity was reused by live content".
+- Agent reads: `show` follows an authenticated rename or removal mapping for
+  a retired nested heading's canonical `#h/...` address, its joined-path
+  `path#A/B` locator and the mapping's `path:A/B` origin.
+- Agent reads and writes: copied audit text (revision before/after values,
+  archived rolling fields, stale-evidence records, the session index) no
+  longer counts as new activity for an observation; `open` and
+  `observation.mark_stale` share one explicit-reference history.
+- Agent CLI: new claim and heuristic blocks (`claim add`, `heuristic add`,
+  promotion) list fields in the fixed schema order instead of alphabetically,
+  write single-line values inline, render Dependencies as `[C03, C04]`, and
+  keep other lists as lossless JSON arrays.
+- Artifacts with a rubric rename record no longer fail `merge` and `show` with
+  `merge.redirect_data`; old rubric aliases and retained journals no longer
+  block reads, writes or merges.
 
 ## [0.1.16] - 2026-08-23
 

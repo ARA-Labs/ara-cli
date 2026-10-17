@@ -324,18 +324,31 @@ fn non_empty(s: &str) -> Option<String> {
 /// share index enrichment. An absent `evidence/` directory is a silent skip;
 /// `README.md` metadata is optional.
 #[cfg(feature = "native")]
-pub(crate) fn read_evidence(
+pub(crate) fn read_evidence_detailed(
     dir: &std::path::Path,
-    report: &mut crate::report::ParseReport,
+    load: &mut crate::parse::NativeLoad,
 ) -> Vec<Exhibit> {
     let evidence_dir = dir.join("evidence");
-    if !evidence_dir.is_dir() {
-        return Vec::new();
+    match std::fs::metadata(&evidence_dir) {
+        Ok(metadata) if metadata.is_dir() => {}
+        Ok(_) => {
+            load.io_error(
+                "evidence",
+                std::io::Error::other("expected directory"),
+                false,
+            );
+            return Vec::new();
+        }
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Vec::new(),
+        Err(e) => {
+            load.io_error("evidence", e, false);
+            return Vec::new();
+        }
     }
 
     // Index is optional: bodies still yield exhibits, just without index enrichment.
-    let index: Vec<IndexRow> = std::fs::read_to_string(evidence_dir.join("README.md"))
-        .ok()
+    let index: Vec<IndexRow> = load
+        .read_source(dir, "evidence/README.md", false)
         .map(|md| parse_index(&md))
         .unwrap_or_default();
     // First index row wins per id (deterministic).
@@ -367,8 +380,12 @@ pub(crate) fn read_evidence(
         };
         let mut body_ids = BTreeSet::new();
         let mut referenced_images = BTreeSet::new();
-        for path in sorted_md_files(&evidence_dir.join(subdir)) {
-            let Ok(body) = std::fs::read_to_string(&path) else {
+        for file in load.list_files(dir, &format!("evidence/{subdir}")) {
+            if !file.ends_with(".md") {
+                continue;
+            }
+            let path = dir.join(&file);
+            let Some(body) = load.read_source(dir, &file, false) else {
                 continue;
             };
             let id = path
@@ -376,12 +393,6 @@ pub(crate) fn read_evidence(
                 .map(|s| s.to_string_lossy().into_owned())
                 .unwrap_or_default();
             body_ids.insert(id.clone());
-            let file = format!(
-                "evidence/{subdir}/{}",
-                path.file_name()
-                    .map(|s| s.to_string_lossy())
-                    .unwrap_or_default()
-            );
 
             // Duplicate basename across categories: identity stays
             // basename-based and both bodies are kept, but the collision must
@@ -392,7 +403,7 @@ pub(crate) fn read_evidence(
                 }
                 std::collections::btree_map::Entry::Occupied(o) => {
                     if *o.get() != subdir {
-                        report.warn(
+                        load.report.warn(
                             RuleCode::DuplicateExhibitBasename,
                             format!("evidence/{subdir}/{id}"),
                             format!(
@@ -409,7 +420,7 @@ pub(crate) fn read_evidence(
             if let Some(row) = row {
                 consumed.insert(row.id.clone());
             } else {
-                report.warn(
+                load.report.warn(
                     RuleCode::ExhibitMissingIndexRow,
                     format!("evidence/{subdir}/{id}"),
                     "body file has no index row in evidence/README.md",
@@ -435,7 +446,7 @@ pub(crate) fn read_evidence(
                                 candidate.file_name().unwrap().to_string_lossy()
                             )),
                             (Some(_), Some(_)) => {
-                                report.warn(RuleCode::InvalidFigureImage, &exhibit.file,
+                                load.report.warn(RuleCode::InvalidFigureImage, &exhibit.file,
                                 "ambiguous same-stem raster siblings; declare an Image explicitly");
                                 None
                             }
@@ -445,7 +456,7 @@ pub(crate) fn read_evidence(
                 if let Some(reference) = selected {
                     match crate::figure::resolve_image(&evidence_dir, &reference) {
                         Ok(_) => exhibit.image = Some(format!("evidence/{reference}")),
-                        Err(reason) => report.warn(
+                        Err(reason) => load.report.warn(
                             RuleCode::InvalidFigureImage,
                             &exhibit.file,
                             format!("invalid figure image {reference:?}: {reason}"),
@@ -488,7 +499,7 @@ pub(crate) fn read_evidence(
                     (Some(candidate), None) => candidate.as_str(),
                     (None, _) => continue,
                     _ => {
-                        report.warn(RuleCode::InvalidFigureImage, format!("evidence/{subdir}/{id}"),
+                        load.report.warn(RuleCode::InvalidFigureImage, format!("evidence/{subdir}/{id}"),
                             "ambiguous raster files; select a File explicitly in evidence/README.md");
                         continue;
                     }
@@ -501,7 +512,7 @@ pub(crate) fn read_evidence(
             match crate::figure::resolve_image(&evidence_dir, relative) {
                 Ok(_) => {
                     if row.is_none() {
-                        report.warn(
+                        load.report.warn(
                             RuleCode::ExhibitMissingIndexRow,
                             &file,
                             "image file has no index row in evidence/README.md",
@@ -512,7 +523,7 @@ pub(crate) fn read_evidence(
                     exhibit.image = Some(file);
                     exhibits.push(exhibit);
                 }
-                Err(reason) => report.warn(
+                Err(reason) => load.report.warn(
                     RuleCode::InvalidFigureImage,
                     &file,
                     format!("invalid figure image: {reason}"),
@@ -530,10 +541,10 @@ pub(crate) fn read_evidence(
                 .as_deref()
                 .is_some_and(|p| crate::figure::image_mime(p).is_some())
             {
-                report.warn(RuleCode::InvalidFigureImage, format!("evidence[{}]", row.id),
+                load.report.warn(RuleCode::InvalidFigureImage, format!("evidence[{}]", row.id),
                     "invalid figure image: indexed raster has no discovered figure under evidence/figures");
             } else {
-                report.warn(
+                load.report.warn(
                     RuleCode::IndexRowMissingExhibit,
                     format!("evidence[{}]", row.id),
                     "index row references a file with no body under evidence/",
@@ -542,6 +553,17 @@ pub(crate) fn read_evidence(
         }
     }
 
+    exhibits
+}
+
+#[cfg(all(feature = "native", test))]
+fn read_evidence(dir: &std::path::Path, report: &mut crate::report::ParseReport) -> Vec<Exhibit> {
+    let mut load = crate::parse::NativeLoad {
+        report: std::mem::take(report),
+        ..Default::default()
+    };
+    let exhibits = read_evidence_detailed(dir, &mut load);
+    *report = load.report;
     exhibits
 }
 
@@ -624,21 +646,6 @@ fn body_supports(body: &str) -> Vec<ClaimId> {
         }
     }
     out
-}
-
-/// Enumerates `*.md` files in `dir`, sorted by path. Missing dir → empty.
-#[cfg(feature = "native")]
-fn sorted_md_files(dir: &std::path::Path) -> Vec<std::path::PathBuf> {
-    let Ok(entries) = std::fs::read_dir(dir) else {
-        return Vec::new();
-    };
-    let mut paths: Vec<std::path::PathBuf> = entries
-        .flatten()
-        .map(|e| e.path())
-        .filter(|p| p.is_file() && p.extension().is_some_and(|ext| ext == "md"))
-        .collect();
-    paths.sort();
-    paths
 }
 
 /// Direct-child raster discovery, sorted just like Markdown discovery.
@@ -1476,6 +1483,8 @@ mod tests {
             support_level: None,
             source_refs: Vec::new(),
             description: None,
+            thinking: None,
+            status: None,
             provenance: None,
             timestamp: None,
             fields: crate::manifest::NodeFields::Experiment {
@@ -1489,6 +1498,7 @@ mod tests {
             concepts: vec![],
             isolated: false,
             pos: None,
+            same_as: Vec::new(),
         }
     }
 

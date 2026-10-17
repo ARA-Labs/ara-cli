@@ -139,6 +139,11 @@ mod tests {
             exhibits: vec![],
             built_on: vec![],
             node_exhibits: vec![],
+            observations: Vec::new(),
+            sessions: Vec::new(),
+            heuristics: Vec::new(),
+            experiment_plans: Vec::new(),
+            taste_comments: Vec::new(),
         }
     }
 
@@ -150,6 +155,8 @@ mod tests {
             support_level: None,
             source_refs: vec![],
             description: None,
+            thinking: None,
+            status: None,
             provenance: None,
             timestamp: None,
             fields: NodeFields::Question,
@@ -158,6 +165,7 @@ mod tests {
             concepts: vec![],
             isolated: false,
             pos: None,
+            same_as: Vec::new(),
         }
     }
 
@@ -316,6 +324,14 @@ mod tests {
             falsification: None,
             proof: vec![],
             deps: vec![],
+            proof_content: None,
+            provenance: None,
+            conditions: None,
+            sources: None,
+            tags: None,
+            last_revised: None,
+            source_fields: Vec::new(),
+            body: None,
         });
         m
     }

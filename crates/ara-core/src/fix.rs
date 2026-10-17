@@ -128,32 +128,82 @@ pub fn fix_dir(dir: &Path) -> FixOutcome {
 /// [`FixOutcome::remaining`]. `ara check` uses this to honor the `select` /
 /// `ignore` / `fixable` / `unfixable` keys of `.ara-check.toml`. Native only.
 pub fn fix_dir_with(dir: &Path, allow: impl Fn(RuleCode) -> bool) -> FixOutcome {
-    let tree_path = dir.join("trace/exploration_tree.yaml");
-    let claims_path = dir.join("logic/claims.md");
-    let orig_tree = std::fs::read_to_string(&tree_path).unwrap_or_default();
-    let orig_claims = std::fs::read_to_string(&claims_path).ok();
+    // Same persistent lock and durable journal as agent writes. Recovery is
+    // complete before any preimage is read; the existing recovery-safe semantic
+    // guards below remain authoritative for format repairs.
+    let failure = |error: crate::write::WriteError| FixOutcome {
+        applied: Vec::new(),
+        skipped: Vec::new(),
+        remaining: crate::lint::check_dir(dir),
+        changed_files: Vec::new(),
+        errors: vec![(LintFile::Tree, error.to_string())],
+    };
+    let _lock = match crate::write::ArtifactLock::acquire(dir) {
+        Ok(lock) => lock,
+        Err(error) => return failure(error),
+    };
+    if let Err(error) = crate::write::journal::recover(dir) {
+        return failure(error);
+    }
+    let snapshot = match crate::write::ArtifactSnapshot::load(dir) {
+        Ok(snapshot) => snapshot,
+        Err(error) => return failure(error),
+    };
+    let text = |path: &str| -> Result<Option<&str>, crate::write::WriteError> {
+        snapshot
+            .files
+            .get(path)
+            .filter(|file| file.existed)
+            .map(|file| {
+                std::str::from_utf8(&file.bytes)
+                    .map_err(|error| crate::write::WriteError::io(format!("{path}: {error}")))
+            })
+            .transpose()
+    };
+    let orig_tree = match text("trace/exploration_tree.yaml") {
+        Ok(tree) => tree.unwrap_or_default().to_owned(),
+        Err(error) => return failure(error),
+    };
+    let orig_claims = match text("logic/claims.md") {
+        Ok(claims) => claims.map(str::to_owned),
+        Err(error) => return failure(error),
+    };
 
     let mut applier = Applier::new(orig_tree.clone(), orig_claims.clone());
     applier.run(&allow);
 
-    // Write back only the files that actually changed. A successful write is
-    // recorded in `changed_files`; a failed write is recorded in `errors` so the
-    // caller never mistakes an un-written file for clean.
+    let mut working = crate::write::WorkingArtifact::new(snapshot);
     let mut changed_files = Vec::new();
     let mut errors = Vec::new();
-    if applier.tree != orig_tree {
-        match std::fs::write(&tree_path, &applier.tree) {
-            Ok(()) => changed_files.push(LintFile::Tree),
-            Err(e) => errors.push((LintFile::Tree, e.to_string())),
+    let stage = (|| {
+        if applier.tree != orig_tree {
+            working.replace_document(
+                "trace/exploration_tree.yaml",
+                &applier.tree,
+                "recovery-safe format fixes",
+            )?;
+            changed_files.push(LintFile::Tree);
         }
-    }
-    if let Some(new_claims) = &applier.claims
-        && orig_claims.as_deref() != Some(new_claims.as_str())
-    {
-        match std::fs::write(&claims_path, new_claims) {
-            Ok(()) => changed_files.push(LintFile::Claims),
-            Err(e) => errors.push((LintFile::Claims, e.to_string())),
+        if let Some(claims) = &applier.claims
+            && orig_claims.as_deref() != Some(claims.as_str())
+        {
+            working.replace_document("logic/claims.md", claims, "recovery-safe format fixes")?;
+            changed_files.push(LintFile::Claims);
         }
+        if !changed_files.is_empty() {
+            working.include_operational_ignore()?;
+            // Do not invoke ordinary agent-write semantic validation: these
+            // format guards deliberately permit unrelated pre-existing errors.
+            crate::write::transaction::commit(&working)?;
+        }
+        Ok::<_, crate::write::WriteError>(())
+    })();
+    if let Err(error) = stage {
+        errors.push((
+            changed_files.first().copied().unwrap_or(LintFile::Tree),
+            error.to_string(),
+        ));
+        changed_files.clear();
     }
 
     // Re-detect on the final in-memory text: what remains is exactly the fixable
@@ -331,7 +381,6 @@ impl Applier {
         let Some((rec_id, rec_title)) = header_at(new_claims, diag_line(diag)) else {
             return false;
         };
-
         // Genuine targeted recovery: the header id was absent before and occurs
         // after the edit with exactly the title rendered on that header.
         if mb.claims.iter().any(|claim| claim.id.as_str() == rec_id) {
@@ -401,15 +450,22 @@ fn guard_ara001(base: &ParseOutcome, cand: &ParseOutcome) -> bool {
     }
 }
 
-/// ARA002/ARA003/ARA005–ARA007 targeted guard: after proving no new error
-/// occurrence appears, exactly one node's target field goes `None → Some`, and
-/// nothing else differs.
+/// Alias repairs introduce no new errors. ARA005–007 may preserve an already
+/// normalized native pivot value; other repairs recover exactly one absent body
+/// field without changing any other normalized data.
 fn guard_alias(base: &ParseOutcome, cand: &ParseOutcome, field: AliasField) -> bool {
     let (ParseOutcome::Normalized(mb, _), ParseOutcome::Normalized(mc, _)) = (base, cand) else {
         return false;
     };
     if !errors_subset(cand, base) {
         return false;
+    }
+    if matches!(
+        field,
+        AliasField::PriorDirection | AliasField::NewDirection | AliasField::PivotReason
+    ) && mb == mc
+    {
+        return true;
     }
     if mc.nodes.len() != mb.nodes.len() {
         return false;
@@ -1247,14 +1303,32 @@ tree:
     // ---- ARA004 -----------------------------------------------------------
 
     #[test]
-    fn ara004_dash_header_recovers_claim() {
+    fn native_spaced_dash_headers_are_not_rewritten() {
+        let yaml = "tree:\n  - id: N01\n    type: experiment\n    evidence: [C01]\n";
+        let claims = "## C01 — Attention is all you need\n- **Statement**: yes\n";
+        let dir = artifact(yaml, Some(claims));
+        let (_, report) = parse_sources(yaml, Some(claims)).expect("dash header parses");
+        assert!(report.is_ok());
+
+        let outcome = fix_dir(dir.path());
+        assert!(outcome.applied.is_empty());
+        assert!(outcome.skipped.is_empty());
+        assert!(outcome.remaining.is_empty());
+        assert_eq!(read_claims(&dir), claims);
+    }
+
+    #[test]
+    fn ara004_unspaced_dash_header_recovers_claim() {
         // Standalone claim (not referenced) that silently disappears today.
         let yaml = "tree:\n  - id: N01\n    type: question\n";
-        let claims = "## C01 — Attention is all you need\n- **Statement**: yes\n";
+        let claims = "## C01—Attention is all you need\n- **Statement**: yes\n";
         let dir = artifact(yaml, Some(claims));
 
         let before = parse_sources(yaml, Some(claims)).expect("ok").0;
-        assert!(before.claims.is_empty(), "dash header must not parse today");
+        assert!(
+            before.claims.is_empty(),
+            "unspaced dash header must not parse"
+        );
 
         let outcome = fix_dir(dir.path());
         assert_eq!(outcome.applied.len(), 1);
@@ -1279,7 +1353,7 @@ tree:
     type: experiment
     evidence: [C01]
 ";
-        let claims = "## C01 - Faster training\n- **Statement**: yes\n";
+        let claims = "## C01 -Faster training\n- **Statement**: yes\n";
         let dir = artifact(yaml, Some(claims));
 
         assert!(
@@ -1312,7 +1386,7 @@ tree:
   - id: N02
     type: insight
 ";
-        let claims = "## C01 — Recovered claim\n- **Statement**: supported\n";
+        let claims = "## C01—Recovered claim\n- **Statement**: supported\n";
         let before =
             parse_sources(yaml, Some(claims)).expect_err("both semantic errors must be present");
         let duplicate_errors = before
@@ -1364,7 +1438,7 @@ tree:
     evidence: [C01, C02]
 ";
         let claims = "\
-## C01 — Recovered
+## C01—Recovered
 - **Statement**: one
 
 ## C02: Existing
@@ -1407,49 +1481,29 @@ tree:
     }
 
     #[test]
-    fn speedrun_claim_headers_fix_on_erroring_artifact() {
+    fn speedrun_native_claim_headers_are_left_unchanged() {
         let yaml = include_str!(
             "../tests/fixtures/corpus/speedrun/nanogpt-speedrun/trace/exploration_tree.yaml"
         );
         let claims =
             include_str!("../tests/fixtures/corpus/speedrun/nanogpt-speedrun/logic/claims.md");
-        let pre_fix =
-            parse_sources(yaml, Some(claims)).expect_err("referenced claims must be absent");
-        assert!(
-            pre_fix
-                .errors()
-                .iter()
-                .any(|error| error.message.contains("evidence references unknown claim")),
-            "expected absent referenced-claim errors, got: {pre_fix}"
-        );
-        let ParseOutcome::Normalized(base, _) = parse_sources_detailed(yaml, Some(claims)) else {
-            panic!("speedrun fixture must normalize despite semantic errors");
-        };
-        assert!(base.claims.is_empty());
+        // The em-dash headers parse natively, so every evidence reference resolves.
+        let (base, pre_fix) =
+            parse_sources(yaml, Some(claims)).expect("em-dash claims must resolve");
+        assert!(pre_fix.is_ok());
+        assert_eq!(base.claims.len(), 10);
         let dir = artifact(yaml, Some(claims));
 
         let first = fix_dir(dir.path());
 
-        // 10 claim-header rewrites plus 2 pivot `trigger:`→`reason:` recoveries
-        // (ARA007): the fixture's two pivot nodes carry the pre-canonical alias.
-        assert_eq!(first.applied.len(), 12);
+        // Only the 2 pivot `trigger:`→`reason:` recoveries (ARA007) apply; the
+        // native em-dash claim headers are not drift.
         assert_eq!(
-            first
-                .applied
-                .iter()
-                .filter(|fix| fix.rule == LintRuleId::ClaimHeaderStyle)
-                .count(),
-            10
+            first.applied.iter().map(|fix| fix.rule).collect::<Vec<_>>(),
+            [LintRuleId::PivotTriggerAlias, LintRuleId::PivotTriggerAlias]
         );
-        assert_eq!(
-            first
-                .applied
-                .iter()
-                .filter(|fix| fix.rule == LintRuleId::PivotTriggerAlias)
-                .count(),
-            2
-        );
-        assert_eq!(first.changed_files, vec![LintFile::Tree, LintFile::Claims]);
+        assert_eq!(first.changed_files, vec![LintFile::Tree]);
+        assert_eq!(read_claims(&dir), claims);
         let fixed_tree = read_tree(&dir);
         let fixed_claims = read_claims(&dir);
         let (manifest, report) =
@@ -1465,13 +1519,7 @@ tree:
                 .map(|number| format!("C{number:02}"))
                 .collect::<Vec<_>>()
         );
-        for claim in &manifest.claims {
-            assert!(
-                fixed_claims.contains(&format!("## {}: {}", claim.id, claim.title)),
-                "missing canonical header for {}",
-                claim.id
-            );
-        }
+        assert_eq!(manifest.claims, base.claims);
         assert_eq!(
             manifest.claims[0].title,
             "16× Training Speedup Through Incremental Optimization"
@@ -1482,8 +1530,8 @@ tree:
                 "Human-authored optimizations compress GPT-2 124M training (val_loss ≤ 3.28) from 49.5 min to 3.1 min across 21 records, achieving a 16.1× wall-clock speedup on 8×H100."
             )
         );
-        // The two pivot `trigger:` aliases were recovered into `reason:`; clearing
-        // exactly those recovered fields must reproduce the base nodes.
+        // Native pivot aliases already normalize to the same value. The style
+        // repair must preserve every normalized node and edge.
         let recovered: Vec<&Node> = manifest
             .nodes
             .iter()
@@ -1498,33 +1546,9 @@ tree:
             })
             .collect();
         assert_eq!(recovered.len(), 2, "got: {recovered:?}");
-        let mut without_recovered = manifest.nodes.clone();
-        for node in &mut without_recovered {
-            if let NodeFields::Pivot { reason, .. } = &mut node.fields {
-                *reason = None;
-            }
-        }
-        assert_eq!(without_recovered, base.nodes);
+        assert_eq!(manifest.nodes, base.nodes);
         assert_eq!(manifest.links, base.links);
-        assert!(manifest.bindings.iter().all(|binding| {
-            manifest
-                .claims
-                .iter()
-                .any(|claim| claim.id == binding.claim)
-        }));
-        assert_eq!(
-            manifest
-                .bindings
-                .iter()
-                .filter(|binding| {
-                    !manifest
-                        .claims
-                        .iter()
-                        .any(|claim| claim.id == binding.claim)
-                })
-                .collect::<Vec<_>>(),
-            base.bindings.iter().collect::<Vec<_>>()
-        );
+        assert_eq!(manifest.bindings, base.bindings);
 
         let second = fix_dir(dir.path());
         assert!(second.applied.is_empty());
@@ -1549,7 +1573,7 @@ root:
       type: decision
       justification: cheaper
 ";
-        let claims = "## C01 — A claim\n- **Statement**: yes\n";
+        let claims = "## C01—A claim\n- **Statement**: yes\n";
         let dir = artifact(yaml, Some(claims));
 
         let first = fix_dir(dir.path());
@@ -1673,7 +1697,7 @@ tree:
     fn ara004_rejects_new_unknown_dependency_byte_identically() {
         let yaml = "tree:\n  - id: N01\n    type: question\n";
         let claims = "\
-## C01 — Recovered claim
+## C01—Recovered claim
 - **Statement**: value
 - **Dependencies**: [C99]
 ";
@@ -1700,7 +1724,7 @@ tree:
     #[test]
     fn ara004_rejects_fatal_tree_byte_identically() {
         let yaml = "tree: [\n";
-        let claims = "## C01 — Recovered claim\n- **Statement**: value\n";
+        let claims = "## C01—Recovered claim\n- **Statement**: value\n";
         assert!(matches!(
             parse_sources_detailed(yaml, Some(claims)),
             ParseOutcome::Fatal(_)
@@ -1743,19 +1767,20 @@ tree:
         let dir = artifact(yaml, None);
         let tree_path = dir.path().join("trace/exploration_tree.yaml");
 
-        // Make the tree file read-only so the write-back fails (non-root).
-        let mut perms = std::fs::metadata(&tree_path).unwrap().permissions();
-        perms.set_mode(0o444);
-        std::fs::set_permissions(&tree_path, perms).unwrap();
-
-        // Probe whether we can still write despite the read-only bit (i.e. running
-        // as root, where the permission is bypassed); skip the assertion if so.
+        // Atomic replacement needs write permission on the parent directory.
+        let parent = tree_path.parent().unwrap();
+        let original_permissions = std::fs::metadata(parent).unwrap().permissions();
+        std::fs::set_permissions(parent, std::fs::Permissions::from_mode(0o555)).unwrap();
+        let probe = parent.join("permission-probe");
         if std::fs::OpenOptions::new()
             .write(true)
-            .open(&tree_path)
+            .create_new(true)
+            .open(&probe)
             .is_ok()
         {
-            eprintln!("skipping: write not denied (likely running as root)");
+            std::fs::remove_file(probe).unwrap();
+            std::fs::set_permissions(parent, original_permissions).unwrap();
+            eprintln!("skipping: parent creation not denied (likely running as root)");
             return;
         }
 
@@ -1772,10 +1797,7 @@ tree:
         assert!(!outcome.changed_files.contains(&LintFile::Tree));
         assert_eq!(read_tree(&dir), yaml, "on-disk file must be untouched");
 
-        // Restore write permission so TempDir cleanup succeeds.
-        let mut perms = std::fs::metadata(&tree_path).unwrap().permissions();
-        perms.set_mode(0o644);
-        std::fs::set_permissions(&tree_path, perms).unwrap();
+        std::fs::set_permissions(parent, original_permissions).unwrap();
     }
 
     #[test]

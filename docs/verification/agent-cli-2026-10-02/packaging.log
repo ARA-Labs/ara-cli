@@ -1,0 +1,24 @@
+{
+  "status": "packaging-verified",
+  "archived_files": 14,
+  "skill_pins": 3,
+  "operations": 107,
+  "operations_by_pin": {
+    "live-e52a925e9d03b4ada3008653e72f99b04116fca2/research-foresight": 16,
+    "live-e52a925e9d03b4ada3008653e72f99b04116fca2/research-manager": 51,
+    "live-e52a925e9d03b4ada3008653e72f99b04116fca2/compiler": 40
+  },
+  "available_native_questions": 465,
+  "reported_published_questions": 450,
+  "loaded_smoke_pages": {
+    "live.reader-grounding": 5,
+    "live.pm-continuity": 4,
+    "live.compiler-core": 5
+  },
+  "source_commit_bytes_checked": true,
+  "historical_skill_and_published_subset": "unresolved",
+  "upstream_protocol_review": "pending-review",
+  "agent_runtime_execution": "not-run",
+  "cli_capability_proof": "not-run",
+  "experiments": "deferred"
+}

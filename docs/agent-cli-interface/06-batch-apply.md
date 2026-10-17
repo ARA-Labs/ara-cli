@@ -1,0 +1,54 @@
+# One-snapshot typed batches and operation coverage
+
+This record describes the implementation on `feat/agent-cli-interface`, workspace
+0.1.23. Its command/source contract is [agent-cli.md](../agent-cli.md).
+Observed proof and unresolved gates are recorded in the delivery verification
+[report](../verification/agent-cli-2026-10-02/README.md); engineering execution does not imply upstream approval or release.
+
+## Implemented behavior
+
+Strict JSONL decoding preserves physical line numbers and rejects duplicate keys. Ordered operations share typed provisional bindings and one working snapshot. References substitute in declared fields while prose stays literal. The compiler/research-manager union includes bounded initialization, complete documents, root edits, structural transitions and coupled audit history.
+
+Plan 19 (step 19b) adds the owner anchor. `write::execute_at` takes an
+injectable clock and calls it once after lock and recovery (dry runs: once,
+without a lock); `execute` passes the system clock, and the released binary has
+no clock override. `plan_batch` treats a batch's sole `session.log` as the owner
+of omitted `session`/`turn` (or reasoning `record.turn`) when any operation
+omits them. The anchor needs a nonempty summary and must precede every
+omitting line; its turn is reserved at its own line and recorded as
+`WorkingArtifact::owner` (`sessions::OwnerAnchor`). Omitting with zero or several logs, a missing
+summary, a late anchor, and explicit values that differ from the anchor fail as
+`write.owner_required`, `write.owner_ambiguous`, `write.owner_summary`,
+`write.owner_order` and `write.owner_mismatch` at the physical line. Pending
+revisions are still attached after the ordered operations succeed. Fully
+explicit batches keep their existing ordering and multi-log behavior.
+
+Step 19c records each planned log's caller rows and each successful
+operation's facts in `WorkingArtifact::bookkeeping` (`bookkeeping::Ledger`).
+`plan_batch` calls `bookkeeping::finalize` after the pending revisions, which
+attributes facts to logs, checks caller rows against them, and inserts the
+remaining rows in their turns before the candidate is validated. Finalize errors
+carry the log's or operation's line plus the other input as `related_line` and
+`related_field`; the CLI maps both to physical JSONL lines.
+
+Step 19e lets an explicit C1 merge or split record its judgment on the
+claim change (`bookkeeping::Ledger::claim_judgment`): with no caller judgment
+for that claim, `finalize` derives `merged` or `split` instead of `revised`.
+Citers repaired by a restructure derive `revised`. `logic.revise`
+`references[].target` and `split_into` selectors take earlier creation
+bindings; `references[].after` stays literal text.
+
+## Command simplification
+
+The live agent routes are `status`, `ls`, `show`, `find`, `edit`, `claim set`, `heuristic set`, `apply` and `merge`. Creation, staging, promotion and session setup/logging use existing typed JSONL operations. `show --with path,refs`, `ls --unfinished` and `show --identity` retain ancestry, citation, inactivity and exact imported-identity behavior. Tooling remains unchanged. See the [migration guide](../agent-cli.md#command-simplification-migration) for inputs and result mappings; old verification reports remain frozen historical evidence.
+
+## Boundaries and remaining gates
+
+Native operation proof covers the 107-row inventory: 88 required CLI operations plus 19 explicit permitted access/output cases. Unchanged historical replay is blocked by recorded dialect/ancestor/leaf incompatibilities and missing session-index files; no historical-import API is invented.
+
+## Code and proof boundaries
+
+Implementation: `crates/ara-core/src/write/{mod,batch,intent,clock,bookkeeping}.rs; scripts/agent-cli-acceptance.py`.
+
+Permanent consumer regressions: `write_batch_engine.rs, write_owner_clock.rs, write_bookkeeping.rs, agent_writes.rs`. Final locked workspace, Clippy, wasm
+and actual-release checks are linked from the delivery verification report.

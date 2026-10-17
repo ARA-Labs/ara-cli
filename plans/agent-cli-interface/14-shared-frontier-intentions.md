@@ -1,6 +1,11 @@
 # PR 14: define shared frontier and intention protocols across forks
 **Date:** 2026-10-01
 
+Implementation record: [14-shared-frontier-intentions](../../docs/agent-cli-interface/14-shared-frontier-intentions.md). Remaining acceptance: Real shared-channel engineering smoke passes; approved schema/writer-authority and agent condition gates remain pending.
+
+Observed proof: [delivery verification](../../docs/verification/agent-cli-2026-10-02/README.md).
+
+
 Status: **approved** 2026-10-01 (frontier and intentions made separately installable at approval, to match the four-arm collective study). Target repository: `ARA-Labs/Agent-Native-Research-Artifact`. Parent: [agent CLI interface plan](../agent-cli-interface.md). Series: [PR index and shared gates](README.md). Dependencies: [08-directory-merge.md](08-directory-merge.md) and [13-cli-backed-skills.md](13-cli-backed-skills.md). Shared-channel execution is implemented by the external [15-experiment-harness.md](15-experiment-harness.md) consumer, not by `ara`.
 
 ## TL;DR

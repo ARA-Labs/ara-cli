@@ -1,0 +1,76 @@
+ai_actions: []
+ai_suggestions_pending: []
+claims_touched: []
+events_logged: 
+  - id: "N01"
+    provenance: "user"
+    routing: "direct"
+    summary: "log1"
+    turn: 1
+    type: "question"
+  - id: "N01"
+    provenance: "user"
+    routing: "direct"
+    summary: "rev"
+    turn: 2
+    type: "question"
+  - id: "N01"
+    provenance: "user"
+    routing: "direct"
+    summary: "rename"
+    turn: 3
+    type: "question"
+  - id: "N01"
+    provenance: "user"
+    routing: "direct"
+    summary: "remove"
+    turn: 4
+    type: "question"
+key_context: []
+logic_revisions: 
+  - after: "revised text"
+    before: "original text"
+    entry: 
+      id: "R01"
+    field: "Requirement"
+    note: null
+    provenance: "user"
+    signal: "user-directive"
+    turn: 2
+  - after: |2
+      ## R04: Second
+      - **Rubric ID**: uuid-2
+      - **Requirement**: second text
+      
+      - **Last revised**:
+        2026-10-01 (2026-10-01_001#3)
+    before: |2+
+      ## R02: Second
+      - **Rubric ID**: uuid-2
+      - **Requirement**: second text
+      
+    entry: 
+      id: "R02"
+    field: "entry"
+    provenance: "user"
+    signal: "user-directive"
+    turn: 3
+  - after: ""
+    before: |2
+      ## R03: Third
+      - **Rubric ID**: uuid-3
+      - **Requirement**: third text
+    entry: 
+      id: "R03"
+    field: "entry"
+    provenance: "user"
+    signal: "user-directive"
+    turn: 4
+open_threads: []
+session: 
+  date: "2026-10-01"
+  id: "2026-10-01_001"
+  last_turn: "2026-10-01T10:04"
+  started: "2026-10-01T10:00"
+  summary: "Fourth turn"
+  turn_count: 4
