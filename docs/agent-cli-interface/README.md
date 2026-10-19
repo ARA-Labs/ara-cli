@@ -24,6 +24,7 @@ verification report for the current evidence.
 - [21-reader-round-trips](./21-reader-round-trips.md)
 - [22-reader-turn-overhead](./22-reader-turn-overhead.md)
 - [23-optional-layer-tolerance](./23-optional-layer-tolerance.md)
+- [24-tree-field-tolerance](./24-tree-field-tolerance.md)
 
 Plan 15 is deferred. Conditional 16/17 are closed for this delivery because their
 experiment evidence gates have not fired; no implementation is claimed.

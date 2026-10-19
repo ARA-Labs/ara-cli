@@ -589,6 +589,12 @@ claims,depends_on` omits it and `show --with refs`/`show` on the missing ID retu
 IDs are null, whenever any error exists. `check` and `validate` still fail on
 these errors.
 
+A node text-field value read as its source text (`ARA230`, see
+[stage-1](stage-1-core-parse-validate.md#validation-severity)) does not refuse
+or mark a read incomplete: the recovered text is exactly what the author
+wrote, so the node is fully represented, and the warning stays in
+`diagnostics`.
+
 ### Incomplete optional layers
 
 An `ARA217` or `ARA218` warning about one optional-layer file does not refuse

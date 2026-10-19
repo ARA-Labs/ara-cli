@@ -271,6 +271,15 @@ All notable changes to this project are documented here. The format follows
   `invalid_document` errors name these roots. Old rubric history stays readable.
 
 ### Fixed
+- Core reads: one mistyped value in a node text field no longer fails the
+  whole exploration tree with `ARA100` (0.1.35, plan 24, #130). `evidence:`
+  keeps a plain scalar's source spelling like every other text field, so an
+  all-digit commit SHA (`7258910`) or `0123456` stays text. A value the parser
+  cannot take as text (a bare numeric `evidence:` scalar, or a mapping or list
+  such as the plain item `- a (rejected: b)`) is read as its exact source text
+  and warns `ARA230 non-text-tree-field`; reads stay complete and exit 0.
+  Identity fields stay strict. New fixable format rule `ARA008
+  unquoted-tree-scalar`: `ara check --fix` single-quotes one-line values.
 - Core reads: experiment and heuristic headings accept the separators claims
   accept (`## E01 — Title`, `## H03 – Title`, `## E02 - Title`) and a bracketed
   status before the separator (`## E02 [in progress]: Title`), which becomes

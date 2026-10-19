@@ -42,7 +42,41 @@ struct Arena<'a> {
     entries: Vec<Entry<'a>>,
     anchors: BTreeMap<usize, usize>,
     visits: Cell<usize>,
+    /// Non-text values read as their source text in node text fields.
+    recovered: std::cell::RefCell<Vec<RecoveredText>>,
 }
+
+/// Exploration-node fields whose values are text. A value of one of these
+/// that YAML did not type as a string is read as its exact source text on the
+/// recovery path ([`parse`]); identity fields (`id`, `type`, `parent`,
+/// `also_depends_on`) are not listed and stay strict.
+const TEXT_FIELDS: [&str; 25] = [
+    "title",
+    "support_level",
+    "source_refs",
+    "description",
+    "thinking",
+    "provenance",
+    "timestamp",
+    "result",
+    "status",
+    "exploration",
+    "outcome",
+    "why_failed",
+    "hypothesis",
+    "failure_mode",
+    "lesson",
+    "from",
+    "to",
+    "trigger",
+    "prior_direction",
+    "new_direction",
+    "reason",
+    "choice",
+    "alternatives",
+    "rationale",
+    "evidence",
+];
 impl<'a> Arena<'a> {
     fn parse(source: &'a str, shallow_tags: bool) -> Result<Self, String> {
         let options = serde_saphyr::granit_parser::options! { block_nesting_limit: MAX_YAML_DEPTH + 1, flow_nesting_limit: MAX_YAML_DEPTH, emit_comments: false };
@@ -51,6 +85,7 @@ impl<'a> Arena<'a> {
             entries: Vec::new(),
             anchors: BTreeMap::new(),
             visits: Cell::new(0),
+            recovered: Default::default(),
         };
         let mut pending: Vec<usize> = Vec::new();
         let mut roots = 0;
@@ -254,7 +289,60 @@ impl<'a> Arena<'a> {
             index,
             omit,
             depth,
+            node: false,
+            text: false,
         }
+    }
+    /// End byte of `index`'s source: a scalar's span end, or a collection's
+    /// last descendant plus a closing flow bracket.
+    fn source_end(&self, index: usize, budget: &mut usize) -> Option<usize> {
+        *budget = budget.checked_sub(1)?;
+        let entry = &self.entries[index];
+        let start = entry.span.byte_range()?.start;
+        let mut end = entry.span.byte_range()?.end;
+        if let Kind::Sequence(items) | Kind::Mapping(items) = &entry.kind {
+            for &item in items {
+                end = end.max(self.source_end(item, budget)?);
+            }
+            let close = match self.source.get(start..)?.chars().next() {
+                Some('[') => Some(']'),
+                Some('{') => Some('}'),
+                _ => None,
+            };
+            if let Some(close) = close {
+                let rest = self.source.get(end..)?;
+                let skipped =
+                    rest.len() - rest.trim_start_matches([' ', '\t', '\r', '\n', ',']).len();
+                if rest[skipped..].starts_with(close) {
+                    end += skipped + close.len_utf8();
+                }
+            }
+        }
+        Some(end)
+    }
+    /// The exact source text of a value, recorded for an `ARA230` warning.
+    fn recover_text(&self, index: usize) -> Result<String, Error> {
+        let span = self.entries[index].span;
+        let start = span
+            .byte_range()
+            .ok_or_else(|| error("YAML byte offsets unavailable"))?
+            .start;
+        let end = self
+            .source_end(index, &mut 100_000)
+            .ok_or_else(|| error("YAML value too large to read as text"))?;
+        let text = self
+            .source
+            .get(start..end)
+            .ok_or_else(|| error("invalid YAML value span"))?
+            .trim_end()
+            .to_owned();
+        let line_start = self.source[..start].rfind('\n').map_or(0, |i| i + 1);
+        self.recovered.borrow_mut().push(RecoveredText {
+            line: span.start.line(),
+            col: start - line_start,
+            text: text.clone(),
+        });
+        Ok(text)
     }
     fn nodes(&self, roots: &[usize]) -> Result<Vec<RawNode>, Error> {
         struct Frame<'a> {
@@ -295,7 +383,11 @@ impl<'a> Arena<'a> {
             if count > MAX_NODES {
                 return Err(error("expanded exploration node budget exceeded"));
             }
-            let node = RawNode::deserialize(self.view(index, &["children"], 0)).map_err(|e| {
+            let view = View {
+                node: true,
+                ..self.view(index, &["children"], 0)
+            };
+            let node = RawNode::deserialize(view).map_err(|e| {
                 let span = self.entries[index].span;
                 error(format!(
                     "{e} (node at line {}, column {})",
@@ -332,6 +424,10 @@ struct View<'v, 'a> {
     index: usize,
     omit: &'static [&'static str],
     depth: usize,
+    /// This view is an exploration node's mapping.
+    node: bool,
+    /// This value belongs to a node text field ([`TEXT_FIELDS`]).
+    text: bool,
 }
 impl<'v, 'a> View<'v, 'a> {
     fn resolved(self) -> Result<Self, Error> {
@@ -382,8 +478,13 @@ impl<'v, 'a> View<'v, 'a> {
             index,
             omit: &[],
             depth: self.depth + 1,
+            node: false,
             ..self
         }
+    }
+    /// Whether a non-string value here is read as its source text.
+    fn recovers(&self) -> bool {
+        self.text && !matches!(self.arena.entries[self.index].kind, Kind::Alias(_))
     }
 }
 macro_rules! scalar_method {
@@ -405,6 +506,11 @@ impl<'v, 'a> Deserializer<'a> for View<'v, 'a> {
         if let Some(value) = this.string_scalar() {
             return visitor.visit_string(value.clone().into_owned());
         }
+        // A plain scalar or a mapping in a text field reads as source text; a
+        // sequence stays a sequence so text lists (`evidence`) keep their items.
+        if this.recovers() && !matches!(this.arena.entries[this.index].kind, Kind::Sequence(_)) {
+            return visitor.visit_string(this.arena.recover_text(this.index)?);
+        }
         match &this.arena.entries[this.index].kind {
             Kind::Scalar(..) => serde_saphyr::with_deserializer_from_str(this.scalar()?, |de| {
                 de.deserialize_any(visitor)
@@ -418,6 +524,7 @@ impl<'v, 'a> Deserializer<'a> for View<'v, 'a> {
                 view: this,
                 items: this.arena.fields(this.index)?.chunks_exact(2),
                 value: None,
+                text: false,
             }),
             Kind::Alias(_) => Err(error("unresolved YAML alias")),
         }
@@ -425,6 +532,13 @@ impl<'v, 'a> Deserializer<'a> for View<'v, 'a> {
     fn deserialize_option<V: Visitor<'a>>(self, visitor: V) -> Result<V::Value, Error> {
         let this = self.resolved()?;
         if this.string_scalar().is_some() {
+            visitor.visit_some(this)
+        } else if this.recovers()
+            && matches!(this.arena.entries[this.index].kind, Kind::Scalar(..))
+            && !matches!(this.scalar()?, "" | "~" | "null" | "Null" | "NULL")
+        {
+            // Keep a text field's plain scalar on this view, so it is read as
+            // source text rather than as a typed number.
             visitor.visit_some(this)
         } else if matches!(this.arena.entries[this.index].kind, Kind::Scalar(..)) {
             serde_saphyr::with_deserializer_from_str(this.scalar()?, |de| {
@@ -490,8 +604,6 @@ impl<'v, 'a> Deserializer<'a> for View<'v, 'a> {
         deserialize_f32,
         deserialize_f64,
         deserialize_char,
-        deserialize_str,
-        deserialize_string,
         deserialize_bytes,
         deserialize_byte_buf,
         deserialize_unit,
@@ -500,6 +612,26 @@ impl<'v, 'a> Deserializer<'a> for View<'v, 'a> {
         deserialize_identifier,
         deserialize_ignored_any
     );
+    fn deserialize_str<V: Visitor<'a>>(self, visitor: V) -> Result<V::Value, Error> {
+        self.deserialize_string(visitor)
+    }
+    fn deserialize_string<V: Visitor<'a>>(self, visitor: V) -> Result<V::Value, Error> {
+        let this = self.resolved()?;
+        if let Some(value) = this.string_scalar() {
+            visitor.visit_string(value.clone().into_owned())
+        } else if matches!(this.arena.entries[this.index].kind, Kind::Scalar(..)) {
+            serde_saphyr::with_deserializer_from_str(this.scalar()?, |de| {
+                de.deserialize_string(visitor)
+            })
+            .map_err(error)
+        } else if this.recovers() {
+            // A mapping or sequence where text is expected, such as the plain
+            // item `- a (rejected: b)`: read its exact source text.
+            visitor.visit_string(this.arena.recover_text(this.index)?)
+        } else {
+            this.deserialize_any(visitor)
+        }
+    }
     fn deserialize_unit_struct<V: Visitor<'a>>(
         self,
         _: &'static str,
@@ -528,6 +660,8 @@ struct Mapping<'v, 'a> {
     view: View<'v, 'a>,
     items: std::slice::ChunksExact<'v, usize>,
     value: Option<usize>,
+    /// The pending value belongs to a node text field.
+    text: bool,
 }
 impl<'v, 'a> MapAccess<'a> for Mapping<'v, 'a> {
     type Error = Error;
@@ -536,22 +670,25 @@ impl<'v, 'a> MapAccess<'a> for Mapping<'v, 'a> {
         seed: T,
     ) -> Result<Option<T::Value>, Error> {
         for pair in self.items.by_ref() {
-            if self.view.omit.contains(&self.view.arena.key(pair[0])?) {
+            let key = self.view.arena.key(pair[0])?;
+            if self.view.omit.contains(&key) {
                 continue;
             }
+            self.text = self.view.node && TEXT_FIELDS.contains(&key);
             self.value = Some(pair[1]);
             return seed.deserialize(self.view.child(pair[0])).map(Some);
         }
         Ok(None)
     }
     fn next_value_seed<T: DeserializeSeed<'a>>(&mut self, seed: T) -> Result<T::Value, Error> {
-        seed.deserialize(
-            self.view.child(
-                self.value
-                    .take()
-                    .ok_or_else(|| error("missing mapping value"))?,
-            ),
-        )
+        let index = self
+            .value
+            .take()
+            .ok_or_else(|| error("missing mapping value"))?;
+        seed.deserialize(View {
+            text: self.text,
+            ..self.view.child(index)
+        })
     }
 }
 
@@ -711,6 +848,17 @@ impl<'de> Deserialize<'de> for JsonKey<'de> {
     }
 }
 
+/// A node text-field value YAML did not type as a string, read as its exact
+/// source text (`ARA230`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct RecoveredText {
+    /// One-based source line where the value starts.
+    pub line: usize,
+    /// Zero-based byte column of the value's start within that line.
+    pub col: usize,
+    pub text: String,
+}
+
 pub(crate) fn parse(source: &str) -> Result<RawDoc, String> {
     #[cfg(feature = "native")]
     if let Some(doc) = json_doc(source) {
@@ -719,8 +867,21 @@ pub(crate) fn parse(source: &str) -> Result<RawDoc, String> {
     let depth = inspected_depth(source)?;
     // Preserve the existing bounded YAML semantics without deeply recursive serde.
     if depth <= MAX_METADATA_DEPTH {
-        return serde_saphyr::from_str::<RawDoc>(source).map_err(|e| e.to_string());
+        return serde_saphyr::from_str::<RawDoc>(source).or_else(|e| {
+            // Only a document that recovers a non-text value takes the arena
+            // result; any other failure keeps the original error.
+            arena_doc(source)
+                .ok()
+                .filter(|doc| !doc.recovered.is_empty())
+                .ok_or_else(|| e.to_string())
+        });
     }
+    arena_doc(source)
+}
+
+/// [`parse`] through the arena, which bounds depth without recursive serde
+/// and reads non-text values in node text fields as source text.
+fn arena_doc(source: &str) -> Result<RawDoc, String> {
     let arena = Arena::parse(source, false)?;
     let mut doc =
         RawDoc::deserialize(arena.view(0, &["tree", "root"], 0)).map_err(|e| e.to_string())?;
@@ -750,6 +911,7 @@ pub(crate) fn parse(source: &str) -> Result<RawDoc, String> {
                 .map_err(|e| e.to_string())?;
         }
     }
+    doc.recovered = arena.recovered.take();
     Ok(doc)
 }
 

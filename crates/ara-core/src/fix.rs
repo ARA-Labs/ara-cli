@@ -317,6 +317,7 @@ impl Applier {
             LintRuleId::ClaimHeaderStyle => {
                 self.guard_ara004(diag, &base, &cand, new_claims.as_deref())
             }
+            LintRuleId::UnquotedTreeScalar => guard_ara008(&base, &cand),
         };
         if !accept {
             self.fail(diag, guard_rejection_reason(diag.rule, &base, &cand));
@@ -441,6 +442,23 @@ impl Applier {
 
 /// ARA001 structural guard: both parses must be clean normalized outcomes and
 /// the root→tree rewrite must be a semantic no-op.
+/// Quoting a recovered value keeps every normalized field: the quoted text is
+/// the text the parser already recovered. It adds no error and removes one
+/// `ARA230`.
+fn guard_ara008(base: &ParseOutcome, cand: &ParseOutcome) -> bool {
+    let (ParseOutcome::Normalized(mb, rb), ParseOutcome::Normalized(mc, rc)) = (base, cand) else {
+        return false;
+    };
+    let recovered = |report: &crate::ParseReport| {
+        report
+            .warnings()
+            .iter()
+            .filter(|d| d.code == crate::RuleCode::NonTextTreeField)
+            .count()
+    };
+    errors_subset(cand, base) && mb == mc && recovered(rc) < recovered(rb)
+}
+
 fn guard_ara001(base: &ParseOutcome, cand: &ParseOutcome) -> bool {
     match (base, cand) {
         (ParseOutcome::Normalized(mb, rb), ParseOutcome::Normalized(mc, rc)) => {
@@ -698,6 +716,9 @@ fn applied_desc(rule: LintRuleId) -> String {
         LintRuleId::PivotTriggerAlias => {
             "renamed `trigger:` to `reason:` on a pivot node".to_string()
         }
+        LintRuleId::UnquotedTreeScalar => {
+            "quoted a node text value YAML did not read as a string".to_string()
+        }
     }
 }
 
@@ -725,6 +746,9 @@ fn guard_rejection_reason(rule: LintRuleId, base: &ParseOutcome, cand: &ParseOut
                 "claim-header rewrite would introduce a new parse error occurrence; left unchanged"
                     .to_string()
             }
+            LintRuleId::UnquotedTreeScalar => {
+                "quoting would introduce a new parse error occurrence; left unchanged".to_string()
+            }
             LintRuleId::RootDialect => guard_reason(rule),
         };
     }
@@ -748,6 +772,9 @@ fn guard_reason(rule: LintRuleId) -> String {
         LintRuleId::ClaimHeaderStyle => {
             "claim-header rewrite would change more than the recovered claim; left unchanged"
                 .to_string()
+        }
+        LintRuleId::UnquotedTreeScalar => {
+            "quoting would change the parsed manifest; left unchanged".to_string()
         }
     }
 }
