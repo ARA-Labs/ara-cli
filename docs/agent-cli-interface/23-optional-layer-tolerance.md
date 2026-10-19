@@ -88,14 +88,18 @@ because a dropped entry may already hold that number. Writes validate in
   dash and bracket headings merge exactly like colon headings. That merge test
   also passes on 0.1.33, because merge identity already came from the reader
   and write heading lookups; it guards the shared behavior.
-- Local real-ARA rerun, 0.1.33 → 0.1.34 (`ara ls --json`):
+- Local real-ARA rerun, 0.1.33 → 0.1.34 (`ara ls --json`), 13 research ARAs
+  plus `nanogpt-speedrun`:
 
 | ARA | 0.1.33 | 0.1.34 |
 |---|---|---|
-| `ara-paperbench/.../nanogpt-speedrun` | `incomplete_artifact` ARA217 | readable, exit 0 |
-| `Lara/ara` | `incomplete_artifact` ARA217, ARA218 | readable; `staging/observations.yaml` incomplete |
-| `DissClaimer/ara`, `MSI/ara` | `invalid_artifact` ARA100 | unchanged (out of scope) |
-| `mandate/ara`, `mandate-eval/ara` | `invalid_artifact` ARA105 | unchanged (out of scope) |
+| `ara-paperbench/.../nanogpt-speedrun` | `incomplete_artifact` ARA217 | readable |
+| `808-Heartbreak`, `music/808`, `SOULFuzz` | `incomplete_artifact` ARA217 | readable |
+| `FuzzCC` | `incomplete_artifact` ARA217 | readable; one session file incomplete |
+| `Lara` | `incomplete_artifact` ARA217, ARA218 | readable; `staging/observations.yaml` incomplete |
+| `DissClaimer`, `MSI` | `invalid_artifact` ARA100 | unchanged (out of scope) |
+| `mandate`, `mandate-eval` | `invalid_artifact` ARA105 | unchanged (out of scope) |
+| `AgentFuzzBench` | `invalid_artifact` ARA112 | unchanged (out of scope) |
 | `rsi-bench`, `rsi-chip-bench`, `sierra` | readable | readable |
 
-The four other ARAs from the #128 audit were not available locally.
+The remaining refusals are exactly the record errors #128 leaves out of scope.
