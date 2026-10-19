@@ -57,9 +57,11 @@ or lock failure. `--fields` projects supported fields while retaining
 transaction/result identity. A multi-address `show` in which some
 addresses fail is a partial result: it prints on stdout and exits 1
 ([partial reads](#partial-multi-address-reads)). A read over an incomplete
-optional layer does the same ([below](#incomplete-optional-layers)). JSON excerpts are bounded to 160 Unicode
+optional layer is not a failure: it exits 0 and reports the gap in
+`incomplete` ([below](#incomplete-optional-layers)). JSON excerpts are bounded to 160 Unicode
 characters; `--full` retains source content. Incomplete source representation
-must not be reported as success.
+must not be reported as success: a refusal or an explicit `incomplete` report
+says so.
 
 ### Observation inactivity in `ls --unfinished`
 
@@ -608,10 +610,10 @@ other layers. `ls`, `show` and `find` print their result and add:
 `reason` joins the first line of each distinct message for that file. Both
 fields are absent when every layer was represented. Brief text adds one
 `incomplete: <path> (<codes>)` line on stderr after the diagnostics summary.
-The command exits 1, because incomplete source representation is not reported
-as success. Duplicate records stay readable: `ls --type observation` lists
+The read exits 0, like a read with any other warning: the request succeeded,
+and `incomplete` reports the gap without counting as a failed request. Duplicate records stay readable: `ls --type observation` lists
 both `O01` rows. `status` keeps `complete: false` with the same `incomplete`
-list, but its `counts` and `next_ids` stay available; only the next ID of an
+list and still exits 1 when incomplete, but its `counts` and `next_ids` stay available; only the next ID of an
 affected prefix (`O`, `T`, `E`, `H`) is null, with a `next_id_errors` entry
 coded `next_id.incomplete_layer`, because a dropped entry may already hold
 that number. Writes are unaffected: they validate in `ara-core` and reject only

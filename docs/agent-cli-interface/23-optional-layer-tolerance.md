@@ -56,12 +56,19 @@ what a tree node says.
 results when any optional-layer file is affected, and nothing otherwise. Brief
 text prints `incomplete: <path> (<codes>)` after the diagnostics summary.
 
-The command exits 1. The existing contract says incomplete source
-representation is never reported as success, and `complete: false` already
-mapped to exit 1. Partial multi-address `show` made the same trade-off
-([plan 22](22-reader-turn-overhead.md)): output on stdout, a countable
-non-zero exit. The shared skill access guide and the reader skill now say that
-an exit-1 read with `incomplete` carries valid results.
+`ls`, `show` and `find` exit 0. An implementation first exited 1, reusing
+the `status` rule that `complete: false` exits 1; that rule existed because
+only `status` emitted `complete`. Exit 1 on a read means the request failed:
+partial multi-address `show` exits 1 because an address the caller asked for
+did not resolve, and the reader harness counts those exits as agent failures.
+Here the request succeeds (`show N01` returns N01 in full), the gap is often
+in a file the caller never asked about, and `ARA218` loses nothing at all, so
+exit 1 would report artifact defects as agent errors. Reads already return
+other warnings with exit 0; the `incomplete` report keeps the gap explicit, so
+it is not reported as plain success. `status` still exits 1 when
+`complete` is false, because reporting completeness is its job. The shared
+skill access guide and the reader skill say that `incomplete` names files
+that were not fully read while the rest of the output is valid.
 
 `status` keeps `complete` all-or-nothing, but `counts` and `next_ids` stay
 available unless an error or node-scoped warning exists. The next ID of an

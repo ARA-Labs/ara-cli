@@ -1,7 +1,8 @@
 //! Optional-layer tolerance (#128): typed entry headings accept dash
 //! separators and a bracketed status, and an `ARA217`/`ARA218` warning about
 //! one optional-layer file no longer hides the rest of the artifact. Such a
-//! read prints its result, names the file under `incomplete`, and exits 1.
+//! read prints its result, names the file under `incomplete`, and exits 0;
+//! only `status` exits 1 when incomplete.
 use assert_cmd::Command;
 use serde_json::{Value, json};
 use std::path::Path;
@@ -43,7 +44,7 @@ fn run(root: &Path, args: &[&str]) -> Value {
 }
 /// A read that went through with an incomplete optional layer.
 fn partial(root: &Path, args: &[&str]) -> Value {
-    let value = read(root, args, 1);
+    let value = read(root, args, 0);
     assert_eq!(value["complete"], false, "{value}");
     value
 }
@@ -243,7 +244,7 @@ fn brief_reads_name_the_incomplete_file() {
         .arg(dir.path())
         .arg("ls")
         .assert()
-        .code(1)
+        .success()
         .get_output()
         .clone();
     assert!(

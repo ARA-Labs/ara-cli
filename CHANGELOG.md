@@ -120,7 +120,8 @@ All notable changes to this project are documented here. The format follows
   `knowledge_paths` registry) no longer refuses `ls`, `show` and `find`
   (0.1.34, plan 23, #128). The read prints its result with `complete: false`
   and `incomplete: [{path, codes, reason}]`, brief text adds an
-  `incomplete: <path> (<codes>)` line, and the command exits 1. `status` keeps
+  `incomplete: <path> (<codes>)` line, and the read exits 0 like any read
+  with warnings (`status` still exits 1 when incomplete). `status` keeps
   its counts and withholds only the next ID of an affected prefix
   (`next_id.incomplete_layer`). Node-scoped `ARA217`, `ARA222` and `ARA226`
   still refuse with `incomplete_artifact`.

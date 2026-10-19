@@ -54,7 +54,7 @@ source document, so read around a hit with the `--document` window; `show <addre
 counts inside that address. A truncated block ends with `next:`; rerun with that `--lines`. On
 `unknown_id` or `ambiguous_heading`, pick from the printed `candidates:`. A line
 `incomplete: <path> (<codes>)` means that one file was not fully read; the rest of the output is
-valid even though the command exits 1. Report any other `ara` error as it is; never fall back to
+valid. Report any other `ara` error as it is; never fall back to
 file tools on knowledge paths.
 
 ## Inputs
