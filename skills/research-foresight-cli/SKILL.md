@@ -52,8 +52,10 @@ ara -C <ara_dir> show '<address>' --max-bytes 32768
 Use only addresses that `ls`, `find` or an error printed. `find` prints line numbers of the whole
 source document, so read around a hit with the `--document` window; `show <address> --lines`
 counts inside that address. A truncated block ends with `next:`; rerun with that `--lines`. On
-`unknown_id` or `ambiguous_heading`, pick from the printed `candidates:`. Report any other `ara`
-error as it is; never fall back to file tools on knowledge paths.
+`unknown_id` or `ambiguous_heading`, pick from the printed `candidates:`. A line
+`incomplete: <path> (<codes>)` means that one file was not fully read; the rest of the output is
+valid even though the command exits 1. Report any other `ara` error as it is; never fall back to
+file tools on knowledge paths.
 
 ## Inputs
 

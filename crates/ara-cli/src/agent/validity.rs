@@ -13,8 +13,13 @@
 //! not any dangling ID names it. A dropped claim looks exactly like a dangling `ARA107`
 //! reference, so that parse loss refuses as it did before. The report keeps
 //! each diagnostic's original severity. Writes never use this tolerance.
+//!
+//! An `ARA217`/`ARA218` warning about one optional-layer file (observations,
+//! taste log, sessions, experiments, heuristics, the knowledge registry) does
+//! not refuse: the read goes ahead and [`with_coverage`] names the file under
+//! `incomplete`. Node-scoped `ARA217`, `ARA222` and `ARA226` still refuse.
 use crate::output::AgentError;
-use ara_core::{ClaimId, Manifest, ParseReport, RuleCode};
+use ara_core::{ClaimId, Diagnostic, Manifest, ParseReport, RuleCode};
 use serde_json::{Value, json};
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -48,6 +53,85 @@ const UNREPRESENTED: [RuleCode; 4] = [
     RuleCode::MalformedNodeAnnotation,
 ];
 
+/// Optional-layer files whose `ARA217`/`ARA218` warnings read through.
+const OPTIONAL_LAYER_FILES: [&str; 5] = [
+    "staging/observations.yaml",
+    "trace/taste_log.yaml",
+    "logic/experiments.md",
+    "logic/solution/heuristics.md",
+    // An invalid registry leaves the registered documents unloaded.
+    "PAPER.md.knowledge_paths",
+];
+
+/// Session records and their index, one optional layer.
+const SESSIONS: &str = "trace/sessions/";
+
+/// A diagnostic path without its `:line` suffix.
+fn diagnostic_file(path: &str) -> &str {
+    match path.rsplit_once(':') {
+        Some((file, line)) if !line.is_empty() && line.bytes().all(|b| b.is_ascii_digit()) => file,
+        _ => path,
+    }
+}
+
+/// The optional-layer file a warning leaves incomplete, if it reads through.
+fn optional_layer(diagnostic: &Diagnostic) -> Option<&str> {
+    if !matches!(
+        diagnostic.code,
+        RuleCode::MalformedAgentLayer | RuleCode::DuplicateAgentId
+    ) {
+        return None;
+    }
+    let file = diagnostic_file(&diagnostic.path);
+    (OPTIONAL_LAYER_FILES.contains(&file) || file.starts_with(SESSIONS)).then_some(file)
+}
+
+/// `{path, codes, reason}` for each optional-layer file a read could not
+/// fully represent, in first-diagnostic order. `reason` joins the first line
+/// of each distinct message.
+pub fn incomplete(report: &ParseReport) -> Vec<Value> {
+    let mut files: Vec<(&str, Vec<RuleCode>, Vec<&str>)> = Vec::new();
+    for diagnostic in report.warnings() {
+        let Some(file) = optional_layer(diagnostic) else {
+            continue;
+        };
+        let index = match files.iter().position(|(path, ..)| *path == file) {
+            Some(index) => index,
+            None => {
+                files.push((file, Vec::new(), Vec::new()));
+                files.len() - 1
+            }
+        };
+        let (_, codes, reasons) = &mut files[index];
+        if !codes.contains(&diagnostic.code) {
+            codes.push(diagnostic.code);
+        }
+        let reason = diagnostic.message.lines().next().unwrap_or_default();
+        if !reasons.contains(&reason) {
+            reasons.push(reason);
+        }
+    }
+    files
+        .into_iter()
+        .map(
+            |(path, codes, reasons)| json!({"path":path,"codes":codes,"reason":reasons.join("; ")}),
+        )
+        .collect()
+}
+
+/// A structural read result with `complete: false` and `incomplete` added
+/// when an optional layer was not fully represented; unchanged otherwise.
+pub fn with_coverage(mut value: Value, report: &ParseReport) -> Value {
+    let incomplete = incomplete(report);
+    if !incomplete.is_empty()
+        && let Value::Object(object) = &mut value
+    {
+        object.insert("complete".into(), json!(false));
+        object.insert("incomplete".into(), json!(incomplete));
+    }
+    value
+}
+
 /// Whether every optional layer and node annotation was represented: none of
 /// the [`UNREPRESENTED`] warnings is present. `status` uses this as part of
 /// `complete`; structural reads refuse with `incomplete_artifact` without it.
@@ -56,6 +140,33 @@ pub fn representable(report: &ParseReport) -> bool {
         .warnings()
         .iter()
         .any(|diagnostic| UNREPRESENTED.contains(&diagnostic.code))
+}
+
+/// [`representable`], ignoring optional-layer warnings: every node and node
+/// annotation was represented, so counts stay meaningful.
+pub fn nodes_representable(report: &ParseReport) -> bool {
+    !report.warnings().iter().any(|diagnostic| {
+        UNREPRESENTED.contains(&diagnostic.code) && optional_layer(diagnostic).is_none()
+    })
+}
+
+/// Native ID prefixes whose next ID is unknown because their optional-layer
+/// file is incomplete: a dropped entry may already hold the next number.
+pub fn incomplete_prefixes(report: &ParseReport) -> BTreeMap<char, &str> {
+    let mut prefixes = BTreeMap::new();
+    for diagnostic in report.warnings() {
+        let prefix = match optional_layer(diagnostic) {
+            Some("staging/observations.yaml") => 'O',
+            Some("trace/taste_log.yaml") => 'T',
+            Some("logic/experiments.md") => 'E',
+            Some("logic/solution/heuristics.md") => 'H',
+            _ => continue,
+        };
+        prefixes
+            .entry(prefix)
+            .or_insert_with(|| diagnostic_file(&diagnostic.path));
+    }
+    prefixes
 }
 
 /// Distinct error codes in report order, filtered by `keep`.
@@ -193,7 +304,8 @@ fn dangling_claim_headings(dangling: &BTreeSet<String>, claims: &str) -> Vec<Str
 
 /// The structural-read refusal for a load, if any: `invalid_artifact` for a
 /// blocking error, or for a read-through error while a typed document lost
-/// entries, and `incomplete_artifact` for an unrepresented layer.
+/// entries, and `incomplete_artifact` for an unrepresented node annotation.
+/// Optional-layer warnings never refuse ([`with_coverage`]).
 pub fn read_refusal(
     report: &ParseReport,
     sources: &BTreeMap<String, String>,
@@ -215,7 +327,12 @@ pub fn read_refusal(
     }
     let unrepresented: Vec<RuleCode> = UNREPRESENTED
         .into_iter()
-        .filter(|code| report.warnings().iter().any(|d| d.code == *code))
+        .filter(|code| {
+            report
+                .warnings()
+                .iter()
+                .any(|d| d.code == *code && optional_layer(d).is_none())
+        })
         .collect();
     (!unrepresented.is_empty()).then(|| refusal("incomplete_artifact", report, unrepresented))
 }

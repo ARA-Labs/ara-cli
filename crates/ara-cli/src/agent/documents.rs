@@ -347,7 +347,10 @@ pub(super) fn show_document(
     full: bool,
 ) -> Result<Value, AgentError> {
     let row = document_row(artifact, document, headings, source, full)?;
-    Ok(json!({"format":"ara.show/v1","entries":[row],"diagnostics":diagnostics(&artifact.report)}))
+    Ok(super::validity::with_coverage(
+        json!({"format":"ara.show/v1","entries":[row],"diagnostics":diagnostics(&artifact.report)}),
+        &artifact.report,
+    ))
 }
 
 /// Exact tiers, then an archived identity redirect, then tolerant tiers.

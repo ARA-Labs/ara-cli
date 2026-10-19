@@ -126,6 +126,7 @@ pub fn project(value: &mut Value, fields: Option<&str>) -> Result<(), AgentError
                     | "target"
                     | "unresolved_count"
                     | "complete"
+                    | "incomplete"
                     | "diagnostics"
                     | "advisories"
                     | "duplicate_candidates"

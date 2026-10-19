@@ -233,31 +233,45 @@ pub(crate) fn parse_taste(source: &str, file: &str, report: &mut ParseReport) ->
         .collect()
 }
 
+/// One typed Markdown entry: heading parts, exact source and fields.
+struct TypedEntry {
+    id: String,
+    title: String,
+    /// Bracketed heading status (`## E02 [planned]: Title`).
+    status: Option<String>,
+    body: String,
+    fields: Vec<SourceField>,
+}
+impl TypedEntry {
+    /// The `Status` field, else the bracketed heading status.
+    fn status(&self) -> Option<String> {
+        field(&self.fields, &["Status"]).or_else(|| self.status.clone())
+    }
+}
+
 fn markdown_entries(
     source: &str,
     prefix: char,
     file: &str,
     report: &mut ParseReport,
-) -> Vec<(String, String, String, Vec<SourceField>)> {
+) -> Vec<TypedEntry> {
     let mut seen = BTreeSet::new();
     crate::markdown::document_sections(file, source)
         .into_iter()
         .filter_map(|section| {
-            let Some((id, title)) = section.heading.split_once(':') else {
-                if looks_like_entry(section.heading, prefix) {
-                    malformed(report, file, "malformed entry heading");
+            let Some(heading) = crate::entry_heading::typed_entry_heading(section.heading, prefix)
+            else {
+                if looks_like_entry(section.heading.trim_start(), prefix) {
+                    let line = source[..section.range.start].matches('\n').count() + 1;
+                    malformed(
+                        report,
+                        &format!("{file}:{line}"),
+                        format!("malformed entry heading `{}`", section.heading.trim()),
+                    );
                 }
                 return None;
             };
-            let id = id.trim();
-            let title = title.trim();
-            if !is_canonical_id(id, prefix) || title.is_empty() {
-                if looks_like_entry(id, prefix) {
-                    malformed(report, file, "malformed entry heading");
-                }
-                return None;
-            }
-            duplicate(id, &mut seen, file, report);
+            duplicate(heading.id, &mut seen, file, report);
             let fields = crate::markdown::fields(source, section.body_range)
                 .into_iter()
                 .map(|f| SourceField {
@@ -265,12 +279,13 @@ fn markdown_entries(
                     value: crate::markdown::decode_field(&f).into_owned(),
                 })
                 .collect();
-            Some((
-                id.to_string(),
-                title.to_string(),
-                source[section.range].to_string(),
+            Some(TypedEntry {
+                id: heading.id.to_string(),
+                title: heading.title.to_string(),
+                status: heading.status.map(str::to_string),
+                body: source[section.range].to_string(),
                 fields,
-            ))
+            })
         })
         .collect()
 }
@@ -295,19 +310,29 @@ pub(crate) fn parse_heuristics(
 ) -> Vec<Heuristic> {
     markdown_entries(source, 'H', file, report)
         .into_iter()
-        .map(|(id, title, body, fields)| Heuristic {
-            id: HeuristicId::new(id),
-            title,
-            source_file: file.to_string(),
-            body,
-            rationale: field(&fields, &["Rationale"]),
-            sources: field(&fields, &["Sources"]),
-            status: field(&fields, &["Status"]),
-            provenance: field(&fields, &["Provenance"]),
-            sensitivity: field(&fields, &["Sensitivity"]),
-            code_ref: field(&fields, &["Code ref"]),
-            last_revised: field(&fields, &["Last revised"]),
-            source_fields: fields,
+        .map(|entry| {
+            let status = entry.status();
+            let TypedEntry {
+                id,
+                title,
+                body,
+                fields,
+                ..
+            } = entry;
+            Heuristic {
+                id: HeuristicId::new(id),
+                title,
+                source_file: file.to_string(),
+                body,
+                rationale: field(&fields, &["Rationale"]),
+                sources: field(&fields, &["Sources"]),
+                status,
+                provenance: field(&fields, &["Provenance"]),
+                sensitivity: field(&fields, &["Sensitivity"]),
+                code_ref: field(&fields, &["Code ref"]),
+                last_revised: field(&fields, &["Last revised"]),
+                source_fields: fields,
+            }
         })
         .collect()
 }
@@ -318,35 +343,45 @@ pub(crate) fn parse_experiments(
 ) -> Vec<ExperimentPlan> {
     markdown_entries(source, 'E', file, report)
         .into_iter()
-        .map(|(id, title, body, fields)| ExperimentPlan {
-            id: ExperimentId::new(id),
-            title,
-            source_file: file.to_string(),
-            body,
-            status: field(&fields, &["Status"]),
-            evidence_output: field(&fields, &["Evidence output"]),
-            question: field(&fields, &["Question"]),
-            setup: field(&fields, &["Setup"]),
-            prediction: field(
-                &fields,
-                &[
-                    "Prediction",
-                    "Predictions",
-                    "Prediction (directional)",
-                    "Predictions (directional)",
-                ],
-            ),
-            falsification: field(
-                &fields,
-                &[
-                    "Falsification",
-                    "Falsification criteria",
-                    "Falsification condition",
-                ],
-            ),
-            provenance: field(&fields, &["Provenance"]),
-            last_revised: field(&fields, &["Last revised"]),
-            source_fields: fields,
+        .map(|entry| {
+            let status = entry.status();
+            let TypedEntry {
+                id,
+                title,
+                body,
+                fields,
+                ..
+            } = entry;
+            ExperimentPlan {
+                id: ExperimentId::new(id),
+                title,
+                source_file: file.to_string(),
+                body,
+                status,
+                evidence_output: field(&fields, &["Evidence output"]),
+                question: field(&fields, &["Question"]),
+                setup: field(&fields, &["Setup"]),
+                prediction: field(
+                    &fields,
+                    &[
+                        "Prediction",
+                        "Predictions",
+                        "Prediction (directional)",
+                        "Predictions (directional)",
+                    ],
+                ),
+                falsification: field(
+                    &fields,
+                    &[
+                        "Falsification",
+                        "Falsification criteria",
+                        "Falsification condition",
+                    ],
+                ),
+                provenance: field(&fields, &["Provenance"]),
+                last_revised: field(&fields, &["Last revised"]),
+                source_fields: fields,
+            }
         })
         .collect()
 }

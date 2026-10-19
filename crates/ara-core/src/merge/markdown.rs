@@ -201,17 +201,18 @@ pub(crate) fn selector_key(selector: &EntrySelector) -> Option<String> {
         }
     }
 }
-/// The title of an identified heading, split as the claims parser splits a
-/// claim heading (`:` or a spaced dash), else after the first `:`.
+/// The title of an identified heading, split as the readers split a native
+/// entry heading (`:`, a spaced dash, or a bracketed status first), else after
+/// the first `:`.
 fn identified_title(heading: &str) -> &str {
-    crate::claims::claim_heading(heading).map_or_else(
+    crate::entry_heading::native_entry_heading(heading).map_or_else(
         || {
             heading
                 .split_once(':')
                 .map_or(heading, |(_, title)| title)
                 .trim()
         },
-        |(_, title)| title,
+        |entry| entry.title,
     )
 }
 fn rw_id(heading: &str) -> Option<&str> {
@@ -1900,5 +1901,22 @@ mod selector_tests {
                 entry: None
             })
         );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::identified_title;
+
+    #[test]
+    fn identified_titles_follow_the_shared_entry_heading_parser() {
+        for (heading, title) in [
+            ("C01 \u{2014} Speedup: fast", "Speedup: fast"),
+            ("E01 \u{2014} Baseline", "Baseline"),
+            ("E02 [planned]: Reception", "Reception"),
+            ("Overview: notes", "notes"),
+        ] {
+            assert_eq!(identified_title(heading), title, "{heading:?}");
+        }
     }
 }

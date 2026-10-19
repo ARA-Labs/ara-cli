@@ -208,13 +208,23 @@ fn retained_refusals_name_their_blocking_codes() {
             "ARA100",
             vec![("trace/exploration_tree.yaml", "tree: not-a-list\n")],
         ),
+        // Node-scoped warnings still refuse; optional-layer files read
+        // through (agent_layer_tolerance.rs).
+        (
+            "incomplete_artifact",
+            "ARA222",
+            vec![(
+                "trace/exploration_tree.yaml",
+                "tree:\n  - id: N01\n    type: question\n    same_as: 7\n",
+            )],
+        ),
         (
             "incomplete_artifact",
             "ARA217",
-            vec![
-                ("trace/exploration_tree.yaml", q),
-                ("staging/observations.yaml", "observations: wrong-shape\n"),
-            ],
+            vec![(
+                "trace/exploration_tree.yaml",
+                "tree:\n  - id: N01\n    type: pivot\n    from: a\n    prior_direction: b\n",
+            )],
         ),
     ];
     for (error, code, files) in cases {

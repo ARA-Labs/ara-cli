@@ -95,8 +95,10 @@ pub fn find(root: &Path, args: &FindArgs) -> Result<Value, AgentError> {
         .iter()
         .map(|hit| results.row(hit, args.cap()))
         .collect::<Result<Vec<_>, _>>()?;
-    let mut value =
-        json!({"format":"ara.find/v1","results":rows,"diagnostics":artifact.diagnostics()});
+    let mut value = super::validity::with_coverage(
+        json!({"format":"ara.find/v1","results":rows,"diagnostics":artifact.diagnostics()}),
+        &artifact.report,
+    );
     if let Some(budget) = budget {
         fit(&mut value, budget, args.output.brief(), |cap| {
             results.row(&hits[0], Some(cap))

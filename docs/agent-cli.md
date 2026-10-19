@@ -40,7 +40,7 @@ ara -C ./ara find 'failure boundary' --limit 10 --full --json
 
 | Command | Behavior | Brief default text |
 |---|---|---|
-| `status` | Layer counts, diagnostics and advisory next IDs | Counts and next IDs only when complete; error and warning counts with rule codes |
+| `status` | Layer counts, diagnostics and advisory next IDs | Counts and next IDs unless an error or node-scoped warning exists; error and warning counts with rule codes |
 | `ls` | Source-order entries; intersecting type, subtree, date, status and provenance filters | No arguments: one line per knowledge document with entry counts by kind (or heading count) and line count, then the direct-file roots. `ls <path>`: that document's entries, or its heading addresses when it has none. Filters: matching entries |
 | `show` | Entry projection, relations via `--with`, full body or bounded native document; `--lines A:B` windows and `--max-bytes` budgets | One labeled block per selection: native source with its `source_digest`, or a projection without a digest; 16 KiB budget, paged at whole lines |
 | `show --with path` | Root-to-node nesting, with cross-edges kept distinct | Root-to-node IDs, indented by depth |
@@ -55,8 +55,9 @@ and applicable ID, line or details. Exit 0 means completion, exit 1 means a
 semantic rejection or unresolved merge, and exit 2 means setup, argument, I/O
 or lock failure. `--fields` projects supported fields while retaining
 transaction/result identity. A multi-address `show` in which some
-addresses fail is the one partial result: it prints on stdout and exits 1
-([partial reads](#partial-multi-address-reads)). JSON excerpts are bounded to 160 Unicode
+addresses fail is a partial result: it prints on stdout and exits 1
+([partial reads](#partial-multi-address-reads)). A read over an incomplete
+optional layer does the same ([below](#incomplete-optional-layers)). JSON excerpts are bounded to 160 Unicode
 characters; `--full` retains source content. Incomplete source representation
 must not be reported as success.
 
@@ -575,15 +576,46 @@ fence, and conservatively a claim title such as `## C02: Extends C01` all
 count). Dangling dependency IDs come from the parsed claims; an `ARA107` or
 `ARA109` whose claim ID cannot be identified also refuses. A dropped claim produces the same `ARA107` as a dangling
 reference, so this parse loss still refuses with `invalid_artifact` and `details.unrepresented` (`path:line:
-reason`). `ARA217`, `ARA218`, `ARA222` and `ARA226` warnings still refuse with
-`incomplete_artifact`, and I/O issues still fail as I/O errors. A refusal
+reason`). Node-scoped warnings (`ARA222`, `ARA226`, and `ARA217` on a
+`nodes[…]` path) still refuse with `incomplete_artifact`, and I/O issues still
+fail as I/O errors. A refusal
 (`invalid_artifact` or `incomplete_artifact`) has `details.blocking` (the
 refusing rule codes) and `details.hint` (run `ara check`; source reads still
 work). Relationship reads never invent a missing target: `show --with
 claims,depends_on` omits it and `show --with refs`/`show` on the missing ID return
 `unknown_id`. `status` is unchanged: `complete` is false, and counts and next
 IDs are null, whenever any error exists. `check` and `validate` still fail on
-these errors. Write commands do not use this tolerance; `apply` refuses
+these errors.
+
+### Incomplete optional layers
+
+An `ARA217` or `ARA218` warning about one optional-layer file does not refuse
+structural reads (#128). The files are `staging/observations.yaml`,
+`trace/taste_log.yaml`, `trace/sessions/*` (records and index),
+`logic/experiments.md`, `logic/solution/heuristics.md`, and the PAPER
+`knowledge_paths` registry (`PAPER.md.knowledge_paths`; an invalid registry
+leaves the registered documents unloaded). A malformed session file, a
+non-text observation field, a duplicate observation ID or a dropped
+experiment heading therefore no longer hides the tree, claims and the
+other layers. `ls`, `show` and `find` print their result and add:
+
+```json
+"complete": false,
+"incomplete": [{"path": "staging/observations.yaml", "codes": ["ARA218"],
+                "reason": "duplicate layer id `O01`; all entries retained"}]
+```
+
+`reason` joins the first line of each distinct message for that file. Both
+fields are absent when every layer was represented. Brief text adds one
+`incomplete: <path> (<codes>)` line on stderr after the diagnostics summary.
+The command exits 1, because incomplete source representation is not reported
+as success. Duplicate records stay readable: `ls --type observation` lists
+both `O01` rows. `status` keeps `complete: false` with the same `incomplete`
+list, but its `counts` and `next_ids` stay available; only the next ID of an
+affected prefix (`O`, `T`, `E`, `H`) is null, with a `next_id_errors` entry
+coded `next_id.incomplete_layer`, because a dropped entry may already hold
+that number. Writes are unaffected: they validate in `ara-core` and reject only
+diagnostics the write itself introduces. Write commands do not use this tolerance; `apply` refuses
 any validation error. Explicit `--source` reads keep
 `artifact_validation: "not_run"`, which does not mean the artifact is valid.
 
@@ -608,10 +640,16 @@ that removes the fence is accepted, but claim retention counts the recovered
 claims: a repair that drops one fails with `write.claim_retention` like any
 other edit that retires a canonical claim.
 
-Claim headings accept `:` and a spaced `-`, U+2013 or U+2014 separator
-(`## C04 — Title`). `show C04`, `--heading C04`, `show --with refs` and merge titles
-resolve them, source bytes keep the original spelling, and `ara check` does
-not report them (`ARA004` covers only unspaced dashes).
+Claim, experiment and heuristic headings accept `:` and a spaced `-`, U+2013
+or U+2014 separator (`## C04 — Title`, `## E01 — Title`, `## H03 – Title`).
+Experiment and heuristic headings may also put a bracketed status before the
+separator (`## E02 [in progress]: Title`); it becomes the entry's `status`
+unless a `**Status**` field is present. `show C04`, `--heading C04`, `show
+--with refs` and merge titles resolve them through one shared parser
+(`ara_core::entry_heading`), source bytes keep the original spelling, and
+`ara check` does not report them (`ARA004` covers only unspaced claim
+dashes). Any other heading that starts like an entry ID (`## E2x: Title`)
+drops the entry and warns `ARA217` at `path:line` with the heading text.
 
 ## Authoring commands and source inputs
 
