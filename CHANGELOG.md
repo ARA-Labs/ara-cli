@@ -114,6 +114,17 @@ All notable changes to this project are documented here. The format follows
   read side's identity index.
 
 ### Changed
+- Agent reads: an `ARA217`/`ARA218` warning about one optional-layer file
+  (`staging/observations.yaml`, `trace/taste_log.yaml`, `trace/sessions/*`,
+  `logic/experiments.md`, `logic/solution/heuristics.md`, or the PAPER
+  `knowledge_paths` registry) no longer refuses `ls`, `show` and `find`
+  (0.1.34, plan 23, #128). The read prints its result with `complete: false`
+  and `incomplete: [{path, codes, reason}]`, brief text adds an
+  `incomplete: <path> (<codes>)` line, and the read exits 0 like any read
+  with warnings (`status` still exits 1 when incomplete). `status` keeps
+  its counts and withholds only the next ID of an affected prefix
+  (`next_id.incomplete_layer`). Node-scoped `ARA217`, `ARA222` and `ARA226`
+  still refuse with `incomplete_artifact`.
 - Agent reads: bounded `find` (0.1.32, plan 22 part D). Brief `find` keeps
   the first 3 matched lines of each hit and ends the hit with
   `+K more matching lines`; `--lines-per-hit N` changes the cap and `0`
@@ -260,6 +271,12 @@ All notable changes to this project are documented here. The format follows
   `invalid_document` errors name these roots. Old rubric history stays readable.
 
 ### Fixed
+- Core reads: experiment and heuristic headings accept the separators claims
+  accept (`## E01 — Title`, `## H03 – Title`, `## E02 - Title`) and a bracketed
+  status before the separator (`## E02 [in progress]: Title`), which becomes
+  the entry's `status` unless a `**Status**` field is present (0.1.34, #128).
+  One shared parser serves the reader, merge identity and CLI heading lookup.
+  The `malformed entry heading` warning now gives its line and heading.
 - Core validation: the dependency-cycle check (`ARA110`, 0.1.33) orients
   `also_depends_on` edges from dependency to dependent, the same direction as
   `children:` nesting. A cross-branch diamond, such as a node depending on a

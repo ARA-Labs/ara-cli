@@ -274,10 +274,11 @@ fn native_shorthand(actual: &str, wanted: &str) -> bool {
         && wanted[1..].bytes().all(|byte| byte.is_ascii_digit())
         && heading_id(actual) == Some(wanted)
 }
-/// A claim heading's ID (any native separator), else the text before `:`.
+/// A native entry heading's ID (any separator or bracketed status), else the
+/// text before `:`.
 pub(super) fn heading_id(heading: &str) -> Option<&str> {
-    ara_core::claim_heading(heading)
-        .map(|(id, _)| id)
+    ara_core::native_entry_heading(heading)
+        .map(|entry| entry.id)
         .or_else(|| heading.split_once(':').map(|(id, _)| id.trim()))
 }
 /// A whole-document or selected-range row; the digest covers exactly the

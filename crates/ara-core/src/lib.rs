@@ -9,6 +9,7 @@
 //! See <https://github.com/ARA-Labs/ara-cli>.
 
 mod claims;
+mod entry_heading;
 pub mod figure;
 mod flat_yaml;
 pub mod layout;
@@ -42,6 +43,7 @@ mod sections;
 pub mod write;
 
 pub use claims::{claim_heading, fenced_claim_headings, unparsed_claim_headings};
+pub use entry_heading::{EntryHeading, entry_heading, native_entry_heading, typed_entry_heading};
 pub use layout::{LayoutOptions, LayoutResult, NodePosition, Point, Rect};
 pub use manifest::{
     Binding, BindingRole, BuiltOn, Claim, ClaimId, Concept, Exhibit, ExhibitKind, ExperimentId,

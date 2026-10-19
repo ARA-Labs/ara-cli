@@ -50,6 +50,33 @@ pub(crate) fn print_diagnostics(value: &Value) {
     {
         eprintln!("{summary}");
     }
+    for line in incomplete(value) {
+        eprintln!("{line}");
+    }
+}
+
+/// One `incomplete: path (codes)` line per optional-layer file a read could
+/// not fully represent.
+fn incomplete(value: &Value) -> Vec<String> {
+    let Some(files) = value["incomplete"].as_array() else {
+        return Vec::new();
+    };
+    files
+        .iter()
+        .map(|file| {
+            let codes: Vec<&str> = file["codes"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .filter_map(Value::as_str)
+                .collect();
+            format!(
+                "incomplete: {} ({})",
+                file["path"].as_str().unwrap_or_default(),
+                codes.join(", ")
+            )
+        })
+        .collect()
 }
 
 pub(crate) fn render(value: &Value, out: &mut impl Write) -> std::io::Result<()> {

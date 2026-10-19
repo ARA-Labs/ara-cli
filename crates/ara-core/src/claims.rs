@@ -90,30 +90,11 @@ pub(crate) fn parse_claims(md: &str) -> ParsedClaims {
     }
 }
 
-/// Separators accepted between a claim ID and its title, besides `:`. Each
-/// needs whitespace on both sides, so a hyphen inside an ID or a hyphenated
-/// word never splits a heading.
-const DASH_SEPARATORS: [char; 3] = ['-', '\u{2013}', '\u{2014}'];
-
 /// The `(id, title)` of a level-two claim heading's text: a canonical `C##`
 /// ID, then `:` or a spaced dash separator, then a nonempty title. Both are
 /// trimmed slices of `heading`; the source spelling is never rewritten.
 pub fn claim_heading(heading: &str) -> Option<(&str, &str)> {
-    if let Some((id, title)) = heading.split_once(':')
-        && is_canonical_id(id.trim(), 'C')
-    {
-        let title = title.trim();
-        return (!title.is_empty()).then(|| (id.trim(), title));
-    }
-    let heading = heading.trim_start();
-    let id_end = heading.find(char::is_whitespace)?;
-    let (id, rest) = heading.split_at(id_end);
-    let rest = rest.trim_start();
-    let separator = rest.chars().next()?;
-    let title = rest[separator.len_utf8()..].strip_prefix(char::is_whitespace)?;
-    let title = title.trim();
-    (is_canonical_id(id, 'C') && DASH_SEPARATORS.contains(&separator) && !title.is_empty())
-        .then_some((id, title))
+    crate::entry_heading::entry_heading(heading, 'C')
 }
 
 /// Level-two headings of `logic/claims.md` that start like a claim ID

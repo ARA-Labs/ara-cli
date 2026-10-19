@@ -1083,3 +1083,60 @@ fn dash_claim_titles_with_colons_keep_concurrent_edits_visible() {
     assert!(merged.report.conflicts.is_empty());
     assert_eq!(merged.working.text(CLAIMS).unwrap(), theirs);
 }
+
+/// The merge of base/ours/theirs typed-entry documents, plus its conflicts.
+fn merged_entries(path: &str, base: &str, ours: &str, theirs: &str) -> (String, usize) {
+    let merged = plan(
+        &snapshot(&[(path, base)]),
+        &snapshot(&[(path, ours)]),
+        &snapshot(&[(path, theirs)]),
+    );
+    (
+        merged.working.text(path).unwrap().to_owned(),
+        merged.report.conflicts.len(),
+    )
+}
+
+#[test]
+fn dash_and_bracket_typed_headings_merge_like_colon_headings() {
+    // #128: merge identifies typed entries as the reader does. Concurrent
+    // additions of the same numeric ID renumber the incoming entry, and a
+    // title edit merges with a field edit, whatever the heading separator.
+    for (path, prefix, open, separator) in [
+        ("logic/experiments.md", "E", "", " \u{2014} "),
+        ("logic/experiments.md", "E", " [planned]", ": "),
+        ("logic/solution/heuristics.md", "H", "", " \u{2013} "),
+    ] {
+        let doc = |separator: &str, entries: &[(&str, &str)]| {
+            let mut text = String::from("# Entries\n\n");
+            for (id, title) in entries {
+                text.push_str(&format!(
+                    "## {prefix}{id}{separator}{title}\n- **Rationale**: {title}\n\n"
+                ));
+            }
+            text
+        };
+        let heading = format!("{open}{separator}");
+        let base = [("01", "Base")];
+        let ours = [("01", "Base renamed"), ("02", "Ours")];
+        let theirs = [("01", "Base"), ("02", "Theirs")];
+        let colon = merged_entries(
+            path,
+            &doc(": ", &base),
+            &doc(": ", &ours),
+            &doc(": ", &theirs),
+        );
+        let other = merged_entries(
+            path,
+            &doc(&heading, &base),
+            &doc(&heading, &ours),
+            &doc(&heading, &theirs),
+        );
+        assert_eq!(
+            other.0.replace(&heading, ": "),
+            colon.0,
+            "{prefix}{heading:?}"
+        );
+        assert_eq!(other.1, colon.1, "{prefix}{heading:?}");
+    }
+}

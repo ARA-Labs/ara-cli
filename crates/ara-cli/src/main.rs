@@ -93,8 +93,10 @@ fn agent_command(
         context::discover(directory)
     }
     .and_then(|root| command(&root));
+    // A structural read over an incomplete optional layer is a warning: its
+    // `complete: false` and `incomplete` report the gap without failing.
     let incomplete = result.as_ref().is_ok_and(|value| {
-        value.get("complete") == Some(&serde_json::Value::Bool(false))
+        format == "ara.status/v1" && value.get("complete") == Some(&serde_json::Value::Bool(false))
             || format == "ara.show/v1"
                 && value
                     .get("errors")

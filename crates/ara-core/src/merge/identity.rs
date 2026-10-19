@@ -1671,12 +1671,12 @@ pub(crate) fn reference_namespaces(
     }
     Ok(())
 }
-/// The entry ID prefix a heading literal names: a claim heading's ID under
-/// any native separator (`:` or a spaced dash), else the text before `:`.
-/// The result is always a prefix slice of `heading`.
+/// The entry ID prefix a heading literal names: a native entry heading's ID
+/// under any separator (`:`, a spaced dash, or a bracketed status first),
+/// else the text before `:`. The result is always a prefix slice of `heading`.
 pub(crate) fn heading_entry(heading: &str) -> &str {
-    crate::claims::claim_heading(heading)
-        .map(|(id, _)| id)
+    crate::entry_heading::native_entry_heading(heading)
+        .map(|entry| entry.id)
         .filter(|id| heading.starts_with(id))
         .unwrap_or_else(|| heading.split_once(':').map_or(heading, |(id, _)| id))
 }
@@ -1842,6 +1842,26 @@ mod native_record_decode_tests {
                 aliases_bytes(malformed.as_bytes()).unwrap_err().code,
                 "merge.alias_data"
             );
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::heading_entry;
+
+    #[test]
+    fn heading_entries_follow_the_shared_entry_heading_parser() {
+        for (heading, entry) in [
+            ("C01 \u{2014} Claim", "C01"),
+            ("E01 \u{2014} Baseline vs. seed", "E01"),
+            ("H03 \u{2013} Track", "H03"),
+            ("E02 [in progress]: Reception", "E02"),
+            ("E01: Colon", "E01"),
+            ("Overview: notes", "Overview"),
+            ("Plain heading", "Plain heading"),
+        ] {
+            assert_eq!(heading_entry(heading), entry, "{heading:?}");
         }
     }
 }

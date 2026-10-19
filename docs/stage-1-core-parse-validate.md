@@ -188,13 +188,19 @@ file-watching (Stage 4); `E##` evidence resolution (`T-EVIDENCE`); the real-
 corpus schema widening and `ara-2.0` support (`T-REAL-CORPUS`); adopting an
 upstream schema (`T-ARA-SCHEMA`).
 
-## Claim headings
+## Entry headings
 
-A level-two heading is a claim when it is a canonical `C##` ID, then `:` or
-a dash separator (`-`, U+2013 or U+2014) with whitespace on both sides, then a
-nonempty title (`ara_core::claim_heading`). `C01-Title`, `C01 -Title` and
-hyphens inside IDs or prose never split a heading. Source bytes, including the
-claim's `body`, keep the original spelling; duplicate IDs stay errors whatever
-the separator. These spellings are native, so `ara check` does not report
-them; `ARA004` repairs only unspaced or half-spaced dashes, whose claims are
-dropped. Merge reads claim titles with the same split.
+A level-two heading is a claim, experiment or heuristic entry when it is a
+canonical `C##`, `E##` or `H##` ID, then `:` or a dash separator (`-`, U+2013
+or U+2014) with whitespace on both sides, then a nonempty title
+(`ara_core::entry_heading`; `claim_heading` is its `C` case). `C01-Title`,
+`C01 -Title` and hyphens inside IDs or prose never split a heading.
+Experiment and heuristic headings may also carry a bracketed status between
+the ID and the separator (`## E02 [planned]: Title`,
+`ara_core::typed_entry_heading`); a `**Status**` field takes precedence over
+it. Claims accept no bracket. Source bytes, including the entry's `body`, keep
+the original spelling; duplicate IDs stay diagnostics whatever the separator.
+These spellings are native, so `ara check` does not report them; `ARA004`
+repairs only unspaced or half-spaced claim dashes, whose claims are dropped.
+Merge identity (`heading_entry`, `identified_title`) and the CLI heading lookup
+use the same parser (`ara_core::native_entry_heading`).

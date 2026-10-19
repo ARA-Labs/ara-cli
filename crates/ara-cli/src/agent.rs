@@ -560,9 +560,10 @@ pub fn list(root: &Path, args: &ListArgs) -> Result<Value, AgentError> {
         || args.status.is_some()
         || args.provenance.is_some();
     if args.output.brief() && document.is_none() && !filtered && !args.unfinished {
-        return Ok(
+        return Ok(validity::with_coverage(
             json!({"format":"ara.ls/v1","documents":artifact.document_summaries(),"file_access":ara_core::FILE_ACCESS_ROOTS,"diagnostics":diagnostics(&artifact.report)}),
-        );
+            &artifact.report,
+        ));
     }
     let matches_filters = |entry: &Entry<'_>| {
         document.as_ref().is_none_or(|(path, _)| {
@@ -610,7 +611,10 @@ pub fn list(root: &Path, args: &ListArgs) -> Result<Value, AgentError> {
     {
         rows = display::heading_rows(&path, text);
     }
-    Ok(json!({"format":"ara.ls/v1","entries":rows,"diagnostics":diagnostics(&artifact.report)}))
+    Ok(validity::with_coverage(
+        json!({"format":"ara.ls/v1","entries":rows,"diagnostics":diagnostics(&artifact.report)}),
+        &artifact.report,
+    ))
 }
 pub fn show(root: &Path, args: &ShowArgs) -> Result<Value, AgentError> {
     if args.identity {
@@ -946,8 +950,10 @@ fn show_rows(artifact: &Artifact, args: &ShowArgs, brief: bool) -> Result<Value,
         }
         rows.push(value);
     }
-    let mut value =
-        json!({"format":"ara.show/v1","entries":rows,"diagnostics":diagnostics(&artifact.report)});
+    let mut value = validity::with_coverage(
+        json!({"format":"ara.show/v1","entries":rows,"diagnostics":diagnostics(&artifact.report)}),
+        &artifact.report,
+    );
     if !failed.is_empty() {
         value["errors"] = json!(failed);
     }
@@ -990,6 +996,12 @@ pub fn status(root: &Path, brief: bool) -> Result<Value, AgentError> {
     }
     let complete =
         loaded.report.is_ok() && loaded.manifest.is_some() && representable(&loaded.report);
+    // Optional-layer warnings keep `complete` false but leave counts and the
+    // unaffected next IDs available.
+    let counted = loaded.report.is_ok()
+        && loaded.manifest.is_some()
+        && validity::nodes_representable(&loaded.report);
+    let unknown_next = validity::incomplete_prefixes(&loaded.report);
     let mut counts = BTreeMap::<String, usize>::new();
     let mut native_ids = BTreeMap::<char, Vec<String>>::from([
         ('N', Vec::new()),
@@ -1021,7 +1033,7 @@ pub fn status(root: &Path, brief: bool) -> Result<Value, AgentError> {
         }
         latest = manifest.sessions.iter().map(|s| s.id.as_str()).max();
     }
-    let historical = complete
+    let historical = counted
         && (loaded.sources.contains_key("trace/logic_mutations.yaml")
             || loaded.sources.contains_key("trace/merge_log.yaml"));
     let working = if historical {
@@ -1033,9 +1045,16 @@ pub fn status(root: &Path, brief: bool) -> Result<Value, AgentError> {
     };
     let mut next_ids = BTreeMap::new();
     let mut next_id_errors = BTreeMap::new();
-    if complete {
+    if counted {
         for (prefix, ids) in native_ids {
-            let next = if let Some(working) = &working {
+            let next = if let Some(file) = unknown_next.get(&prefix) {
+                Err(ara_core::write::WriteError::semantic(
+                    "next_id.incomplete_layer",
+                    format!(
+                        "`{file}` is not fully represented; run `ara check` and fix it before allocating the next {prefix} ID"
+                    ),
+                ))
+            } else if let Some(working) = &working {
                 working.allocate_id(prefix, &ids, None)
             } else {
                 ara_core::write::source::allocate_id(prefix, &ids, None)
@@ -1056,7 +1075,8 @@ pub fn status(root: &Path, brief: bool) -> Result<Value, AgentError> {
         .iter()
         .try_fold(0u64, |total, file| total.checked_add(file.bytes))
         .ok_or_else(|| AgentError::io("Artifact byte size exceeds u64"))?;
-    let mut value = json!({"format":"ara.status/v1","artifact_location":root.canonicalize().map_err(|error|AgentError::io(error.to_string()))?,"file_count":files.len(),"total_bytes":total_bytes,"files":files,"complete":complete,"counts":if complete {json!(counts)}else{Value::Null},"next_ids":if complete{json!(next_ids)}else{Value::Null},"next_id_errors":next_id_errors,"latest_session":latest,"diagnostics":{"errors":loaded.report.errors().len(),"warnings":loaded.report.warnings().len(),"report":loaded.report}});
+    let mut value = json!({"format":"ara.status/v1","artifact_location":root.canonicalize().map_err(|error|AgentError::io(error.to_string()))?,"file_count":files.len(),"total_bytes":total_bytes,"files":files,"complete":complete,"counts":if counted {json!(counts)}else{Value::Null},"next_ids":if counted{json!(next_ids)}else{Value::Null},"next_id_errors":next_id_errors,"latest_session":latest,"diagnostics":{"errors":loaded.report.errors().len(),"warnings":loaded.report.warnings().len(),"report":loaded.report}});
+    value = validity::with_coverage(value, &loaded.report);
     if brief {
         let codes = |diagnostics: &[ara_core::Diagnostic]| {
             diagnostics
