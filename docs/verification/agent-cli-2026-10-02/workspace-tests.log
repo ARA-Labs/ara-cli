@@ -1,0 +1,1044 @@
+   Compiling ara-cli v0.1.22 (/Users/yfhe/repos/ara/ara-cli/crates/ara-cli)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.77s
+     Running unittests src/lib.rs (target/debug/deps/ara_cli-757b1fafb7be8827)
+
+running 10 tests
+test search::tests::overlap_is_bounded_and_not_a_probability ... ok
+test search::tests::filtering_preserves_scores_and_ties_are_stable ... ok
+test search::tests::posting_scores_match_full_scan_formula_and_tie_order_exactly ... ok
+test search::tests::rare_terms_length_and_repetition_affect_order ... ok
+test search::tests::unicode_punctuation_ids_and_exact_snippets ... ok
+test search::tests::same_title_and_contradictory_results_remain_distinct_candidates ... ok
+test search::tests::batch_pairs_include_prior_added_entries_once_and_bound_output ... ok
+test search::tests::evidence_body_is_never_searchable_but_metadata_is ... ok
+test search::tests::errors_empty_results_and_type_limits_follow_library_contract ... ok
+test search::tests::development_queries_find_attributed_native_identities ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.31s
+
+     Running unittests src/main.rs (target/debug/deps/ara-e0485249e8a41e23)
+
+running 52 tests
+test serve::assets::tests::embedded_viewer_is_populated ... ok
+test serve::cache::tests::etag_is_stable_and_content_addressed ... ok
+test serve::hub::tests::inject_base_href_none_without_head ... ok
+test serve::hub::tests::inject_base_href_inserts_after_head ... ok
+test serve::hub::tests::is_valid_id_accepts_and_rejects ... ok
+test check_config::tests::ignore_exact_code_and_prefix ... ok
+test check_config::tests::severity_overrides_with_prefix_precedence ... ok
+test check_config::tests::fixable_and_unfixable ... ok
+test serve::hub::tests::empty_root_yields_empty_map ... ok
+test check_config::tests::empty_file_equals_builtin_defaults ... ok
+test check_config::tests::select_restricts_and_longest_selector_wins ... ok
+test serve::hub::tests::render_hub_index_empty_says_none ... ok
+test check_config::tests::unknown_codes_and_keys_are_errors ... ok
+test serve::assets::tests::hashed_assets_are_immutable_index_is_not ... ok
+test check_config::tests::discover_outside_a_repo_checks_only_the_ara_dir ... ok
+test serve::hub::tests::nonexistent_root_is_err ... ok
+test check_config::tests::discover_walks_up_to_git_root ... ok
+test serve::hub::tests::broken_ara_is_skipped_not_fatal ... ok
+test serve::hub::tests::rejected_charset_dir_is_skipped ... ok
+test serve::hub::tests::stray_file_at_root_is_ignored ... ok
+test serve::hub::tests::render_hub_index_lists_ids_sorted ... ok
+test serve::hub::tests::ingests_two_good_aras ... ok
+test serve::tests::figure_routes_recheck_containment_and_allow_root_and_contained_symlinks ... ok
+test serve::tests::figure_path_escape_is_rejected ... ok
+test serve::tests::figure_routes_reject_unsafe_missing_and_disguised_images_without_spa_fallback ... ok
+test serve::cache::tests::builds_cache_from_resnet_fixture ... ok
+test serve::tests::embedded_fallback_serves_index_html ... ok
+test serve::tests::parse_both_modes_errs ... ok
+test serve::tests::parse_host_defaults_to_loopback ... ok
+test serve::tests::parse_host_override_is_honored ... ok
+test serve::tests::parse_hub_with_root_ok ... ok
+test serve::hub::tests::duplicate_id_is_skipped_not_overwritten ... ok
+test serve::tests::hub_manifest_reads_are_pure_cache_hits ... ok
+test serve::tests::parse_hub_without_root_errs ... ok
+test serve::tests::parse_local_dir_ok ... ok
+test serve::tests::parse_neither_mode_errs ... ok
+test serve::tests::hub_ara_index_has_base_href_and_no_cache ... ok
+test serve::tests::hub_known_bare_id_redirects_308 ... ok
+test serve::tests::hub_distinct_aras_have_distinct_manifests ... ok
+test serve::tests::hub_manifest_304_on_if_none_match ... ok
+test serve::tests::hub_manifest_returns_json_and_etag ... ok
+test serve::tests::hub_no_head_template_errors_not_baseless ... ok
+test serve::tests::hub_root_index_lists_aras ... ok
+test serve::tests::hub_unknown_manifest_is_404 ... ok
+test serve::tests::hub_shared_asset_is_served ... ok
+test serve::tests::hub_unknown_bare_id_is_404_not_redirect ... ok
+test serve::tests::hub_unknown_root_path_is_404_not_spa ... ok
+test serve::tests::manifest_304_on_matching_if_none_match ... ok
+test serve::tests::local_and_hub_figures_stream_real_rasters_with_ranges_and_conditionals ... ok
+test serve::cache::tests::lean_cache_drops_manifest_but_keeps_json ... ok
+test serve::tests::manifest_returns_json_with_etag ... ok
+test serve::tests::reparse_broadcasts_new_etag ... ok
+
+test result: ok. 52 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running tests/agent_git_merge.rs (target/debug/deps/agent_git_merge-896ebacce5d67f58)
+
+running 29 tests
+git: warning: confstr() failed with code 5: couldn't get path of DARWIN_USER_TEMP_DIR; using /tmp instead
+git: warning: confstr() failed with code 5: couldn't get path of DARWIN_USER_TEMP_DIR; using /tmp instead
+git: warning: confstr() failed with code 5: couldn't get path of DARWIN_USER_TEMP_DIR; using /tmp instead
+git: warning: confstr() failed with code 5: couldn't get path of DARWIN_USER_TEMP_DIR; using /tmp instead
+git: warning: confstr() failed with code 5: couldn't get path of DARWIN_USER_TEMP_DIR; using /tmp instead
+test head_movement_rejects_the_precommit_context_without_disk_changes ... ok
+test nested_submodule_artifact_cannot_be_used_as_an_implicit_repository ... ok
+git: warning: confstr() failed with code 5: couldn't get path of DARWIN_USER_TEMP_DIR; using /tmp instead
+git: warning: confstr() failed with code 5: couldn't get path of DARWIN_USER_TEMP_DIR; using /tmp instead
+git: warning: confstr() failed with code 5: couldn't get path of DARWIN_USER_TEMP_DIR; using /tmp instead
+test git_mode_rejects_shallow_history_without_mutating_worktree_or_index ... ok
+test committed_symlink_and_gitlink_blobs_are_never_followed_or_initialized ... ok
+test directory_and_git_modes_are_mutually_exclusive_before_loading_inputs ... ok
+test missing_or_relocated_historical_root_never_discovers_another_artifact ... ok
+test host_case_and_unicode_normalization_collisions_are_checked_for_directories ... ok
+test criss_cross_bases_and_unrelated_histories_fail_closed ... ok
+test missing_promisor_blob_cannot_invoke_fetch_helpers_or_leave_temporary_inputs ... ok
+test malformed_committed_yaml_is_rejected_and_both_temporary_trees_are_removed ... ok
+test linked_worktree_uses_its_own_head_and_index ... ok
+test nul_tree_paths_preserve_newlines_unicode_spaces_and_pathspec_metacharacters ... ok
+test invalid_revision_blob_revision_outside_and_unborn_repositories_are_operational_errors ... ok
+git: warning: confstr() failed with code 5: couldn't get path of DARWIN_USER_TEMP_DIR; using /tmp instead
+git: warning: confstr() failed with code 5: couldn't get path of DARWIN_USER_TEMP_DIR; using /tmp instead
+test annotated_tags_detached_head_ancestor_and_identical_revisions_work ... ok
+test only_exact_shared_writer_temporary_paths_are_excluded_from_git_inputs ... ok
+test incoming_opaque_change_conflicts_with_dirty_ours_without_touching_git_state ... ok
+git: warning: confstr() failed with code 5: couldn't get path of DARWIN_USER_TEMP_DIR; using /tmp instead
+test conflicting_git_revision_replays_exact_candidates_and_cleans_private_inputs ... ok
+test pinned_raw_inputs_preserve_dirty_disk_index_refs_and_modes ... ok
+test recorded_source_advancement_accepts_descendants_and_rejects_rebase ... ok
+test raw_large_binary_blobs_keep_length_framing_and_all_content_bytes ... ok
+test raw_reserved_tree_path_is_rejected_before_any_escaped_write ... ok
+test source_ref_can_move_but_only_the_pinned_commit_is_consumed ... ok
+test binary_merge_preserves_dirty_ours_and_exact_git_state_and_replays ... ok
+test unsupported_or_missing_git_is_rejected_before_git_state_or_artifact_mutation ... ok
+git: warning: confstr() failed with code 5: couldn't get path of DARWIN_USER_TEMP_DIR; using /tmp instead
+test repository_helpers_filters_hooks_and_inherited_git_redirects_are_inert ... ok
+test truncated_blob_child_is_reaped_and_materialization_is_cleaned_on_failure ... ok
+test git_and_directory_modes_have_identical_content_mappings_and_conflict_evidence ... ok
+test unmerged_index_inside_artifact_rejects_but_outside_does_not ... ok
+test advancing_committed_source_reuses_imports_and_reset_rejects_without_mutation ... ok
+
+test result: ok. 29 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.65s
+
+     Running tests/agent_merge_identity.rs (target/debug/deps/agent_merge_identity-dd6ef02a08c1e972)
+
+running 1 test
+test accepted_colliding_writer_vectors_survive_actual_reads_merge_and_identical_replay ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.41s
+
+     Running tests/agent_reads.rs (target/debug/deps/agent_reads-531fca3b4a569a45)
+
+running 8 tests
+test prepared_transaction_blocks_reads_but_does_not_create_lock ... ok
+test native_annotation_status_filters_preserve_nonexperiment_metadata ... ok
+test structured_refs_have_exact_source_spans_without_duplicate_prose ... ok
+test source_read_recovers_nested_heading_exact_prose_and_digest ... ok
+test missing_selector_argument_and_invalid_artifact_errors_are_separate ... ok
+test search_matches_native_identity_and_reports_no_matches_and_bad_limits ... ok
+test discovery_explicit_environment_and_nearest_self_precedence ... ok
+test nesting_filters_paths_and_relations_do_not_follow_cross_edges ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/agent_writes.rs (target/debug/deps/agent_writes-7ef4585b8cac941f)
+
+running 11 tests
+test guarded_failure_and_malformed_jsonl_report_physical_line_without_partial_write ... ok
+test dry_run_does_not_open_readonly_lock_or_create_operational_state ... ok
+test mutable_claim_file_input_changes_only_selected_field ... ok
+test single_add_replay_preserves_opaque_source_and_native_parent ... ok
+test duplicate_warning_retains_both_identities_and_search_finds_new_native_entry ... ok
+test ordered_batch_bindings_preview_then_commit_exact_native_graph ... ok
+test same_as_uses_authored_order_and_concepts_require_native_headings ... ok
+test promotion_keeps_observation_and_commits_claim_with_final_audit_tuple ... ok
+test missing_only_initialization_preserves_existing_unknown_fields_and_rejects_conflict ... ok
+test scalar_evidence_and_compiler_heuristic_file_values_are_not_split_or_normalized ... ok
+test session_next_turn_and_revision_are_one_atomic_authored_history ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.46s
+
+     Running tests/check_config.rs (target/debug/deps/check_config-7200e6f97343a86b)
+
+running 12 tests
+test validate_ignores_check_config ... ok
+test unreadable_discovered_config_never_falls_back_or_fixes ... ok
+test severity_promotion_affects_exit_code ... ok
+test config_discovered_at_git_root ... ok
+test explicit_config_flag ... ok
+test lint_severity_demotion ... ok
+test severity_demotion_affects_exit_code ... ok
+test ignore_removes_findings_from_output_and_exit_code ... ok
+test unfixable_rule_is_reported_but_not_fixed ... ok
+test prefix_ignore_and_select ... ok
+test empty_config_and_no_config_match_builtin_behavior ... ok
+test invalid_config_is_a_clean_error ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/cli.rs (target/debug/deps/cli-6b75bc7f5cc9e641)
+
+running 32 tests
+test check_clean_official_exits_zero ... ok
+test check_missing_dir_exits_two ... ok
+test check_fixable_without_fix_exits_one ... ok
+test check_json_output_is_valid_json ... ok
+test check_validate_error_exits_one ... ok
+test check_human_output_names_a_rule_for_every_finding ... ok
+test check_json_validate_error_exits_one_with_valid_json ... ok
+test check_json_fixable_exits_one_with_valid_json ... ok
+test layout_missing_dir_exits_nonzero ... ok
+test check_json_names_a_rule_for_every_finding ... ok
+test missing_dir_is_clean_error_not_panic ... ok
+test layout_parse_error_skips_layout ... ok
+test json_output_is_valid_json ... ok
+test check_unknown_field_warns_nonstrict_fails_strict ... ok
+test check_wrong_kind_matrix_warns_and_fails_strict ... ok
+test layout_json_produces_valid_positioned_manifest ... ok
+test missing_tree_file_is_clean_error ... ok
+test check_strict_promotes_warning_to_failure ... ok
+test validate_layout_flag_shows_counts_and_bounds ... ok
+test validate_layout_on_error_matches_validate ... ok
+test validate_official_exits_zero ... ok
+test strict_promotes_warnings_to_failure ... ok
+test validate_json_has_no_rule_codes ... ok
+test validate_human_output_is_byte_stable ... ok
+test validate_broken_json_output_is_byte_stable ... ok
+test validate_broken_exits_nonzero ... ok
+test check_published_fields_strict_fix_twice_byte_identical ... ok
+test check_fix_applies_and_persists ... ok
+test check_fix_is_idempotent ... ok
+test check_fix_applies_alias_while_unrelated_error_remains ... ok
+test check_aliased_fixture_fix_recovers_then_byte_identical ... ok
+test check_fix_recovers_multiple_claims_to_clean_exit ... ok
+
+test result: ok. 32 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.16s
+
+     Running unittests src/lib.rs (target/debug/deps/ara_core-f23178ebe2c17766)
+
+running 214 tests
+test evidence::tests::empty_index_is_empty ... ok
+test evidence::tests::body_bullet_source_and_caption ... ok
+test evidence::tests::index_description_only_no_claims ... ok
+test evidence::tests::index_backtick_and_dual_ext_file_cells ... ok
+test claims::tests::proof_extracts_multiple_evidence_ids ... ok
+test claims::tests::ignores_non_claim_headers_and_deeper_levels ... ok
+test evidence::tests::index_multiple_tables_parsed_independently ... ok
+test claims::tests::tolerates_missing_bullets ... ok
+test claims::tests::detects_duplicate_claim_id ... ok
+test claims::tests::tolerates_dependency_drift ... ok
+test evidence::tests::index_used_by_no_file_no_claims_column ... ok
+test claims::tests::parses_canonical_claims ... ok
+test evidence::tests::index_canonical_file_source_claims_description ... ok
+test evidence::tests::index_reordered_columns_claims_in_col4 ... ok
+test evidence::tests::body_supports_scans_claim_refs ... ok
+test evidence::tests::index_key_refs_header_carries_claims ... ok
+test evidence::tests::resolve_built_on_matches_on_shared_claim ... ok
+test evidence::tests::resolve_empty_when_node_has_no_matching_exhibit ... ok
+test evidence::tests::resolve_node_exhibits_matches_on_shared_claim ... ok
+test figure::tests::references_reject_url_and_traversal_but_keep_filename_punctuation ... ok
+test evidence::tests::legacy_exhibit_json_and_optional_image_round_trip ... ok
+test evidence::tests::ambiguous_siblings_keep_markdown_without_selecting_an_image ... ok
+test evidence::tests::explicit_image_wins_and_asset_is_not_an_exhibit ... ok
+test evidence::tests::raster_only_indexed_figure_links_to_claim ... ok
+test evidence::tests::raster_only_ambiguous_formats_require_an_index_selection ... ok
+test evidence::tests::read_evidence_single_category_files_no_duplicate_warning ... ok
+test fix::tests::alias_guard_discards_multi_node_change ... ok
+test fix::tests::ara001_guard_discards_when_manifest_would_differ ... ok
+test evidence::tests::read_evidence_figure_companion_preserves_body_and_image ... ok
+test evidence::tests::raster_index_missing_or_unsafe_reference_uses_image_warning ... ok
+test evidence::tests::raster_named_directory_does_not_hide_regular_sibling ... ok
+test evidence::tests::read_evidence_duplicate_basename_across_categories_warns_once ... ok
+test evidence::tests::image_symlinks_allow_selected_root_and_contained_assets_only ... ok
+test evidence::tests::read_evidence_results_and_proofs_enriched_from_index ... ok
+test fix::tests::ara004_guard_requires_exact_recovered_binding_delta ... ok
+test evidence::tests::invalid_index_raster_does_not_replace_declaration_with_valid_sibling ... ok
+test evidence::tests::index_raster_beats_sibling_and_dual_extension_uses_real_pair ... ok
+test fix::tests::ara001_rejects_error_bearing_normalized_artifact_byte_identically ... ok
+test fix::tests::alias_fix_rejects_dropped_duplicate_id_occurrence_byte_identically ... ok
+test fix::tests::ara004_rejects_fatal_tree_byte_identically ... ok
+test fix::tests::ara004_rejects_new_unknown_dependency_byte_identically ... ok
+test evidence::tests::referenced_raster_does_not_suppress_distinct_indexed_format ... ok
+test fix::tests::errors_subset_accepts_equal_multisets ... ok
+test fix::tests::errors_subset_accepts_removed_errors ... ok
+test fix::tests::errors_subset_rejects_duplicate_candidate_occurrence ... ok
+test fix::tests::alias_fixes_reject_when_canonical_and_alias_fields_coexist_byte_identically ... ok
+test evidence::tests::read_evidence_enumerates_four_categories_in_fixed_order ... ok
+test fix::tests::errors_subset_rejects_same_size_with_different_identity ... ok
+test fix::tests::clean_artifact_is_a_noop ... ok
+test fix::tests::fatal_alias_artifact_is_rejected_byte_identically ... ok
+test fix::tests::fix_dir_with_nothing_allowed_is_a_noop ... ok
+test fix::tests::alias_fix_applies_on_kept_duplicate_id_occurrence ... ok
+test fix::tests::ara002_reason_recovered_as_why_failed ... ok
+test fix::tests::pivot_alias_guard_validates_single_recovery ... ok
+test fix::tests::ara001_expected_reindented_text ... ok
+test fix::tests::ara001_root_rewritten_to_tree_preserving_manifest ... ok
+test fix::tests::alias_fixes_apply_with_unrelated_duplicate_id_error ... ok
+test layout::tests::all_positions_finite ... ok
+test fix::tests::ara005_from_recovered_as_prior_direction ... ok
+test layout::tests::canonicalize_normalizes_negative_zero ... ok
+test layout::tests::bounds_enclose_all_node_rects ... ok
+test fix::tests::ara003_justification_recovered_as_rationale ... ok
+test layout::tests::canonicalize_rounds_to_six_decimals ... ok
+test fix::tests::ara004_dash_header_recovers_claim ... ok
+test fix::tests::ara006_to_recovered_as_new_direction ... ok
+test layout::tests::empty_manifest_produces_zero_bounds ... ok
+test fix::tests::ara004_recovers_referenced_claim_and_resolves_dangling_error ... ok
+test layout::tests::layout_twice_identical ... ok
+test fix::tests::ara007_trigger_recovered_as_reason ... ok
+test layout::tests::ranks_monotonic_along_child_edges ... ok
+test fix::tests::combined_ara001_and_alias_fixes_both_apply ... ok
+test layout::tests::single_node_has_finite_pos_and_enclosing_bounds ... ok
+test lint::tests::ara001_block_end_stops_at_next_top_level_key ... ok
+test layout::tests::tie_break_stable_across_input_order ... ok
+test lint::tests::ara001_root_dialect_is_detected ... ok
+test lint::tests::ara001_tree_dialect_not_flagged ... ok
+test lint::tests::ara002_canonical_why_failed_not_flagged ... ok
+test lint::tests::ara002_dead_end_reason_and_ara007_pivot_trigger_do_not_collide ... ok
+test lint::tests::ara002_reason_on_dead_end_is_detected_and_fixable ... ok
+test lint::tests::ara002_reason_on_nested_dead_end_child_is_detected ... ok
+test lint::tests::ara002_reason_on_non_dead_end_not_flagged ... ok
+test lint::tests::ara003_justification_on_decision_is_detected ... ok
+test lint::tests::ara002_type_after_reason_still_resolves ... ok
+test fix::tests::write_failure_is_surfaced_in_errors ... ok
+test lint::tests::ara002_siblings_scoped_independently ... ok
+test lint::tests::ara003_justification_on_non_decision_not_flagged ... ok
+test fix::tests::fix_dir_with_applies_only_allowed_rules ... ok
+test lint::tests::ara004_colon_header_not_flagged ... ok
+test fix::tests::happy_path_reports_no_write_errors ... ok
+test lint::tests::ara004_em_dash_header_is_detected ... ok
+test lint::tests::ara004_hyphen_header_is_detected ... ok
+test lint::tests::ara004_hyphen_in_title_with_colon_not_flagged ... ok
+test lint::tests::ara004_non_claim_dash_header_not_flagged ... ok
+test lint::tests::ara005_from_on_pivot_is_detected_and_fixable ... ok
+test lint::tests::ara006_to_on_pivot_is_detected_and_fixable ... ok
+test lint::tests::ara007_trigger_on_pivot_is_detected_and_fixable ... ok
+test lint::tests::canonical_pivot_keys_not_flagged ... ok
+test lint::tests::pivot_alias_on_nested_child_is_detected ... ok
+test lint::tests::check_dir_missing_tree_yields_empty_report ... ok
+test lint::tests::pivot_aliases_on_non_pivot_kinds_not_flagged ... ok
+test lint::tests::pivot_alias_type_after_key_still_resolves ... ok
+test manifest::tests::canonical_id_grammar ... ok
+test manifest::tests::exhibit_kind_new_variants_round_trip ... ok
+test manifest::tests::experiment_fields_round_trip ... ok
+test fix::tests::pivot_alias_rejects_when_canonical_and_alias_coexist_byte_identically ... ok
+test manifest::tests::id_accessors_and_display ... ok
+test manifest::tests::node_provenance_timestamp_round_trip_and_skip ... ok
+test manifest::tests::pivot_fields_round_trip ... ok
+test markdown::annotation_tests::indented_caller_comments_remain_in_canonical_payloads ... ok
+test markdown::annotation_tests::native_conflict_comments_do_not_change_last_field_values_or_spans ... ok
+test markdown::frontmatter_tests::frontmatter_comments_never_become_markdown_heading_selectors ... ok
+test lint::tests::check_dir_tolerates_missing_claims_and_does_not_panic ... ok
+test markdown::tests::canonical_multiline_payload_retains_exact_whitespace_and_prose ... ok
+test markdown::tests::fences_do_not_create_claims_or_fields ... ok
+test markdown::tests::nested_heading_ranges_follow_ancestry ... ok
+test markdown::tests::unicode_fields_have_exact_independent_byte_ranges ... ok
+test merge::markdown::selector_tests::ambiguous_heading_suffix_requires_exact_inverse_parent_path ... ok
+test merge::markdown::selector_tests::inverse_experiment_address_remains_document_qualified ... ok
+test paper::tests::authors_inline_and_block_equivalent ... ok
+test merge::markdown::selector_tests::inverse_native_address_preserves_literal_slash_not_hierarchy ... ok
+test merge::identity::native_record_decode_tests::native_json_records_reject_duplicate_captured_source_paths_before_validation ... ok
+test evidence::tests::rejected_explicit_images_do_not_fall_back_to_sibling ... ok
+test paper::tests::empty_document_is_none_no_warning ... ok
+test paper::tests::doi_null_becomes_none ... ok
+test paper::tests::fenced_frontmatter_parses_all_fields ... ok
+test fix::tests::pivot_multi_alias_fixpoint_recovers_all_fields ... ok
+test paper::tests::folded_abstract_scalar_is_plain_string ... ok
+test paper::tests::no_fence_recovers_title_from_h1 ... ok
+test paper::tests::malformed_frontmatter_warns_not_panics ... ok
+test fix::tests::pivot_alias_fix_second_run_is_noop ... ok
+test paper::tests::unknown_keys_are_ignored ... ok
+test paper::tests::year_as_string_is_kept ... ok
+test parse::tests::both_roots_is_error ... ok
+test parse::tests::broken_claim_ref_is_error ... ok
+test parse::tests::broken_node_to_node_ref_is_error ... ok
+test parse::tests::broken_claim_to_claim_dep_is_error ... ok
+test parse::tests::cycle_is_detected ... ok
+test parse::tests::dead_end_widened_fields_no_warning ... ok
+test parse::tests::duplicate_link_warns ... ok
+test parse::tests::duplicate_claim_id_is_error ... ok
+test parse::tests::determinism_parse_twice_identical ... ok
+test parse::tests::detailed_outcome_classifies_parser_trust_boundary ... ok
+test parse::tests::duplicate_node_id_is_error ... ok
+test parse::tests::empty_tree_warns_and_is_ok ... ok
+test parse::tests::malformed_yaml_is_error_not_panic ... ok
+test parse::tests::isolated_field_defaults_false_and_sources_from_raw ... ok
+test parse::tests::missing_claims_downgrades_binding_to_warning ... ok
+test fix::tests::fix_dir_is_idempotent ... ok
+test parse::tests::missing_node_id_is_error ... ok
+test parse::tests::missing_type_dropped_body_fields_warn ... ok
+test parse::tests::neither_root_is_error ... ok
+test parse::tests::missing_type_warns ... ok
+test parse::tests::pivot_projects_kind_and_fields_no_warning ... ok
+test parse::tests::redundant_ancestor_depends_on_is_dropped_with_warning ... ok
+test parse::tests::redundant_grandparent_depends_on_is_dropped ... ok
+test parse::tests::root_single_matches_tree_shape ... ok
+test parse::tests::unknown_type_becomes_other_and_warns ... ok
+test parse::tests::proof_evidence_refs_emit_no_error ... ok
+test query::tests::sentence_period_keeps_native_reference_but_filename_suffix_stays_opaque ... ok
+test parse::tests::unknown_type_dropped_body_field_warns ... ok
+test parse::tests::right_kind_body_fields_no_drop_warnings ... ok
+test query::tests::token_ranges_preserve_spelling_and_utf8_boundaries ... ok
+test parse::tests::resolves_bindings_and_splits_evidence ... ok
+test parse::tests::sibling_depends_on_is_kept_not_dropped ... ok
+test parse::tests::unknown_type_dropped_new_body_fields_warn ... ok
+test parse::tests::sibling_only_depends_on_cycle_is_detected ... ok
+test query::tests::child_queries_do_not_follow_dependencies ... ok
+test query::tests::resumed_parent_is_a_child_relation_and_conflicting_or_missing_parents_fail ... ok
+test parse::tests::wrong_kind_body_field_warns_per_field ... ok
+test report::tests::code_is_not_serialized ... ok
+test report::tests::diagnostic_display ... ok
+test report::tests::ok_and_accessors ... ok
+test rules::tests::code_space_matches_layer_and_severity ... ok
+test rules::tests::round_trips_through_string_and_serde ... ok
+test schema::tests::multi_document_is_error_not_panic ... ok
+test fix::tests::mixed_recovering_rules_apply_with_persisting_duplicate_id_error ... ok
+test schema::tests::null_children_default_to_empty ... ok
+test sections::tests::concepts_all_fields_with_latex ... ok
+test schema::tests::root_single_dialect_parses ... ok
+test sections::tests::concepts_short_labels_and_missing_definition ... ok
+test schema::tests::non_sequence_tree_is_error_not_panic ... ok
+test sections::tests::empty_inputs_yield_empty_output ... ok
+test sections::tests::problem_bold_bullet_style ... ok
+test sections::tests::problem_heading_style ... ok
+test schema::tests::parses_tree_with_canonical_fields_no_extra ... ok
+test schema::tests::unknown_keys_land_in_extra ... ok
+test sections::tests::problem_ls20_goal_setting_style ... ok
+test sections::tests::related_work_all_fields ... ok
+test schema::tests::published_fields_parse_with_empty_extra ... ok
+test tests::version_is_reported ... ok
+test sections::tests::related_work_combined_type_and_none_claims ... ok
+test rules::tests::codes_and_names_are_unique_and_sorted ... ok
+test write::batch::tests::empty_input_is_noop ... ok
+test write::batch::tests::duplicate_keys_reject_at_physical_line ... ok
+test write::batch::tests::wrong_kind_and_forward_binding_reject ... ok
+test write::intent::tests::undeclared_bytes_reject ... ok
+test write::intent::tests::omitted_unknown_mapping_cannot_change ... ok
+test write::positions::tests::aliases_tags_anchors_are_indexed_but_not_editable ... ok
+test write::positions::tests::block_records_retain_their_first_key_and_all_unknown_root_evidence ... ok
+test write::positions::tests::block_sequence_compact_json_mapping_retains_mapping_and_exact_span ... ok
+test write::positions::tests::folded_and_flow_sources_retain_values ... ok
+test write::positions::tests::literal_and_folded_spans_cover_headers_and_first_hash_prose_not_next_comments ... ok
+test write::positions::tests::complete_representation_keeps_duplicate_unknown_values ... ok
+test write::source::tests::allocation_rejects_numeric_aliases_and_overflow ... ok
+test write::batch::tests::malformed_or_multiple_objects_reject ... ok
+test write::positions::tests::multiline_plain_and_quoted_scalars_have_complete_lexical_ranges ... ok
+test write::batch::tests::literal_prose_dollars_and_ats_are_not_substituted ... ok
+test write::positions::tests::unicode_crlf_block_offsets_are_structural ... ok
+test write::source::tests::rejected_path_escape ... ok
+test write::source::tests::strings_roundtrip_crlf_and_trailing_newlines ... ok
+test write::source::tests::unsafe_merge_history_cannot_silently_release_retired_ids ... ok
+test write::source::tests::selected_field_updates_keep_inline_and_surrounding_comments ... ok
+test write::source::tests::allocation_reserves_retired_merge_targets_without_reading_opaque_prose ... ok
+test fix::tests::speedrun_claim_headers_fix_on_erroring_artifact ... ok
+
+test result: ok. 214 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.55s
+
+     Running tests/claim_redirect_parse.rs (target/debug/deps/claim_redirect_parse-a885232e3b904819)
+
+running 3 tests
+test explicit_claim_redirects_normalize_only_known_pointers ... ok
+test invalid_redirects_cannot_resurrect_or_mask_missing_claims ... ok
+test long_redirect_chain_preserves_exact_native_identity ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/corpus_no_panic.rs (target/debug/deps/corpus_no_panic-6db2b32d2c8368b8)
+
+running 3 tests
+test full_corpus_sweep_never_panics ... ignored, opt-in: set RUN_CORPUS_SWEEP=1 and init submodules
+test sweep_gate_logic ... ok
+test vendored_corpus_never_panics ... ok
+
+test result: ok. 2 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/deep_tree_parse.rs (target/debug/deps/deep_tree_parse-9c735e74da7e9951)
+
+running 10 tests
+test generic_metadata_nesting_is_not_unbounded_by_the_tree_budget ... ok
+test source_projection_preserves_unsigned_and_signed_integer_boundaries ... ok
+test source_projection_rejects_ambiguous_missing_and_overdeep_metadata_without_partial_fields ... ok
+test source_projection_preserves_opaque_tags_aliases_merges_and_utf8_crlf_values ... ok
+test block_tree_deeper_than_the_old_budget_preserves_decoded_text ... ok
+test selected_root_and_deepest_node_fields_omit_real_children_without_losing_unknowns ... ok
+test invalid_deepest_child_reports_original_node_location_without_stack_unwind_recursion ... ok
+test deepest_unknown_field_remains_a_node_specific_warning ... ok
+test native_load_keeps_exact_deep_source_bytes ... ok
+test ten_thousand_nested_nodes_preserve_preorder_and_parent_links_on_small_stack ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.99s
+
+     Running tests/layout_integration.rs (target/debug/deps/layout_integration-c9b1a3bc4fb57ef6)
+
+running 5 tests
+test parse_and_layout_error_path ... ok
+test stage1_snapshots_unperturbed_by_new_fields ... ok
+test parse_and_layout_ok_path ... ok
+test scale_probe_largest_corpus ... ok
+test layout_determinism_in_process ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/merge_identity.rs (target/debug/deps/merge_identity-3e6a83f1f196c4a1)
+
+running 22 tests
+test local_redirects_follow_chains_and_reject_cycles_or_missing_targets ... ok
+test alias_cycles_and_dangling_targets_are_content_errors_with_full_evidence ... ok
+test native_short_heading_redirects_are_canonical_and_protected_or_cross_type_origins_reject ... ok
+test staged_concept_names_and_aliases_require_exact_owning_native_revision ... ok
+test opaque_and_external_conflicts_retain_full_binary_bytes_without_copying ... ok
+test numeric_source_only_import_is_fresh_even_without_collision_and_replay_is_exact ... ok
+test exact_temporary_components_are_excluded_without_suppressing_ordinary_files ... ok
+test filename_shaped_source_scopes_never_fall_through_to_native_identities ... ok
+test advancing_source_uses_previous_imported_values_and_mapping_then_rejects_regression ... ok
+test unresolved_field_conflict_replay_keeps_exact_ids_values_and_bytes ... ok
+test previously_enrolled_source_without_a_revision_is_not_enrolled_twice ... ok
+test literal_numeric_looking_headings_keep_real_targets_and_portable_aliases ... ok
+test changed_source_without_ancestry_proof_and_reused_labels_fail_closed ... ok
+test removed_source_tombstone_reserves_mapping_without_a_false_live_alias ... ok
+test native_portable_metadata_deletion_or_rewrite_rejects_with_complete_preimages ... ok
+test retired_source_numeric_id_is_reserved_and_resolves_through_imported_rename ... ok
+test advancing_foreign_source_restores_exact_metadata_and_all_qualified_aliases ... ok
+test acknowledging_read_only_external_conflict_is_audited_without_copying_its_body ... ok
+test mutable_resolution_is_explicit_audited_and_stale_fingerprints_reject ... ok
+test captured_git_ancestor_keeps_source_metadata_and_rejects_corrupt_prior_inventory ... ok
+test accepted_writer_parent_rename_keeps_colliding_literal_vectors_readable_and_mergeable ... ok
+test generated_full_layer_histories_preserve_directional_union_and_all_import_addresses ... ok
+
+test result: ok. 22 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.13s
+
+     Running tests/merge_journal.rs (target/debug/deps/merge_journal-2f91cc050783c91b)
+
+running 15 tests
+test simultaneous_state_markers_fail_closed_instead_of_choosing_one ... ok
+test foreign_replacement_of_a_staged_candidate_blocks_every_recovery_change ... ok
+test prepared_deletion_is_rolled_back_to_the_exact_original_file ... ok
+test external_digest_mismatch_blocks_all_recovery_mutations_and_preserves_evidence ... ok
+test corrupt_preimage_is_detected_before_any_file_is_rolled_back ... ok
+test committed_transaction_keeps_candidates_and_deleted_files_absent ... ok
+test zero_byte_preimages_remain_present_but_zero_byte_new_files_are_removed ... ok
+test incomplete_rollback_preserves_evidence_and_a_later_writer_recovers ... ok
+test committed_external_edit_is_not_silently_kept_or_rolled_back ... ok
+test recovery_restarts_after_a_preimage_rename_before_permission_restoration ... ok
+test prepared_crash_restores_permissions_and_removes_new_files_and_directories ... ok
+test symlinked_journal_payload_and_target_ancestor_are_never_followed ... ok
+test failures_before_first_and_middle_rename_restore_exact_preimages ... ok
+test prepared_unrenamed_candidates_are_authenticated_before_directory_cleanup ... ok
+test corrupt_target_paths_never_escape_the_artifact_or_touch_reserved_bodies ... ok
+
+test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.58s
+
+     Running tests/merge_journal_dirs.rs (target/debug/deps/merge_journal_dirs-ecbf4fab92d0ce21)
+
+running 7 tests
+test directory_only_recovery_captures_implicit_missing_ancestors ... ok
+test foreign_contents_block_directory_only_rollback_and_preserve_evidence ... ok
+test corrupt_directory_only_record_cannot_remove_unapproved_directories ... ok
+test prepared_directory_only_crash_removes_only_recorded_new_directories ... ok
+test directory_only_sync_failure_rolls_back_exact_original_directory_existence ... ok
+test committed_directory_removal_fails_closed_instead_of_recreating_external_state ... ok
+test missing_only_initialization_commits_missing_directories_without_rewriting_seeds ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.13s
+
+     Running tests/merge_markdown_layers.rs (target/debug/deps/merge_markdown_layers-6273ad5ce1ef5941)
+
+running 26 tests
+test deletion_cannot_leave_surviving_known_dependencies_dangling ... ok
+test canonical_claim_deletion_rejects_import_without_mutation ... ok
+test absent_empty_and_literal_null_extension_values_are_distinct_conflict_evidence ... ok
+test delete_edit_keeps_our_entry_and_still_merges_other_entry_fields ... ok
+test complete_new_document_import_relocates_numeric_headings_and_structured_fields ... ok
+test delete_edit_retains_complete_candidates_and_preserves_our_absence ... ok
+test concurrent_alias_and_native_proof_targets_coalesce_preserving_ours_lexical_bytes ... ok
+test imported_numeric_subtree_relocates_native_descendant_identity_but_not_examples ... ok
+test imported_references_rewrite_only_incoming_fields_and_numeric_entries_even_when_quoted ... ok
+test equal_semantic_concurrent_scalar_and_list_edits_keep_our_lexical_form ... ok
+test malformed_mutable_markdown_reports_complete_bytes_of_its_own_document ... ok
+test field_resolution_rejects_stale_current_fingerprint_before_any_history_write ... ok
+test disjoint_title_known_fields_and_residual_preserve_untouched_ours_bytes ... ok
+test incoming_registration_precedes_creation_even_when_registered_path_sorts_before_paper ... ok
+test residual_prose_is_one_opaque_bounded_value_not_a_disjoint_line_merge ... ok
+test unsupported_knowledge_extension_and_protected_bodies_retain_full_review_evidence ... ok
+test independent_concept_and_recipe_collisions_are_full_identity_conflicts ... ok
+test paper_frontmatter_and_bounded_headings_merge_without_touching_comments_or_extensions ... ok
+test unknown_extension_fields_keep_complete_multiline_values_and_duplicate_occurrences ... ok
+test advancing_source_uses_mapped_effective_ancestor_and_keeps_destination_identity ... ok
+test whole_mutable_document_deletion_has_real_absence_but_root_paper_is_not_deleted ... ok
+test every_supported_layer_has_native_inventory_and_only_canonical_ids_are_numeric ... ok
+test eligible_heuristic_deletion_accepts_agreement_and_unchanged_peer_in_both_directions ... ok
+test complete_qualified_descendant_proof_follows_the_actual_relocated_inventory ... ok
+test advancing_source_follows_local_rename_without_changing_persisted_import_mapping ... ok
+test exact_native_mutation_selectors_treat_slash_as_literal_heading_text ... ok
+
+test result: ok. 26 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running tests/merge_yaml_layers.rs (target/debug/deps/merge_yaml_layers-7010dd6b5feb96f0)
+
+running 30 tests
+test identical_illegal_unknown_mutations_on_both_forks_retain_full_evidence ... ok
+test fields_known_in_another_layer_do_not_make_unknown_log_extensions_mutable ... ok
+test both_forks_deleting_or_moving_protected_nodes_is_rejected ... ok
+test index_rejects_duplicate_and_dangling_session_identities ... ok
+test completed_promotion_destination_cannot_be_rewritten_even_when_both_forks_agree ... ok
+test append_only_edges_preserve_ours_exact_prefix_and_merge_mapped_targets ... ok
+test changing_historical_revision_on_both_forks_rejects_complete_before_after_evidence ... ok
+test forged_mutable_kinds_cannot_replace_protected_yaml_origins ... ok
+test a_session_closed_after_conflict_capture_cannot_be_revised_by_generic_resolution ... ok
+test incoming_opaque_header_comments_are_retained_alongside_safe_imports ... ok
+test imported_revision_relocates_typed_entry_but_preserves_exact_historical_values ... ok
+test flow_parent_without_children_imports_multiple_complete_flow_roots_and_replays ... ok
+test opaque_annotations_distinguish_yaml_comments_from_quoted_and_literal_hash_text ... ok
+test unknown_reference_extension_requires_full_explicit_relocation_evidence ... ok
+test colliding_nested_branch_uses_actual_mapped_parent_once_and_keeps_ours_bytes ... ok
+test unknown_root_values_are_complete_blocking_evidence_not_silently_omitted ... ok
+test same_semantic_summary_coalesces_with_ours_lexical_representation ... ok
+test literal_numeric_concept_names_do_not_follow_colliding_claim_allocations ... ok
+test explicit_session_thread_resolution_targets_root_and_derives_index ... ok
+test native_node_payloads_relocate_references_without_rewriting_verbatim_thinking_or_pivot_addresses ... ok
+test session_collision_relocates_filename_index_and_complete_history_references ... ok
+test disjoint_session_metadata_and_identical_same_turn_rows_preserve_two_occurrences ... ok
+test independent_observation_annotations_replay_and_advance_by_recorded_occurrences ... ok
+test revision_object_selectors_resolve_exact_native_headings_and_reject_missing_or_external_targets ... ok
+test imported_mutation_selectors_keep_stable_origin_and_replay_without_self_cycle ... ok
+test promotion_target_race_keeps_ours_and_records_all_exact_tuple_candidates ... ok
+test closed_source_only_session_replays_in_its_persisted_destination_space ... ok
+test distinct_append_unions_replay_and_advance_at_established_destination_occurrences ... ok
+test historical_fixture_dangling_session_index_rejects_with_exact_source_evidence ... ok
+test deeply_nested_incoming_tree_is_walked_and_inserted_without_recursive_layer_visitors ... ok
+
+test result: ok. 30 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.48s
+
+     Running tests/parse_fixtures.rs (target/debug/deps/parse_fixtures-3af44400e804977b)
+
+running 31 tests
+test missing_dir_is_clean_error ... ok
+test old_wire_manifest_round_trips_without_optional_keys ... ok
+test ambiguous_root_errors ... ok
+test broken_claim_ref_errors ... ok
+test dup_id_errors ... ok
+test cycle_errors ... ok
+test complete_claim_prose_and_fields_survive_multiline_markdown ... ok
+test absent_logic_files_add_no_warnings ... ok
+test parse_dir_resolves_bindings ... ok
+test pivot_deadend_has_no_field_warnings ... ok
+test evidence_malformed_warns_not_fatal ... ok
+test malformed_logic_files_warn_not_fatal ... ok
+test native_concept_links_resolve_existing_terms_without_rewriting_source ... ok
+test root_single_dialect_normalizes ... ok
+test evidence_header_variants_resolve_end_to_end ... ok
+test published_fields_fixture_is_clean ... ok
+test same_finding_links_are_independent_of_dependency_edges ... ok
+test published_fields_unknown_warns_not_errors ... ok
+test native_load_distinguishes_absent_unreadable_and_incomplete_graphs ... ok
+test wrong_kind_matrix_warns_per_field ... ok
+test official_fixtures_are_clean ... ok
+test manifest_forward_and_round_trip_compat ... ok
+test registered_knowledge_paths_reject_symlink_components ... ok
+test knowledge_registry_retains_exact_registered_bodies_and_rejects_unsafe_paths ... ok
+test optional_layers_retain_safe_entries_duplicates_unknowns_and_history ... ok
+test self_composing_policies_fields_and_references ... ok
+test parse_is_deterministic ... ok
+test published_fields_fix_is_idempotent ... ok
+test figure_images_resolve_and_serialize_end_to_end ... ok
+test aliased_fixture_lints_and_fix_recovers ... ok
+test pinned_agent_fixture_preserves_published_source_values ... ok
+
+test result: ok. 31 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+
+     Running tests/rule_codes.rs (target/debug/deps/rule_codes-c084d653c233952a)
+
+running 2 tests
+test official_fixtures_fire_no_rules ... ok
+test every_validate_site_carries_its_rule_code ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/write_batch_engine.rs (target/debug/deps/write_batch_engine-169595e11921586f)
+
+running 5 tests
+test recursive_duplicate_key_error_retains_physical_line_and_field ... ok
+test late_semantic_failure_does_not_publish_any_candidate_or_binding ... ok
+test bindings_enforce_kind_and_never_forward_resolve ... ok
+test concrete_forward_references_resolve_at_final_candidate ... ok
+test dryrun_predicts_complete_commit_without_creating_operational_paths ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+
+     Running tests/write_deep_source.rs (target/debug/deps/write_deep_source-c544bfef8fed10e9)
+
+running 1 test
+test true_ten_thousand_deep_native_source_index_clone_delta_and_drop_are_stack_bounded ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.93s
+
+     Running tests/write_logic_documents.rs (target/debug/deps/write_logic_documents-9b3684bb0eded266)
+
+running 36 tests
+test creation_requires_complete_schemas_and_canonical_alias_duplicates_reject ... ok
+test digest_conflicts_and_bounded_document_replacements ... ok
+test generic_claim_body_and_document_replacement_cannot_remove_canonical_entries ... ok
+test exact_multiline_blank_trailing_lines_fences_and_unknown_source_survive ... ok
+test annotation_payload_cannot_close_comments_and_roundtrips_unicode_and_newlines ... ok
+test inline_taste_and_conflicts_are_typed_additive_records ... ok
+test authored_vocabularies_are_strict_without_rewriting_legacy_source ... ok
+test concrete_forward_dependencies_resolve_final_and_cycles_or_missing_refs_reject ... ok
+test merged_claim_redirect_is_revision_owned_typed_and_cycle_checked ... ok
+test compiler_init_requires_all_caller_knowledge_and_dry_run_creates_nothing ... ok
+test initialization_has_exact_nine_seeds_and_never_overwrites ... ok
+test duplicate_source_fields_and_unbounded_prose_edits_reject ... ok
+test bounded_paper_bodies_never_select_frontmatter_comment_headings ... ok
+test paper_audit_captures_the_entire_exact_document_and_skips_noops ... ok
+test historical_null_claim_tombstones_remain_readable_and_reserve_their_identity ... ok
+test compiler_heuristic_source_bounds_and_code_refs_need_no_fake_pm_status ... ok
+test revisions_record_exact_source_endpoints_and_revision_pointer ... ok
+test paper_metadata_unknowns_comments_and_untouched_bodies_survive ... ok
+test native_nested_selectors_disambiguate_concepts_plans_and_related_work ... ok
+test missing_only_initialization_retains_real_sources_and_requires_caller_match ... ok
+test structural_reference_edits_are_exact_and_typed_dependencies_migrate ... ok
+test rename_destination_collisions_are_scoped_to_exact_document_paths ... ok
+test ancestor_rename_archives_colliding_display_paths_with_exact_per_entry_owner_proof ... ok
+test canonical_rename_is_owned_and_archived_while_withdrawal_and_merge_retain_claims ... ok
+test taste_appends_one_native_subsection_without_rewriting_prior_reactions ... ok
+test new_node_concept_reference_can_follow_only_an_authenticated_rename ... ok
+test rename_and_retired_identity_checks_use_literal_heading_vectors ... ok
+test revision_batches_refuse_historical_turns_without_batch_ownership ... ok
+test referenced_removal_requires_live_redirect_and_unreferenced_removal_archives_body ... ok
+test registry_removal_ignores_prose_physical_history_and_retired_redirect_sources ... ok
+test structural_mutations_audit_prose_and_preserve_immutable_history ... ok
+test unknown_yaml_and_registered_markdown_cannot_fabricate_native_claim_ids ... ok
+test registered_knowledge_paths_and_rubric_are_explicit_bounded_documents ... ok
+test missing_only_initialization_commits_missing_directories_without_source_changes ... ok
+test body_revision_requires_digest_and_preserves_exact_before_after_with_owned_turn ... ok
+test unregistering_knowledge_rejects_structural_history_targets_without_rewriting_history ... ok
+
+test result: ok. 36 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.12s
+
+     Running tests/write_node_engine.rs (target/debug/deps/write_node_engine-4ba2ffb8b27f3308)
+
+running 34 tests
+test explicit_replay_id_preserves_spelling_and_future_allocation_uses_maximum ... ok
+test matching_nested_parent_pointer_is_preserved_and_creation_metadata_agrees ... ok
+test nested_source_ids_allocate_after_real_maximum_not_block_scalar_text ... ok
+test authored_artifacts_and_typed_node_specific_fields_round_trip ... ok
+test concrete_forward_dependencies_resolve_at_final_batch_boundary ... ok
+test equal_timestamp_instants_need_real_creation_order_evidence ... ok
+test conflict_comments_preserve_values_and_ignore_old_block_scalar_fake_references ... ok
+test conflict_annotation_references_are_checked_at_final_boundary ... ok
+test captured_import_history_keeps_unverifiable_links_readable_but_generic_edits_revoke_it ... ok
+test authored_parent_metadata_must_match_the_operation_parent ... ok
+test new_concept_refs_resolve_final_exact_names_and_old_unresolved_refs_stay_readable ... ok
+test repeated_edge_is_no_op_and_new_edge_preserves_source_entries ... ok
+test nonempty_flow_children_append_without_normalizing_existing_nodes ... ok
+test root_add_preserves_existing_tree_and_metadata_bytes ... ok
+test requested_numeric_equivalent_id_cannot_replay_over_existing_spelling ... ok
+test node_lookup_cache_tracks_staged_tree_changes_and_explicit_invalidation ... ok
+test new_nested_node_cannot_author_redundant_dependency ... ok
+test root_level_explicit_parent_contributes_ancestry_and_cycle_edges ... ok
+test same_as_rejects_self_and_final_dangling_targets ... ok
+test exact_multiline_utf8_crlf_payload_and_existing_source_are_preserved ... ok
+test missing_empty_and_null_children_support_single_root_dialect ... ok
+test dependency_rejects_self_ancestor_cycle_and_final_dangling_reference ... ok
+test same_as_uses_real_add_operation_order_without_inventing_historical_order ... ok
+test same_as_uses_timestamps_and_rejects_duplicates_reciprocal_cycles_and_unknown_chronology ... ok
+test empty_missing_and_null_collections_create_exact_node_values ... ok
+test add_to_empty_children_inside_flow_parent_keeps_complete_neighbor_source ... ok
+test malformed_ambiguous_duplicate_and_overflow_ids_reject_without_source_change ... ok
+test unknown_parent_and_second_single_root_reject_without_rewriting_dialect ... ok
+test unknown_conflicting_and_cyclic_source_parent_pointers_reject_safe_mutations ... ok
+test unsupported_target_alias_anchor_and_tag_leave_original_bytes_identical ... ok
+test same_as_generic_deltas_cannot_bypass_chronology_duplicate_or_cycle_guards ... ok
+test field_registry_rejects_unknown_wrong_kind_wrong_types_and_artifact_object_keys ... ok
+test native_status_and_scalar_or_list_source_refs_roundtrip_without_narrowing ... ok
+test new_nodes_require_source_kind_payloads_and_dead_ends_remain_leaves ... ok
+
+test result: ok. 34 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.09s
+
+     Running tests/write_sessions_staging.rs (target/debug/deps/write_sessions_staging-40257440c82eaf47)
+
+running 25 tests
+test native_record_locators_allow_whole_documents_and_registered_knowledge_sections ... ok
+test imported_historical_stale_flags_are_readable_without_fabricating_a_native_audit ... ok
+test promoted_tuple_rejects_invalid_signals_and_conflict_annotations_are_additive ... ok
+test explicit_promotion_provenance_is_not_an_automatic_upgrade ... ok
+test stage_preserves_exact_typed_strings_and_separate_namespace ... ok
+test claim_removal_rejects_and_retains_original_source ... ok
+test concrete_forward_references_resolve_only_in_complete_candidate ... ok
+test registered_revision_cannot_survive_unregistering_its_document_in_same_batch ... ok
+test exact_native_structural_audit_preserves_new_revision_to_renamed_identity ... ok
+test absent_rolling_lists_stay_absent_until_explicit_empty_and_archive_preserves_absence ... ok
+test session_index_rejects_missing_record_and_mismatched_record_identity ... ok
+test sessions_reject_chronology_unknown_records_closed_days_and_bad_indexes ... ok
+test opaque_unknown_yaml_values_survive_stage_and_session_writes ... ok
+test unrelated_writes_do_not_retroactively_upgrade_legacy_sessions ... ok
+test revisions_attach_only_to_exact_new_owned_turn_including_earlier_batch_turn ... ok
+test taste_and_reasoning_append_exact_records_without_node_mutation ... ok
+test full_turns_preserve_earlier_record_bytes_and_archive_exact_metadata ... ok
+test stale_evidence_counts_bound_references_and_not_empty_session_days ... ok
+test stale_batches_substitute_audit_session_bindings_and_reject_missing_context ... ok
+test stale_requires_three_distinct_proven_subsequent_session_days ... ok
+test reference_evidence_resets_stale_window_and_empty_sessions_do_not_count ... ok
+test stale_requires_reason_owned_turn_and_exact_notes_and_rechecks_final_references ... ok
+test authored_revisions_must_resolve_final_native_identity_and_strict_selectors ... ok
+test stale_is_consumer_visible_and_legacy_flags_and_notes_remain_byte_identical ... ok
+test promotion_creates_every_destination_and_guards_final_tuple ... ok
+
+test result: ok. 25 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running tests/write_transaction_engine.rs (target/debug/deps/write_transaction_engine-fccf44c99dd5ce14)
+
+running 9 tests
+test persistent_lock_inode_survives_multiple_writes ... ok
+test flow_mapping_field_edits_keep_unrelated_source_values_and_exact_bytes ... ok
+test destination_parent_symlink_cannot_escape_artifact ... ok
+test appearance_of_optional_source_is_detected_without_deleting_external_content ... ok
+test noncooperating_edit_is_detected_after_staging_without_overwriting_it ... ok
+test failed_rollback_lists_uncertain_path_and_both_digests ... ok
+test ordinary_commit_retains_permissions_and_operational_ignore_contents ... ok
+test newly_created_directories_are_removed_on_recoverable_failure ... ok
+test every_ordinary_boundary_failure_restores_bytes_and_existence ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.27s
+
+     Running unittests src/lib.rs (target/debug/deps/ara_viewer-708620a12d182650)
+
+running 181 tests
+test deps::tests::empty_query_matches_everything ... ok
+test deps::tests::matches_secondary_fields ... ok
+test deps::tests::matches_id_and_cite_case_insensitively ... ok
+test detail::tests::built_on_and_exhibits_filter_to_selected_node ... ok
+test detail::tests::evidence_notes_propagated ... ok
+test detail::tests::dead_end_none_why_failed_no_typed_fields ... ok
+test detail::tests::claim_resolution_found ... ok
+test detail::tests::exhibit_description_propagated ... ok
+test detail::tests::experiment_narrative_without_result ... ok
+test detail::tests::duplicate_depends_on_links_rendered_as_is ... ok
+test detail::tests::decision_alternatives_render_as_list ... ok
+test detail::tests::exhibit_kind_labels_result_and_proof ... ok
+test detail::tests::claim_resolution_missing_claim_skipped ... ok
+test detail::tests::depends_on_resolves_both_directions ... ok
+test detail::tests::decision_order_choice_rationale_alternatives ... ok
+test detail::tests::dead_end_primary_why_failed ... ok
+test detail::tests::experiment_narrative_order ... ok
+test detail::tests::dead_end_hypothesis_failure_mode_lesson_order ... ok
+test detail::tests::claim_resolution_filters_to_selected_node ... ok
+test detail::tests::built_on_and_result_exhibits_resolve_in_source_order ... ok
+test detail::tests::decision_omits_none_choice_and_empty_alternatives ... ok
+test detail::tests::experiment_result_none_no_typed_fields ... ok
+test detail::tests::experiment_result_present ... ok
+test detail::tests::id_always_populated ... ok
+test detail::tests::is_empty_accounts_for_new_fields ... ok
+test detail::tests::isolated_child_cycle_guard ... ok
+test detail::tests::isolated_flag_on_root ... ok
+test detail::tests::isolated_inherited_from_subtree_root ... ok
+test detail::tests::isolated_multi_parent_first_child_link_wins ... ok
+test detail::tests::no_depends_on_yields_empty_vecs ... ok
+test detail::tests::no_linkage_yields_empty_vecs ... ok
+test detail::tests::node_with_description_not_empty_but_typed_fields_absent ... ok
+test detail::tests::other_kind_badge_is_raw_string_no_typed_fields ... ok
+test detail::tests::pivot_all_none_no_typed_fields ... ok
+test detail::tests::pivot_narrative_order ... ok
+test detail::tests::pivot_reason_only ... ok
+test detail::tests::provenance_and_timestamp_absent_stay_none ... ok
+test detail::tests::provenance_and_timestamp_propagated ... ok
+test detail::tests::question_with_nothing_is_empty ... ok
+test detail::tests::source_refs_propagated ... ok
+test detail::tests::support_level_propagated ... ok
+test detail::tests::title_falls_back_to_id ... ok
+test detail::tests::title_prefers_label_over_id ... ok
+test detail::tests::unresolvable_ids_degrade_gracefully ... ok
+test filter::tests::all_three_conditions_anded ... ok
+test filter::tests::dead_ends_only_and_matching_text_both_pass ... ok
+test filter::tests::dead_ends_only_and_text_both_must_pass ... ok
+test filter::tests::dead_ends_only_excludes_non_dead_end ... ok
+test filter::tests::dead_ends_only_false_allows_all_kinds ... ok
+test filter::tests::dead_ends_only_passes_dead_end ... ok
+test filter::tests::default_filter_matches_dead_end ... ok
+test filter::tests::default_filter_matches_other_kind ... ok
+test filter::tests::default_filter_matches_question ... ok
+test filter::tests::kind_filter_and_text_both_must_pass ... ok
+test filter::tests::kind_filter_excludes_wrong_kind ... ok
+test filter::tests::kind_filter_matches_exact_css_class ... ok
+test filter::tests::kind_filter_none_matches_all ... ok
+test filter::tests::other_kind_matches_css_other_not_raw_string ... ok
+test filter::tests::text_does_not_match_claim_bound_to_different_node ... ok
+test filter::tests::text_matches_bound_claim_statement ... ok
+test filter::tests::text_matches_bound_claim_title ... ok
+test filter::tests::text_matches_kind_badge ... ok
+test filter::tests::text_matches_kind_css_class ... ok
+test filter::tests::text_matches_label_mixed_case ... ok
+test filter::tests::text_matches_label_substring_case_insensitive ... ok
+test filter::tests::text_matches_node_id ... ok
+test filter::tests::text_matches_node_id_exact ... ok
+test filter::tests::text_matches_other_kind_badge_is_raw_string ... ok
+test filter::tests::text_non_matching_query_excludes_node ... ok
+test filter::tests::text_non_matching_query_not_in_claim_either ... ok
+test kind::tests::dead_end_mapping ... ok
+test kind::tests::decision_mapping ... ok
+test kind::tests::drift_guard_css_class_equals_wire_tag ... ok
+test kind::tests::experiment_mapping ... ok
+test kind::tests::insight_mapping ... ok
+test kind::tests::other_mapping_empty_raw ... ok
+test kind::tests::other_mapping_uses_raw_for_badge_not_css ... ok
+test kind::tests::pivot_mapping ... ok
+test kind::tests::question_mapping ... ok
+test markdown::tests::is_safe_url_classifies ... ok
+test panels::tests::concept_match_empty_and_fields ... ok
+test panels::tests::recipe_match_name_title_body ... ok
+test replay::tests::counter_is_one_based ... ok
+test replay::tests::counter_zero_when_unselected ... ok
+test replay::tests::rstat_filter_form_when_unselected ... ok
+test replay::tests::rstat_replay_form_when_selected ... ok
+test replay::tests::step_empty_order_yields_none ... ok
+test replay::tests::step_next_advances ... ok
+test replay::tests::step_next_clamps_at_last ... ok
+test replay::tests::step_next_from_none_selects_first ... ok
+test replay::tests::step_prev_clamps_at_first ... ok
+test replay::tests::step_prev_from_none_selects_first_not_last ... ok
+test replay::tests::step_prev_retreats ... ok
+test replay::tests::step_unknown_id_treated_as_none ... ok
+test scene::tests::bounds_fallback_when_manifest_has_none ... ok
+test math::tests::unmatched_inline_cannot_swallow_a_display_expression ... ok
+test math::tests::escaped_tex_dollars_and_malformed_braces_preserve_fragment_boundaries ... ok
+test math::tests::math_display_preserves_expression_and_protected_source ... ok
+test markdown::tests::keeps_safe_and_relative_links ... ok
+test markdown::tests::leaves_math_literal ... ok
+test markdown::tests::escapes_raw_html ... ok
+test markdown::tests::neutralises_javascript_link ... ok
+test math::tests::protected_code_ranges_are_never_crossed_or_reserialized ... ok
+test math::tests::dollars_preserve_currency_escaping_and_unmatched_source ... ok
+test markdown::tests::neutralises_control_char_scheme_evasion ... ok
+test math::tests::mixed_inline_display_adjacent_and_utf8 ... ok
+test markdown::tests::neutralises_data_image ... ok
+test markdown::tests::renders_gfm_table ... ok
+test math::tests::empty_plain_and_unmatched_display_keep_all_bytes ... ok
+test markdown::tests::neutralises_entity_encoded_scheme ... ok
+test scene::tests::small_manifest_node_without_pos_and_link_to_it_no_panic ... ok
+test source::tests::default_source_urls_are_relative ... ok
+test splitter::tests::default_ratio_returns_per_mode_values ... ok
+test splitter::tests::degenerate_axis_nan_is_finite_and_in_range ... ok
+test splitter::tests::degenerate_axis_negative_is_finite_and_in_range ... ok
+test splitter::tests::degenerate_axis_tiny_smaller_than_floors_is_finite_and_in_range ... ok
+test splitter::tests::degenerate_axis_zero_is_finite_and_in_range ... ok
+test splitter::tests::degenerate_raw_neg_inf_is_finite_and_in_range ... ok
+test splitter::tests::degenerate_raw_inf_is_finite_and_in_range ... ok
+test splitter::tests::degenerate_raw_nan_is_finite_and_in_range ... ok
+test splitter::tests::floors_for_returns_per_mode_values ... ok
+test splitter::tests::larger_gutter_lowers_hi ... ok
+test splitter::tests::midpoint_inside_window_passes_through ... ok
+test splitter::tests::split_floors_lower_bound_respected ... ok
+test splitter::tests::split_floors_upper_bound_respected ... ok
+test splitter::tests::stack_floors_lower_bound_respected ... ok
+test splitter::tests::stack_floors_upper_bound_respected ... ok
+test splitter::tests::stack_midpoint_passes_through ... ok
+test splitter::tests::step_ratio_parity_at_lower_boundary ... ok
+test splitter::tests::step_ratio_parity_split_floors_backward ... ok
+test splitter::tests::step_ratio_parity_split_floors_forward ... ok
+test splitter::tests::step_ratio_parity_stack_floors_backward ... ok
+test state::tests::display_mode_default_is_tree ... ok
+test replay::tests::node_order_equals_manifest_nodes_order ... ok
+test state::tests::display_mode_from_unknown_token_falls_back_to_tree ... ok
+test splitter::tests::step_ratio_parity_stack_floors_forward ... ok
+test state::tests::display_mode_css_class_mapping ... ok
+test scene::tests::bounds_from_checked_in_manifest_are_not_fallback ... ok
+test state::tests::display_mode_token_round_trip ... ok
+test scene::tests::link_to_unknown_id_is_skipped_no_panic ... ok
+test scene::tests::child_edge_path_references_endpoint_coords ... ok
+test state::tests::layout_mode_css_class_mapping ... ok
+test scene::tests::scene_node_rects_are_centered_on_pos ... ok
+test scene::tests::depends_on_link_produces_depends_on_edge ... ok
+test scene::tests::scene_node_count_matches_nodes_with_pos ... ok
+test scene::tests::child_link_produces_child_edge ... ok
+test scene::tests::scene_node_glyph_and_css_match_kind_meta ... ok
+test scene::tests::node_without_pos_is_skipped_no_panic ... ok
+test state::tests::layout_mode_default_is_split ... ok
+test state::tests::layout_mode_from_unknown_token_falls_back_to_split ... ok
+test state::tests::layout_mode_token_round_trip ... ok
+test state::tests::map_surface_failed ... ok
+test state::tests::apply_manifest_preserves_selection_and_pan_zoom ... ok
+test state::tests::map_surface_loading ... ok
+test state::tests::safe_viewbox_negative_extent_returns_default ... ok
+test state::tests::safe_viewbox_none_returns_default ... ok
+test state::tests::safe_viewbox_positive_extent_passes_through ... ok
+test state::tests::safe_viewbox_zero_height_returns_default ... ok
+test state::tests::safe_viewbox_zero_width_returns_default ... ok
+test tests::meta_line_all_absent_is_empty ... ok
+test state::tests::manifest_round_trip_checked_in_file ... ok
+test state::tests::map_surface_empty_nodes ... ok
+test tests::meta_line_authors_only ... ok
+test tests::meta_line_full ... ok
+test state::tests::map_surface_loaded_non_empty ... ok
+test tests::meta_line_venue_without_year ... ok
+test tests::meta_line_venue_year_no_authors ... ok
+test tests::meta_line_year_without_venue ... ok
+test tree::tests::child_cycle_terminates ... ok
+test state::tests::safe_viewbox_real_manifest_bounds ... ok
+test tree::tests::children_preserve_link_source_order ... ok
+test tree::tests::dead_end_row_flagged ... ok
+test tree::tests::dep_targets_populated_from_depends_on_not_child ... ok
+test tree::tests::dep_targets_preserve_source_order ... ok
+test tree::tests::empty_manifest_yields_empty_model ... ok
+test tree::tests::false_isolated_root_lands_in_roots ... ok
+test tree::tests::isolated_root_lands_in_isolated_with_its_subtree ... ok
+test tree::tests::label_empty_title_falls_through_like_reference_truthy_or ... ok
+test tree::tests::label_fallback_title_then_body_then_untitled ... ok
+test tree::tests::single_tree_nesting_and_depth ... ok
+test tree::tests::demo_manifest_round_trip ... ok
+
+test result: ok. 181 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running unittests src/main.rs (target/debug/deps/ara_viewer-563ae550fda304a8)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/figures.rs (target/debug/deps/figures-138aa0faeb6efd29)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/math_web.rs (target/debug/deps/math_web-9a39863d1770d35d)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/web.rs (target/debug/deps/web-2628f1880c500ec7)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/debug/deps/ara_wasm-ddf88963ac5cc8f1)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests ara_cli
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests ara_core
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests ara_viewer
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests ara_wasm
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

@@ -1,0 +1,843 @@
+{
+  "schema": "ara.plan20-smoke/v1",
+  "binary": "/Users/yfhe/repos/ara/ara-cli/target/release/ara",
+  "binary_sha256": "93bb9f76839bd51fccac6eaeb6b3d6b165036c167f61d7b02ec264fb6e1eecb3",
+  "commands": [
+    {
+      "argv": [
+        "/Users/yfhe/repos/ara/ara-cli/target/release/ara",
+        "-C",
+        "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-plan20-smoke-3uhjelq8/artifact",
+        "apply",
+        "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-plan20-smoke-3uhjelq8/requests/000.jsonl",
+        "--json"
+      ],
+      "exit": 0,
+      "stdout": "{\"bindings\":{},\"changed_paths\":[\".gitignore\",\"PAPER.md\",\"evidence/README.md\",\"logic/claims.md\",\"logic/problem.md\",\"logic/solution/heuristics.md\",\"staging/observations.yaml\",\"trace/exploration_tree.yaml\",\"trace/pm_reasoning_log.yaml\",\"trace/sessions/session_index.yaml\"],\"committed\":true,\"created_directories\":[\"evidence\",\"evidence/figures\",\"evidence/tables\",\"logic\",\"logic/solution\",\"src\",\"staging\",\"trace\",\"trace/sessions\"],\"diagnostics\":[{\"message\":\"empty manifest (`tree: []`)\",\"path\":\"document\",\"severity\":\"warning\"}],\"dry_run\":false,\"duplicate_candidates\":[],\"format\":\"ara.apply/v1\",\"no_op\":false,\"operations\":[{\"no_op\":false,\"operation\":\"artifact.init\",\"target\":\"research-manager\"}]}\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/Users/yfhe/repos/ara/ara-cli/target/release/ara",
+        "-C",
+        "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-plan20-smoke-3uhjelq8/artifact",
+        "apply",
+        "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-plan20-smoke-3uhjelq8/requests/001.jsonl",
+        "--dry-run",
+        "--json"
+      ],
+      "exit": 0,
+      "stdout": "{\"bindings\":{\"$claim\":\"C01\",\"$followup\":\"N02\",\"$heuristic\":\"H01\",\"$observation\":\"O01\",\"$question\":\"N01\"},\"changed_paths\":[\"logic/claims.md\",\"logic/solution/heuristics.md\",\"staging/observations.yaml\",\"trace/exploration_tree.yaml\",\"trace/pm_reasoning_log.yaml\",\"trace/sessions/2026-10-01_001.yaml\",\"trace/sessions/session_index.yaml\"],\"committed\":false,\"diagnostics\":[],\"dry_run\":true,\"duplicate_candidates\":[],\"format\":\"ara.apply/v1\",\"operations\":[{\"id\":\"2026-10-01_001\",\"no_op\":false,\"operation\":\"session.log\",\"session\":\"2026-10-01_001\",\"session_created\":true,\"turn\":1},{\"id\":\"N01\",\"no_op\":false,\"operation\":\"node.add\"},{\"id\":\"N02\",\"no_op\":false,\"operation\":\"node.add\"},{\"id\":\"C01\",\"no_op\":false,\"operation\":\"claim.add\",\"target\":\"logic/claims.md:C01\"},{\"id\":\"H01\",\"no_op\":false,\"operation\":\"heuristic.add\",\"target\":\"logic/solution/heuristics.md:H01\"},{\"id\":\"O01\",\"no_op\":false,\"operation\":\"observation.stage\"},{\"no_op\":false,\"operation\":\"record.append\",\"session\":\"2026-10-01_001\",\"turn\":1}]}\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/Users/yfhe/repos/ara/ara-cli/target/release/ara",
+        "-C",
+        "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-plan20-smoke-3uhjelq8/artifact",
+        "apply",
+        "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-plan20-smoke-3uhjelq8/requests/002.jsonl",
+        "--json"
+      ],
+      "exit": 0,
+      "stdout": "{\"bindings\":{\"$claim\":\"C01\",\"$followup\":\"N02\",\"$heuristic\":\"H01\",\"$observation\":\"O01\",\"$question\":\"N01\"},\"changed_paths\":[\"logic/claims.md\",\"logic/solution/heuristics.md\",\"staging/observations.yaml\",\"trace/exploration_tree.yaml\",\"trace/pm_reasoning_log.yaml\",\"trace/sessions/2026-10-01_001.yaml\",\"trace/sessions/session_index.yaml\"],\"committed\":true,\"diagnostics\":[],\"dry_run\":false,\"duplicate_candidates\":[],\"format\":\"ara.apply/v1\",\"operations\":[{\"id\":\"2026-10-01_001\",\"no_op\":false,\"operation\":\"session.log\",\"session\":\"2026-10-01_001\",\"session_created\":true,\"turn\":1},{\"id\":\"N01\",\"no_op\":false,\"operation\":\"node.add\"},{\"id\":\"N02\",\"no_op\":false,\"operation\":\"node.add\"},{\"id\":\"C01\",\"no_op\":false,\"operation\":\"claim.add\",\"target\":\"logic/claims.md:C01\"},{\"id\":\"H01\",\"no_op\":false,\"operation\":\"heuristic.add\",\"target\":\"logic/solution/heuristics.md:H01\"},{\"id\":\"O01\",\"no_op\":false,\"operation\":\"observation.stage\"},{\"no_op\":false,\"operation\":\"record.append\",\"session\":\"2026-10-01_001\",\"turn\":1}]}\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/Users/yfhe/repos/ara/ara-cli/target/release/ara",
+        "-C",
+        "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-plan20-smoke-3uhjelq8/artifact",
+        "show",
+        "N01",
+        "--full",
+        "--json"
+      ],
+      "exit": 0,
+      "stdout": "{\"diagnostics\":{\"errors\":[],\"warnings\":[]},\"entries\":[{\"description\":\"@literal\\nFull source text α\",\"evidence_notes\":[],\"fields\":\"question\",\"id\":\"N01\",\"kind\":\"question\",\"label\":\"Does setup constrain the result?\",\"provenance\":\"ai-suggested\",\"source\":\"trace/exploration_tree.yaml\",\"source_fields\":{\"description\":\"@literal\\nFull source text α\",\"id\":\"N01\",\"provenance\":\"ai-suggested\",\"timestamp\":\"2026-10-01T10:00:00Z\",\"title\":\"Does setup constrain the result?\",\"type\":\"question\"},\"source_refs\":[],\"support_level\":null,\"timestamp\":\"2026-10-01T10:00:00Z\",\"title\":\"Does setup constrain the result?\"}],\"format\":\"ara.show/v1\"}\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/Users/yfhe/repos/ara/ara-cli/target/release/ara",
+        "-C",
+        "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-plan20-smoke-3uhjelq8/artifact",
+        "show",
+        "N02",
+        "N01",
+        "--with",
+        "path,refs",
+        "--with",
+        "parents,path",
+        "--full",
+        "--json"
+      ],
+      "exit": 0,
+      "stdout": "{\"diagnostics\":{\"errors\":[],\"warnings\":[]},\"entries\":[{\"description\":\"Source boundary question\",\"evidence_notes\":[],\"fields\":\"question\",\"id\":\"N02\",\"kind\":\"question\",\"label\":\"How is the setup bound?\",\"provenance\":\"user\",\"relations\":{\"parents\":[\"N01\"],\"path\":[{\"description\":\"@literal\\nFull source text α\",\"evidence_notes\":[],\"fields\":\"question\",\"id\":\"N01\",\"kind\":\"question\",\"label\":\"Does setup constrain the result?\",\"provenance\":\"ai-suggested\",\"source\":\"trace/exploration_tree.yaml\",\"source_refs\":[],\"support_level\":null,\"timestamp\":\"2026-10-01T10:00:00Z\",\"title\":\"Does setup constrain the result?\"},{\"description\":\"Source boundary question\",\"evidence_notes\":[],\"fields\":\"question\",\"id\":\"N02\",\"kind\":\"question\",\"label\":\"How is the setup bound?\",\"provenance\":\"user\",\"source\":\"trace/exploration_tree.yaml\",\"source_refs\":[],\"support_level\":null,\"timestamp\":\"2026-10-01T10:01:00Z\",\"title\":\"How is the setup bound?\"}],\"refs\":{\"prose\":[],\"structured\":[{\"certainty\":\"certain\",\"field\":\"children\",\"id\":\"N01\",\"literal\":\"N02\",\"range\":{\"end\":299,\"start\":294},\"source\":\"trace/exploration_tree.yaml\"},{\"certainty\":\"certain\",\"field\":\"id\",\"id\":\"2026-10-01_001\",\"literal\":\"N02\",\"range\":{\"end\":284,\"start\":279},\"source\":\"trace/sessions/2026-10-01_001.yaml\"}],\"target\":\"N02\"}},\"source\":\"trace/exploration_tree.yaml\",\"source_fields\":{\"description\":\"Source boundary question\",\"id\":\"N02\",\"provenance\":\"user\",\"timestamp\":\"2026-10-01T10:01:00Z\",\"title\":\"How is the setup bound?\",\"type\":\"question\"},\"source_refs\":[],\"support_level\":null,\"timestamp\":\"2026-10-01T10:01:00Z\",\"title\":\"How is the setup bound?\"},{\"description\":\"@literal\\nFull source text α\",\"evidence_notes\":[],\"fields\":\"question\",\"id\":\"N01\",\"kind\":\"question\",\"label\":\"Does setup constrain the result?\",\"provenance\":\"ai-suggested\",\"relations\":{\"parents\":[],\"path\":[{\"description\":\"@literal\\nFull source text α\",\"evidence_notes\":[],\"fields\":\"question\",\"id\":\"N01\",\"kind\":\"question\",\"label\":\"Does setup constrain the result?\",\"provenance\":\"ai-suggested\",\"source\":\"trace/exploration_tree.yaml\",\"source_refs\":[],\"support_level\":null,\"timestamp\":\"2026-10-01T10:00:00Z\",\"title\":\"Does setup constrain the result?\"}],\"refs\":{\"prose\":[{\"certainty\":\"possible\",\"context\":\"iteral Full source text α id: \\\"N01\\\" provenance: \\\"ai-suggested\\\" timestamp: \\\"2026-10-01T10:00:00Z\\\" title\",\"field\":\"source_text\",\"literal\":\"N01\",\"range\":{\"end\":81,\"start\":78},\"source\":\"trace/exploration_tree.yaml\"}],\"structured\":[{\"certainty\":\"certain\",\"field\":\"Proof\",\"id\":\"C01\",\"literal\":\"trace/exploration_tree.yaml#N01\",\"range\":{\"end\":304,\"start\":273},\"source\":\"logic/claims.md\"},{\"certainty\":\"certain\",\"field\":\"bound_to\",\"id\":\"O01\",\"literal\":\"N01\",\"range\":{\"end\":35,\"start\":30},\"source\":\"staging/observations.yaml\"},{\"certainty\":\"certain\",\"field\":\"id\",\"id\":\"2026-10-01_001\",\"literal\":\"N01\",\"range\":{\"end\":136,\"start\":131},\"source\":\"trace/sessions/2026-10-01_001.yaml\"}],\"target\":\"N01\"}},\"source\":\"trace/exploration_tree.yaml\",\"source_fields\":{\"description\":\"@literal\\nFull source text α\",\"id\":\"N01\",\"provenance\":\"ai-suggested\",\"timestamp\":\"2026-10-01T10:00:00Z\",\"title\":\"Does setup constrain the result?\",\"type\":\"question\"},\"source_refs\":[],\"support_level\":null,\"timestamp\":\"2026-10-01T10:00:00Z\",\"title\":\"Does setup constrain the result?\"}],\"format\":\"ara.show/v1\"}\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/Users/yfhe/repos/ara/ara-cli/target/release/ara",
+        "-C",
+        "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-plan20-smoke-3uhjelq8/artifact",
+        "show",
+        "N01",
+        "--with",
+        "refs",
+        "--fields",
+        "relations",
+        "--json"
+      ],
+      "exit": 0,
+      "stdout": "{\"diagnostics\":{\"errors\":[],\"warnings\":[]},\"entries\":[{\"id\":\"N01\",\"kind\":\"question\",\"relations\":{\"refs\":{\"prose\":[{\"certainty\":\"possible\",\"context\":\"iteral Full source text α id: \\\"N01\\\" provenance: \\\"ai-suggested\\\" timestamp: \\\"2026-10-01T10:00:00Z\\\" title\",\"field\":\"source_text\",\"literal\":\"N01\",\"range\":{\"end\":81,\"start\":78},\"source\":\"trace/exploration_tree.yaml\"}],\"structured\":[{\"certainty\":\"certain\",\"field\":\"Proof\",\"id\":\"C01\",\"literal\":\"trace/exploration_tree.yaml#N01\",\"range\":{\"end\":304,\"start\":273},\"source\":\"logic/claims.md\"},{\"certainty\":\"certain\",\"field\":\"bound_to\",\"id\":\"O01\",\"literal\":\"N01\",\"range\":{\"end\":35,\"start\":30},\"source\":\"staging/observations.yaml\"},{\"certainty\":\"certain\",\"field\":\"id\",\"id\":\"2026-10-01_001\",\"literal\":\"N01\",\"range\":{\"end\":136,\"start\":131},\"source\":\"trace/sessions/2026-10-01_001.yaml\"}],\"target\":\"N01\"}},\"source\":\"trace/exploration_tree.yaml\"}],\"format\":\"ara.show/v1\"}\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/Users/yfhe/repos/ara/ara-cli/target/release/ara",
+        "-C",
+        "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-plan20-smoke-3uhjelq8/artifact",
+        "show",
+        "--document",
+        "trace/exploration_tree.yaml",
+        "--with",
+        "refs",
+        "--full",
+        "--json"
+      ],
+      "exit": 0,
+      "stdout": "{\"diagnostics\":{\"errors\":[],\"warnings\":[]},\"entries\":[{\"address\":\"trace/exploration_tree.yaml\",\"content\":\"tree: \\n  - description: |2-\\n      @literal\\n      Full source text α\\n    id: \\\"N01\\\"\\n    provenance: \\\"ai-suggested\\\"\\n    timestamp: \\\"2026-10-01T10:00:00Z\\\"\\n    title: \\\"Does setup constrain the result?\\\"\\n    type: \\\"question\\\"\\n    children: \\n      - description: \\\"Source boundary question\\\"\\n        id: \\\"N02\\\"\\n        provenance: \\\"user\\\"\\n        timestamp: \\\"2026-10-01T10:01:00Z\\\"\\n        title: \\\"How is the setup bound?\\\"\\n        type: \\\"question\\\"\\n\",\"digest\":\"sha256:2d166cb2daf060623bdaf0b7893142460c02084ed9f09a0b309fe30592b3981b\",\"document\":\"trace/exploration_tree.yaml\",\"heading\":[],\"key\":\"trace/exploration_tree.yaml\",\"kind\":\"source_document\",\"relations\":{\"refs\":{\"prose\":[],\"structured\":[{\"certainty\":\"certain\",\"field\":\"Proof\",\"id\":\"C01\",\"literal\":\"trace/exploration_tree.yaml#N01\",\"range\":{\"end\":304,\"start\":273},\"source\":\"logic/claims.md\"}],\"target\":\"trace/exploration_tree.yaml\"}},\"source\":\"trace/exploration_tree.yaml\"}],\"format\":\"ara.show/v1\"}\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/Users/yfhe/repos/ara/ara-cli/target/release/ara",
+        "-C",
+        "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-plan20-smoke-3uhjelq8/artifact",
+        "show",
+        "C01",
+        "--with",
+        "path",
+        "--json"
+      ],
+      "exit": 1,
+      "stdout": "",
+      "stderr": "{\"error\":{\"code\":\"invalid_selector\",\"message\":\"path requires node selections\"},\"format\":\"ara.show/v1\"}\n"
+    },
+    {
+      "argv": [
+        "/Users/yfhe/repos/ara/ara-cli/target/release/ara",
+        "-C",
+        "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-plan20-smoke-3uhjelq8/artifact",
+        "show",
+        "N01",
+        "C01",
+        "--with",
+        "path",
+        "--json"
+      ],
+      "exit": 1,
+      "stdout": "",
+      "stderr": "{\"error\":{\"code\":\"invalid_selector\",\"message\":\"path requires node selections\"},\"format\":\"ara.show/v1\"}\n"
+    },
+    {
+      "argv": [
+        "/Users/yfhe/repos/ara/ara-cli/target/release/ara",
+        "-C",
+        "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-plan20-smoke-3uhjelq8/artifact",
+        "show",
+        "--document",
+        "logic/claims.md",
+        "--heading",
+        "Claims",
+        "--with",
+        "refs",
+        "--json"
+      ],
+      "exit": 1,
+      "stdout": "",
+      "stderr": "{\"error\":{\"code\":\"invalid_selector\",\"message\":\"Whole-document selection supports only refs; headings and source selections cannot supply relations\"},\"format\":\"ara.show/v1\"}\n"
+    },
+    {
+      "argv": [
+        "/Users/yfhe/repos/ara/ara-cli/target/release/ara",
+        "-C",
+        "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-plan20-smoke-3uhjelq8/artifact",
+        "show",
+        "--document",
+        "trace/exploration_tree.yaml",
+        "--with",
+        "parents",
+        "--json"
+      ],
+      "exit": 1,
+      "stdout": "",
+      "stderr": "{\"error\":{\"code\":\"invalid_selector\",\"message\":\"Whole-document selection supports only refs; headings and source selections cannot supply relations\"},\"format\":\"ara.show/v1\"}\n"
+    },
+    {
+      "argv": [
+        "/Users/yfhe/repos/ara/ara-cli/target/release/ara",
+        "-C",
+        "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-plan20-smoke-3uhjelq8/artifact",
+        "show",
+        "--document",
+        "logic/claims.md",
+        "--source",
+        "--with",
+        "refs",
+        "--json"
+      ],
+      "exit": 1,
+      "stdout": "",
+      "stderr": "{\"error\":{\"code\":\"invalid_selector\",\"message\":\"Source selection cannot be mixed with entry IDs or relations\"},\"format\":\"ara.show/v1\"}\n"
+    },
+    {
+      "argv": [
+        "/Users/yfhe/repos/ara/ara-cli/target/release/ara",
+        "-C",
+        "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-plan20-smoke-3uhjelq8/artifact",
+        "show",
+        "N02",
+        "--with",
+        "path,refs",
+        "--max-bytes",
+        "80",
+        "--json"
+      ],
+      "exit": 1,
+      "stdout": "",
+      "stderr": "{\"error\":{\"code\":\"output_limit_too_small\",\"details\":{\"hint\":\"The complete relations or identity mapping and required metadata need 1412 bytes; rerun with --max-bytes 1412 or more\",\"max_bytes\":80,\"required\":1412},\"id\":\"N02\",\"message\":\"The response needs at least 1412 bytes; the budget is 80\"},\"format\":\"ara.show/v1\"}\n"
+    },
+    {
+      "argv": [
+        "/Users/yfhe/repos/ara/ara-cli/target/release/ara",
+        "-C",
+        "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-plan20-smoke-3uhjelq8/artifact",
+        "ls",
+        "logic/claims.md",
+        "--unfinished",
+        "--type",
+        "observation",
+        "--fields",
+        "reasons,turns_since_reference,history_diagnostics",
+        "--json"
+      ],
+      "exit": 0,
+      "stdout": "{\"diagnostics\":{\"errors\":[],\"warnings\":[]},\"entries\":[],\"format\":\"ara.ls/v1\"}\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/Users/yfhe/repos/ara/ara-cli/target/release/ara",
+        "-C",
+        "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-plan20-smoke-3uhjelq8/artifact",
+        "ls",
+        "--unfinished",
+        "--type",
+        "observation",
+        "--full",
+        "--json"
+      ],
+      "exit": 0,
+      "stdout": "{\"diagnostics\":{\"errors\":[],\"warnings\":[]},\"entries\":[{\"bound_to\":[\"N01\"],\"content\":\"@literal observation α\\nSecond line\",\"context\":\"source boundary\",\"evidence_sources\":[{\"basis\":\"structured\",\"date\":\"2026-10-01\",\"field\":\"events_logged[0].id\",\"line\":8,\"literal\":\"N01\",\"session\":\"2026-10-01_001\",\"source\":\"trace/sessions/2026-10-01_001.yaml\",\"status\":\"attributed\",\"target\":\"N01\",\"turn\":1},{\"basis\":\"structured\",\"date\":\"2026-10-01\",\"field\":\"events_logged[4].id\",\"line\":32,\"literal\":\"O01\",\"session\":\"2026-10-01_001\",\"source\":\"trace/sessions/2026-10-01_001.yaml\",\"status\":\"attributed\",\"target\":\"O01\",\"turn\":1}],\"history_diagnostics\":[],\"history_status\":\"complete\",\"id\":\"O01\",\"kind\":\"observation\",\"last_reference_date\":\"2026-10-01\",\"last_reference_turn\":\"2026-10-01_001#1\",\"potential_type\":\"claim\",\"promoted\":false,\"provenance\":\"ai-suggested\",\"reasons\":[\"unpromoted_observation\"],\"reference_basis\":\"structured\",\"session_days_since_reference\":0,\"source\":\"staging/observations.yaml\",\"source_file\":\"staging/observations.yaml\",\"stale\":false,\"timestamp\":\"2026-10-01T10:00:00Z\",\"turns_since_reference\":0}],\"format\":\"ara.ls/v1\"}\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/Users/yfhe/repos/ara/ara-cli/target/release/ara",
+        "-C",
+        "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-plan20-smoke-3uhjelq8/artifact",
+        "claim",
+        "set",
+        "C01",
+        "--set",
+        "Status=testing",
+        "--json"
+      ],
+      "exit": 0,
+      "stdout": "{\"bindings\":{},\"changed_paths\":[\"logic/claims.md\"],\"committed\":true,\"diagnostics\":[],\"dry_run\":false,\"duplicate_candidates\":[],\"format\":\"ara.claim/v1\",\"no_op\":false,\"operations\":[{\"no_op\":false,\"operation\":\"entry.edit\",\"target\":\"logic/claims.md:C01: Setup bounds the claim\"}]}\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/Users/yfhe/repos/ara/ara-cli/target/release/ara",
+        "-C",
+        "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-plan20-smoke-3uhjelq8/artifact",
+        "heuristic",
+        "set",
+        "H01",
+        "--set",
+        "Status=weakened",
+        "--json"
+      ],
+      "exit": 0,
+      "stdout": "{\"bindings\":{},\"changed_paths\":[\"logic/solution/heuristics.md\"],\"committed\":true,\"diagnostics\":[],\"dry_run\":false,\"duplicate_candidates\":[],\"format\":\"ara.heuristic/v1\",\"no_op\":false,\"operations\":[{\"no_op\":false,\"operation\":\"entry.edit\",\"target\":\"logic/solution/heuristics.md:H01: Bind setup before comparison\"}]}\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/Users/yfhe/repos/ara/ara-cli/target/release/ara",
+        "-C",
+        "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-plan20-smoke-3uhjelq8/artifact",
+        "edit",
+        "C01",
+        "--set",
+        "Conditions=Declared setup, confirmed text",
+        "--json"
+      ],
+      "exit": 0,
+      "stdout": "{\"bindings\":{},\"changed_paths\":[\"logic/claims.md\"],\"committed\":true,\"diagnostics\":[],\"dry_run\":false,\"duplicate_candidates\":[],\"format\":\"ara.edit/v1\",\"no_op\":false,\"operations\":[{\"no_op\":false,\"operation\":\"entry.edit\",\"target\":\"logic/claims.md:C01: Setup bounds the claim\"}]}\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/Users/yfhe/repos/ara/ara-cli/target/release/ara",
+        "-C",
+        "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-plan20-smoke-3uhjelq8/artifact",
+        "apply",
+        "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-plan20-smoke-3uhjelq8/requests/018.jsonl",
+        "--json"
+      ],
+      "exit": 1,
+      "stdout": "",
+      "stderr": "{\"error\":{\"code\":\"write.node\",\"details\":{\"code\":\"write.node\",\"field\":\"node\",\"line\":3,\"message\":\"unknown node `N999`\"},\"line\":3,\"message\":\"unknown node `N999`\"},\"format\":\"ara.apply/v1\"}\n"
+    },
+    {
+      "argv": [
+        "/Users/yfhe/repos/ara/ara-cli/target/release/ara",
+        "-C",
+        "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-plan20-smoke-3uhjelq8/artifact",
+        "apply",
+        "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-plan20-smoke-3uhjelq8/requests/019.jsonl",
+        "--json"
+      ],
+      "exit": 0,
+      "stdout": "{\"bindings\":{\"$promoted\":\"C02\"},\"changed_paths\":[\"logic/claims.md\",\"staging/observations.yaml\",\"trace/pm_reasoning_log.yaml\",\"trace/sessions/2026-10-01_001.yaml\",\"trace/sessions/session_index.yaml\"],\"committed\":true,\"diagnostics\":[],\"dry_run\":false,\"duplicate_candidates\":[],\"format\":\"ara.apply/v1\",\"operations\":[{\"id\":\"2026-10-01_001\",\"no_op\":false,\"operation\":\"session.log\",\"session\":\"2026-10-01_001\",\"turn\":2},{\"id\":\"C02\",\"no_op\":false,\"operation\":\"observation.promote\",\"target\":\"logic/claims.md:C02\"}]}\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/Users/yfhe/repos/ara/ara-cli/target/release/ara",
+        "-C",
+        "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-plan20-smoke-3uhjelq8/artifact",
+        "show",
+        "O01",
+        "--full",
+        "--json"
+      ],
+      "exit": 0,
+      "stdout": "{\"diagnostics\":{\"errors\":[],\"warnings\":[]},\"entries\":[{\"bound_to\":[\"N01\"],\"content\":\"@literal observation α\\nSecond line\",\"context\":\"source boundary\",\"crystallized_via\":\"verbal-affirmation\",\"id\":\"O01\",\"kind\":\"observation\",\"potential_type\":\"claim\",\"promoted\":true,\"promoted_to\":\"logic/claims.md:C02\",\"provenance\":\"ai-suggested\",\"source\":\"staging/observations.yaml\",\"source_file\":\"staging/observations.yaml\",\"stale\":false,\"timestamp\":\"2026-10-01T10:00:00Z\"}],\"format\":\"ara.show/v1\"}\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/Users/yfhe/repos/ara/ara-cli/target/release/ara",
+        "-C",
+        "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-plan20-smoke-3uhjelq8/artifact",
+        "apply",
+        "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-plan20-smoke-3uhjelq8/requests/021.jsonl",
+        "--json"
+      ],
+      "exit": 0,
+      "stdout": "{\"bindings\":{},\"changed_paths\":[\"logic/claims.md\",\"trace/pm_reasoning_log.yaml\",\"trace/sessions/2026-10-01_001.yaml\",\"trace/sessions/session_index.yaml\"],\"committed\":true,\"diagnostics\":[],\"dry_run\":false,\"duplicate_candidates\":[],\"format\":\"ara.apply/v1\",\"operations\":[{\"id\":\"2026-10-01_001\",\"no_op\":false,\"operation\":\"session.log\",\"session\":\"2026-10-01_001\",\"turn\":3},{\"no_op\":false,\"operation\":\"logic.revise\",\"session\":\"2026-10-01_001\",\"target\":\"logic/claims.md:C01: Setup bounds the claim\",\"turn\":3}]}\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/Users/yfhe/repos/ara/ara-cli/target/release/ara",
+        "-C",
+        "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-plan20-smoke-3uhjelq8/artifact",
+        "show",
+        "C01",
+        "--full",
+        "--json"
+      ],
+      "exit": 0,
+      "stdout": "{\"diagnostics\":{\"errors\":[],\"warnings\":[]},\"entries\":[{\"body\":\"## C01: Setup bounds the claim\\n- **Statement**: The claim is conditional on setup.\\n- **Conditions**:\\n  Only the documented setup\\n- **Sources**: [\\\"@literal\\\",\\\"a,b\\\"]\\n- **Status**:\\n  testing\\n- **Provenance**: user\\n- **Falsification**: The claim holds outside setup.\\n- **Proof**: trace/exploration_tree.yaml#N01\\n\\n- **Last revised**:\\n  2026-10-01 (2026-10-01_001#3)\\n\",\"conditions\":\"Only the documented setup\",\"deps\":[],\"falsification\":\"The claim holds outside setup.\",\"id\":\"C01\",\"kind\":\"claim\",\"last_revised\":\"2026-10-01 (2026-10-01_001#3)\",\"proof\":[],\"proof_content\":\"trace/exploration_tree.yaml#N01\",\"provenance\":\"user\",\"source\":\"logic/claims.md\",\"source_fields\":[{\"name\":\"Statement\",\"value\":\"The claim is conditional on setup.\"},{\"name\":\"Conditions\",\"value\":\"Only the documented setup\"},{\"name\":\"Sources\",\"value\":\"[\\\"@literal\\\",\\\"a,b\\\"]\"},{\"name\":\"Status\",\"value\":\"testing\"},{\"name\":\"Provenance\",\"value\":\"user\"},{\"name\":\"Falsification\",\"value\":\"The claim holds outside setup.\"},{\"name\":\"Proof\",\"value\":\"trace/exploration_tree.yaml#N01\"},{\"name\":\"Last revised\",\"value\":\"2026-10-01 (2026-10-01_001#3)\"}],\"sources\":\"[\\\"@literal\\\",\\\"a,b\\\"]\",\"statement\":\"The claim is conditional on setup.\",\"status\":\"testing\",\"title\":\"Setup bounds the claim\"}],\"format\":\"ara.show/v1\"}\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/Users/yfhe/repos/ara/ara-cli/target/release/ara",
+        "-C",
+        "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-plan20-smoke-3uhjelq8/theirs",
+        "apply",
+        "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-plan20-smoke-3uhjelq8/requests/023.jsonl",
+        "--json"
+      ],
+      "exit": 0,
+      "stdout": "{\"bindings\":{},\"changed_paths\":[\"trace/exploration_tree.yaml\"],\"committed\":true,\"diagnostics\":[],\"dry_run\":false,\"duplicate_candidates\":[],\"format\":\"ara.apply/v1\",\"id\":\"N77\",\"no_op\":false,\"operations\":[{\"id\":\"N77\",\"no_op\":false,\"operation\":\"node.add\"}]}\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/Users/yfhe/repos/ara/ara-cli/target/release/ara",
+        "-C",
+        "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-plan20-smoke-3uhjelq8/ours",
+        "merge",
+        "--base",
+        "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-plan20-smoke-3uhjelq8/base",
+        "--theirs",
+        "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-plan20-smoke-3uhjelq8/theirs",
+        "--as",
+        "peer",
+        "--source-key",
+        "peer-fork",
+        "--no-duplicate-check",
+        "--json"
+      ],
+      "exit": 0,
+      "stdout": "{\"changed_paths\":[\"trace/aliases.yaml\",\"trace/exploration_tree.yaml\",\"trace/merge_log.yaml\"],\"committed\":true,\"conflicts\":[],\"dry_run\":false,\"duplicate_candidates\":[],\"format\":\"ara.merge/v1\",\"imports\":[{\"layer\":\"staging\",\"original\":\"O01\",\"path\":\"staging/observations.yaml\",\"source_key\":\"peer-fork\",\"target\":\"O01\"},{\"layer\":\"document\",\"original\":\"staging/observations.yaml\",\"path\":\"staging/observations.yaml\",\"source_key\":\"peer-fork\",\"target\":\"staging/observations.yaml\"},{\"layer\":\"trace\",\"original\":\"N01\",\"path\":\"trace/exploration_tree.yaml\",\"source_key\":\"peer-fork\",\"target\":\"N01\"},{\"layer\":\"trace\",\"original\":\"N02\",\"path\":\"trace/exploration_tree.yaml\",\"source_key\":\"peer-fork\",\"target\":\"N02\"},{\"layer\":\"trace\",\"original\":\"N77\",\"path\":\"trace/exploration_tree.yaml\",\"source_key\":\"peer-fork\",\"target\":\"N03\"},{\"layer\":\"document\",\"original\":\"trace/exploration_tree.yaml\",\"path\":\"trace/exploration_tree.yaml\",\"source_key\":\"peer-fork\",\"target\":\"trace/exploration_tree.yaml\"},{\"layer\":\"reasoning\",\"original\":\"trace/pm_reasoning_log.yaml#entries/0\",\"path\":\"trace/pm_reasoning_log.yaml\",\"source_key\":\"peer-fork\",\"target\":\"trace/pm_reasoning_log.yaml#entries/0\"},{\"layer\":\"reasoning\",\"original\":\"trace/pm_reasoning_log.yaml#entries/1\",\"path\":\"trace/pm_reasoning_log.yaml\",\"source_key\":\"peer-fork\",\"target\":\"trace/pm_reasoning_log.yaml#entries/1\"},{\"layer\":\"reasoning\",\"original\":\"trace/pm_reasoning_log.yaml#entries/2\",\"path\":\"trace/pm_reasoning_log.yaml\",\"source_key\":\"peer-fork\",\"target\":\"trace/pm_reasoning_log.yaml#entries/2\"},{\"layer\":\"reasoning\",\"original\":\"trace/pm_reasoning_log.yaml#entries/3\",\"path\":\"trace/pm_reasoning_log.yaml\",\"source_key\":\"peer-fork\",\"target\":\"trace/pm_reasoning_log.yaml#entries/3\"},{\"layer\":\"document\",\"original\":\"trace/pm_reasoning_log.yaml\",\"path\":\"trace/pm_reasoning_log.yaml\",\"source_key\":\"peer-fork\",\"target\":\"trace/pm_reasoning_log.yaml\"},{\"layer\":\"session\",\"original\":\"2026-10-01_001\",\"path\":\"trace/sessions/2026-10-01_001.yaml\",\"source_key\":\"peer-fork\",\"target\":\"2026-10-01_001\"},{\"layer\":\"session_occurrence\",\"original\":\"trace/sessions/2026-10-01_001.yaml#events_logged/0\",\"path\":\"trace/sessions/2026-10-01_001.yaml\",\"source_key\":\"peer-fork\",\"target\":\"trace/sessions/2026-10-01_001.yaml#events_logged/0\"},{\"layer\":\"session_occurrence\",\"original\":\"trace/sessions/2026-10-01_001.yaml#events_logged/1\",\"path\":\"trace/sessions/2026-10-01_001.yaml\",\"source_key\":\"peer-fork\",\"target\":\"trace/sessions/2026-10-01_001.yaml#events_logged/1\"},{\"layer\":\"session_occurrence\",\"original\":\"trace/sessions/2026-10-01_001.yaml#events_logged/2\",\"path\":\"trace/sessions/2026-10-01_001.yaml\",\"source_key\":\"peer-fork\",\"target\":\"trace/sessions/2026-10-01_001.yaml#events_logged/2\"},{\"layer\":\"session_occurrence\",\"original\":\"trace/sessions/2026-10-01_001.yaml#events_logged/3\",\"path\":\"trace/sessions/2026-10-01_001.yaml\",\"source_key\":\"peer-fork\",\"target\":\"trace/sessions/2026-10-01_001.yaml#events_logged/3\"},{\"layer\":\"session_occurrence\",\"original\":\"trace/sessions/2026-10-01_001.yaml#events_logged/4\",\"path\":\"trace/sessions/2026-10-01_001.yaml\",\"source_key\":\"peer-fork\",\"target\":\"trace/sessions/2026-10-01_001.yaml#events_logged/4\"},{\"layer\":\"session_occurrence\",\"original\":\"trace/sessions/2026-10-01_001.yaml#events_logged/5\",\"path\":\"trace/sessions/2026-10-01_001.yaml\",\"source_key\":\"peer-fork\",\"target\":\"trace/sessions/2026-10-01_001.yaml#events_logged/5\"},{\"layer\":\"session_occurrence\",\"original\":\"trace/sessions/2026-10-01_001.yaml#claims_touched/0\",\"path\":\"trace/sessions/2026-10-01_001.yaml\",\"source_key\":\"peer-fork\",\"target\":\"trace/sessions/2026-10-01_001.yaml#claims_touched/0\"},{\"layer\":\"session_occurrence\",\"original\":\"trace/sessions/2026-10-01_001.yaml#claims_touched/1\",\"path\":\"trace/sessions/2026-10-01_001.yaml\",\"source_key\":\"peer-fork\",\"target\":\"trace/sessions/2026-10-01_001.yaml#claims_touched/1\"},{\"layer\":\"session_occurrence\",\"original\":\"trace/sessions/2026-10-01_001.yaml#claims_touched/2\",\"path\":\"trace/sessions/2026-10-01_001.yaml\",\"source_key\":\"peer-fork\",\"target\":\"trace/sessions/2026-10-01_001.yaml#claims_touched/2\"},{\"layer\":\"session_occurrence\",\"original\":\"trace/sessions/2026-10-01_001.yaml#logic_revisions/0\",\"path\":\"trace/sessions/2026-10-01_001.yaml\",\"source_key\":\"peer-fork\",\"target\":\"trace/sessions/2026-10-01_001.yaml#logic_revisions/0\"},{\"layer\":\"document\",\"original\":\"trace/sessions/2026-10-01_001.yaml\",\"path\":\"trace/sessions/2026-10-01_001.yaml\",\"source_key\":\"peer-fork\",\"target\":\"trace/sessions/2026-10-01_001.yaml\"},{\"layer\":\"document\",\"original\":\"trace/sessions/session_index.yaml\",\"path\":\"trace/sessions/session_index.yaml\",\"source_key\":\"peer-fork\",\"target\":\"trace/sessions/session_index.yaml\"},{\"layer\":\"paper\",\"original\":\"PAPER.md\",\"path\":\"PAPER.md\",\"source_key\":\"peer-fork\",\"target\":\"PAPER.md\"},{\"layer\":\"paper\",\"original\":\"PAPER.md#frontmatter\",\"path\":\"PAPER.md\",\"source_key\":\"peer-fork\",\"target\":\"PAPER.md#frontmatter\"},{\"layer\":\"paper\",\"original\":\"PAPER.md#Command migration smoke\",\"path\":\"PAPER.md\",\"source_key\":\"peer-fork\",\"target\":\"PAPER.md#Command migration smoke\"},{\"layer\":\"logic\",\"original\":\"logic/claims.md\",\"path\":\"logic/claims.md\",\"source_key\":\"peer-fork\",\"target\":\"logic/claims.md\"},{\"layer\":\"logic\",\"original\":\"logic/claims.md#Claims\",\"path\":\"logic/claims.md\",\"source_key\":\"peer-fork\",\"target\":\"logic/claims.md#Claims\"},{\"layer\":\"logic\",\"original\":\"C01\",\"path\":\"logic/claims.md\",\"source_key\":\"peer-fork\",\"target\":\"C01\"},{\"layer\":\"logic\",\"original\":\"C02\",\"path\":\"logic/claims.md\",\"source_key\":\"peer-fork\",\"target\":\"C02\"},{\"layer\":\"logic\",\"original\":\"logic/problem.md\",\"path\":\"logic/problem.md\",\"source_key\":\"peer-fork\",\"target\":\"logic/problem.md\"},{\"layer\":\"logic\",\"original\":\"logic/problem.md#Problem\",\"path\":\"logic/problem.md\",\"source_key\":\"peer-fork\",\"target\":\"logic/problem.md#Problem\"},{\"layer\":\"logic\",\"original\":\"logic/solution/heuristics.md\",\"path\":\"logic/solution/heuristics.md\",\"source_key\":\"peer-fork\",\"target\":\"logic/solution/heuristics.md\"},{\"layer\":\"logic\",\"original\":\"logic/solution/heuristics.md#Heuristics\",\"path\":\"logic/solution/heuristics.md\",\"source_key\":\"peer-fork\",\"target\":\"logic/solution/heuristics.md#Heuristics\"},{\"layer\":\"logic\",\"original\":\"H01\",\"path\":\"logic/solution/heuristics.md\",\"source_key\":\"peer-fork\",\"target\":\"H01\"},{\"layer\":\"document\",\"original\":\".gitignore\",\"path\":\".gitignore\",\"source_key\":\"peer-fork\",\"target\":\".gitignore\"},{\"layer\":\"external\",\"original\":\"evidence/README.md\",\"path\":\"evidence/README.md\",\"source_key\":\"peer-fork\",\"target\":\"evidence/README.md\"}],\"logic_conflicts\":[],\"needs_review\":[],\"renamed\":[{\"layer\":\"trace\",\"original\":\"N77\",\"path\":\"trace/exploration_tree.yaml\",\"source_key\":\"peer-fork\",\"target\":\"N03\"}],\"rewritten\":[{\"confidence\":\"certain\",\"new\":\"N03\",\"old\":\"N77\",\"path\":\"trace/exploration_tree.yaml\",\"selector\":\"N03\"}],\"source_key\":\"peer-fork\",\"source_revision\":\"e864aee1fde00c6c083648136a1da2e39c8775d250329a9e2403ead637f6aeed\",\"timings\":{\"advisory_ms\":0.000125,\"commit_ms\":26.882666999999998,\"input_recheck_ms\":1.150792,\"load_ms\":9.5435,\"operation_ms\":39.907875000000004,\"planning_ms\":1.9542499999999998,\"validation_ms\":0.294833},\"unresolved_count\":0}\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/Users/yfhe/repos/ara/ara-cli/target/release/ara",
+        "-C",
+        "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-plan20-smoke-3uhjelq8/ours",
+        "show",
+        "peer:N77",
+        "--identity",
+        "--fields",
+        "kind",
+        "--json"
+      ],
+      "exit": 0,
+      "stdout": "{\"entries\":[{\"kind\":\"identity\",\"requested_address\":\"peer:N77\",\"resolved_target\":\"N03\"}],\"format\":\"ara.show/v1\"}\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/Users/yfhe/repos/ara/ara-cli/target/release/ara",
+        "-C",
+        "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-plan20-smoke-3uhjelq8/ours",
+        "show",
+        "peer:N77",
+        "--full",
+        "--json"
+      ],
+      "exit": 0,
+      "stdout": "{\"diagnostics\":{\"errors\":[],\"warnings\":[]},\"entries\":[{\"description\":\"Peer body\",\"evidence_notes\":[],\"fields\":\"question\",\"id\":\"N03\",\"kind\":\"question\",\"label\":\"Peer question\",\"provenance\":\"user\",\"source\":\"trace/exploration_tree.yaml\",\"source_fields\":{\"description\":\"Peer body\",\"id\":\"N03\",\"provenance\":\"user\",\"timestamp\":\"2026-10-07T07:45:02Z\",\"title\":\"Peer question\",\"type\":\"question\"},\"source_refs\":[],\"support_level\":null,\"timestamp\":\"2026-10-07T07:45:02Z\",\"title\":\"Peer question\"}],\"format\":\"ara.show/v1\"}\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/Users/yfhe/repos/ara/ara-cli/target/release/ara",
+        "-C",
+        "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-plan20-smoke-3uhjelq8/ours",
+        "merge",
+        "--base",
+        "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-plan20-smoke-3uhjelq8/base",
+        "--theirs",
+        "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-plan20-smoke-3uhjelq8/theirs",
+        "--as",
+        "peer",
+        "--source-key",
+        "peer-fork",
+        "--no-duplicate-check",
+        "--json"
+      ],
+      "exit": 0,
+      "stdout": "{\"changed_paths\":[],\"committed\":true,\"conflicts\":[],\"dry_run\":false,\"duplicate_candidates\":[],\"format\":\"ara.merge/v1\",\"imports\":[{\"layer\":\"staging\",\"original\":\"O01\",\"path\":\"staging/observations.yaml\",\"source_key\":\"peer-fork\",\"target\":\"O01\"},{\"layer\":\"document\",\"original\":\"staging/observations.yaml\",\"path\":\"staging/observations.yaml\",\"source_key\":\"peer-fork\",\"target\":\"staging/observations.yaml\"},{\"layer\":\"trace\",\"original\":\"N01\",\"path\":\"trace/exploration_tree.yaml\",\"source_key\":\"peer-fork\",\"target\":\"N01\"},{\"layer\":\"trace\",\"original\":\"N02\",\"path\":\"trace/exploration_tree.yaml\",\"source_key\":\"peer-fork\",\"target\":\"N02\"},{\"layer\":\"trace\",\"original\":\"N77\",\"path\":\"trace/exploration_tree.yaml\",\"source_key\":\"peer-fork\",\"target\":\"N03\"},{\"layer\":\"document\",\"original\":\"trace/exploration_tree.yaml\",\"path\":\"trace/exploration_tree.yaml\",\"source_key\":\"peer-fork\",\"target\":\"trace/exploration_tree.yaml\"},{\"layer\":\"reasoning\",\"original\":\"trace/pm_reasoning_log.yaml#entries/0\",\"path\":\"trace/pm_reasoning_log.yaml\",\"source_key\":\"peer-fork\",\"target\":\"trace/pm_reasoning_log.yaml#entries/0\"},{\"layer\":\"reasoning\",\"original\":\"trace/pm_reasoning_log.yaml#entries/1\",\"path\":\"trace/pm_reasoning_log.yaml\",\"source_key\":\"peer-fork\",\"target\":\"trace/pm_reasoning_log.yaml#entries/1\"},{\"layer\":\"reasoning\",\"original\":\"trace/pm_reasoning_log.yaml#entries/2\",\"path\":\"trace/pm_reasoning_log.yaml\",\"source_key\":\"peer-fork\",\"target\":\"trace/pm_reasoning_log.yaml#entries/2\"},{\"layer\":\"reasoning\",\"original\":\"trace/pm_reasoning_log.yaml#entries/3\",\"path\":\"trace/pm_reasoning_log.yaml\",\"source_key\":\"peer-fork\",\"target\":\"trace/pm_reasoning_log.yaml#entries/3\"},{\"layer\":\"document\",\"original\":\"trace/pm_reasoning_log.yaml\",\"path\":\"trace/pm_reasoning_log.yaml\",\"source_key\":\"peer-fork\",\"target\":\"trace/pm_reasoning_log.yaml\"},{\"layer\":\"session\",\"original\":\"2026-10-01_001\",\"path\":\"trace/sessions/2026-10-01_001.yaml\",\"source_key\":\"peer-fork\",\"target\":\"2026-10-01_001\"},{\"layer\":\"session_occurrence\",\"original\":\"trace/sessions/2026-10-01_001.yaml#events_logged/0\",\"path\":\"trace/sessions/2026-10-01_001.yaml\",\"source_key\":\"peer-fork\",\"target\":\"trace/sessions/2026-10-01_001.yaml#events_logged/0\"},{\"layer\":\"session_occurrence\",\"original\":\"trace/sessions/2026-10-01_001.yaml#events_logged/1\",\"path\":\"trace/sessions/2026-10-01_001.yaml\",\"source_key\":\"peer-fork\",\"target\":\"trace/sessions/2026-10-01_001.yaml#events_logged/1\"},{\"layer\":\"session_occurrence\",\"original\":\"trace/sessions/2026-10-01_001.yaml#events_logged/2\",\"path\":\"trace/sessions/2026-10-01_001.yaml\",\"source_key\":\"peer-fork\",\"target\":\"trace/sessions/2026-10-01_001.yaml#events_logged/2\"},{\"layer\":\"session_occurrence\",\"original\":\"trace/sessions/2026-10-01_001.yaml#events_logged/3\",\"path\":\"trace/sessions/2026-10-01_001.yaml\",\"source_key\":\"peer-fork\",\"target\":\"trace/sessions/2026-10-01_001.yaml#events_logged/3\"},{\"layer\":\"session_occurrence\",\"original\":\"trace/sessions/2026-10-01_001.yaml#events_logged/4\",\"path\":\"trace/sessions/2026-10-01_001.yaml\",\"source_key\":\"peer-fork\",\"target\":\"trace/sessions/2026-10-01_001.yaml#events_logged/4\"},{\"layer\":\"session_occurrence\",\"original\":\"trace/sessions/2026-10-01_001.yaml#events_logged/5\",\"path\":\"trace/sessions/2026-10-01_001.yaml\",\"source_key\":\"peer-fork\",\"target\":\"trace/sessions/2026-10-01_001.yaml#events_logged/5\"},{\"layer\":\"session_occurrence\",\"original\":\"trace/sessions/2026-10-01_001.yaml#claims_touched/0\",\"path\":\"trace/sessions/2026-10-01_001.yaml\",\"source_key\":\"peer-fork\",\"target\":\"trace/sessions/2026-10-01_001.yaml#claims_touched/0\"},{\"layer\":\"session_occurrence\",\"original\":\"trace/sessions/2026-10-01_001.yaml#claims_touched/1\",\"path\":\"trace/sessions/2026-10-01_001.yaml\",\"source_key\":\"peer-fork\",\"target\":\"trace/sessions/2026-10-01_001.yaml#claims_touched/1\"},{\"layer\":\"session_occurrence\",\"original\":\"trace/sessions/2026-10-01_001.yaml#claims_touched/2\",\"path\":\"trace/sessions/2026-10-01_001.yaml\",\"source_key\":\"peer-fork\",\"target\":\"trace/sessions/2026-10-01_001.yaml#claims_touched/2\"},{\"layer\":\"session_occurrence\",\"original\":\"trace/sessions/2026-10-01_001.yaml#logic_revisions/0\",\"path\":\"trace/sessions/2026-10-01_001.yaml\",\"source_key\":\"peer-fork\",\"target\":\"trace/sessions/2026-10-01_001.yaml#logic_revisions/0\"},{\"layer\":\"document\",\"original\":\"trace/sessions/2026-10-01_001.yaml\",\"path\":\"trace/sessions/2026-10-01_001.yaml\",\"source_key\":\"peer-fork\",\"target\":\"trace/sessions/2026-10-01_001.yaml\"},{\"layer\":\"document\",\"original\":\"trace/sessions/session_index.yaml\",\"path\":\"trace/sessions/session_index.yaml\",\"source_key\":\"peer-fork\",\"target\":\"trace/sessions/session_index.yaml\"},{\"layer\":\"paper\",\"original\":\"PAPER.md\",\"path\":\"PAPER.md\",\"source_key\":\"peer-fork\",\"target\":\"PAPER.md\"},{\"layer\":\"paper\",\"original\":\"PAPER.md#frontmatter\",\"path\":\"PAPER.md\",\"source_key\":\"peer-fork\",\"target\":\"PAPER.md#frontmatter\"},{\"layer\":\"paper\",\"original\":\"PAPER.md#Command migration smoke\",\"path\":\"PAPER.md\",\"source_key\":\"peer-fork\",\"target\":\"PAPER.md#Command migration smoke\"},{\"layer\":\"logic\",\"original\":\"logic/claims.md\",\"path\":\"logic/claims.md\",\"source_key\":\"peer-fork\",\"target\":\"logic/claims.md\"},{\"layer\":\"logic\",\"original\":\"logic/claims.md#Claims\",\"path\":\"logic/claims.md\",\"source_key\":\"peer-fork\",\"target\":\"logic/claims.md#Claims\"},{\"layer\":\"logic\",\"original\":\"C01\",\"path\":\"logic/claims.md\",\"source_key\":\"peer-fork\",\"target\":\"C01\"},{\"layer\":\"logic\",\"original\":\"C02\",\"path\":\"logic/claims.md\",\"source_key\":\"peer-fork\",\"target\":\"C02\"},{\"layer\":\"logic\",\"original\":\"logic/problem.md\",\"path\":\"logic/problem.md\",\"source_key\":\"peer-fork\",\"target\":\"logic/problem.md\"},{\"layer\":\"logic\",\"original\":\"logic/problem.md#Problem\",\"path\":\"logic/problem.md\",\"source_key\":\"peer-fork\",\"target\":\"logic/problem.md#Problem\"},{\"layer\":\"logic\",\"original\":\"logic/solution/heuristics.md\",\"path\":\"logic/solution/heuristics.md\",\"source_key\":\"peer-fork\",\"target\":\"logic/solution/heuristics.md\"},{\"layer\":\"logic\",\"original\":\"logic/solution/heuristics.md#Heuristics\",\"path\":\"logic/solution/heuristics.md\",\"source_key\":\"peer-fork\",\"target\":\"logic/solution/heuristics.md#Heuristics\"},{\"layer\":\"logic\",\"original\":\"H01\",\"path\":\"logic/solution/heuristics.md\",\"source_key\":\"peer-fork\",\"target\":\"H01\"},{\"layer\":\"document\",\"original\":\".gitignore\",\"path\":\".gitignore\",\"source_key\":\"peer-fork\",\"target\":\".gitignore\"},{\"layer\":\"external\",\"original\":\"evidence/README.md\",\"path\":\"evidence/README.md\",\"source_key\":\"peer-fork\",\"target\":\"evidence/README.md\"}],\"logic_conflicts\":[],\"needs_review\":[],\"renamed\":[{\"layer\":\"trace\",\"original\":\"N77\",\"path\":\"trace/exploration_tree.yaml\",\"source_key\":\"peer-fork\",\"target\":\"N03\"}],\"rewritten\":[],\"source_key\":\"peer-fork\",\"source_revision\":\"e864aee1fde00c6c083648136a1da2e39c8775d250329a9e2403ead637f6aeed\",\"timings\":{\"advisory_ms\":0.000083,\"commit_ms\":0.0,\"input_recheck_ms\":1.156542,\"load_ms\":8.229958,\"operation_ms\":11.171667,\"planning_ms\":1.41125,\"validation_ms\":0.291417},\"unresolved_count\":0}\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/Users/yfhe/repos/ara/ara-cli/target/release/ara",
+        "-C",
+        "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-plan20-smoke-3uhjelq8/ours",
+        "show",
+        "--identity",
+        "--json"
+      ],
+      "exit": 2,
+      "stdout": "",
+      "stderr": "{\"error\":{\"code\":\"argument_error\",\"message\":\"--identity requires exactly one positional address\"},\"format\":\"ara.show/v1\"}\n"
+    },
+    {
+      "argv": [
+        "/Users/yfhe/repos/ara/ara-cli/target/release/ara",
+        "-C",
+        "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-plan20-smoke-3uhjelq8/ours",
+        "show",
+        "peer:N77",
+        "N01",
+        "--identity",
+        "--json"
+      ],
+      "exit": 2,
+      "stdout": "",
+      "stderr": "{\"error\":{\"code\":\"argument_error\",\"message\":\"--identity requires exactly one positional address\"},\"format\":\"ara.show/v1\"}\n"
+    },
+    {
+      "argv": [
+        "/Users/yfhe/repos/ara/ara-cli/target/release/ara",
+        "-C",
+        "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-plan20-smoke-3uhjelq8/ours",
+        "show",
+        "peer:N77",
+        "--identity",
+        "--with",
+        "refs",
+        "--json"
+      ],
+      "exit": 2,
+      "stdout": "",
+      "stderr": "{\"error\":{\"code\":\"argument_error\",\"message\":\"error: the argument '--identity' cannot be used with '--with <RELATIONS>'\\n\\nUsage: ara show --identity --json <IDS>...\\n\\nFor more information, try '--help'.\\n\"},\"format\":\"ara.show/v1\"}\n"
+    },
+    {
+      "argv": [
+        "/Users/yfhe/repos/ara/ara-cli/target/release/ara",
+        "-C",
+        "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-plan20-smoke-3uhjelq8/ours",
+        "show",
+        "peer:N77",
+        "--identity",
+        "--document",
+        "logic/claims.md",
+        "--json"
+      ],
+      "exit": 2,
+      "stdout": "",
+      "stderr": "{\"error\":{\"code\":\"argument_error\",\"message\":\"error: the argument '--identity' cannot be used with '--document <DOCUMENT>'\\n\\nUsage: ara show --identity --json <IDS>...\\n\\nFor more information, try '--help'.\\n\"},\"format\":\"ara.show/v1\"}\n"
+    },
+    {
+      "argv": [
+        "/Users/yfhe/repos/ara/ara-cli/target/release/ara",
+        "-C",
+        "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-plan20-smoke-3uhjelq8/ours",
+        "show",
+        "unknown:N77",
+        "--identity",
+        "--json"
+      ],
+      "exit": 1,
+      "stdout": "",
+      "stderr": "{\"error\":{\"code\":\"merge.unknown_identity\",\"details\":{\"code\":\"merge.unknown_identity\",\"evidence\":[],\"message\":\"unknown source-qualified or native address `unknown:N77`\"},\"message\":\"unknown source-qualified or native address `unknown:N77`\"},\"format\":\"ara.show/v1\"}\n"
+    },
+    {
+      "argv": [
+        "/Users/yfhe/repos/ara/ara-cli/target/release/ara",
+        "-C",
+        "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-plan20-smoke-3uhjelq8/artifact",
+        "apply",
+        "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-plan20-smoke-3uhjelq8/requests/033.jsonl",
+        "--json"
+      ],
+      "exit": 0,
+      "stdout": "{\"bindings\":{},\"changed_paths\":[\"logic/solution/method.md\"],\"committed\":true,\"diagnostics\":[],\"dry_run\":false,\"duplicate_candidates\":[],\"format\":\"ara.apply/v1\",\"no_op\":false,\"operations\":[{\"no_op\":false,\"operation\":\"document.create\",\"target\":\"logic/solution/method.md\"}]}\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/Users/yfhe/repos/ara/ara-cli/target/release/ara",
+        "-C",
+        "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-plan20-smoke-3uhjelq8/artifact",
+        "ls",
+        "--unfinished",
+        "--type",
+        "solution",
+        "--json"
+      ],
+      "exit": 0,
+      "stdout": "{\"diagnostics\":{\"errors\":[],\"warnings\":[]},\"entries\":[{\"body\":\"# Method Implementation: [pending]\",\"key\":\"logic/solution/method.md\",\"kind\":\"solution\",\"name\":\"method\",\"reasons\":[\"pending_binding\"],\"source\":\"logic/solution/method.md\",\"title\":\"Method\"}],\"format\":\"ara.ls/v1\"}\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/Users/yfhe/repos/ara/ara-cli/target/release/ara",
+        "-C",
+        "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-plan20-smoke-3uhjelq8/artifact",
+        "ls",
+        "logic/solution/method.md",
+        "--unfinished",
+        "--type",
+        "solution",
+        "--json"
+      ],
+      "exit": 0,
+      "stdout": "{\"diagnostics\":{\"errors\":[],\"warnings\":[]},\"entries\":[{\"body\":\"# Method Implementation: [pending]\",\"key\":\"logic/solution/method.md\",\"kind\":\"solution\",\"name\":\"method\",\"reasons\":[\"pending_binding\"],\"source\":\"logic/solution/method.md\",\"title\":\"Method\"}],\"format\":\"ara.ls/v1\"}\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/Users/yfhe/repos/ara/ara-cli/target/release/ara",
+        "-C",
+        "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-plan20-smoke-3uhjelq8/ambiguous",
+        "apply",
+        "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-plan20-smoke-3uhjelq8/requests/036.jsonl",
+        "--json"
+      ],
+      "exit": 0,
+      "stdout": "{\"bindings\":{},\"changed_paths\":[\"logic/solution/architecture.md\"],\"committed\":true,\"diagnostics\":[],\"dry_run\":false,\"duplicate_candidates\":[],\"format\":\"ara.apply/v1\",\"no_op\":false,\"operations\":[{\"no_op\":false,\"operation\":\"document.create\",\"target\":\"logic/solution/architecture.md\"}]}\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/Users/yfhe/repos/ara/ara-cli/target/release/ara",
+        "-C",
+        "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-plan20-smoke-3uhjelq8/ambiguous",
+        "show",
+        "logic/solution/architecture.md:Architecture/Parent/A/B",
+        "--identity",
+        "--json"
+      ],
+      "exit": 1,
+      "stdout": "",
+      "stderr": "{\"error\":{\"code\":\"merge.redirect_ambiguous\",\"details\":{\"code\":\"merge.redirect_ambiguous\",\"evidence\":[],\"message\":\"native display locator `logic/solution/architecture.md:Architecture/Parent/A/B` matches different literal heading vectors; use a document selector\"},\"message\":\"native display locator `logic/solution/architecture.md:Architecture/Parent/A/B` matches different literal heading vectors; use a document selector\"},\"format\":\"ara.show/v1\"}\n"
+    },
+    {
+      "argv": [
+        "/Users/yfhe/repos/ara/ara-cli/target/release/ara",
+        "-C",
+        "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-plan20-smoke-3uhjelq8/malformed",
+        "show",
+        "C01",
+        "--json"
+      ],
+      "exit": 0,
+      "stdout": "{\"diagnostics\":{\"errors\":[],\"warnings\":[]},\"entries\":[{\"body\":\"## C01: Setup bounds the claim - **Statement**: The claim is conditional on setup. - **Conditions**: Only the documented setup - **Sources**: [\\\"@literal\\\",\\\"a,b\\\"…\",\"conditions\":\"Only the documented setup\",\"deps\":[],\"falsification\":\"The claim holds outside setup.\",\"id\":\"C01\",\"kind\":\"claim\",\"last_revised\":\"2026-10-01 (2026-10-01_001#3)\",\"proof\":[],\"proof_content\":\"trace/exploration_tree.yaml#N01\",\"provenance\":\"user\",\"source\":\"logic/claims.md\",\"source_fields\":[{\"name\":\"Statement\",\"value\":\"The claim is conditional on setup.\"},{\"name\":\"Conditions\",\"value\":\"Only the documented setup\"},{\"name\":\"Sources\",\"value\":\"[\\\"@literal\\\",\\\"a,b\\\"]\"},{\"name\":\"Status\",\"value\":\"testing\"},{\"name\":\"Provenance\",\"value\":\"user\"},{\"name\":\"Falsification\",\"value\":\"The claim holds outside setup.\"},{\"name\":\"Proof\",\"value\":\"trace/exploration_tree.yaml#N01\"},{\"name\":\"Last revised\",\"value\":\"2026-10-01 (2026-10-01_001#3)\"}],\"sources\":\"[\\\"@literal\\\",\\\"a,b\\\"]\",\"statement\":\"The claim is conditional on setup.\",\"status\":\"testing\",\"title\":\"Setup bounds the claim\"}],\"format\":\"ara.show/v1\"}\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/Users/yfhe/repos/ara/ara-cli/target/release/ara",
+        "-C",
+        "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-plan20-smoke-3uhjelq8/malformed",
+        "ls",
+        "--json"
+      ],
+      "exit": 0,
+      "stdout": "{\"diagnostics\":{\"errors\":[],\"warnings\":[]},\"entries\":[{\"description\":\"@literal Full source text α\",\"evidence_notes\":[],\"fields\":\"question\",\"id\":\"N01\",\"kind\":\"question\",\"label\":\"Does setup constrain the result?\",\"provenance\":\"ai-suggested\",\"source\":\"trace/exploration_tree.yaml\",\"source_refs\":[],\"support_level\":null,\"timestamp\":\"2026-10-01T10:00:00Z\",\"title\":\"Does setup constrain the result?\"},{\"description\":\"Source boundary question\",\"evidence_notes\":[],\"fields\":\"question\",\"id\":\"N02\",\"kind\":\"question\",\"label\":\"How is the setup bound?\",\"provenance\":\"user\",\"source\":\"trace/exploration_tree.yaml\",\"source_refs\":[],\"support_level\":null,\"timestamp\":\"2026-10-01T10:01:00Z\",\"title\":\"How is the setup bound?\"},{\"body\":\"## C01: Setup bounds the claim - **Statement**: The claim is conditional on setup. - **Conditions**: Only the documented setup - **Sources**: [\\\"@literal\\\",\\\"a,b\\\"…\",\"conditions\":\"Only the documented setup\",\"deps\":[],\"falsification\":\"The claim holds outside setup.\",\"id\":\"C01\",\"kind\":\"claim\",\"last_revised\":\"2026-10-01 (2026-10-01_001#3)\",\"proof\":[],\"proof_content\":\"trace/exploration_tree.yaml#N01\",\"provenance\":\"user\",\"source\":\"logic/claims.md\",\"source_fields\":[{\"name\":\"Statement\",\"value\":\"The claim is conditional on setup.\"},{\"name\":\"Conditions\",\"value\":\"Only the documented setup\"},{\"name\":\"Sources\",\"value\":\"[\\\"@literal\\\",\\\"a,b\\\"]\"},{\"name\":\"Status\",\"value\":\"testing\"},{\"name\":\"Provenance\",\"value\":\"user\"},{\"name\":\"Falsification\",\"value\":\"The claim holds outside setup.\"},{\"name\":\"Proof\",\"value\":\"trace/exploration_tree.yaml#N01\"},{\"name\":\"Last revised\",\"value\":\"2026-10-01 (2026-10-01_001#3)\"}],\"sources\":\"[\\\"@literal\\\",\\\"a,b\\\"]\",\"statement\":\"The claim is conditional on setup.\",\"status\":\"testing\",\"title\":\"Setup bounds the claim\"},{\"body\":\"## C02: Observation matured - **Statement**: Caller confirmed a conditional observation. - **Conditions**: Recorded context - **Status**: hypothesis - **Proven…\",\"conditions\":\"Recorded context\",\"deps\":[],\"falsification\":\"Contrary source evidence\",\"id\":\"C02\",\"kind\":\"claim\",\"proof\":[],\"provenance\":\"ai-suggested\",\"source\":\"logic/claims.md\",\"source_fields\":[{\"name\":\"Statement\",\"value\":\"Caller confirmed a conditional observation.\"},{\"name\":\"Conditions\",\"value\":\"Recorded context\"},{\"name\":\"Status\",\"value\":\"hypothesis\"},{\"name\":\"Provenance\",\"value\":\"ai-suggested\"},{\"name\":\"Falsification\",\"value\":\"Contrary source evidence\"}],\"statement\":\"Caller confirmed a conditional observation.\",\"status\":\"hypothesis\",\"title\":\"Observation matured\"},{\"bound_to\":[\"N01\"],\"content\":\"@literal observation α Second line\",\"context\":\"source boundary\",\"crystallized_via\":\"verbal-affirmation\",\"id\":\"O01\",\"kind\":\"observation\",\"potential_type\":\"claim\",\"promoted\":true,\"promoted_to\":\"logic/claims.md:C02\",\"provenance\":\"ai-suggested\",\"source\":\"staging/observations.yaml\",\"source_file\":\"staging/observations.yaml\",\"stale\":false,\"timestamp\":\"2026-10-01T10:00:00Z\"},{\"body\":\"ai_actions: [] ai_suggestions_pending: [] claims_touched: - action: \\\"created\\\" id: \\\"C01\\\" turn: 1 - action: \\\"crystallized\\\" id: \\\"C02\\\" turn: 2 - action: \\\"revised\\\" …\",\"claims_touched\":[{\"action\":\"created\",\"id\":\"C01\",\"turn\":1},{\"action\":\"crystallized\",\"id\":\"C02\",\"turn\":2},{\"action\":\"revised\",\"id\":\"C01\",\"turn\":3}],\"date\":\"2026-10-01\",\"events_logged\":[{\"id\":\"N01\",\"provenance\":\"ai-suggested\",\"routing\":\"direct\",\"summary\":\"Does setup constrain the result?\",\"turn\":1,\"type\":\"question\"},{\"id\":\"N02\",\"provenance\":\"user\",\"routing\":\"direct\",\"summary\":\"How is the setup bound?\",\"turn\":1,\"type\":\"question\"},{\"id\":\"C01\",\"provenance\":\"user\",\"routing\":\"direct\",\"summary\":\"Setup bounds the claim\",\"turn\":1,\"type\":\"claim\"},{\"id\":\"H01\",\"provenance\":\"user\",\"routing\":\"direct\",\"summary\":\"Bind setup before comparison\",\"turn\":1,\"type\":\"heuristic\"},{\"id\":\"O01\",\"provenance\":\"ai-suggested\",\"routing\":\"staged\",\"summary\":\"@literal observation α Second line\",\"turn\":1,\"type\":\"observation\"},{\"id\":\"C02\",\"provenance\":\"ai-suggested\",\"routing\":\"crystallized\",\"summary\":\"Observation matured\",\"turn\":2,\"type\":\"claim\"}],\"id\":\"2026-10-01_001\",\"kind\":\"session\",\"last_turn\":\"2026-10-01T12:00:00Z\",\"logic_revisions\":[{\"after\":\"Only the documented setup\",\"before\":\"Declared setup, confirmed text\",\"entry\":{\"id\":\"C01\"},\"field\":\"Conditions\",\"note\":null,\"provenance\":\"user-revised\",\"signal\":\"user-directive\",\"turn\":3}],\"source\":\"trace/sessions/2026-10-01_001.yaml\",\"source_file\":\"trace/sessions/2026-10-01_001.yaml\",\"started\":\"2026-10-01T10:00:00Z\",\"summary\":\"Narrowed the setup condition\",\"turn_count\":3},{\"body\":\"## H01: Bind setup before comparison - **Rationale**: Avoid ungrounded comparison - **Status**: weakened - **Provenance**: user - **Sensitivity**: unknown - **…\",\"code_ref\":\"[\\\"pending\\\"]\",\"id\":\"H01\",\"kind\":\"heuristic\",\"provenance\":\"user\",\"rationale\":\"Avoid ungrounded comparison\",\"sensitivity\":\"unknown\",\"source\":\"logic/solution/heuristics.md\",\"source_fields\":[{\"name\":\"Rationale\",\"value\":\"Avoid ungrounded comparison\"},{\"name\":\"Status\",\"value\":\"weakened\"},{\"name\":\"Provenance\",\"value\":\"user\"},{\"name\":\"Sensitivity\",\"value\":\"unknown\"},{\"name\":\"Code ref\",\"value\":\"[\\\"pending\\\"]\"}],\"source_file\":\"logic/solution/heuristics.md\",\"status\":\"weakened\",\"title\":\"Bind setup before comparison\"},{\"body\":\"# Method Implementation: [pending]\",\"key\":\"logic/solution/method.md\",\"kind\":\"solution\",\"name\":\"method\",\"source\":\"logic/solution/method.md\",\"title\":\"Method\"},{\"content\":\"--- title: Command migration smoke --- # Command migration smoke Caller-authored package for native command checks.\",\"key\":\"PAPER.md\",\"kind\":\"source_document\",\"source\":\"PAPER.md\"},{\"content\":\"# Claims ## C01: Setup bounds the claim - **Statement**: The claim is conditional on setup. - **Conditions**: Only the documented setup - **Sources**: [\\\"@liter…\",\"key\":\"logic/claims.md\",\"kind\":\"source_document\",\"source\":\"logic/claims.md\"},{\"content\":\"# Problem\",\"key\":\"logic/problem.md\",\"kind\":\"source_document\",\"source\":\"logic/problem.md\"},{\"content\":\"# Heuristics ## H01: Bind setup before comparison - **Rationale**: Avoid ungrounded comparison - **Status**: weakened - **Provenance**: user - **Sensitivity**:…\",\"key\":\"logic/solution/heuristics.md\",\"kind\":\"source_document\",\"source\":\"logic/solution/heuristics.md\"},{\"content\":\"# Method Implementation: [pending]\",\"key\":\"logic/solution/method.md\",\"kind\":\"source_document\",\"source\":\"logic/solution/method.md\"},{\"content\":\"observations: - bound_to: [\\\"N01\\\"] content: |2- @literal observation α Second line context: \\\"source boundary\\\" crystallized_via: \\\"verbal-affirmation\\\" id: \\\"O01\\\" p…\",\"key\":\"staging/observations.yaml\",\"kind\":\"source_document\",\"source\":\"staging/observations.yaml\"},{\"content\":\"tree: - description: |2- @literal Full source text α id: \\\"N01\\\" provenance: \\\"ai-suggested\\\" timestamp: \\\"2026-10-01T10:00:00Z\\\" title: \\\"Does setup constrain the re…\",\"key\":\"trace/exploration_tree.yaml\",\"kind\":\"source_document\",\"source\":\"trace/exploration_tree.yaml\"},{\"content\":\"entries: - session_metadata: after: ai_suggestions_pending: [] last_turn: \\\"2026-10-01T10:00:00Z\\\" open_threads: [] summary: \\\"Recorded complete native research i…\",\"key\":\"trace/pm_reasoning_log.yaml\",\"kind\":\"source_document\",\"source\":\"trace/pm_reasoning_log.yaml\"},{\"content\":\"ai_actions: [] ai_suggestions_pending: [] claims_touched: - action: \\\"created\\\" id: \\\"C01\\\" turn: 1 - action: \\\"crystallized\\\" id: \\\"C02\\\" turn: 2 - action: \\\"revised\\\" …\",\"key\":\"trace/sessions/2026-10-01_001.yaml\",\"kind\":\"source_document\",\"source\":\"trace/sessions/2026-10-01_001.yaml\"},{\"content\":\"sessions: - claims_touched: [\\\"C01\\\",\\\"C02\\\"] date: \\\"2026-10-01\\\" events_count: 6 id: \\\"2026-10-01_001\\\" open_threads: 0 summary: \\\"Narrowed the setup condition\\\" turn_…\",\"key\":\"trace/sessions/session_index.yaml\",\"kind\":\"source_document\",\"source\":\"trace/sessions/session_index.yaml\"}],\"format\":\"ara.ls/v1\"}\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/Users/yfhe/repos/ara/ara-cli/target/release/ara",
+        "-C",
+        "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-plan20-smoke-3uhjelq8/malformed",
+        "show",
+        "C01",
+        "H01",
+        "--with",
+        "refs",
+        "--json"
+      ],
+      "exit": 1,
+      "stdout": "",
+      "stderr": "{\"error\":{\"code\":\"write.syntax\",\"details\":{\"code\":\"write.syntax\",\"message\":\"unclosed bracket '[' at char 32 line 2 column 10\"},\"message\":\"unclosed bracket '[' at char 32 line 2 column 10\"},\"format\":\"ara.show/v1\"}\n"
+    },
+    {
+      "argv": [
+        "/Users/yfhe/repos/ara/ara-cli/target/release/ara",
+        "-C",
+        "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-plan20-smoke-3uhjelq8/unknown",
+        "apply",
+        "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-plan20-smoke-3uhjelq8/requests/041.jsonl",
+        "--json"
+      ],
+      "exit": 0,
+      "stdout": "{\"advisories\":[\"duplicate_advisory_unavailable: error: document: neither `tree:` nor `root:` is present\\n1 error(s), 0 warning(s)\"],\"bindings\":{},\"changed_paths\":[\".gitignore\",\"PAPER.md\",\"evidence/README.md\",\"logic/claims.md\",\"logic/problem.md\",\"logic/solution/heuristics.md\",\"staging/observations.yaml\",\"trace/exploration_tree.yaml\",\"trace/pm_reasoning_log.yaml\",\"trace/sessions/session_index.yaml\"],\"committed\":true,\"created_directories\":[\"evidence\",\"evidence/figures\",\"evidence/tables\",\"logic\",\"logic/solution\",\"src\",\"staging\",\"trace\",\"trace/sessions\"],\"diagnostics\":[],\"dry_run\":false,\"duplicate_candidates\":[],\"format\":\"ara.apply/v1\",\"operations\":[{\"no_op\":false,\"operation\":\"artifact.init\",\"target\":\"research-manager\"},{\"id\":\"N02\",\"no_op\":false,\"operation\":\"node.add\"}]}\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/Users/yfhe/repos/ara/ara-cli/target/release/ara",
+        "-C",
+        "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-plan20-smoke-3uhjelq8/unknown",
+        "ls",
+        "--unfinished",
+        "--type",
+        "observation",
+        "--provenance",
+        "user",
+        "--json"
+      ],
+      "exit": 0,
+      "stdout": "{\"diagnostics\":{\"errors\":[],\"warnings\":[]},\"entries\":[{\"bound_to\":[\"N02\"],\"content\":\"Missing creation history\",\"evidence_sources\":[],\"history_diagnostics\":[{\"code\":\"history.creation_evidence_missing\",\"count\":1,\"examples\":[\"O01\"],\"message\":\"The observation has no staging turn or staging timestamp\",\"status\":\"missing\"}],\"history_status\":\"missing\",\"id\":\"O01\",\"kind\":\"observation\",\"last_reference_date\":null,\"last_reference_turn\":null,\"promoted\":false,\"provenance\":\"user\",\"reasons\":[\"unpromoted_observation\",\"stale_observation\"],\"reference_basis\":null,\"session_days_since_reference\":null,\"source\":\"staging/observations.yaml\",\"source_file\":\"staging/observations.yaml\",\"stale\":true,\"turns_since_reference\":null}],\"format\":\"ara.ls/v1\"}\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-plan20-smoke-3uhjelq8/installed/bin/ara",
+        "-C",
+        "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-plan20-smoke-3uhjelq8/artifact",
+        "status"
+      ],
+      "exit": 0,
+      "stdout": "complete\tyes\ncounts\tclaim=2 heuristic=1 observation=1 question=2 session=1 solution=1\nnext_ids\tC=C03 E=E01 H=H02 N=N03 O=O02 T=T01\nlatest_session\t2026-10-01_001\nfiles\t12 (5015 bytes)\ndiagnostics\t0 errors, 0 warnings\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-plan20-smoke-3uhjelq8/installed/bin/ara",
+        "-C",
+        "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-plan20-smoke-3uhjelq8/artifact",
+        "ls",
+        "--unfinished"
+      ],
+      "exit": 0,
+      "stdout": "N02\tquestion\tchildless_question\tHow is the setup bound?\nC02\tclaim\thypothesis_claim\tObservation matured\nlogic/solution/method.md\tsolution\tpending_binding\tMethod\nlogic/solution/method.md\tsource_document\tpending_binding\t# Method Implementation: [pending]\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-plan20-smoke-3uhjelq8/installed/bin/ara",
+        "-C",
+        "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-plan20-smoke-3uhjelq8/artifact",
+        "find",
+        "setup",
+        "--context",
+        "2"
+      ],
+      "exit": 0,
+      "stdout": "C01 [claim] logic/claims.md\n  3: ## C01: Setup bounds the claim\n  4: - **Statement**: The claim is conditional on setup.\n  5- - **Conditions**:\n  6:   Only the documented setup\n  7- - **Sources**: [\"@literal\",\"a,b\"]\n  8- - **Status**:\n  9-   testing\n  10- - **Provenance**: user\n  11: - **Falsification**: The claim holds outside setup.\n  12- - **Proof**: trace/exploration_tree.yaml#N01\n  13- \nN02 [question] trace/exploration_tree.yaml\n  13-         provenance: \"user\"\n  14-         timestamp: \"2026-10-01T10:01:00Z\"\n  15:         title: \"How is the setup bound?\"\n  16-         type: \"question\"\n2026-10-01_001 [session] trace/sessions/2026-10-01_001.yaml\n  15-     provenance: \"ai-suggested\"\n  16-     routing: \"direct\"\n  17:     summary: \"Does setup constrain the result?\"\n  18-     turn: 1\n  19-     type: \"question\"\n  --\n  21-     provenance: \"user\"\n  22-     routing: \"direct\"\n  23:     summary: \"How is the setup bound?\"\n  24-     turn: 1\n  25-     type: \"question\"\n  --\n  27-     provenance: \"user\"\n  28-     routing: \"direct\"\n  29:     summary: \"Setup bounds the claim\"\n  30-     turn: 1\n  31-     type: \"claim\"\n  --\n  33-     provenance: \"user\"\n  34-     routing: \"direct\"\n  35:     summary: \"Bind setup before comparison\"\n  36-     turn: 1\n  37-     type: \"heuristic\"\n  --\n  52- key_context: []\n  53- logic_revisions: \n  54:   - after: \"Only the documented setup\"\n  55:     before: \"Declared setup, confirmed text\"\n  56-     entry: \n  57-       id: \"C01\"\n  --\n  67-   last_turn: \"2026-10-01T12:00:00Z\"\n  68-   started: \"2026-10-01T10:00:00Z\"\n  69:   summary: \"Narrowed the setup condition\"\n  70-   turn_count: 3\nH01 [heuristic] logic/solution/heuristics.md\n  3: ## H01: Bind setup before comparison\n  4- - **Rationale**: Avoid ungrounded comparison\n  5- - **Status**:\nN01 [question] trace/exploration_tree.yaml\n  6-     provenance: \"ai-suggested\"\n  7-     timestamp: \"2026-10-01T10:00:00Z\"\n  8:     title: \"Does setup constrain the result?\"\n  9-     type: \"question\"\n  10-     children: \n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-plan20-smoke-3uhjelq8/installed/bin/ara",
+        "-C",
+        "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-plan20-smoke-3uhjelq8/artifact",
+        "show",
+        "N02",
+        "--with",
+        "path,refs"
+      ],
+      "exit": 0,
+      "stdout": "== N02 [question] projection of trace/exploration_tree.yaml; no source digest\ndescription: Source boundary question\nfields: question\nlabel: How is the setup bound?\nprovenance: user\ntimestamp: 2026-10-01T10:01:00Z\ntitle: How is the setup bound?\nexact source: ara show --document trace/exploration_tree.yaml --source\npath:\nN01\tquestion\tDoes setup constrain the result?\n  N02\tquestion\tHow is the setup bound?\nrefs:\ntarget: N02\nN01\tchildren\ttrace/exploration_tree.yaml:12\tN02\n2026-10-01_001\tid\ttrace/sessions/2026-10-01_001.yaml:20\tN02\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-plan20-smoke-3uhjelq8/installed/bin/ara",
+        "-C",
+        "/var/folders/88/g4tyjd055zxcrx4tgy04rx4w0000gn/T/ara-plan20-smoke-3uhjelq8/ours",
+        "show",
+        "peer:N77",
+        "--identity"
+      ],
+      "exit": 0,
+      "stdout": "peer:N77 -> N03\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/Users/yfhe/repos/ara/ara-cli/target/release/ara",
+        "validate",
+        "/Users/yfhe/repos/ara/ara-cli/crates/ara-core/tests/fixtures/official/minimal-artifact",
+        "--json"
+      ],
+      "exit": 0,
+      "stdout": "{\n  \"errors\": [],\n  \"warnings\": []\n}\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/Users/yfhe/repos/ara/ara-cli/target/release/ara",
+        "check",
+        "/Users/yfhe/repos/ara/ara-cli/crates/ara-core/tests/fixtures/official/minimal-artifact",
+        "--json"
+      ],
+      "exit": 0,
+      "stdout": "{\n  \"dir\": \"/Users/yfhe/repos/ara/ara-cli/crates/ara-core/tests/fixtures/official/minimal-artifact\",\n  \"validate\": {\n    \"errors\": [],\n    \"warnings\": []\n  },\n  \"lint\": [],\n  \"summary\": {\n    \"errors\": 0,\n    \"warnings\": 0,\n    \"fixable\": 0,\n    \"strict\": false,\n    \"write_errors\": false,\n    \"passed\": true\n  }\n}\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/Users/yfhe/repos/ara/ara-cli/target/release/ara",
+        "layout",
+        "/Users/yfhe/repos/ara/ara-cli/crates/ara-core/tests/fixtures/official/minimal-artifact",
+        "--json"
+      ],
+      "exit": 0,
+      "stdout": "{\n  \"nodes\": [\n    {\n      \"id\": \"N01\",\n      \"kind\": \"question\",\n      \"label\": \"Can we build a competitive sequence model without recurrence?\",\n      \"support_level\": null,\n      \"source_refs\": [],\n      \"description\": \"RNNs are sequential bottlenecks. Can self-attention alone handle sequence transduction at SOTA quality?\\n\",\n      \"fields\": \"question\",\n      \"evidence_notes\": [],\n      \"pos\": {\n        \"x\": 205.0,\n        \"y\": 30.0\n      }\n    },\n    {\n      \"id\": \"N02\",\n      \"kind\": \"experiment\",\n      \"label\": \"Train Transformer on WMT 2014 EN-DE\",\n      \"support_level\": null,\n      \"source_refs\": [],\n      \"description\": null,\n      \"fields\": {\n        \"experiment\": {\n          \"result\": \"28.4 BLEU on EN-DE, surpassing all previous single models including ensembles.\\n\",\n          \"exploration\": null,\n          \"outcome\": null,\n          \"status\": null\n        }\n      },\n      \"evidence_notes\": [\n        \"Table 2\"\n      ],\n      \"pos\": {\n        \"x\": 90.0,\n        \"y\": 140.0\n      }\n    },\n    {\n      \"id\": \"N03\",\n      \"kind\": \"decision\",\n      \"label\": \"Use sinusoidal positional encodings\",\n      \"support_level\": null,\n      \"source_refs\": [],\n      \"description\": null,\n      \"fields\": {\n        \"decision\": {\n          \"choice\": \"Fixed sinusoidal encodings over learned embeddings\",\n          \"alternatives\": [\n            \"Learned positional embeddings\",\n            \"Relative position representations\"\n          ],\n          \"rationale\": null\n        }\n      },\n      \"evidence_notes\": [\n        \"Table 3 ablation shows nearly identical performance\"\n      ],\n      \"pos\": {\n        \"x\": 320.0,\n        \"y\": 140.0\n      }\n    }\n  ],\n  \"links\": [\n    {\n      \"from\": \"N01\",\n      \"to\": \"N02\",\n      \"kind\": \"child\"\n    },\n    {\n      \"from\": \"N01\",\n      \"to\": \"N03\",\n      \"kind\": \"child\"\n    }\n  ],\n  \"bindings\": [\n    {\n      \"node\": \"N02\",\n      \"claim\": \"C01\",\n      \"role\": \"evidence\"\n    }\n  ],\n  \"claims\": [\n    {\n      \"id\": \"C01\",\n      \"title\": \"Attention-only architecture achieves SOTA\",\n      \"statement\": \"A model based entirely on self-attention, without recurrence or convolution, achieves state-of-the-art BLEU on WMT 2014 English-to-German translation.\",\n      \"status\": \"supported\",\n      \"falsification\": \"A recurrent or convolutional model trained under identical conditions achieves higher BLEU.\",\n      \"proof\": [\n        \"E01\"\n      ],\n      \"deps\": [],\n      \"proof_content\": \"[E01]\",\n      \"tags\": \"architecture, translation, BLEU\",\n      \"source_fields\": [\n        {\n          \"name\": \"Statement\",\n          \"value\": \"A model based entirely on self-attention, without recurrence or convolution, achieves state-of-the-art BLEU on WMT 2014 English-to-German translation.\"\n        },\n        {\n          \"name\": \"Status\",\n          \"value\": \"supported\"\n        },\n        {\n          \"name\": \"Falsification criteria\",\n          \"value\": \"A recurrent or convolutional model trained under identical conditions achieves higher BLEU.\"\n        },\n        {\n          \"name\": \"Proof\",\n          \"value\": \"[E01]\"\n        },\n        {\n          \"name\": \"Dependencies\",\n          \"value\": \"[]\"\n        },\n        {\n          \"name\": \"Tags\",\n          \"value\": \"architecture, translation, BLEU\"\n        }\n      ],\n      \"body\": \"## C01: Attention-only architecture achieves SOTA\\n- **Statement**: A model based entirely on self-attention, without recurrence or convolution, achieves state-of-the-art BLEU on WMT 2014 English-to-German translation.\\n- **Status**: supported\\n- **Falsification criteria**: A recurrent or convolutional model trained under identical conditions achieves higher BLEU.\\n- **Proof**: [E01]\\n- **Dependencies**: []\\n- **Tags**: architecture, translation, BLEU\\n\\n\"\n    },\n    {\n      \"id\": \"C02\",\n      \"title\": \"Transformers train faster\",\n      \"statement\": \"The Transformer requires significantly less training time than architectures based on recurrent or convolutional layers.\",\n      \"status\": \"supported\",\n      \"falsification\": \"An RNN-based model achieves comparable quality with equal or less compute.\",\n      \"proof\": [\n        \"E02\"\n      ],\n      \"deps\": [\n        \"C01\"\n      ],\n      \"proof_content\": \"[E02]\",\n      \"tags\": \"efficiency, training-time\",\n      \"source_fields\": [\n        {\n          \"name\": \"Statement\",\n          \"value\": \"The Transformer requires significantly less training time than architectures based on recurrent or convolutional layers.\"\n        },\n        {\n          \"name\": \"Status\",\n          \"value\": \"supported\"\n        },\n        {\n          \"name\": \"Falsification criteria\",\n          \"value\": \"An RNN-based model achieves comparable quality with equal or less compute.\"\n        },\n        {\n          \"name\": \"Proof\",\n          \"value\": \"[E02]\"\n        },\n        {\n          \"name\": \"Dependencies\",\n          \"value\": \"[C01]\"\n        },\n        {\n          \"name\": \"Tags\",\n          \"value\": \"efficiency, training-time\"\n        }\n      ],\n      \"body\": \"## C02: Transformers train faster\\n- **Statement**: The Transformer requires significantly less training time than architectures based on recurrent or convolutional layers.\\n- **Status**: supported\\n- **Falsification criteria**: An RNN-based model achieves comparable quality with equal or less compute.\\n- **Proof**: [E02]\\n- **Dependencies**: [C01]\\n- **Tags**: efficiency, training-time\\n\"\n    }\n  ],\n  \"bounds\": {\n    \"x\": 0.0,\n    \"y\": 0.0,\n    \"width\": 410.0,\n    \"height\": 170.0\n  }\n}\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/Users/yfhe/repos/ara/ara-cli/target/release/ara",
+        "validate",
+        "/Users/yfhe/repos/ara/ara-cli/crates/ara-core/tests/fixtures/official/resnet-ara-example",
+        "--json"
+      ],
+      "exit": 0,
+      "stdout": "{\n  \"errors\": [],\n  \"warnings\": []\n}\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/Users/yfhe/repos/ara/ara-cli/target/release/ara",
+        "check",
+        "/Users/yfhe/repos/ara/ara-cli/crates/ara-core/tests/fixtures/official/resnet-ara-example",
+        "--json"
+      ],
+      "exit": 0,
+      "stdout": "{\n  \"dir\": \"/Users/yfhe/repos/ara/ara-cli/crates/ara-core/tests/fixtures/official/resnet-ara-example\",\n  \"validate\": {\n    \"errors\": [],\n    \"warnings\": []\n  },\n  \"lint\": [],\n  \"summary\": {\n    \"errors\": 0,\n    \"warnings\": 0,\n    \"fixable\": 0,\n    \"strict\": false,\n    \"write_errors\": false,\n    \"passed\": true\n  }\n}\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/Users/yfhe/repos/ara/ara-cli/target/release/ara",
+        "layout",
+        "/Users/yfhe/repos/ara/ara-cli/crates/ara-core/tests/fixtures/official/resnet-ara-example",
+        "--json"
+      ],
+      "exit": 0,
+      "stdout": "{\n  \"nodes\": [\n    {\n      \"id\": \"N01\",\n      \"kind\": \"question\",\n      \"label\": \"Is learning better networks as easy as stacking more layers?\",\n      \"support_level\": \"explicit\",\n      \"source_refs\": [\n        \"§1 introduction\",\n        \"Fig. 1\"\n      ],\n      \"description\": \"Central research question that frames the entire paper. The introduction explicitly poses this question and uses CIFAR-10 plain-{20, 56} curves (Fig. 1) to motivate why the answer is \\\"no, not in the obvious way.\\\"\",\n      \"fields\": \"question\",\n      \"evidence_notes\": [],\n      \"pos\": {\n        \"x\": 560.0,\n        \"y\": 30.0\n      }\n    },\n    {\n      \"id\": \"N02\",\n      \"kind\": \"experiment\",\n      \"label\": \"Plain-net depth scan on CIFAR-10 (depths 20–110)\",\n      \"support_level\": \"explicit\",\n      \"source_refs\": [\n        \"Fig. 1\",\n        \"Fig. 6 left\"\n      ],\n      \"description\": \"Train plain CNNs of depth {20, 32, 44, 56, 110} on CIFAR-10 with BN + MSRA init. Observe whether deeper plain nets improve.\",\n      \"fields\": {\n        \"experiment\": {\n          \"result\": \"Deeper plain nets degrade. Plain-110 fails badly (>60% error, not displayed in Fig. 6). Plain-56 is worse than plain-20.\",\n          \"exploration\": null,\n          \"outcome\": null,\n          \"status\": null\n        }\n      },\n      \"evidence_notes\": [],\n      \"pos\": {\n        \"x\": 90.0,\n        \"y\": 140.0\n      }\n    },\n    {\n      \"id\": \"N03\",\n      \"kind\": \"experiment\",\n      \"label\": \"Plain-net depth scan on ImageNet (18 vs. 34)\",\n      \"support_level\": \"explicit\",\n      \"source_refs\": [\n        \"Table 2\",\n        \"Fig. 4 left\"\n      ],\n      \"description\": \"Train plain-{18, 34} on ImageNet with the standard recipe (§3.4).\",\n      \"fields\": {\n        \"experiment\": {\n          \"result\": \"plain-34 = 28.54% top-1, plain-18 = 27.94% top-1 → degradation confirmed on a large dataset, not specific to CIFAR.\",\n          \"exploration\": null,\n          \"outcome\": null,\n          \"status\": null\n        }\n      },\n      \"evidence_notes\": [],\n      \"pos\": {\n        \"x\": 320.0,\n        \"y\": 140.0\n      }\n    },\n    {\n      \"id\": \"N04\",\n      \"kind\": \"dead_end\",\n      \"label\": \"Vanishing-gradient hypothesis\",\n      \"support_level\": \"explicit\",\n      \"source_refs\": [\n        \"§4.1 plain networks discussion\"\n      ],\n      \"description\": \"A natural first explanation for plain-net degradation. The authors rule it out by noting BN keeps forward signals at non-zero variance and that backward gradient norms are healthy.\",\n      \"fields\": {\n        \"dead_end\": {\n          \"hypothesis\": null,\n          \"failure_mode\": null,\n          \"lesson\": null,\n          \"why_failed\": \"With BN in place, signals do not vanish; the plain-34 net still reaches competitive accuracy (24.19% top-1 with 10-crop, Table 3), showing SGD is making progress — just slowly.\"\n        }\n      },\n      \"evidence_notes\": [],\n      \"pos\": {\n        \"x\": 550.0,\n        \"y\": 140.0\n      }\n    },\n    {\n      \"id\": \"N05\",\n      \"kind\": \"dead_end\",\n      \"label\": \"More training iterations alone (3×) on plain nets\",\n      \"support_level\": \"inferred\",\n      \"source_refs\": [\n        \"§4.1 (footnote 3)\"\n      ],\n      \"description\": \"The footnote reports that the authors tried training plain nets for 3× more iterations and still observed the degradation problem.\",\n      \"fields\": {\n        \"dead_end\": {\n          \"hypothesis\": null,\n          \"failure_mode\": null,\n          \"lesson\": null,\n          \"why_failed\": \"The degradation is not just slow optimization; longer training does not close the gap.\"\n        }\n      },\n      \"evidence_notes\": [],\n      \"pos\": {\n        \"x\": 780.0,\n        \"y\": 140.0\n      }\n    },\n    {\n      \"id\": \"N06\",\n      \"kind\": \"insight\",\n      \"label\": \"Reformulate layers to fit a residual mapping F(x) := H(x) - x\",\n      \"support_level\": \"explicit\",\n      \"source_refs\": [\n        \"§1\",\n        \"§3.1\"\n      ],\n      \"description\": \"Key creative leap. Identity mapping should be expressible cheaply, so let stacked nonlinear layers learn the *residual* from identity.\",\n      \"fields\": \"insight\",\n      \"evidence_notes\": [],\n      \"pos\": {\n        \"x\": 1010.0,\n        \"y\": 140.0\n      }\n    },\n    {\n      \"id\": \"N07\",\n      \"kind\": \"decision\",\n      \"label\": \"Use parameter-free identity shortcuts (Eqn. 1)\",\n      \"support_level\": \"explicit\",\n      \"source_refs\": [\n        \"§3.2\",\n        \"Fig. 2\"\n      ],\n      \"description\": \"Decision to add x via an unparameterized skip connection, rather than a gated or projected one (contrasts with highway networks, RW01).\",\n      \"fields\": {\n        \"decision\": {\n          \"choice\": null,\n          \"alternatives\": [],\n          \"rationale\": \"No parameters, no FLOPs added, lets the deeper variant exactly match the shallower one's parameter budget for clean ablation.\"\n        }\n      },\n      \"evidence_notes\": [],\n      \"pos\": {\n        \"x\": 425.0,\n        \"y\": 250.0\n      }\n    },\n    {\n      \"id\": \"N08\",\n      \"kind\": \"experiment\",\n      \"label\": \"Plain vs. ResNet at 18/34 layers on ImageNet\",\n      \"support_level\": \"explicit\",\n      \"source_refs\": [\n        \"Table 2\",\n        \"Fig. 4 right\"\n      ],\n      \"description\": \"Train ResNet-{18, 34} (option A shortcuts) under the same recipe as plain-{18, 34}.\",\n      \"fields\": {\n        \"experiment\": {\n          \"result\": \"ResNet-34 = 25.03% top-1 (3.51 pts better than plain-34, 2.85 pts better than ResNet-18). Degradation is removed.\",\n          \"exploration\": null,\n          \"outcome\": null,\n          \"status\": null\n        }\n      },\n      \"evidence_notes\": [],\n      \"pos\": {\n        \"x\": 655.0,\n        \"y\": 250.0\n      }\n    },\n    {\n      \"id\": \"N09\",\n      \"kind\": \"experiment\",\n      \"label\": \"Shortcut option ablation on ResNet-34 (A vs. B vs. C)\",\n      \"support_level\": \"explicit\",\n      \"source_refs\": [\n        \"Table 3\",\n        \"§\\\"Identity vs. Projection Shortcuts\\\"\"\n      ],\n      \"description\": \"Ablation comparing parameter-free identity (A), projection on dimension changes only (B), and projection on every shortcut (C).\",\n      \"fields\": {\n        \"experiment\": {\n          \"result\": \"A = 25.03, B = 24.52, C = 24.19 top-1. Differences are small; option C is rejected as not worth the parameter / memory cost.\",\n          \"exploration\": null,\n          \"outcome\": null,\n          \"status\": null\n        }\n      },\n      \"evidence_notes\": [],\n      \"pos\": {\n        \"x\": 915.0,\n        \"y\": 360.0\n      }\n    },\n    {\n      \"id\": \"N10\",\n      \"kind\": \"dead_end\",\n      \"label\": \"Single-layer residual function F\",\n      \"support_level\": \"explicit\",\n      \"source_refs\": [\n        \"§3.2\"\n      ],\n      \"description\": \"Authors note Eqn. (1) with a single-layer F is similar to a linear layer.\",\n      \"fields\": {\n        \"dead_end\": {\n          \"hypothesis\": null,\n          \"failure_mode\": null,\n          \"lesson\": null,\n          \"why_failed\": \"\\\"We have not observed advantages.\\\" Authors require F to have ≥2 weighted layers.\"\n        }\n      },\n      \"evidence_notes\": [],\n      \"pos\": {\n        \"x\": 905.0,\n        \"y\": 250.0\n      }\n    },\n    {\n      \"id\": \"N11\",\n      \"kind\": \"decision\",\n      \"label\": \"Adopt 1×1 → 3×3 → 1×1 bottleneck blocks for ≥50 layers\",\n      \"support_level\": \"explicit\",\n      \"source_refs\": [\n        \"§\\\"Deeper Bottleneck Architectures\\\"\",\n        \"Fig. 5 right\"\n      ],\n      \"description\": \"Replace the basic 2-layer block with a 3-layer bottleneck of comparable per-block time complexity.\",\n      \"fields\": {\n        \"decision\": {\n          \"choice\": null,\n          \"alternatives\": [],\n          \"rationale\": \"Lets us push depth to 50/101/152 layers at FLOPs comparable to ResNet-34 (3.8 / 7.6 / 11.3 GFLOPs vs. 3.6 GFLOPs).\"\n        }\n      },\n      \"evidence_notes\": [],\n      \"pos\": {\n        \"x\": 1155.0,\n        \"y\": 360.0\n      }\n    },\n    {\n      \"id\": \"N12\",\n      \"kind\": \"experiment\",\n      \"label\": \"Depth scan with bottleneck blocks (50 / 101 / 152 layers)\",\n      \"support_level\": \"explicit\",\n      \"source_refs\": [\n        \"Table 3\",\n        \"Table 4\",\n        \"Table 5\"\n      ],\n      \"description\": \"Train ResNet-50 / 101 / 152 with option B shortcuts under the same ImageNet recipe.\",\n      \"fields\": {\n        \"experiment\": {\n          \"result\": \"Top-1 error drops monotonically (22.85 → 21.75 → 21.43); 6-model ensemble achieves 3.57% top-5 on the test set, winning ILSVRC 2015.\",\n          \"exploration\": null,\n          \"outcome\": null,\n          \"status\": null\n        }\n      },\n      \"evidence_notes\": [],\n      \"pos\": {\n        \"x\": 1217.5,\n        \"y\": 250.0\n      }\n    },\n    {\n      \"id\": \"N13\",\n      \"kind\": \"experiment\",\n      \"label\": \"CIFAR-10 depth scan (20 → 1202 layers)\",\n      \"support_level\": \"explicit\",\n      \"source_refs\": [\n        \"Table 6\",\n        \"Fig. 6\",\n        \"§4.2\"\n      ],\n      \"description\": \"Train ResNet-{20, 32, 44, 56, 110, 1202} on CIFAR-10. ResNet-110 uses LR warmup (LR 0.01 for ~400 iters until train err <80%, then restore LR 0.1).\",\n      \"fields\": {\n        \"experiment\": {\n          \"result\": \"Test error decreases through depth 110 (6.43% mean, best 6.61 ± 0.16). ResNet-1202 trains successfully (training error <0.1%) but overfits to 7.93% test error.\",\n          \"exploration\": null,\n          \"outcome\": null,\n          \"status\": null\n        }\n      },\n      \"evidence_notes\": [],\n      \"pos\": {\n        \"x\": 1447.5,\n        \"y\": 250.0\n      }\n    },\n    {\n      \"id\": \"N14\",\n      \"kind\": \"decision\",\n      \"label\": \"Warm up LR for the 110-layer CIFAR ResNet\",\n      \"support_level\": \"explicit\",\n      \"source_refs\": [\n        \"§4.2 paragraph on n=18\",\n        \"footnote 5\"\n      ],\n      \"description\": \"At depth 110, LR 0.1 from iter 0 fails to start converging cleanly. Pre-warm at LR 0.01 for ~400 iters (until train error <80%), then restore LR 0.1.\",\n      \"fields\": {\n        \"decision\": {\n          \"choice\": null,\n          \"alternatives\": [],\n          \"rationale\": \"Gets the optimizer into a basin where the standard LR schedule then trains stably. LR 0.1 from start eventually reaches similar accuracy after several epochs of >90% error, but warmup is the chosen recipe.\"\n        }\n      },\n      \"evidence_notes\": [],\n      \"pos\": {\n        \"x\": 1447.5,\n        \"y\": 360.0\n      }\n    },\n    {\n      \"id\": \"N15\",\n      \"kind\": \"experiment\",\n      \"label\": \"Detection transfer with ResNet-101 (PASCAL VOC, COCO)\",\n      \"support_level\": \"explicit\",\n      \"source_refs\": [\n        \"Table 7\",\n        \"Table 8\",\n        \"Appendix A\"\n      ],\n      \"description\": \"Swap VGG-16 for ResNet-101 in baseline Faster R-CNN; fine-tune on PASCAL VOC and COCO.\",\n      \"fields\": {\n        \"experiment\": {\n          \"result\": \"PASCAL VOC07 mAP: 73.2 → 76.4. COCO mAP@.5: 41.5 → 48.4. COCO mAP@[.5, .95]: 21.2 → 27.2 (28% relative improvement).\",\n          \"exploration\": null,\n          \"outcome\": null,\n          \"status\": null\n        }\n      },\n      \"evidence_notes\": [],\n      \"pos\": {\n        \"x\": 1457.5,\n        \"y\": 140.0\n      }\n    }\n  ],\n  \"links\": [\n    {\n      \"from\": \"N01\",\n      \"to\": \"N02\",\n      \"kind\": \"child\"\n    },\n    {\n      \"from\": \"N01\",\n      \"to\": \"N03\",\n      \"kind\": \"child\"\n    },\n    {\n      \"from\": \"N01\",\n      \"to\": \"N04\",\n      \"kind\": \"child\"\n    },\n    {\n      \"from\": \"N01\",\n      \"to\": \"N05\",\n      \"kind\": \"child\"\n    },\n    {\n      \"from\": \"N01\",\n      \"to\": \"N06\",\n      \"kind\": \"child\"\n    },\n    {\n      \"from\": \"N06\",\n      \"to\": \"N07\",\n      \"kind\": \"child\"\n    },\n    {\n      \"from\": \"N06\",\n      \"to\": \"N08\",\n      \"kind\": \"child\"\n    },\n    {\n      \"from\": \"N06\",\n      \"to\": \"N09\",\n      \"kind\": \"child\"\n    },\n    {\n      \"from\": \"N06\",\n      \"to\": \"N10\",\n      \"kind\": \"child\"\n    },\n    {\n      \"from\": \"N06\",\n      \"to\": \"N11\",\n      \"kind\": \"child\"\n    },\n    {\n      \"from\": \"N06\",\n      \"to\": \"N12\",\n      \"kind\": \"child\"\n    },\n    {\n      \"from\": \"N06\",\n      \"to\": \"N13\",\n      \"kind\": \"child\"\n    },\n    {\n      \"from\": \"N13\",\n      \"to\": \"N14\",\n      \"kind\": \"child\"\n    },\n    {\n      \"from\": \"N01\",\n      \"to\": \"N15\",\n      \"kind\": \"child\"\n    },\n    {\n      \"from\": \"N12\",\n      \"to\": \"N09\",\n      \"kind\": \"depends_on\"\n    },\n    {\n      \"from\": \"N12\",\n      \"to\": \"N11\",\n      \"kind\": \"depends_on\"\n    },\n    {\n      \"from\": \"N15\",\n      \"to\": \"N12\",\n      \"kind\": \"depends_on\"\n    }\n  ],\n  \"bindings\": [],\n  \"claims\": [\n    {\n      \"id\": \"C01\",\n      \"title\": \"Plain CNNs exhibit a depth-induced degradation problem\",\n      \"statement\": \"For sufficiently deep \\\"plain\\\" CNNs (no shortcuts), increasing depth strictly increases *training* error on both CIFAR-10 and ImageNet, even with BN and competent initialization.\",\n      \"status\": \"supported\",\n      \"falsification\": \"A controlled depth scan (e.g. plain-{18, 34, 56, 110}) trained with BN and standard SGD in which deeper models show monotonically lower or equal training error.\",\n      \"proof\": [\n        \"E01\"\n      ],\n      \"deps\": [],\n      \"proof_content\": \"[E01]\",\n      \"tags\": \"degradation, optimization, depth-scaling, plain-baseline\",\n      \"source_fields\": [\n        {\n          \"name\": \"Statement\",\n          \"value\": \"For sufficiently deep \\\"plain\\\" CNNs (no shortcuts), increasing depth strictly increases *training* error on both CIFAR-10 and ImageNet, even with BN and competent initialization.\"\n        },\n        {\n          \"name\": \"Status\",\n          \"value\": \"supported\"\n        },\n        {\n          \"name\": \"Falsification criteria\",\n          \"value\": \"A controlled depth scan (e.g. plain-{18, 34, 56, 110}) trained with BN and standard SGD in which deeper models show monotonically lower or equal training error.\"\n        },\n        {\n          \"name\": \"Proof\",\n          \"value\": \"[E01]\"\n        },\n        {\n          \"name\": \"Evidence basis\",\n          \"value\": \"Table 2 (plain-18 = 27.94%, plain-34 = 28.54% top-1 ImageNet val); Fig. 4 left (training-error curves cross with deeper plain-34 above plain-18 throughout training); Fig. 6 left for plain-{20, 32, 44, 56, 110} on CIFAR-10.\"\n        },\n        {\n          \"name\": \"Interpretation\",\n          \"value\": \"The authors argue (but do not formally prove) that this reflects an *optimization* difficulty rather than overfitting or vanishing gradients.\"\n        },\n        {\n          \"name\": \"Dependencies\",\n          \"value\": \"none\"\n        },\n        {\n          \"name\": \"Tags\",\n          \"value\": \"degradation, optimization, depth-scaling, plain-baseline\"\n        }\n      ],\n      \"body\": \"## C01: Plain CNNs exhibit a depth-induced degradation problem\\n- **Statement**: For sufficiently deep \\\"plain\\\" CNNs (no shortcuts), increasing depth strictly increases *training* error on both CIFAR-10 and ImageNet, even with BN and competent initialization.\\n- **Status**: supported\\n- **Falsification criteria**: A controlled depth scan (e.g. plain-{18, 34, 56, 110}) trained with BN and standard SGD in which deeper models show monotonically lower or equal training error.\\n- **Proof**: [E01]\\n- **Evidence basis**: Table 2 (plain-18 = 27.94%, plain-34 = 28.54% top-1 ImageNet val); Fig. 4 left (training-error curves cross with deeper plain-34 above plain-18 throughout training); Fig. 6 left for plain-{20, 32, 44, 56, 110} on CIFAR-10.\\n- **Interpretation**: The authors argue (but do not formally prove) that this reflects an *optimization* difficulty rather than overfitting or vanishing gradients.\\n- **Dependencies**: none\\n- **Tags**: degradation, optimization, depth-scaling, plain-baseline\\n\\n\"\n    },\n    {\n      \"id\": \"C02\",\n      \"title\": \"Residual learning eliminates the degradation problem\",\n      \"statement\": \"Replacing each pair of stacked 3×3 layers in a plain net with a residual block F(x) + x (with identity shortcut, no extra parameters) makes the deeper variant achieve *lower* training and validation error than the shallower one for matched depths.\",\n      \"status\": \"supported\",\n      \"falsification\": \"Under the same depth/width/training pipeline, ResNet-34 fails to improve over ResNet-18 on ImageNet validation, or ResNet-34 has higher training error than plain-34.\",\n      \"proof\": [\n        \"E01\",\n        \"E02\"\n      ],\n      \"deps\": [\n        \"C01\"\n      ],\n      \"proof_content\": \"[E01, E02]\",\n      \"tags\": \"residual-learning, identity-shortcut, optimization\",\n      \"source_fields\": [\n        {\n          \"name\": \"Statement\",\n          \"value\": \"Replacing each pair of stacked 3×3 layers in a plain net with a residual block F(x) + x (with identity shortcut, no extra parameters) makes the deeper variant achieve *lower* training and validation error than the shallower one for matched depths.\"\n        },\n        {\n          \"name\": \"Status\",\n          \"value\": \"supported\"\n        },\n        {\n          \"name\": \"Falsification criteria\",\n          \"value\": \"Under the same depth/width/training pipeline, ResNet-34 fails to improve over ResNet-18 on ImageNet validation, or ResNet-34 has higher training error than plain-34.\"\n        },\n        {\n          \"name\": \"Proof\",\n          \"value\": \"[E01, E02]\"\n        },\n        {\n          \"name\": \"Evidence basis\",\n          \"value\": \"Table 2 (ResNet-18 = 27.88, ResNet-34 = 25.03 top-1 ImageNet val; ResNet-34 better than ResNet-18 by 2.85 pts; ResNet-34 better than plain-34 by 3.51 pts); Fig. 4 right (training-error curves of ResNet-34 lie below ResNet-18 throughout training).\"\n        },\n        {\n          \"name\": \"Interpretation\",\n          \"value\": \"The result is consistent with the hypothesis that residual reformulation makes the optimization landscape easier to traverse, but does not by itself prove a representational advantage.\"\n        },\n        {\n          \"name\": \"Dependencies\",\n          \"value\": \"C01\"\n        },\n        {\n          \"name\": \"Tags\",\n          \"value\": \"residual-learning, identity-shortcut, optimization\"\n        }\n      ],\n      \"body\": \"## C02: Residual learning eliminates the degradation problem\\n- **Statement**: Replacing each pair of stacked 3×3 layers in a plain net with a residual block F(x) + x (with identity shortcut, no extra parameters) makes the deeper variant achieve *lower* training and validation error than the shallower one for matched depths.\\n- **Status**: supported\\n- **Falsification criteria**: Under the same depth/width/training pipeline, ResNet-34 fails to improve over ResNet-18 on ImageNet validation, or ResNet-34 has higher training error than plain-34.\\n- **Proof**: [E01, E02]\\n- **Evidence basis**: Table 2 (ResNet-18 = 27.88, ResNet-34 = 25.03 top-1 ImageNet val; ResNet-34 better than ResNet-18 by 2.85 pts; ResNet-34 better than plain-34 by 3.51 pts); Fig. 4 right (training-error curves of ResNet-34 lie below ResNet-18 throughout training).\\n- **Interpretation**: The result is consistent with the hypothesis that residual reformulation makes the optimization landscape easier to traverse, but does not by itself prove a representational advantage.\\n- **Dependencies**: C01\\n- **Tags**: residual-learning, identity-shortcut, optimization\\n\\n\"\n    },\n    {\n      \"id\": \"C03\",\n      \"title\": \"Residual networks gain accuracy from increased depth up to 152 layers on ImageNet\",\n      \"statement\": \"Deeper ResNets (50, 101, 152) achieve monotonically lower top-1 and top-5 ImageNet validation error than shallower ResNets, with the 152-layer model still having lower complexity (11.3 GFLOPs) than VGG-16/19 (15.3/19.6 GFLOPs).\",\n      \"status\": \"supported\",\n      \"falsification\": \"A ResNet-152 trained with the same recipe fails to improve top-1 over ResNet-101 (or ResNet-101 over ResNet-50) by a margin larger than the noise floor (~0.1%).\",\n      \"proof\": [\n        \"E03\"\n      ],\n      \"deps\": [\n        \"C02\"\n      ],\n      \"proof_content\": \"[E03]\",\n      \"tags\": \"depth-scaling, imagenet, complexity\",\n      \"source_fields\": [\n        {\n          \"name\": \"Statement\",\n          \"value\": \"Deeper ResNets (50, 101, 152) achieve monotonically lower top-1 and top-5 ImageNet validation error than shallower ResNets, with the 152-layer model still having lower complexity (11.3 GFLOPs) than VGG-16/19 (15.3/19.6 GFLOPs).\"\n        },\n        {\n          \"name\": \"Status\",\n          \"value\": \"supported\"\n        },\n        {\n          \"name\": \"Falsification criteria\",\n          \"value\": \"A ResNet-152 trained with the same recipe fails to improve top-1 over ResNet-101 (or ResNet-101 over ResNet-50) by a margin larger than the noise floor (~0.1%).\"\n        },\n        {\n          \"name\": \"Proof\",\n          \"value\": \"[E03]\"\n        },\n        {\n          \"name\": \"Evidence basis\",\n          \"value\": \"Table 3 (ResNet-50 = 22.85 / 6.71, ResNet-101 = 21.75 / 6.05, ResNet-152 = 21.43 / 5.71 top-1 / top-5 with 10-crop testing; FLOPs from Table 1).\"\n        },\n        {\n          \"name\": \"Interpretation\",\n          \"value\": \"Within the depths studied, depth alone (rather than added parameters) is the source of the gain because residual blocks add no extra parameters relative to plain counterparts.\"\n        },\n        {\n          \"name\": \"Dependencies\",\n          \"value\": \"C02\"\n        },\n        {\n          \"name\": \"Tags\",\n          \"value\": \"depth-scaling, imagenet, complexity\"\n        }\n      ],\n      \"body\": \"## C03: Residual networks gain accuracy from increased depth up to 152 layers on ImageNet\\n- **Statement**: Deeper ResNets (50, 101, 152) achieve monotonically lower top-1 and top-5 ImageNet validation error than shallower ResNets, with the 152-layer model still having lower complexity (11.3 GFLOPs) than VGG-16/19 (15.3/19.6 GFLOPs).\\n- **Status**: supported\\n- **Falsification criteria**: A ResNet-152 trained with the same recipe fails to improve top-1 over ResNet-101 (or ResNet-101 over ResNet-50) by a margin larger than the noise floor (~0.1%).\\n- **Proof**: [E03]\\n- **Evidence basis**: Table 3 (ResNet-50 = 22.85 / 6.71, ResNet-101 = 21.75 / 6.05, ResNet-152 = 21.43 / 5.71 top-1 / top-5 with 10-crop testing; FLOPs from Table 1).\\n- **Interpretation**: Within the depths studied, depth alone (rather than added parameters) is the source of the gain because residual blocks add no extra parameters relative to plain counterparts.\\n- **Dependencies**: C02\\n- **Tags**: depth-scaling, imagenet, complexity\\n\\n\"\n    },\n    {\n      \"id\": \"C04\",\n      \"title\": \"Identity shortcuts are sufficient; projection shortcuts give only marginal gains\",\n      \"statement\": \"Among shortcut options A (zero-padding identity), B (projection only when dimensions change), and C (projection on every shortcut), the differences in ImageNet top-1 error are small (≤0.65 pts on ResNet-34); identity shortcuts (A) suffice to fix degradation, and option C is rejected as not worth its parameter / memory cost.\",\n      \"status\": \"supported\",\n      \"falsification\": \"A controlled comparison in which option C beats option A or B by more than ~1 top-1 point under identical training, indicating projection shortcuts are essential rather than convenience.\",\n      \"proof\": [\n        \"E04\"\n      ],\n      \"deps\": [\n        \"C02\"\n      ],\n      \"proof_content\": \"[E04]\",\n      \"tags\": \"shortcut-design, ablation\",\n      \"source_fields\": [\n        {\n          \"name\": \"Statement\",\n          \"value\": \"Among shortcut options A (zero-padding identity), B (projection only when dimensions change), and C (projection on every shortcut), the differences in ImageNet top-1 error are small (≤0.65 pts on ResNet-34); identity shortcuts (A) suffice to fix degradation, and option C is rejected as not worth its parameter / memory cost.\"\n        },\n        {\n          \"name\": \"Status\",\n          \"value\": \"supported\"\n        },\n        {\n          \"name\": \"Falsification criteria\",\n          \"value\": \"A controlled comparison in which option C beats option A or B by more than ~1 top-1 point under identical training, indicating projection shortcuts are essential rather than convenience.\"\n        },\n        {\n          \"name\": \"Proof\",\n          \"value\": \"[E04]\"\n        },\n        {\n          \"name\": \"Evidence basis\",\n          \"value\": \"Table 3 (ResNet-34 A = 25.03, B = 24.52, C = 24.19 top-1 with 10-crop); §\\\"Identity vs. Projection Shortcuts\\\" attributes the small B>A gap to A's zero-padded dimensions having \\\"no residual learning\\\" and the small C>B gap to extra parameters from 13 projection shortcuts.\"\n        },\n        {\n          \"name\": \"Interpretation\",\n          \"value\": \"Identity shortcuts are the right default for parameter efficiency; B is used in deeper bottleneck nets where dimension changes are rarer.\"\n        },\n        {\n          \"name\": \"Dependencies\",\n          \"value\": \"C02\"\n        },\n        {\n          \"name\": \"Tags\",\n          \"value\": \"shortcut-design, ablation\"\n        }\n      ],\n      \"body\": \"## C04: Identity shortcuts are sufficient; projection shortcuts give only marginal gains\\n- **Statement**: Among shortcut options A (zero-padding identity), B (projection only when dimensions change), and C (projection on every shortcut), the differences in ImageNet top-1 error are small (≤0.65 pts on ResNet-34); identity shortcuts (A) suffice to fix degradation, and option C is rejected as not worth its parameter / memory cost.\\n- **Status**: supported\\n- **Falsification criteria**: A controlled comparison in which option C beats option A or B by more than ~1 top-1 point under identical training, indicating projection shortcuts are essential rather than convenience.\\n- **Proof**: [E04]\\n- **Evidence basis**: Table 3 (ResNet-34 A = 25.03, B = 24.52, C = 24.19 top-1 with 10-crop); §\\\"Identity vs. Projection Shortcuts\\\" attributes the small B>A gap to A's zero-padded dimensions having \\\"no residual learning\\\" and the small C>B gap to extra parameters from 13 projection shortcuts.\\n- **Interpretation**: Identity shortcuts are the right default for parameter efficiency; B is used in deeper bottleneck nets where dimension changes are rarer.\\n- **Dependencies**: C02\\n- **Tags**: shortcut-design, ablation\\n\\n\"\n    },\n    {\n      \"id\": \"C05\",\n      \"title\": \"Bottleneck blocks make 50/101/152-layer ResNets practical\",\n      \"statement\": \"Replacing the 2-layer 3×3 building block with a 3-layer 1×1 → 3×3 → 1×1 *bottleneck* block of the same per-block time complexity allows construction of 50/101/152-layer ResNets that achieve lower error than the 34-layer ResNet without exploding compute.\",\n      \"status\": \"supported\",\n      \"falsification\": \"A 50- or 101-layer non-bottleneck ResNet matches the bottleneck ResNet at equal compute, eliminating the practical need for bottlenecks; or bottleneck ResNets fail to improve over ResNet-34.\",\n      \"proof\": [\n        \"E03\"\n      ],\n      \"deps\": [\n        \"C02\",\n        \"C04\"\n      ],\n      \"proof_content\": \"[E03]\",\n      \"tags\": \"bottleneck, architecture, complexity\",\n      \"source_fields\": [\n        {\n          \"name\": \"Statement\",\n          \"value\": \"Replacing the 2-layer 3×3 building block with a 3-layer 1×1 → 3×3 → 1×1 *bottleneck* block of the same per-block time complexity allows construction of 50/101/152-layer ResNets that achieve lower error than the 34-layer ResNet without exploding compute.\"\n        },\n        {\n          \"name\": \"Status\",\n          \"value\": \"supported\"\n        },\n        {\n          \"name\": \"Falsification criteria\",\n          \"value\": \"A 50- or 101-layer non-bottleneck ResNet matches the bottleneck ResNet at equal compute, eliminating the practical need for bottlenecks; or bottleneck ResNets fail to improve over ResNet-34.\"\n        },\n        {\n          \"name\": \"Proof\",\n          \"value\": \"[E03]\"\n        },\n        {\n          \"name\": \"Evidence basis\",\n          \"value\": \"Table 1 (3.8/7.6/11.3 GFLOPs for ResNet-{50,101,152}, comparable to ResNet-34 at 3.6 GFLOPs); Table 3 top-1 error drops from 24.19 (ResNet-34 C) to 22.85 / 21.75 / 21.43 for ResNet-50/101/152.\"\n        },\n        {\n          \"name\": \"Interpretation\",\n          \"value\": \"Identity shortcuts are particularly important for bottleneck designs because a projection shortcut on a bottleneck doubles its time complexity and model size (§\\\"Deeper Bottleneck Architectures\\\").\"\n        },\n        {\n          \"name\": \"Dependencies\",\n          \"value\": \"C02, C04\"\n        },\n        {\n          \"name\": \"Tags\",\n          \"value\": \"bottleneck, architecture, complexity\"\n        }\n      ],\n      \"body\": \"## C05: Bottleneck blocks make 50/101/152-layer ResNets practical\\n- **Statement**: Replacing the 2-layer 3×3 building block with a 3-layer 1×1 → 3×3 → 1×1 *bottleneck* block of the same per-block time complexity allows construction of 50/101/152-layer ResNets that achieve lower error than the 34-layer ResNet without exploding compute.\\n- **Status**: supported\\n- **Falsification criteria**: A 50- or 101-layer non-bottleneck ResNet matches the bottleneck ResNet at equal compute, eliminating the practical need for bottlenecks; or bottleneck ResNets fail to improve over ResNet-34.\\n- **Proof**: [E03]\\n- **Evidence basis**: Table 1 (3.8/7.6/11.3 GFLOPs for ResNet-{50,101,152}, comparable to ResNet-34 at 3.6 GFLOPs); Table 3 top-1 error drops from 24.19 (ResNet-34 C) to 22.85 / 21.75 / 21.43 for ResNet-50/101/152.\\n- **Interpretation**: Identity shortcuts are particularly important for bottleneck designs because a projection shortcut on a bottleneck doubles its time complexity and model size (§\\\"Deeper Bottleneck Architectures\\\").\\n- **Dependencies**: C02, C04\\n- **Tags**: bottleneck, architecture, complexity\\n\\n\"\n    },\n    {\n      \"id\": \"C06\",\n      \"title\": \"Residual nets generalize to extreme CIFAR-10 depths (110 layers; 1202 layers without optimization difficulty)\",\n      \"statement\": \"On CIFAR-10, ResNets at depths {20, 32, 44, 56, 110} all train successfully, with the 110-layer model achieving 6.43% test error (best mean ± std 6.61 ± 0.16); a 1202-layer ResNet trains with no optimization difficulty (final training error <0.1%) although it overfits to 7.93% test error on this small dataset.\",\n      \"status\": \"supported\",\n      \"falsification\": \"A CIFAR ResNet at depth ≥110 trained with the same recipe fails to converge to <10% test error, or its training error fails to decrease below the 56-layer model's.\",\n      \"proof\": [\n        \"E05\"\n      ],\n      \"deps\": [\n        \"C02\",\n        \"C03\"\n      ],\n      \"proof_content\": \"[E05]\",\n      \"tags\": \"cifar-10, extreme-depth, generalization, overfitting\",\n      \"source_fields\": [\n        {\n          \"name\": \"Statement\",\n          \"value\": \"On CIFAR-10, ResNets at depths {20, 32, 44, 56, 110} all train successfully, with the 110-layer model achieving 6.43% test error (best mean ± std 6.61 ± 0.16); a 1202-layer ResNet trains with no optimization difficulty (final training error <0.1%) although it overfits to 7.93% test error on this small dataset.\"\n        },\n        {\n          \"name\": \"Status\",\n          \"value\": \"supported\"\n        },\n        {\n          \"name\": \"Falsification criteria\",\n          \"value\": \"A CIFAR ResNet at depth ≥110 trained with the same recipe fails to converge to <10% test error, or its training error fails to decrease below the 56-layer model's.\"\n        },\n        {\n          \"name\": \"Proof\",\n          \"value\": \"[E05]\"\n        },\n        {\n          \"name\": \"Evidence basis\",\n          \"value\": \"Table 6 (ResNet-{20=8.75, 32=7.51, 44=7.17, 56=6.97, 110=6.43, 1202=7.93}% test error); §\\\"Exploring Over 1000 layers\\\" notes 1202-layer training error <0.1% with no optimization difficulty.\"\n        },\n        {\n          \"name\": \"Interpretation\",\n          \"value\": \"The 1202-layer model worsens on test only because of overfitting on a 50k-image dataset, not because optimization breaks down.\"\n        },\n        {\n          \"name\": \"Dependencies\",\n          \"value\": \"C02, C03\"\n        },\n        {\n          \"name\": \"Tags\",\n          \"value\": \"cifar-10, extreme-depth, generalization, overfitting\"\n        }\n      ],\n      \"body\": \"## C06: Residual nets generalize to extreme CIFAR-10 depths (110 layers; 1202 layers without optimization difficulty)\\n- **Statement**: On CIFAR-10, ResNets at depths {20, 32, 44, 56, 110} all train successfully, with the 110-layer model achieving 6.43% test error (best mean ± std 6.61 ± 0.16); a 1202-layer ResNet trains with no optimization difficulty (final training error <0.1%) although it overfits to 7.93% test error on this small dataset.\\n- **Status**: supported\\n- **Falsification criteria**: A CIFAR ResNet at depth ≥110 trained with the same recipe fails to converge to <10% test error, or its training error fails to decrease below the 56-layer model's.\\n- **Proof**: [E05]\\n- **Evidence basis**: Table 6 (ResNet-{20=8.75, 32=7.51, 44=7.17, 56=6.97, 110=6.43, 1202=7.93}% test error); §\\\"Exploring Over 1000 layers\\\" notes 1202-layer training error <0.1% with no optimization difficulty.\\n- **Interpretation**: The 1202-layer model worsens on test only because of overfitting on a 50k-image dataset, not because optimization breaks down.\\n- **Dependencies**: C02, C03\\n- **Tags**: cifar-10, extreme-depth, generalization, overfitting\\n\\n\"\n    },\n    {\n      \"id\": \"C07\",\n      \"title\": \"Warming up the learning rate is necessary for the 110-layer CIFAR ResNet\",\n      \"statement\": \"A 110-layer ResNet on CIFAR-10 fails to start converging cleanly with the default initial LR of 0.1; warming up at LR 0.01 for ~400 iterations until training error drops below ~80%, then restoring LR 0.1, restores convergence.\",\n      \"status\": \"supported\",\n      \"falsification\": \"Training a 110-layer ResNet on CIFAR-10 from scratch at LR 0.1 from iteration 0 reliably reaches the same final test error as the warmup recipe under the same total budget.\",\n      \"proof\": [\n        \"E05\"\n      ],\n      \"deps\": [\n        \"C06\"\n      ],\n      \"proof_content\": \"[E05]\",\n      \"tags\": \"training-recipe, warmup, very-deep\",\n      \"source_fields\": [\n        {\n          \"name\": \"Statement\",\n          \"value\": \"A 110-layer ResNet on CIFAR-10 fails to start converging cleanly with the default initial LR of 0.1; warming up at LR 0.01 for ~400 iterations until training error drops below ~80%, then restoring LR 0.1, restores convergence.\"\n        },\n        {\n          \"name\": \"Status\",\n          \"value\": \"supported\"\n        },\n        {\n          \"name\": \"Falsification criteria\",\n          \"value\": \"Training a 110-layer ResNet on CIFAR-10 from scratch at LR 0.1 from iteration 0 reliably reaches the same final test error as the warmup recipe under the same total budget.\"\n        },\n        {\n          \"name\": \"Proof\",\n          \"value\": \"[E05]\"\n        },\n        {\n          \"name\": \"Evidence basis\",\n          \"value\": \"§4.2 paragraph on n=18 (110-layer): \\\"0.1 is slightly too large to start converging\\\" with footnote 5 noting LR 0.1 reaches similar accuracy after several epochs of >90% error but the warmup variant is the chosen recipe.\"\n        },\n        {\n          \"name\": \"Interpretation\",\n          \"value\": \"Warmup is a stability heuristic, not a fundamental requirement of residual learning — only a minor optimization aid for very deep CIFAR variants.\"\n        },\n        {\n          \"name\": \"Dependencies\",\n          \"value\": \"C06\"\n        },\n        {\n          \"name\": \"Tags\",\n          \"value\": \"training-recipe, warmup, very-deep\"\n        }\n      ],\n      \"body\": \"## C07: Warming up the learning rate is necessary for the 110-layer CIFAR ResNet\\n- **Statement**: A 110-layer ResNet on CIFAR-10 fails to start converging cleanly with the default initial LR of 0.1; warming up at LR 0.01 for ~400 iterations until training error drops below ~80%, then restoring LR 0.1, restores convergence.\\n- **Status**: supported\\n- **Falsification criteria**: Training a 110-layer ResNet on CIFAR-10 from scratch at LR 0.1 from iteration 0 reliably reaches the same final test error as the warmup recipe under the same total budget.\\n- **Proof**: [E05]\\n- **Evidence basis**: §4.2 paragraph on n=18 (110-layer): \\\"0.1 is slightly too large to start converging\\\" with footnote 5 noting LR 0.1 reaches similar accuracy after several epochs of >90% error but the warmup variant is the chosen recipe.\\n- **Interpretation**: Warmup is a stability heuristic, not a fundamental requirement of residual learning — only a minor optimization aid for very deep CIFAR variants.\\n- **Dependencies**: C06\\n- **Tags**: training-recipe, warmup, very-deep\\n\\n\"\n    },\n    {\n      \"id\": \"C08\",\n      \"title\": \"ResNet representations transfer to detection, giving large COCO gains over VGG-16\",\n      \"statement\": \"Replacing the VGG-16 backbone with ResNet-101 in baseline Faster R-CNN improves COCO val mAP@[.5,.95] from 21.2 to 27.2, a 6.0-point absolute (28% relative) increase, attributed solely to the better learned representations.\",\n      \"status\": \"supported\",\n      \"falsification\": \"A controlled VGG-16 → ResNet-101 swap in Faster R-CNN with the same hyperparameters fails to improve COCO mAP@[.5,.95] by ≥3 absolute points.\",\n      \"proof\": [\n        \"E06\"\n      ],\n      \"deps\": [\n        \"C03\"\n      ],\n      \"proof_content\": \"[E06]\",\n      \"tags\": \"transfer-learning, object-detection, coco, pascal-voc, faster-rcnn\",\n      \"source_fields\": [\n        {\n          \"name\": \"Statement\",\n          \"value\": \"Replacing the VGG-16 backbone with ResNet-101 in baseline Faster R-CNN improves COCO val mAP@[.5,.95] from 21.2 to 27.2, a 6.0-point absolute (28% relative) increase, attributed solely to the better learned representations.\"\n        },\n        {\n          \"name\": \"Status\",\n          \"value\": \"supported\"\n        },\n        {\n          \"name\": \"Falsification criteria\",\n          \"value\": \"A controlled VGG-16 → ResNet-101 swap in Faster R-CNN with the same hyperparameters fails to improve COCO mAP@[.5,.95] by ≥3 absolute points.\"\n        },\n        {\n          \"name\": \"Proof\",\n          \"value\": \"[E06]\"\n        },\n        {\n          \"name\": \"Evidence basis\",\n          \"value\": \"Table 8 (baseline Faster R-CNN: VGG-16 = 41.5 mAP@.5 / 21.2 mAP@[.5,.95]; ResNet-101 = 48.4 / 27.2 on COCO val); Table 7 (PASCAL VOC 07 mAP: 73.2 → 76.4; VOC 12: 70.4 → 73.8).\"\n        },\n        {\n          \"name\": \"Interpretation\",\n          \"value\": \"Depth of representations matters not only for classification but for downstream localization-sensitive tasks; mAP@[.5,.95] (which rewards tighter boxes) gains ≈ mAP@.5 gains, suggesting deeper features help both recognition and localization.\"\n        },\n        {\n          \"name\": \"Dependencies\",\n          \"value\": \"C03\"\n        },\n        {\n          \"name\": \"Tags\",\n          \"value\": \"transfer-learning, object-detection, coco, pascal-voc, faster-rcnn\"\n        }\n      ],\n      \"body\": \"## C08: ResNet representations transfer to detection, giving large COCO gains over VGG-16\\n- **Statement**: Replacing the VGG-16 backbone with ResNet-101 in baseline Faster R-CNN improves COCO val mAP@[.5,.95] from 21.2 to 27.2, a 6.0-point absolute (28% relative) increase, attributed solely to the better learned representations.\\n- **Status**: supported\\n- **Falsification criteria**: A controlled VGG-16 → ResNet-101 swap in Faster R-CNN with the same hyperparameters fails to improve COCO mAP@[.5,.95] by ≥3 absolute points.\\n- **Proof**: [E06]\\n- **Evidence basis**: Table 8 (baseline Faster R-CNN: VGG-16 = 41.5 mAP@.5 / 21.2 mAP@[.5,.95]; ResNet-101 = 48.4 / 27.2 on COCO val); Table 7 (PASCAL VOC 07 mAP: 73.2 → 76.4; VOC 12: 70.4 → 73.8).\\n- **Interpretation**: Depth of representations matters not only for classification but for downstream localization-sensitive tasks; mAP@[.5,.95] (which rewards tighter boxes) gains ≈ mAP@.5 gains, suggesting deeper features help both recognition and localization.\\n- **Dependencies**: C03\\n- **Tags**: transfer-learning, object-detection, coco, pascal-voc, faster-rcnn\\n\"\n    }\n  ],\n  \"bounds\": {\n    \"x\": 0.0,\n    \"y\": 0.0,\n    \"width\": 1547.5,\n    \"height\": 390.0\n  }\n}\n",
+      "stderr": ""
+    }
+  ],
+  "checks": [
+    "compiler initialization commits caller PAPER",
+    "dry run is tentative and writes no sources",
+    "owning turn returns all provisional bindings",
+    "apply strings are literal and complete",
+    "multi selections preserve order and complete ancestry",
+    "parents are distinct from ancestry",
+    "projected nested refs preserve source ranges",
+    "whole document references match citations to contained nodes",
+    "unsupported selection rejects requested relations",
+    "unsupported selection rejects requested relations",
+    "unsupported selection rejects requested relations",
+    "oversized complete relations reject with required budget",
+    "unfinished empty intersection remains entries",
+    "unfinished preserves staging and inactivity evidence",
+    "all content reads leave source bytes unchanged",
+    "retained setters do not invent sessions",
+    "later batch failure rolls back promotion and destination",
+    "promotion commits destination identity",
+    "promotion preserves original observation and forward pointer",
+    "audited revision couples exact history and current pointer",
+    "identity projection retains exact requested mapping",
+    "normal show consumes qualified addresses directly",
+    "directory merge replay preserves exact sources",
+    "identity invalid combinations reject before content",
+    "identity invalid combinations reject before content",
+    "identity invalid combinations reject before content",
+    "identity invalid combinations reject before content",
+    "identity failures preserve resolver domain",
+    "unfinished solution keeps public source-path key and reason",
+    "unfinished document scope preserves the same native solution row",
+    "ambiguous literal heading vectors refuse without writes",
+    "malformed citation history is requested-only and never repaired by reads",
+    "unknown inactivity stays null with explicit diagnostics under filters",
+    "installed executable matches built binary",
+    "installed skill bytes match binary-paired source collective-frontier-cli",
+    "installed skill bytes match binary-paired source collective-intentions-cli",
+    "installed skill bytes match binary-paired source collective-research-cli",
+    "installed skill bytes match binary-paired source compiler-cli",
+    "installed skill bytes match binary-paired source research-foresight-cli",
+    "installed skill bytes match binary-paired source research-manager-cli",
+    "installed reader and collective frontier commands execute with paired skills",
+    "validate tooling fixture minimal-artifact",
+    "check tooling fixture minimal-artifact",
+    "layout tooling fixture minimal-artifact",
+    "validate tooling fixture resnet-ara-example",
+    "check tooling fixture resnet-ara-example",
+    "layout tooling fixture resnet-ara-example",
+    "temporary artifacts removed after workflow"
+  ],
+  "model_execution": false
+}

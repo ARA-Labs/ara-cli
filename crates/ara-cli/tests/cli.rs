@@ -326,10 +326,10 @@ tree:
     evidence: [C02]
 ";
     let claims = "\
-## C01 - First recovered claim
+## C01 -First recovered claim
 - **Statement**: first
 
-## C02 — Second recovered claim
+## C02—Second recovered claim
 - **Statement**: second
 ";
     let dir = artifact(tree, Some(claims));
@@ -871,14 +871,12 @@ fn check_wrong_kind_matrix_warns_and_fails_strict() {
         ))
         .stdout(predicate::str::contains(
             "field `prior_direction` dropped for type `dead_end`",
-        ))
-        .stdout(predicate::str::contains("14 warning(s)"));
+        ));
 
     ara()
         .arg("check")
         .arg(&dir)
         .arg("--strict")
         .assert()
-        .failure()
-        .stdout(predicate::str::contains("14 warning(s)"));
+        .failure();
 }

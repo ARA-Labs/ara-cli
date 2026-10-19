@@ -32,7 +32,7 @@ the drift is catalogued in [`ara-format-feedback.md`](ara-format-feedback.md)
               │                                     │
               ▼                                     ▼
         schema.rs (raw serde)                 claims.rs (markdown)
-        RawDoc{tree|root}                     `## C\d+: title` + bullets
+        RawDoc{tree|root}                     `## C\d+: title` (or ` - `/` – `/` — `) + bullets
         RawNode{canonical fields}             (lenient; token-scan refs)
         #[flatten] extra → unknown keys
               │                                     │
@@ -124,6 +124,44 @@ even error ordering is hash-seed independent. Nothing is sorted by id.
 - **WARNING (exit 0):** unknown fields, unresolved bindings (`claims_md = None`),
   duplicate/redundant link, `tree: []` (empty manifest), unknown `type:` body
   fields dropped, missing `type:`.
+- **WARNING, unclosed leading `---` (`ARA228`/`ARA229`):** frontmatter
+  that never closes hides the rest of a Markdown document, and the warning
+  names `path:line` of the opener (`ARA229`). The one exception is
+  `logic/claims.md` whose opener is followed only by blank lines, the exact
+  title `# Claims`, blank lines and an unindented claim heading whose first
+  content is a known claim field with a value; every later level-two section
+  must be a distinct claim, no other level-one title may follow, and no code
+  fence left open at EOF may hide a claim-like heading. That stray
+  line is skipped and its claims are read (`ARA228`). `logic/experiments.md`,
+  `logic/solution/heuristics.md` and `logic/problem.md` recover the same way
+  when the opener is followed only by blank lines, one level-one title, then
+  blank lines and headings down to the first typed entry (`## E01: …`,
+  `## H01: …`, `### O1: …`/`### G1: …`) whose first content is a known field
+  of that document with a value; every heading at the entry level must be a
+  distinct entry, no other level-one title may follow, and no code fence may
+  be left open at EOF. Every other `logic/` Markdown document recovers when
+  the opener is followed only by blank lines, one level-one title, blank lines
+  and a level-two section, with no other level-one title, no code fence left
+  open at EOF, and text that does not load as a YAML mapping (frontmatter
+  metadata) or null (a heading-only block). Metadata-like content,
+  comments or heading-only blocks never qualify
+  ([`stray_fence.rs`](../crates/ara-core/src/stray_fence.rs)).
+- **WARNING, non-text tree value (`ARA230`, #130):** node text fields
+  (`title`, `description`, `choice`, `alternatives`, `evidence`, `rationale`,
+  the other body fields, `source_refs`, `provenance`, `timestamp`, `status`,
+  `support_level`) take a plain scalar's source spelling, so `7258910`,
+  `0123456` and `1e5` stay text. `evidence:` list items do so silently, as
+  every text field always has. A value the parser cannot take as text (a bare
+  numeric `evidence:` scalar, or a mapping or list such as the plain item
+  `- a (rejected: b)`) makes the direct parse fail; the tree is then re-read
+  through the `flat_yaml` arena, which takes the value's exact source text
+  (comments excluded, flow brackets included) and warns `ARA230` at
+  `trace/exploration_tree.yaml:line`. The arena result is used only when it
+  recovered such a value; any other failure keeps its original `ARA100`.
+  Identity fields (`id`, `type`, `parent`, `also_depends_on`) and non-text
+  fields (`isolated`, `same_as`, `artifacts`, `concepts`) stay strict.
+  `ara check --fix` (`ARA008`) single-quotes one-line values; a multi-line
+  value is reported for hand quoting.
 - **IGNORED (stored raw):** `Proof:[E##]` — no evidence registry exists yet
   (tracked as `T-EVIDENCE`).
 
@@ -150,9 +188,35 @@ compiles for `wasm32-unknown-unknown` in the wasm-safe path. The `Manifest`
 schema is **provisionally frozen** (geometry in Stage 2 is the only planned
 addition; full freeze is end of Stage 2).
 
+## Deep branch extension
+
+The agent CLI read model extends the original depth limits with bounded,
+stack-safe extraction for real 10,000-deep `children:` hierarchies in both
+native and pure builds. See [deep-tree-parsing.md](deep-tree-parsing.md) for
+the exact resource bounds, source-retention behavior, and writer integration
+boundary. This supersedes the original recursive raw-serde path for documents
+whose structural depth exceeds 64.
+
 ## Deferred
 
 DAG layout (Stage 2); HTTP/serve + wasm rendering (Stages 3–4); `notify`
 file-watching (Stage 4); `E##` evidence resolution (`T-EVIDENCE`); the real-
 corpus schema widening and `ara-2.0` support (`T-REAL-CORPUS`); adopting an
 upstream schema (`T-ARA-SCHEMA`).
+
+## Entry headings
+
+A level-two heading is a claim, experiment or heuristic entry when it is a
+canonical `C##`, `E##` or `H##` ID, then `:` or a dash separator (`-`, U+2013
+or U+2014) with whitespace on both sides, then a nonempty title
+(`ara_core::entry_heading`; `claim_heading` is its `C` case). `C01-Title`,
+`C01 -Title` and hyphens inside IDs or prose never split a heading.
+Experiment and heuristic headings may also carry a bracketed status between
+the ID and the separator (`## E02 [planned]: Title`,
+`ara_core::typed_entry_heading`); a `**Status**` field takes precedence over
+it. Claims accept no bracket. Source bytes, including the entry's `body`, keep
+the original spelling; duplicate IDs stay diagnostics whatever the separator.
+These spellings are native, so `ara check` does not report them; `ARA004`
+repairs only unspaced or half-spaced claim dashes, whose claims are dropped.
+Merge identity (`heading_entry`, `identified_title`) and the CLI heading lookup
+use the same parser (`ara_core::native_entry_heading`).

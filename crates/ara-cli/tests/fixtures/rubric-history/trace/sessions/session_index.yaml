@@ -1,0 +1,8 @@
+sessions: 
+  - claims_touched: []
+    date: "2026-10-01"
+    events_count: 4
+    id: "2026-10-01_001"
+    open_threads: 0
+    summary: "Fourth turn"
+    turn_count: 4

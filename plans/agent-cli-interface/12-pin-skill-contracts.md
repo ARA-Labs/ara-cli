@@ -1,6 +1,11 @@
 # PR 12: pin baseline skills and inventory every artifact operation
 **Date:** 2026-10-01
 
+Implementation record: [12-pin-skill-contracts](../../docs/agent-cli-interface/12-pin-skill-contracts.md). Remaining acceptance: Live packaging is verified; historical skill/published-subset pin and installed-runtime smoke remain unresolved.
+
+Observed proof: [delivery verification](../../docs/verification/agent-cli-2026-10-02/README.md).
+
+
 Status: **approved** 2026-10-01. Target repository: `ARA-Labs/Agent-Native-Research-Artifact`. Parent: [agent CLI interface plan](../agent-cli-interface.md). Series: [PR index and shared gates](README.md). Dependencies: none. This inventory can start before CLI commands ship and supplies [06-batch-apply.md](06-batch-apply.md), [13-cli-backed-skills.md](13-cli-backed-skills.md), and [15-experiment-harness.md](15-experiment-harness.md).
 
 ## TL;DR

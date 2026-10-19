@@ -12,7 +12,6 @@
 //! warnings. This means unknown-field *values* are not retained — acceptable
 //! because Stage 1 has no consumer for them and the field name is reported.
 
-use crate::manifest::NodeArtifact;
 use serde::Deserialize;
 use serde::de::IgnoredAny;
 use std::collections::BTreeMap;
@@ -28,6 +27,9 @@ pub(crate) struct RawDoc {
     /// Unknown top-level keys → warnings.
     #[serde(flatten)]
     pub extra: BTreeMap<String, IgnoredAny>,
+    /// Node text-field values read as source text on the recovery path.
+    #[serde(skip)]
+    pub recovered: Vec<crate::flat_yaml::RecoveredText>,
 }
 
 /// Raw node with every canonical field modeled. Type-specific body fields are
@@ -41,6 +43,9 @@ pub(crate) struct RawNode {
     pub ty: Option<String>,
     #[serde(default)]
     pub title: Option<String>,
+    /// Explicit branch resumption. Nesting, when present, must agree.
+    #[serde(default)]
+    pub parent: Option<String>,
     #[serde(default)]
     pub support_level: Option<String>,
     #[serde(default)]
@@ -48,9 +53,7 @@ pub(crate) struct RawNode {
     #[serde(default)]
     pub description: Option<String>,
     #[serde(default)]
-    pub artifacts: Vec<NodeArtifact>,
-    #[serde(default)]
-    pub concepts: Vec<String>,
+    pub thinking: Option<String>,
     /// Marks the root of an isolated subtree. Defaults to `false`.
     #[serde(default)]
     pub isolated: bool,
@@ -79,6 +82,12 @@ pub(crate) struct RawNode {
     pub lesson: Option<String>,
     // pivot
     #[serde(default)]
+    pub from: Option<String>,
+    #[serde(default)]
+    pub to: Option<String>,
+    #[serde(default)]
+    pub trigger: Option<String>,
+    #[serde(default)]
     pub prior_direction: Option<String>,
     #[serde(default)]
     pub new_direction: Option<String>,
@@ -97,6 +106,14 @@ pub(crate) struct RawNode {
     // node → node cross edges
     #[serde(default)]
     pub also_depends_on: Vec<String>,
+    // Preserve arbitrary extra artifact fields. Invalid concept/artifact kinds
+    // are tree errors; malformed same_as retains its native warning rule.
+    #[serde(default)]
+    pub same_as: Option<crate::manifest::SourceValue>,
+    #[serde(default)]
+    pub artifacts: Option<crate::manifest::SourceValue>,
+    #[serde(default)]
+    pub concepts: Option<crate::manifest::SourceValue>,
     // nesting edges
     #[serde(default)]
     pub children: Vec<RawNode>,
@@ -104,15 +121,60 @@ pub(crate) struct RawNode {
     #[serde(flatten)]
     pub extra: BTreeMap<String, IgnoredAny>,
 }
+impl Drop for RawNode {
+    fn drop(&mut self) {
+        // Deep research branches must not recurse again during destruction.
+        let mut pending = std::mem::take(&mut self.children);
+        while let Some(mut node) = pending.pop() {
+            pending.append(&mut node.children);
+        }
+    }
+}
 
 /// `evidence:` is either a bare scalar (`"Table 3 ..."`) or a mixed list
 /// (`[C01, "Table 2"]`). Each list element is a string; `C##` vs prose is
 /// classified in `parse.rs`.
-#[derive(Debug, Deserialize)]
-#[serde(untagged)]
+///
+/// Scalars are read as text, so an unquoted all-digit commit SHA (`7258910`)
+/// or `1e5` keeps its source spelling, as in every other text field. An
+/// untagged enum cannot do this: it buffers the parsed number, not the text.
+#[derive(Debug)]
 pub(crate) enum Evidence {
     One(String),
     Many(Vec<String>),
+}
+
+impl<'de> Deserialize<'de> for Evidence {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        struct EvidenceVisitor;
+        impl<'de> serde::de::Visitor<'de> for EvidenceVisitor {
+            type Value = Evidence;
+            fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+                f.write_str("a scalar or a list of scalars")
+            }
+            fn visit_str<E: serde::de::Error>(self, value: &str) -> Result<Evidence, E> {
+                Ok(Evidence::One(value.to_owned()))
+            }
+            fn visit_string<E: serde::de::Error>(self, value: String) -> Result<Evidence, E> {
+                Ok(Evidence::One(value))
+            }
+            fn visit_seq<A: serde::de::SeqAccess<'de>>(
+                self,
+                mut seq: A,
+            ) -> Result<Evidence, A::Error> {
+                let mut entries = Vec::new();
+                while let Some(entry) = seq.next_element::<String>()? {
+                    entries.push(entry);
+                }
+                Ok(Evidence::Many(entries))
+            }
+        }
+        // List items deserialize as `String`, which keeps a plain scalar's
+        // source spelling. A bare numeric scalar has lost its spelling here,
+        // so it is refused and the tree parser retries on its recovery path,
+        // which reads it as source text.
+        deserializer.deserialize_any(EvidenceVisitor)
+    }
 }
 
 impl Evidence {
@@ -129,10 +191,11 @@ impl Evidence {
 ///
 /// Returns the raw serde error message (a `String`, not a `serde-saphyr` type)
 /// so callers stay decoupled from the YAML backend. Multi-document input, a
-/// non-mapping root, and shape mismatches all surface here as `Err` — never a
-/// panic.
+/// non-mapping root, shape mismatches, and explicit depth/resource breaches
+/// surface here as `Err`. Deep children are extracted iteratively in both
+/// native and pure builds; see `docs/deep-tree-parsing.md`.
 pub(crate) fn parse_doc(yaml: &str) -> Result<RawDoc, String> {
-    serde_saphyr::from_str::<RawDoc>(yaml).map_err(|e| e.to_string())
+    crate::flat_yaml::parse(yaml)
 }
 
 #[cfg(test)]
@@ -230,27 +293,6 @@ tree:
         assert_eq!(n2.status.as_deref(), Some("completed"));
         assert_eq!(n2.exploration.as_deref(), Some("grid over k"));
         assert_eq!(n2.outcome.as_deref(), Some("sparse wins"));
-    }
-
-    #[test]
-    fn legacy_pivot_keys_land_in_extra() {
-        let y = "\
-tree:
-  - id: N01
-    type: pivot
-    from: dense retrieval
-    to: sparse retrieval
-    trigger: latency budget
-";
-        let doc = parse_doc(y).expect("parses");
-        let n1 = &doc.tree.expect("tree present")[0];
-        assert_eq!(
-            n1.extra.keys().collect::<Vec<_>>(),
-            vec!["from", "to", "trigger"]
-        );
-        assert!(n1.prior_direction.is_none());
-        assert!(n1.new_direction.is_none());
-        assert!(n1.reason.is_none());
     }
 
     #[test]

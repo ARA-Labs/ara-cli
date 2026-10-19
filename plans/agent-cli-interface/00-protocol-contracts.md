@@ -1,7 +1,18 @@
 # PR 00: approve the protocol contracts for CLI writes and merges
 **Date:** 2026-10-01
 
-Status: **approved** 2026-10-01. Target repository: `ARA-Labs/Agent-Native-Research-Artifact`. Parent: [agent CLI interface plan](../agent-cli-interface.md). Series: [PR index and shared gates](README.md). Dependencies: none; this proposal can proceed alongside [01-read-model.md](01-read-model.md) and [02-read-commands.md](02-read-commands.md).
+Implementation record: [00-protocol-contracts](../../docs/agent-cli-interface/00-protocol-contracts.md). Remaining acceptance: F1–F7 upstream approval remains pending.
+
+Observed proof: [delivery verification](../../docs/verification/agent-cli-2026-10-02/README.md).
+
+Experimental workflow: keep protocol PR #38 draft and consume its exact
+`feat/agent-cli-interface` commit through the external harness submodule.
+The researcher authorized these experiments without waiting for a protocol merge
+or upstream F1–F7 approval. Remaining approval requirements below apply to upstream
+acceptance and release, not permission to run the pinned experimental conditions.
+
+
+Status: **approved** 2026-10-01. Target repository: `ARA-Labs/Agent-Native-Research-Artifact`. Parent: [agent CLI interface plan](../agent-cli-interface.md). Series: [PR index and shared gates](README.md). Dependencies: none; this proposal can proceed alongside [01-read-model.md](../../docs/agent-cli-interface/01-read-model.md) and [02-read-commands.md](../../docs/agent-cli-interface/02-read-commands.md).
 
 ## TL;DR
 
@@ -29,7 +40,7 @@ Add `docs/agent-cli-contracts.md` (new) in the protocol repository as the decisi
 | F2 | Forks allocate ordinary local IDs. Source-qualified references disambiguate imports at the CLI boundary; do not introduce `N124~bob` or rewrite every source skill's native references. | Approve how a stable fork identity is established without relying on `--as`, how unchanged shared ancestry is recognized, and how revision advancement is distinguished from an unrelated fork. |
 | F3 | Preserve in-place promotion pointers. Unpromoted versus promoted converges to promoted only when the target and closure information agree. | Two promoted observations with different targets remain a conflict; `true` must not discard either target or evidence. Approve validation and resolution of target/closure disagreements. |
 | F4 | Default trace/staging content to immutable; append new history records and permit only specified metadata transitions. Logic remains mutable with full before/after history. | Approve the detailed table below, deletion policy, merge-resolution exceptions, and consistency across skill/reference pages. |
-| F5 | Add optional `same_as: [N131]` on a later node while retaining both nodes and their original provenance. | Approve direction, self-link and cycle behavior, reference validity and mutability exception. [07-same-as-links.md](07-same-as-links.md) consumes this decision independently. |
+| F5 | Add optional `same_as: [N131]` on a later node while retaining both nodes and their original provenance. | Approve direction, self-link and cycle behavior, reference validity and mutability exception. [07-same-as-links.md](../../docs/agent-cli-interface/07-same-as-links.md) consumes this decision independently. |
 | F6 | Carry existing claim fields, complete opaque content, artifact pointers and concept links through the agent read model. | Approve the additive schemas from issues 61, 62 and 63, including concept identity and reference resolution. Viewer acceptance remains in those issues. |
 | F7 | CLI-backed copies use `ara` for every knowledge-layer access operation; direct source and evidence body access stays allowed. | Approve the command coverage prerequisite and reviewed access-only diff. This does not approve checker enforcement or coordination changes. |
 
@@ -56,7 +67,7 @@ Implementation steps for the future PR:
 3. Define the merge identity and conflict contracts consumed by [08-directory-merge.md](08-directory-merge.md): all imported identities, revisions, reused labels, persistent unresolved conflicts, identical concurrent changes, deletions, and session reconciliation.
 4. Review immutable-edit resolution and simultaneous promotions with differing targets. Specify atomic failure semantics: a rejected transition leaves artifact files and import/conflict records unchanged.
 5. Amend current protocol reference pages only for approved choices. Link the unchanged baseline inventory and the CLI variant coverage gates.
-6. Record the approval revision and notify dependent plans. F1 through F4 unblock [03-guarded-node-writes.md](03-guarded-node-writes.md), [05-staging-and-sessions.md](05-staging-and-sessions.md), and PR 08; F5 unblocks PR 07; relevant F6/F7 decisions unblock PR 13.
+6. Record the approval revision and notify dependent plans. F1 through F4 unblock [03-guarded-node-writes.md](../../docs/agent-cli-interface/03-guarded-node-writes.md), [05-staging-and-sessions.md](../../docs/agent-cli-interface/05-staging-and-sessions.md), and PR 08; F5 unblocks PR 07; relevant F6/F7 decisions unblock PR 13.
 
 ## Alternatives considered
 

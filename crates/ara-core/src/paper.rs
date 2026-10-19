@@ -47,7 +47,7 @@ pub fn parse_paper(md: &str) -> (Option<PaperMeta>, Vec<String>) {
 /// Returns the text between a leading `---` fence and the next `---` line, or
 /// `None` when the document does not open with a fence. A leading UTF-8 BOM and
 /// surrounding blank lines are tolerated.
-fn extract_frontmatter(md: &str) -> Option<&str> {
+pub(crate) fn extract_frontmatter(md: &str) -> Option<&str> {
     let md = md.strip_prefix('\u{feff}').unwrap_or(md);
     let mut lines = md.lines();
     // The first non-empty line must be exactly `---`.

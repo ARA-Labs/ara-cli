@@ -696,12 +696,15 @@ mod tests {
                     support_level: None,
                     source_refs: vec![],
                     description: None,
+                    thinking: None,
+                    status: None,
                     provenance: None,
                     timestamp: None,
                     fields: NodeFields::Question,
                     evidence_notes: vec![],
-                    artifacts: vec![],
-                    concepts: vec![],
+                    same_as: Vec::new(),
+                    artifacts: Vec::new(),
+                    concepts: Vec::new(),
                     isolated: false,
                     pos: Some(ara_core::Point { x: 90.0, y: 30.0 }),
                 },
@@ -712,6 +715,8 @@ mod tests {
                     support_level: None,
                     source_refs: vec![],
                     description: None,
+                    thinking: None,
+                    status: None,
                     provenance: None,
                     timestamp: None,
                     fields: NodeFields::Experiment {
@@ -721,8 +726,9 @@ mod tests {
                         status: None,
                     },
                     evidence_notes: vec![],
-                    artifacts: vec![],
-                    concepts: vec![],
+                    same_as: Vec::new(),
+                    artifacts: Vec::new(),
+                    concepts: Vec::new(),
                     isolated: false,
                     pos: None, // <-- no pos
                 },
@@ -743,6 +749,11 @@ mod tests {
             exhibits: vec![],
             built_on: vec![],
             node_exhibits: vec![],
+            observations: Vec::new(),
+            sessions: Vec::new(),
+            heuristics: Vec::new(),
+            experiment_plans: Vec::new(),
+            taste_comments: Vec::new(),
         };
 
         let renderer = SvgRenderer;
@@ -770,6 +781,11 @@ mod tests {
             exhibits: vec![],
             built_on: vec![],
             node_exhibits: vec![],
+            observations: Vec::new(),
+            sessions: Vec::new(),
+            heuristics: Vec::new(),
+            experiment_plans: Vec::new(),
+            taste_comments: Vec::new(),
         };
 
         let renderer = SvgRenderer;

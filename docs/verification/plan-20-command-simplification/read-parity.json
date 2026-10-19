@@ -1,0 +1,14 @@
+{
+  "baseline_version": "0.1.26",
+  "current_version": "ara 0.1.27",
+  "binary_sha256": "93bb9f76839bd51fccac6eaeb6b3d6b165036c167f61d7b02ec264fb6e1eecb3",
+  "fixture": "/Users/yfhe/repos/ara/ara-cli/crates/ara-core/tests/fixtures/agent-cli",
+  "comparisons": {
+    "ls default unchanged": true,
+    "ls --json default unchanged": true,
+    "path N01 --json payload preserved": true,
+    "refs C01 --json payload preserved": true,
+    "refs trace/exploration_tree.yaml --json payload preserved": true,
+    "open items unchanged": true
+  }
+}

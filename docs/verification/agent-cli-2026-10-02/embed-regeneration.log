@@ -1,0 +1,9 @@
+Building viewer (wasm-release profile)…
+2026-10-02T16:34:04.386642Z  INFO 🚀 Starting trunk 0.21.14
+2026-10-02T16:34:04.388766Z  INFO 📦 starting build
+    Finished `wasm-release` profile [optimized] target(s) in 0.13s
+2026-10-02T16:34:05.136893Z  INFO applying new distribution
+2026-10-02T16:34:05.141469Z  INFO ✅ success
+Replacing /Users/yfhe/repos/ara/ara-cli/crates/ara-cli/assets/viewer with fresh dist/…
+Wrote source hash: 91dfac82737c88be097d37a2d06459055de5c2a5309c2ee225840a7f2bda0247
+Done. Review + commit crates/ara-cli/assets/viewer/.
