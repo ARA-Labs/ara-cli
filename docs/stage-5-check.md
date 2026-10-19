@@ -150,6 +150,7 @@ retired rule keeps its number). The code space is split by layer:
 | `ARA005` | pivot-from-alias | `from:` on a `pivot` node (canonical `prior_direction:`) | error | yes |
 | `ARA006` | pivot-to-alias | `to:` on a `pivot` node (canonical `new_direction:`) | error | yes |
 | `ARA007` | pivot-trigger-alias | `trigger:` on a `pivot` node (canonical `reason:`) | error | yes |
+| `ARA008` | unquoted-tree-scalar | a node text field holds an unquoted value YAML reads as a number, boolean, mapping or list; `--fix` single-quotes a one-line value (`ARA230` reads it meanwhile) | warning | yes |
 | `ARA100` | malformed-tree | `trace/exploration_tree.yaml` fails to parse (invalid YAML, multi-document, non-mapping root, wrong field types) | error | no |
 | `ARA101` | unreadable-tree | `trace/exploration_tree.yaml` cannot be read | error | no |
 | `ARA102` | tree-and-root | both `tree:` and `root:` are present | error | no |
@@ -180,6 +181,7 @@ retired rule keeps its number). The code space is split by layer:
 | `ARA216` | invalid-figure-image | a figure image declaration is missing, unsafe, unsupported, or ambiguous | warning | no |
 | `ARA228` | recovered-stray-fence | an unclosed leading `---` in a logic document is a stray line before its title (content after it is read) | warning | no |
 | `ARA229` | unclosed-frontmatter | an unclosed leading `---` fence hides the rest of a Markdown document as frontmatter | warning | no |
+| `ARA230` | non-text-tree-field | a node text field holds a non-string YAML value; it is read as its exact source text at `trace/exploration_tree.yaml:line` | warning | no |
 
 Some drift fires one rule in each layer: `reason:` on a `dead_end` is both
 `ARA002` (fixable) and `ARA206`; `justification:` / pivot `from:` / `to:` /

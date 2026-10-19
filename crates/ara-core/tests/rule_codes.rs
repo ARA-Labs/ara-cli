@@ -345,6 +345,14 @@ fn tree_cases() -> Vec<(RuleCode, &'static str, Files)> {
             "",
             vec![(tree, Q), ("logic/problem.md", "---\ntitle: x\n## Gap\n")],
         ),
+        (
+            RuleCode::NonTextTreeField,
+            "",
+            vec![(
+                tree,
+                "tree:\n  - id: N01\n    type: question\n    title: Q\n    evidence: 0123456\n",
+            )],
+        ),
     ]
 }
 

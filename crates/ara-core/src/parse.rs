@@ -83,6 +83,17 @@ pub(crate) fn parse_sources_detailed_with_claim_redirects(
             format!("unknown field `{key}`"),
         );
     }
+    for recovered in &doc.recovered {
+        let mut shown: String = recovered.text.chars().take(120).collect();
+        if shown.len() < recovered.text.len() {
+            shown.push('…');
+        }
+        report.warn(
+            RuleCode::NonTextTreeField,
+            format!("trace/exploration_tree.yaml:{}", recovered.line),
+            format!("value read as its source text `{shown}`; quote it to keep it text"),
+        );
+    }
 
     let roots: Vec<RawNode> = match (doc.tree, doc.root) {
         (Some(_), Some(_)) => {

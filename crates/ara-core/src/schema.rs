@@ -27,6 +27,9 @@ pub(crate) struct RawDoc {
     /// Unknown top-level keys → warnings.
     #[serde(flatten)]
     pub extra: BTreeMap<String, IgnoredAny>,
+    /// Node text-field values read as source text on the recovery path.
+    #[serde(skip)]
+    pub recovered: Vec<crate::flat_yaml::RecoveredText>,
 }
 
 /// Raw node with every canonical field modeled. Type-specific body fields are
@@ -131,11 +134,47 @@ impl Drop for RawNode {
 /// `evidence:` is either a bare scalar (`"Table 3 ..."`) or a mixed list
 /// (`[C01, "Table 2"]`). Each list element is a string; `C##` vs prose is
 /// classified in `parse.rs`.
-#[derive(Debug, Deserialize)]
-#[serde(untagged)]
+///
+/// Scalars are read as text, so an unquoted all-digit commit SHA (`7258910`)
+/// or `1e5` keeps its source spelling, as in every other text field. An
+/// untagged enum cannot do this: it buffers the parsed number, not the text.
+#[derive(Debug)]
 pub(crate) enum Evidence {
     One(String),
     Many(Vec<String>),
+}
+
+impl<'de> Deserialize<'de> for Evidence {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        struct EvidenceVisitor;
+        impl<'de> serde::de::Visitor<'de> for EvidenceVisitor {
+            type Value = Evidence;
+            fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+                f.write_str("a scalar or a list of scalars")
+            }
+            fn visit_str<E: serde::de::Error>(self, value: &str) -> Result<Evidence, E> {
+                Ok(Evidence::One(value.to_owned()))
+            }
+            fn visit_string<E: serde::de::Error>(self, value: String) -> Result<Evidence, E> {
+                Ok(Evidence::One(value))
+            }
+            fn visit_seq<A: serde::de::SeqAccess<'de>>(
+                self,
+                mut seq: A,
+            ) -> Result<Evidence, A::Error> {
+                let mut entries = Vec::new();
+                while let Some(entry) = seq.next_element::<String>()? {
+                    entries.push(entry);
+                }
+                Ok(Evidence::Many(entries))
+            }
+        }
+        // List items deserialize as `String`, which keeps a plain scalar's
+        // source spelling. A bare numeric scalar has lost its spelling here,
+        // so it is refused and the tree parser retries on its recovery path,
+        // which reads it as source text.
+        deserializer.deserialize_any(EvidenceVisitor)
+    }
 }
 
 impl Evidence {

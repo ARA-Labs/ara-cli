@@ -125,6 +125,9 @@ rules! {
     /// `trigger:` on a `pivot` node (canonical `reason:`).
     PivotTriggerAlias => ("ARA007", "pivot-trigger-alias", Format, Error, true,
         "`trigger:` on a `pivot` node (canonical `reason:`)"),
+    /// A node text field holds an unquoted non-string value (`ARA230`).
+    UnquotedTreeScalar => ("ARA008", "unquoted-tree-scalar", Format, Warning, true,
+        "a node text field holds an unquoted value YAML reads as a number, boolean, mapping or list (quote it)"),
 
     // ---- ARA1xx: structural/reference errors (validate layer) ----
     /// `trace/exploration_tree.yaml` is not valid YAML or not the expected shape.
@@ -251,6 +254,10 @@ rules! {
     /// A Markdown document's unclosed leading `---` hides the rest of it.
     UnclosedFrontmatter => ("ARA229", "unclosed-frontmatter", Validate, Warning, false,
         "an unclosed leading `---` fence hides the rest of a Markdown document as frontmatter"),
+    /// A node text field holds a value YAML did not type as a string; it is
+    /// read as its exact source text.
+    NonTextTreeField => ("ARA230", "non-text-tree-field", Validate, Warning, false,
+        "a node text field holds a non-string YAML value (read as its source text; quote it)"),
 }
 
 impl RuleCode {

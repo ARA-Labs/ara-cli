@@ -51,6 +51,10 @@ pub enum LintRuleId {
     /// `ARA007`: `trigger:` key on a `pivot` node (canonical `reason:`).
     #[serde(rename = "ARA007")]
     PivotTriggerAlias,
+    /// `ARA008`: a node text field holds an unquoted value that YAML reads as
+    /// a number, boolean, mapping or list (`ARA230` reads it as source text).
+    #[serde(rename = "ARA008")]
+    UnquotedTreeScalar,
 }
 
 impl LintRuleId {
@@ -64,6 +68,7 @@ impl LintRuleId {
             LintRuleId::PivotFromAlias => RuleCode::PivotFromAlias,
             LintRuleId::PivotToAlias => RuleCode::PivotToAlias,
             LintRuleId::PivotTriggerAlias => RuleCode::PivotTriggerAlias,
+            LintRuleId::UnquotedTreeScalar => RuleCode::UnquotedTreeScalar,
         }
     }
 
@@ -494,7 +499,41 @@ fn lint_tree(text: &str) -> Vec<LintDiagnostic> {
         }
     }
 
+    diags.extend(unquoted_tree_scalars(text));
     diags
+}
+
+/// `ARA008`: each node text-field value the parser read as source text
+/// (`ARA230`). A one-line value gets a fix that single-quotes it, doubling
+/// inner `'`, so it parses to the same text; a multi-line value is reported
+/// without a fix.
+#[cfg(feature = "native")]
+fn unquoted_tree_scalars(text: &str) -> Vec<LintDiagnostic> {
+    let Ok(doc) = crate::flat_yaml::parse(text) else {
+        return Vec::new();
+    };
+    doc.recovered
+        .into_iter()
+        .map(|value| {
+            let fix = (!value.text.contains('\n')).then(|| FixCandidate::ReplaceInLine {
+                line: value.line - 1,
+                start_col: value.col,
+                end_col: value.col + value.text.len(),
+                replacement: format!("'{}'", value.text.replace('\'', "''")),
+            });
+            LintDiagnostic {
+                rule: LintRuleId::UnquotedTreeScalar,
+                message: format!(
+                    "line {}: unquoted `{}` is not a YAML string; quote it to keep it text",
+                    value.line,
+                    value.text.lines().next().unwrap_or_default()
+                ),
+                file: LintFile::Tree,
+                fixable: fix.is_some(),
+                fix,
+            }
+        })
+        .collect()
 }
 
 /// Runs the claims-file rule (ARA004) over raw Markdown text.

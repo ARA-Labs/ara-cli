@@ -146,6 +146,22 @@ even error ordering is hash-seed independent. Nothing is sorted by id.
   metadata) or null (a heading-only block). Metadata-like content,
   comments or heading-only blocks never qualify
   ([`stray_fence.rs`](../crates/ara-core/src/stray_fence.rs)).
+- **WARNING, non-text tree value (`ARA230`, #130):** node text fields
+  (`title`, `description`, `choice`, `alternatives`, `evidence`, `rationale`,
+  the other body fields, `source_refs`, `provenance`, `timestamp`, `status`,
+  `support_level`) take a plain scalar's source spelling, so `7258910`,
+  `0123456` and `1e5` stay text. `evidence:` list items do so silently, as
+  every text field always has. A value the parser cannot take as text (a bare
+  numeric `evidence:` scalar, or a mapping or list such as the plain item
+  `- a (rejected: b)`) makes the direct parse fail; the tree is then re-read
+  through the `flat_yaml` arena, which takes the value's exact source text
+  (comments excluded, flow brackets included) and warns `ARA230` at
+  `trace/exploration_tree.yaml:line`. The arena result is used only when it
+  recovered such a value; any other failure keeps its original `ARA100`.
+  Identity fields (`id`, `type`, `parent`, `also_depends_on`) and non-text
+  fields (`isolated`, `same_as`, `artifacts`, `concepts`) stay strict.
+  `ara check --fix` (`ARA008`) single-quotes one-line values; a multi-line
+  value is reported for hand quoting.
 - **IGNORED (stored raw):** `Proof:[E##]` — no evidence registry exists yet
   (tracked as `T-EVIDENCE`).
 

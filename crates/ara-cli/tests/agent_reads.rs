@@ -804,7 +804,9 @@ fn identity_lookup_does_not_require_a_representable_current_body() {
     artifact(dir.path(), "Parent");
     std::fs::write(
         dir.path().join("trace/exploration_tree.yaml"),
-        "tree:\n  - id: N01\n    type: question\n    title: Retained identity\n    description: {opaque: invalid-shape}\n",
+        // `isolated` is a boolean, not a text field, so a mapping there still
+        // fails the tree load; text fields read such values as text (#130).
+        "tree:\n  - id: N01\n    type: question\n    title: Retained identity\n    isolated: {opaque: invalid-shape}\n",
     )
     .unwrap();
     let before = std::fs::read(dir.path().join("trace/exploration_tree.yaml")).unwrap();
